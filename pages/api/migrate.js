@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Users table (auth)
+    // Users table (auth) — includes terms-of-service consent metadata (policy v1.0)
     await sql`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -20,9 +20,16 @@ export default async function handler(req, res) {
         password_hash VARCHAR(255) NOT NULL,
         name VARCHAR(100) NOT NULL,
         school VARCHAR(200) DEFAULT '',
+        terms_version VARCHAR(20) DEFAULT '',
+        terms_agreed_at TIMESTAMP NULL,
+        user_agent VARCHAR(300) DEFAULT '',
         created_at TIMESTAMP DEFAULT NOW()
       )
     `;
+    // Backfill columns for existing deployments
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version VARCHAR(20) DEFAULT ''`;
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_agreed_at TIMESTAMP NULL`;
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS user_agent VARCHAR(300) DEFAULT ''`;
 
     // Students table
     await sql`

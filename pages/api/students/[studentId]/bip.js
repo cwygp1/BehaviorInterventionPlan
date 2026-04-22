@@ -1,4 +1,4 @@
-import { sql } from '@vercel/postgres';
+import { sql } from '../../../../lib/db';
 
 export default async function handler(req, res) {
   const { studentId } = req.query;

@@ -57,6 +57,16 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
 .auth-guest{width:100%;padding:11px;background:#fff;color:var(--sub);border:1px solid var(--border);border-radius:10px;font-size:.88rem;font-weight:600;cursor:pointer;transition:.15s}
 .auth-guest:hover{border-color:var(--pri);color:var(--pri);background:var(--pri-soft)}
 .auth-hint{font-size:.72rem;color:var(--muted);text-align:center;margin-top:14px;line-height:1.5}
+.auth-consent{display:flex;align-items:flex-start;gap:8px;background:var(--pri-soft);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:6px 0 12px;font-size:.82rem;color:var(--sub);line-height:1.45}
+.auth-consent input[type=checkbox]{margin-top:3px;width:16px;height:16px;cursor:pointer;accent-color:var(--pri);flex-shrink:0}
+.auth-consent label{cursor:pointer;flex:1}
+.auth-consent .req{color:var(--err);font-weight:700;margin-right:3px}
+.auth-consent .terms-link{background:none;border:none;color:var(--pri);font-weight:600;cursor:pointer;padding:0;margin-left:4px;text-decoration:underline;font-size:.82rem}
+.terms-section{margin-bottom:14px;padding-bottom:12px;border-bottom:1px dashed var(--border)}
+.terms-section:last-of-type{border-bottom:none}
+.terms-section h4{font-size:.92rem;font-weight:700;margin-bottom:6px;color:var(--text)}
+.terms-section p,.terms-section li{font-size:.82rem;color:var(--sub);line-height:1.55}
+.terms-section ul{padding-left:18px;margin-top:4px}
 
 /* === Layout === */
 .app{display:none;height:100vh;overflow:hidden}
@@ -390,15 +400,26 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
         <input type="password" id="suPw" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;" minlength="6" required>
       </div>
       <div class="auth-field">
+        <label>비밀번호 확인</label>
+        <input type="password" id="suPw2" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;" minlength="6" required>
+      </div>
+      <div class="auth-field">
         <label>소속 학교 <span style="color:var(--muted);font-weight:500">(선택)</span></label>
         <input type="text" id="suSchool" placeholder="예: OO초등학교">
+      </div>
+      <div class="auth-consent">
+        <input type="checkbox" id="suAgree">
+        <label for="suAgree">
+          <span class="req">*</span>이용약관 및 운영정책(개인정보·AI 결과물 책임·이용범위·권리 귀속·동의 기록 저장)에 동의합니다.
+          <button type="button" class="terms-link" onclick="openModal('termsModal')">전문 보기</button>
+        </label>
       </div>
       <button type="submit" class="auth-btn">가입하고 시작하기</button>
     </form>
 
     <div class="auth-divider">또는</div>
     <button class="auth-guest" onclick="guestEnter()">&#x1F440; 둘러보기 (게스트)</button>
-    <p class="auth-hint">&#x1F512; 입력한 정보는 브라우저 메모리에만 저장되며<br>외부로 전송되지 않습니다.</p>
+    <p class="auth-hint">&#x1F512; 비밀번호는 안전하게 암호화(해시)되어 저장되며,<br>학생 정보는 실명이 아닌 익명 ID로만 입력해 주세요.<br><span style="color:var(--muted)">&#x1F440; 둘러보기(게스트) 모드는 서버에 저장되지 않습니다.</span></p>
   </div>
 </div>
 
@@ -1071,6 +1092,45 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
   </div>
 </div>
 
+<!-- ===== Terms Modal ===== -->
+<div class="modal-bg" id="termsModal">
+  <div class="modal" style="max-width:620px">
+    <h3>&#x1F4DC; 이용약관 및 운영정책 <span style="font-size:.78rem;color:var(--muted);font-weight:500">(v1.0)</span></h3>
+    <div class="terms-section">
+      <h4>1. 개인정보 보호 (필수)</h4>
+      <ul>
+        <li><strong>학생 실명 입력 금지</strong> &mdash; "OO학생" 등 익명 ID로만 입력합니다.</li>
+        <li><strong>민감정보 최소 입력</strong> &mdash; 주민번호, 상세 주소, 불필요한 연락처는 입력하지 않습니다.</li>
+        <li><strong>관리 책임</strong> &mdash; 관련 법령 및 기관 지침을 준수하며, 입력 정보의 관리 책임은 이용자(교사)에게 있습니다.</li>
+      </ul>
+    </div>
+    <div class="terms-section">
+      <h4>2. AI 결과물 성격 및 책임 (필수)</h4>
+      <p>AI 결과물은 오류 가능성이 있는 <strong>참고용 자료</strong>입니다. 업무 적용 전 반드시 교사가 검토&middot;수정&middot;확인해야 하며, 최종 책임은 교사에게 귀속됩니다.</p>
+    </div>
+    <div class="terms-section">
+      <h4>3. 이용범위 및 금지행위 (필수)</h4>
+      <p><strong>허용:</strong> 교육 목적의 사용</p>
+      <p><strong>금지:</strong></p>
+      <ul>
+        <li>무단 복제&middot;배포&middot;수정&middot;2차 가공 (화면, 산출물 양식, 문구, 코드, 구조 등 일체)</li>
+        <li>역공학(리버스 엔지니어링), 소스&middot;로직&middot;프롬프트 탈취&middot;분석, 보안장치 우회</li>
+        <li>유사 서비스 제작&middot;판매&middot;재배포 (유&middot;무료 포함)</li>
+      </ul>
+      <p style="margin-top:6px;color:var(--err)">위반 시 서비스 이용 제한 및 민&middot;형사상 책임이 발생할 수 있습니다.</p>
+    </div>
+    <div class="terms-section">
+      <h4>4. 권리 귀속 (필수)</h4>
+      <p>본 서비스의 저작권 및 관련 권리는 개발자에게 귀속됩니다.</p>
+    </div>
+    <div class="terms-section">
+      <h4>5. 동의 기록 저장 (필수)</h4>
+      <p>분쟁 예방 및 약관 준수 확인을 위해 동의 시 다음 메타데이터를 저장합니다: 동의 일시(서버 시각), 사용자 ID, 약관 버전, 이메일, 브라우저 정보.</p>
+    </div>
+    <div style="text-align:right;margin-top:12px"><button class="btn btn-ghost" onclick="closeModal('termsModal')">닫기</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1114,9 +1174,25 @@ async function doSignup(e){
   const name=document.getElementById('suName').value.trim();
   const email=document.getElementById('suEmail').value.trim();
   const password=document.getElementById('suPw').value;
+  const password2=document.getElementById('suPw2').value;
   const school=document.getElementById('suSchool').value.trim();
+  const agreed=document.getElementById('suAgree').checked;
+  if(password!==password2){
+    toast('비밀번호가 일치하지 않습니다. 다시 확인해 주세요.');
+    document.getElementById('suPw2').focus();
+    return;
+  }
+  if(!agreed){
+    toast('이용약관 및 운영정책에 동의하셔야 가입이 가능합니다.');
+    document.getElementById('suAgree').focus();
+    return;
+  }
+  const consent={
+    terms_version: 'v1.0',
+    user_agent: navigator.userAgent.slice(0,300)
+  };
   try {
-    const data = await api('/api/auth/register','POST',{email,password,name,school});
+    const data = await api('/api/auth/register','POST',{email,password,name,school,consent});
     currentUser={id:data.user.id, name:data.user.name, email:data.user.email, school:data.user.school};
     toast(name+' 선생님, 환영합니다!');
     enterApp();
