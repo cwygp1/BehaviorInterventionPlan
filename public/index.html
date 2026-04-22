@@ -1,0 +1,2155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>특수교육 AI 통합 플랫폼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f6f8fc;--surface:#fff;--surface2:#eef2f9;--border:#e4e9f2;
+  --text:#1f2a44;--sub:#56607a;--muted:#8b93a8;
+  --pri:#4f6bed;--pri-l:#e9edff;--pri-d:#3a54cf;--pri-soft:#f0f3ff;
+  --acc:#ff8fab;--acc-l:#ffeef4;
+  --ok:#12b886;--ok-l:#e6faf3;
+  --warn:#f59f00;--warn-l:#fff5e1;
+  --err:#ef476f;--err-l:#ffecf2;
+  --info:#1098ad;--info-l:#e3f7fa;
+  --teal:#38b2ac;--teal-l:#e6fbf9;
+  --purple:#7c6cf0;--purple-l:#efecff;
+  --yellow:#fbbf24;
+  --r:14px;--r-lg:18px;--r-sm:10px;
+  --sh:0 2px 10px rgba(70,90,140,.06);
+  --sh-lg:0 8px 24px rgba(70,90,140,.10);
+  --sh-card:0 1px 3px rgba(70,90,140,.05),0 2px 8px rgba(70,90,140,.04);
+}
+html{font-size:15px;scroll-behavior:smooth}
+body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit;font-size:.9rem}
+
+/* === Auth Screen === */
+.auth-screen{display:none;min-height:100vh;background:linear-gradient(135deg,#eef3ff 0%,#f6f8fc 50%,#fff1f5 100%);align-items:center;justify-content:center;padding:20px}
+.auth-screen.show{display:flex}
+.auth-card{background:#fff;border-radius:20px;box-shadow:0 10px 40px rgba(70,90,140,.15);padding:40px 36px;width:100%;max-width:420px}
+.auth-brand{text-align:center;margin-bottom:24px}
+.auth-brand-icon{width:56px;height:56px;margin:0 auto 12px;border-radius:16px;background:linear-gradient(135deg,#4f6bed 0%,#7c6cf0 100%);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:800;box-shadow:0 6px 16px rgba(79,107,237,.3)}
+.auth-brand h1{font-size:1.2rem;font-weight:800;color:var(--text);margin-bottom:4px}
+.auth-brand p{font-size:.82rem;color:var(--muted)}
+.auth-tabs{display:flex;background:var(--surface2);border-radius:10px;padding:4px;margin-bottom:20px}
+.auth-tab{flex:1;padding:9px;border:none;background:transparent;border-radius:8px;font-size:.88rem;font-weight:600;color:var(--sub);cursor:pointer;transition:.2s}
+.auth-tab.on{background:#fff;color:var(--pri);box-shadow:0 2px 6px rgba(79,107,237,.15)}
+.auth-form{display:none}
+.auth-form.on{display:block}
+.auth-field{margin-bottom:14px}
+.auth-field label{display:block;font-size:.8rem;font-weight:600;color:var(--sub);margin-bottom:6px}
+.auth-field input{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:10px;font-size:.92rem;background:#fff;transition:.15s}
+.auth-field input:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-l)}
+.auth-btn{width:100%;padding:12px;background:linear-gradient(135deg,#4f6bed,#6979f0);color:#fff;border:none;border-radius:10px;font-size:.95rem;font-weight:700;cursor:pointer;transition:.2s;margin-top:4px}
+.auth-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(79,107,237,.35)}
+.auth-divider{text-align:center;margin:18px 0;position:relative;font-size:.75rem;color:var(--muted)}
+.auth-divider::before,.auth-divider::after{content:'';position:absolute;top:50%;width:40%;height:1px;background:var(--border)}
+.auth-divider::before{left:0}.auth-divider::after{right:0}
+.auth-guest{width:100%;padding:11px;background:#fff;color:var(--sub);border:1px solid var(--border);border-radius:10px;font-size:.88rem;font-weight:600;cursor:pointer;transition:.15s}
+.auth-guest:hover{border-color:var(--pri);color:var(--pri);background:var(--pri-soft)}
+.auth-hint{font-size:.72rem;color:var(--muted);text-align:center;margin-top:14px;line-height:1.5}
+
+/* === Layout === */
+.app{display:none;height:100vh;overflow:hidden}
+.app.show{display:flex}
+.sidebar{width:252px;background:#fff;color:var(--text);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border)}
+.sidebar-top{padding:20px 20px 16px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-icon{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#4f6bed 0%,#7c6cf0 100%);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.95rem;flex-shrink:0;box-shadow:0 4px 10px rgba(79,107,237,.25)}
+.brand-text h2{font-size:.95rem;font-weight:800;color:var(--text);line-height:1.2}
+.brand-text p{font-size:.72rem;color:var(--muted);margin-top:1px}
+.nav-section{padding:8px 12px}
+.nav-label{padding:10px 10px 6px;font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 12px;color:var(--sub);font-size:.88rem;font-weight:500;cursor:pointer;transition:.15s;border:none;background:none;width:100%;text-align:left;border-radius:10px;margin-bottom:2px;position:relative}
+.nav-item:hover{background:var(--pri-soft);color:var(--pri)}
+.nav-item.active{background:var(--pri-l);color:var(--pri);font-weight:700}
+.nav-item.active::before{content:'';position:absolute;left:-12px;top:8px;bottom:8px;width:3px;background:var(--pri);border-radius:2px}
+.nav-item .icon{width:22px;text-align:center;font-size:1rem;flex-shrink:0}
+.sidebar-foot{margin-top:auto;padding:14px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.user-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--acc),#ffa7c4);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0}
+.user-info{flex:1;min-width:0}
+.user-info .name{font-size:.85rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-info .role{font-size:.7rem;color:var(--muted)}
+.logout-btn{width:32px;height:32px;border-radius:8px;background:transparent;border:none;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.logout-btn:hover{background:var(--err-l);color:var(--err)}
+
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;background:var(--bg)}
+.topbar{padding:14px 28px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:10}
+.topbar-left{display:flex;align-items:center;gap:12px;min-width:0}
+.topbar h1{font-size:1.05rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.content{flex:1;padding:24px 28px;overflow-y:auto}
+.page{display:none}
+.page.active{display:block;animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* === Mobile === */
+.mobile-toggle{display:none;background:none;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:1rem;color:var(--text)}
+.mobile-toggle:hover{background:var(--surface2)}
+@media(max-width:1024px){
+  .content{padding:20px}
+  .topbar{padding:12px 20px}
+}
+@media(max-width:768px){
+  .sidebar{position:fixed;left:-270px;top:0;bottom:0;z-index:999;transition:.3s;box-shadow:0 0 30px rgba(0,0,0,.1)}
+  .sidebar.open{left:0}
+  .mobile-toggle{display:flex;align-items:center;justify-content:center}
+  .overlay{display:none;position:fixed;inset:0;background:rgba(31,42,68,.45);z-index:998;backdrop-filter:blur(2px)}
+  .overlay.show{display:block}
+  .topbar h1{font-size:.95rem}
+  .content{padding:16px}
+  .stu-select{min-width:110px!important;font-size:.8rem!important}
+  .dash-hello{padding:20px!important}
+  .dash-hello h2{font-size:1.2rem!important}
+  .dash-stats{grid-template-columns:repeat(2,1fr)!important}
+  .stu-grid{grid-template-columns:1fr!important}
+}
+@media(max-width:480px){
+  .topbar{padding:10px 14px}
+  .topbar-right .stu-bar{gap:4px}
+  .user-info{display:none}
+  .dash-stats{grid-template-columns:1fr 1fr!important}
+}
+
+/* === Cards === */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;margin-bottom:16px;box-shadow:var(--sh-card);transition:.2s}
+.card:hover{box-shadow:var(--sh)}
+.card-title{font-size:1.02rem;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px;color:var(--text)}
+.card-subtitle{font-size:.83rem;color:var(--muted);margin-bottom:16px;line-height:1.5}
+
+/* === Form === */
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:.82rem;font-weight:600;color:var(--sub);margin-bottom:5px}
+.form-input,.form-select,.form-textarea{width:100%;padding:10px 13px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:.9rem;background:var(--surface);color:var(--text);transition:.15s}
+.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-l)}
+.form-textarea{min-height:84px;resize:vertical;line-height:1.5}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:600px){.form-row{grid-template-columns:1fr}}
+@media(max-width:900px){.eval-top-grid{grid-template-columns:1fr!important}}
+.form-hint{font-size:.75rem;color:var(--muted);margin-top:4px}
+
+/* === Buttons === */
+.btn{padding:10px 18px;border-radius:var(--r-sm);font-size:.87rem;font-weight:600;border:none;transition:.15s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn-pri{background:var(--pri);color:#fff}.btn-pri:hover{background:var(--pri-d);box-shadow:0 4px 10px rgba(79,107,237,.28);transform:translateY(-1px)}
+.btn-ok{background:var(--ok);color:#fff}.btn-ok:hover{opacity:.92;transform:translateY(-1px)}
+.btn-err{background:var(--err);color:#fff}.btn-err:hover{opacity:.92}
+.btn-warn{background:var(--warn);color:#fff}.btn-warn:hover{opacity:.92}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--sub)}.btn-ghost:hover{border-color:var(--pri);color:var(--pri);background:var(--pri-soft)}
+.btn-sm{padding:6px 12px;font-size:.78rem}
+.btn-block{width:100%;justify-content:center}
+
+/* === Badge === */
+.badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:.72rem;font-weight:600}
+.badge-pri{background:var(--pri-l);color:var(--pri)}
+.badge-ok{background:var(--ok-l);color:var(--ok)}
+.badge-warn{background:var(--warn-l);color:#b45309}
+.badge-err{background:var(--err-l);color:var(--err)}
+.badge-info{background:var(--info-l);color:var(--info)}
+.badge-purple{background:var(--purple-l);color:var(--purple)}
+
+/* === Student Selector === */
+.stu-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.stu-select{padding:8px 12px;border:1px solid var(--border);border-radius:10px;font-size:.85rem;min-width:140px;background:var(--surface);color:var(--text);font-weight:500}
+.stu-select:focus{outline:none;border-color:var(--pri)}
+.stu-add{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--pri),var(--purple));color:#fff;border:none;font-size:1.15rem;font-weight:600;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(79,107,237,.25);transition:.15s}
+.stu-add:hover{transform:translateY(-1px);box-shadow:0 5px 12px rgba(79,107,237,.35)}
+
+/* === Home Dashboard === */
+.dash-hello{background:linear-gradient(135deg,#4f6bed 0%,#6a5dd8 55%,#7c6cf0 100%);color:#fff;padding:28px 30px;border-radius:var(--r-lg);margin-bottom:18px;position:relative;overflow:hidden;box-shadow:0 8px 24px rgba(79,107,237,.2)}
+.dash-hello::after{content:'';position:absolute;right:-40px;top:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(255,255,255,.15),transparent 70%);border-radius:50%}
+.dash-hello::before{content:'';position:absolute;right:40px;bottom:-60px;width:140px;height:140px;background:radial-gradient(circle,rgba(255,143,171,.3),transparent 70%);border-radius:50%}
+.dash-hello h2{font-size:1.5rem;font-weight:800;margin-bottom:6px;position:relative;z-index:1}
+.dash-hello p{font-size:.9rem;opacity:.92;position:relative;z-index:1}
+.dash-hello .wave{display:inline-block;animation:wave 2s ease-in-out infinite;transform-origin:70% 70%}
+@keyframes wave{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}
+.dash-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.stat-card{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:18px;display:flex;align-items:center;gap:14px;transition:.2s;box-shadow:var(--sh-card)}
+.stat-card:hover{transform:translateY(-2px);box-shadow:var(--sh-lg)}
+.stat-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0}
+.stat-icon.pri{background:var(--pri-l);color:var(--pri)}
+.stat-icon.ok{background:var(--ok-l);color:var(--ok)}
+.stat-icon.warn{background:var(--warn-l);color:#b45309}
+.stat-icon.purple{background:var(--purple-l);color:var(--purple)}
+.stat-val{font-size:1.4rem;font-weight:800;color:var(--text);line-height:1.1}
+.stat-label{font-size:.78rem;color:var(--muted);margin-top:2px}
+
+.section-title{font-size:1.05rem;font-weight:700;margin:22px 0 12px;display:flex;align-items:center;gap:8px;color:var(--text)}
+.section-title .more{margin-left:auto;font-size:.8rem;color:var(--pri);font-weight:600;cursor:pointer}
+
+.stu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.stu-mini{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:18px;cursor:pointer;transition:.2s;box-shadow:var(--sh-card)}
+.stu-mini:hover{transform:translateY(-2px);box-shadow:var(--sh-lg);border-color:var(--pri-l)}
+.stu-mini-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.stu-avatar{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1rem;flex-shrink:0}
+.stu-mini-name{font-size:1rem;font-weight:700;color:var(--text)}
+.stu-mini-meta{font-size:.75rem;color:var(--muted);margin-top:2px}
+.stu-mini-body{font-size:.82rem;color:var(--sub);line-height:1.55;background:var(--surface2);padding:10px 12px;border-radius:var(--r-sm);margin-bottom:12px;min-height:64px}
+.stu-mini-foot{display:flex;gap:14px;padding-top:12px;border-top:1px solid var(--border)}
+.stu-mini-stat{display:flex;flex-direction:column;align-items:flex-start;font-size:.72rem;color:var(--muted)}
+.stu-mini-stat .v{font-size:.95rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:4px}
+.trend{display:inline-flex;align-items:center;gap:2px;font-size:.7rem;font-weight:700;padding:1px 6px;border-radius:99px}
+.trend.up{background:var(--err-l);color:var(--err)}
+.trend.down{background:var(--ok-l);color:var(--ok)}
+.trend.flat{background:var(--surface2);color:var(--muted)}
+
+.quick-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.quick-card{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:16px;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:12px;box-shadow:var(--sh-card)}
+.quick-card:hover{transform:translateY(-2px);box-shadow:var(--sh);border-color:var(--pri-l)}
+.quick-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0}
+.quick-title{font-size:.88rem;font-weight:700;color:var(--text);line-height:1.3}
+.quick-desc{font-size:.73rem;color:var(--muted);margin-top:2px}
+
+.recent-list{list-style:none}
+.recent-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:var(--r-sm);transition:.15s}
+.recent-item:hover{background:var(--surface2)}
+.recent-item:not(:last-child){border-bottom:1px solid var(--border)}
+.recent-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.recent-body{flex:1;min-width:0}
+.recent-body .t{font-size:.85rem;color:var(--text);font-weight:500}
+.recent-body .d{font-size:.73rem;color:var(--muted);margin-top:1px}
+.recent-when{font-size:.73rem;color:var(--muted);white-space:nowrap}
+
+.tip-card{background:linear-gradient(135deg,#fff 0%,#fff8ec 100%);border:1px solid #fde7b8;border-radius:var(--r);padding:18px;display:flex;gap:14px;margin-top:18px}
+.tip-icon{width:40px;height:40px;border-radius:12px;background:#fbbf24;color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0}
+.tip-body .t{font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:3px}
+.tip-body .d{font-size:.82rem;color:var(--sub);line-height:1.55}
+
+/* === Student Hero === */
+.stu-hero{background:linear-gradient(120deg,#fff 0%,#f0f3ff 100%);border:1px solid var(--border);border-radius:var(--r);padding:18px 22px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;box-shadow:var(--sh-card)}
+.stu-hero-avatar{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.1rem;flex-shrink:0;box-shadow:0 4px 10px rgba(79,107,237,.2)}
+.stu-hero-main{flex:1;min-width:180px}
+.stu-hero-name{font-size:1.1rem;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.stu-hero-note{font-size:.82rem;color:var(--muted);margin-top:4px;line-height:1.4}
+.stu-hero-meta{display:flex;gap:16px;flex-wrap:wrap}
+.stu-hero-meta .m{text-align:center;padding:8px 14px;background:#fff;border:1px solid var(--border);border-radius:10px;min-width:68px}
+.stu-hero-meta .m .v{font-size:1rem;font-weight:800;color:var(--pri)}
+.stu-hero-meta .m .l{font-size:.7rem;color:var(--muted);margin-top:1px}
+
+/* === Data List === */
+.data-list{list-style:none}
+.data-item{padding:14px;border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:10px;background:var(--surface);transition:.15s}
+.data-item:hover{border-color:var(--pri-l);box-shadow:var(--sh)}
+.data-item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.data-item-date{font-size:.75rem;color:var(--muted)}
+.data-item-body{font-size:.86rem;color:var(--sub);line-height:1.6}
+.data-item-actions{display:flex;gap:6px;margin-top:10px}
+.empty-state{text-align:center;padding:48px 20px;color:var(--muted);font-size:.9rem}
+.empty-state .emoji{font-size:2.5rem;display:block;margin-bottom:10px;opacity:.5}
+
+/* === QABF === */
+.qabf-item{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);gap:12px}
+.qabf-item:last-child{border-bottom:none}
+.qabf-q{flex:1;font-size:.87rem;color:var(--sub);line-height:1.5}
+.qabf-num{font-size:.75rem;color:var(--muted);min-width:24px;font-weight:600}
+.qabf-opts{display:flex;gap:5px;flex-shrink:0}
+.qabf-opt{width:38px;height:34px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:.82rem;font-weight:700;cursor:pointer;transition:.15s;color:var(--sub)}
+.qabf-opt:hover{border-color:var(--pri);color:var(--pri)}
+.qabf-opt.sel{background:var(--pri);color:#fff;border-color:var(--pri);box-shadow:0 2px 6px rgba(79,107,237,.3)}
+.qabf-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:16px}
+.qabf-res-card{padding:16px;border-radius:var(--r);text-align:center;border:1px solid var(--border);background:#fff}
+.qabf-res-score{font-size:1.7rem;font-weight:800}
+.qabf-res-label{font-size:.78rem;color:var(--sub);margin-top:2px;font-weight:500}
+.qabf-res-bar{height:6px;background:var(--surface2);border-radius:99px;margin-top:10px;overflow:hidden}
+.qabf-res-fill{height:100%;border-radius:99px;transition:.4s}
+
+/* === Chips === */
+.chip-area{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.chip{padding:6px 14px;border-radius:99px;font-size:.8rem;border:1px solid var(--border);cursor:pointer;transition:.15s;background:var(--surface);user-select:none}
+.chip:hover{border-color:var(--pri);color:var(--pri);background:var(--pri-soft)}
+.chip.on{background:var(--pri);color:#fff;border-color:var(--pri);box-shadow:0 2px 6px rgba(79,107,237,.25)}
+
+/* === Chat Messages === */
+.chat-msg{display:flex;gap:10px;animation:fadeIn .25s ease}
+.chat-msg.user{flex-direction:row-reverse}
+.chat-avatar-sm{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
+.chat-msg.user .chat-avatar-sm{background:var(--pri-l);color:var(--pri)}
+.chat-msg.assistant .chat-avatar-sm{background:linear-gradient(135deg,#4f6bed,#7c6cf0);color:#fff}
+.chat-bubble{max-width:85%;padding:12px 16px;border-radius:14px;font-size:.88rem;line-height:1.65;word-break:break-word;white-space:pre-wrap}
+.chat-msg.user .chat-bubble{background:var(--pri);color:#fff;border-bottom-right-radius:4px}
+.chat-msg.assistant .chat-bubble{background:#fff;border:1px solid var(--border);color:var(--text);border-bottom-left-radius:4px;box-shadow:var(--sh-card)}
+.chat-bubble code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;font-size:.82rem;font-family:'Courier New',monospace}
+.chat-bubble pre{background:rgba(0,0,0,.04);border:1px solid var(--border);border-radius:8px;padding:12px;overflow-x:auto;margin:8px 0;font-size:.8rem;line-height:1.5}
+.chat-bubble pre code{background:none;padding:0}
+.chat-msg.assistant .chat-bubble pre{background:var(--surface2)}
+.chat-typing{display:flex;gap:4px;padding:8px 12px}
+.chat-typing span{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:typing 1.4s infinite}
+.chat-typing span:nth-child(2){animation-delay:.2s}
+.chat-typing span:nth-child(3){animation-delay:.4s}
+@keyframes typing{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+.chat-actions{display:flex;gap:6px;margin-top:6px}
+.chat-actions button{background:none;border:none;font-size:.72rem;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px}
+.chat-actions button:hover{background:var(--surface2);color:var(--pri)}
+.llm-status-ok{color:var(--ok);background:var(--ok-l);padding:6px 12px;border-radius:var(--r-sm)}
+.llm-status-err{color:var(--err);background:var(--err-l);padding:6px 12px;border-radius:var(--r-sm)}
+
+/* === Monitoring === */
+.mon-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.mon-field label{font-size:.75rem;color:var(--muted);font-weight:600;display:block;margin-bottom:4px}
+.mon-field input,.mon-field select{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;background:var(--surface)}
+.mon-field input:focus,.mon-field select:focus{outline:none;border-color:var(--pri)}
+
+/* === Crisis Steps === */
+.crisis-step{display:flex;gap:16px;padding:16px;border-radius:var(--r);margin-bottom:10px;border:1px solid var(--border);background:var(--surface);cursor:pointer;transition:.15s}
+.crisis-step:hover{border-color:var(--pri);box-shadow:var(--sh)}
+.crisis-step.expanded{border-color:var(--pri);background:var(--pri-soft)}
+.crisis-num{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;font-size:1rem;box-shadow:0 3px 8px rgba(0,0,0,.08)}
+.crisis-info{flex:1}
+.crisis-info h4{font-size:.98rem;font-weight:700;margin-bottom:2px}
+.crisis-info .en{font-size:.75rem;color:var(--muted)}
+.crisis-detail{display:none;margin-top:12px;padding:14px;background:#fff;border-radius:10px;font-size:.86rem;color:var(--sub);line-height:1.65;border:1px solid var(--border)}
+.crisis-step.expanded .crisis-detail{display:block}
+
+/* === Tab Buttons === */
+.tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:8px 16px;border-radius:99px;font-size:.82rem;border:1px solid var(--border);background:transparent;color:var(--sub);font-weight:600;cursor:pointer;transition:.15s}
+.tab:hover{border-color:var(--pri);color:var(--pri)}
+.tab.on{background:var(--pri);color:#fff;border-color:var(--pri);box-shadow:0 2px 6px rgba(79,107,237,.25)}
+.tab-panel{display:none}.tab-panel.on{display:block}
+
+/* === Fidelity === */
+.fid-item{display:flex;align-items:center;gap:12px;padding:10px 0}
+.fid-check{width:24px;height:24px;border:2px solid var(--border);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;flex-shrink:0;font-size:.85rem;color:transparent}
+.fid-check.checked{background:var(--ok);border-color:var(--ok);color:#fff}
+.fid-label{font-size:.9rem;color:var(--sub)}
+
+/* === Toast === */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--text);color:#fff;padding:12px 26px;border-radius:99px;font-size:.88rem;z-index:9999;transition:.3s;opacity:0;pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.25);font-weight:500}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* === Modal === */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(31,42,68,.45);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.modal-bg.show{display:flex}
+.modal{background:var(--surface);border-radius:var(--r-lg);padding:26px;max-width:520px;width:90%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,.2)}
+.modal h3{font-size:1.1rem;font-weight:700;margin-bottom:18px}
+
+/* === Grounding Interactive === */
+.ground-steps{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:20px 0}
+.ground-card{width:128px;padding:18px 12px;text-align:center;border-radius:var(--r);border:2px solid var(--border);cursor:pointer;transition:.2s;background:#fff}
+.ground-card:hover{border-color:var(--ok);transform:translateY(-2px)}
+.ground-card.done{border-color:var(--ok);background:var(--ok-l)}
+.ground-card .emoji{font-size:2rem}
+.ground-card .num{font-size:1.7rem;font-weight:800;color:var(--pri);margin-top:4px}
+.ground-card .txt{font-size:.75rem;color:var(--sub);margin-top:4px;font-weight:500}
+.ground-input{margin-top:12px}
+.ground-input textarea{width:100%;padding:11px;border:1px solid var(--border);border-radius:10px;font-size:.88rem;min-height:70px;resize:vertical}
+.ground-input label{font-size:.82rem;color:var(--sub);font-weight:600}
+
+/* === Print Hide === */
+@media print{.sidebar,.topbar,.mobile-toggle{display:none!important}.main{overflow:visible}.content{padding:0}}
+</style>
+</head>
+<body>
+
+<!-- ===== Auth Screen ===== -->
+<div class="auth-screen show" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="auth-brand-icon">SE</div>
+      <h1>특수교육 AI 통합 플랫폼</h1>
+      <p>선생님, 오늘도 고생 많으세요 &#x1F49C;</p>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab on" id="tabLogin" onclick="switchAuthTab('login')">로그인</button>
+      <button class="auth-tab" id="tabSignup" onclick="switchAuthTab('signup')">회원가입</button>
+    </div>
+
+    <!-- Login -->
+    <form class="auth-form on" id="formLogin" onsubmit="doLogin(event)">
+      <div class="auth-field">
+        <label>이메일</label>
+        <input type="email" id="loginEmail" placeholder="teacher@school.kr" required>
+      </div>
+      <div class="auth-field">
+        <label>비밀번호</label>
+        <input type="password" id="loginPw" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;" required>
+      </div>
+      <button type="submit" class="auth-btn">로그인하기</button>
+    </form>
+
+    <!-- Signup -->
+    <form class="auth-form" id="formSignup" onsubmit="doSignup(event)">
+      <div class="auth-field">
+        <label>선생님 성함</label>
+        <input type="text" id="suName" placeholder="홍길동" required>
+      </div>
+      <div class="auth-field">
+        <label>이메일</label>
+        <input type="email" id="suEmail" placeholder="teacher@school.kr" required>
+      </div>
+      <div class="auth-field">
+        <label>비밀번호 (6자 이상)</label>
+        <input type="password" id="suPw" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;" minlength="6" required>
+      </div>
+      <div class="auth-field">
+        <label>소속 학교 <span style="color:var(--muted);font-weight:500">(선택)</span></label>
+        <input type="text" id="suSchool" placeholder="예: OO초등학교">
+      </div>
+      <button type="submit" class="auth-btn">가입하고 시작하기</button>
+    </form>
+
+    <div class="auth-divider">또는</div>
+    <button class="auth-guest" onclick="guestEnter()">&#x1F440; 둘러보기 (게스트)</button>
+    <p class="auth-hint">&#x1F512; 입력한 정보는 브라우저 메모리에만 저장되며<br>외부로 전송되지 않습니다.</p>
+  </div>
+</div>
+
+<!-- ===== Main App ===== -->
+<div class="app" id="mainApp">
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-top">
+    <div class="brand">
+      <div class="brand-icon">SE</div>
+      <div class="brand-text">
+        <h2>특수교육 AI</h2>
+        <p>통합 플랫폼</p>
+      </div>
+    </div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">시작</div>
+    <button class="nav-item active" data-page="home" onclick="go(event,'home')"><span class="icon">&#x1F3E0;</span>홈</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">행동 중재 (PBS)</div>
+    <button class="nav-item" data-page="observe" onclick="go(event,'observe')"><span class="icon">&#x1F50D;</span>학생 관찰 / ABC</button>
+    <button class="nav-item" data-page="qabf" onclick="go(event,'qabf')"><span class="icon">&#x1F4CA;</span>기능평가 (QABF)</button>
+    <button class="nav-item" data-page="bip" onclick="go(event,'bip')"><span class="icon">&#x1F4DD;</span>중재계획 (BIP)</button>
+    <button class="nav-item" data-page="monitor" onclick="go(event,'monitor')"><span class="icon">&#x1F4C8;</span>행동 데이터</button>
+    <button class="nav-item" data-page="eval" onclick="go(event,'eval')"><span class="icon">&#x2705;</span>결과 평가</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">AI 도구</div>
+    <button class="nav-item" data-page="builder" onclick="go(event,'builder')"><span class="icon">&#x1F916;</span>AI 어시스턴트</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">위기 / 지원</div>
+    <button class="nav-item" data-page="crisis" onclick="go(event,'crisis')"><span class="icon">&#x1F6A8;</span>위기행동 대처</button>
+    <button class="nav-item" data-page="support" onclick="go(event,'support')"><span class="icon">&#x1F4DA;</span>교사 지원</button>
+  </div>
+  <div class="sidebar-foot">
+    <div class="user-avatar" id="userAvatar">T</div>
+    <div class="user-info">
+      <div class="name" id="userName">선생님</div>
+      <div class="role" id="userRole">로그인됨</div>
+    </div>
+    <button class="logout-btn" onclick="doLogout()" title="로그아웃">&#x21AA;</button>
+  </div>
+</aside>
+
+<!-- Main -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="mobile-toggle" onclick="openSidebar()">&#x2630;</button>
+      <h1 id="pageTitle">홈</h1>
+    </div>
+    <div class="topbar-right">
+      <div class="stu-bar">
+        <select class="stu-select" id="stuSelect" onchange="selectStudent()">
+          <option value="">-- 학생 선택 --</option>
+        </select>
+        <button class="stu-add" onclick="openModal('addStuModal')" title="학생 추가">+</button>
+      </div>
+    </div>
+  </div>
+  <div class="content">
+
+<!-- ============================================ -->
+<!-- PAGE 0: HOME -->
+<!-- ============================================ -->
+<div class="page active" id="p-home">
+  <div class="dash-hello">
+    <h2>안녕하세요, <span id="helloName">선생님</span> <span class="wave">&#x1F44B;</span></h2>
+    <p id="helloDate">오늘도 따뜻한 하루 보내세요. 학생들의 작은 변화를 응원합니다.</p>
+  </div>
+
+  <div class="dash-stats">
+    <div class="stat-card">
+      <div class="stat-icon pri">&#x1F465;</div>
+      <div><div class="stat-val" id="sHomeStu">0</div><div class="stat-label">등록 학생</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon ok">&#x1F4DD;</div>
+      <div><div class="stat-val" id="sHomeABC">0</div><div class="stat-label">ABC 관찰</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon warn">&#x1F4C8;</div>
+      <div><div class="stat-val" id="sHomeMon">0</div><div class="stat-label">행동 데이터</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon purple">&#x1F49A;</div>
+      <div><div class="stat-val" id="sHomeSZ">0</div><div class="stat-label">심리안정실</div></div>
+    </div>
+  </div>
+
+  <div class="section-title">&#x1F464; 학생별 한눈 요약</div>
+  <div class="stu-grid" id="stuGrid"></div>
+
+  <div class="section-title">&#x26A1; 빠른 작업</div>
+  <div class="quick-grid">
+    <div class="quick-card" onclick="goFromHome('observe')">
+      <div class="quick-icon" style="background:var(--pri-l);color:var(--pri)">&#x1F50D;</div>
+      <div><div class="quick-title">ABC 기록</div><div class="quick-desc">오늘의 관찰 남기기</div></div>
+    </div>
+    <div class="quick-card" onclick="goFromHome('monitor')">
+      <div class="quick-icon" style="background:var(--warn-l);color:#b45309">&#x1F4CB;</div>
+      <div><div class="quick-title">일일 데이터</div><div class="quick-desc">행동 빈도/강도 입력</div></div>
+    </div>
+    <div class="quick-card" onclick="goFromHome('crisis')">
+      <div class="quick-icon" style="background:var(--err-l);color:var(--err)">&#x1F6A8;</div>
+      <div><div class="quick-title">위기 대처</div><div class="quick-desc">7단계 대응 & 그라운딩</div></div>
+    </div>
+    <div class="quick-card" onclick="goFromHome('builder')">
+      <div class="quick-icon" style="background:var(--purple-l);color:var(--purple)">&#x1F527;</div>
+      <div><div class="quick-title">AI 어시스턴트</div><div class="quick-desc">AI로 수업자료 생성</div></div>
+    </div>
+    <div class="quick-card" onclick="goFromHome('eval')">
+      <div class="quick-icon" style="background:var(--ok-l);color:var(--ok)">&#x1F4CA;</div>
+      <div><div class="quick-title">결과 평가</div><div class="quick-desc">차트로 한눈에 보기</div></div>
+    </div>
+    <div class="quick-card" onclick="goFromHome('support')">
+      <div class="quick-icon" style="background:var(--teal-l);color:var(--teal)">&#x1F4DA;</div>
+      <div><div class="quick-title">교사 지원</div><div class="quick-desc">EBP 11종 & 자료실</div></div>
+    </div>
+  </div>
+
+  <div class="section-title">&#x1F552; 최근 활동</div>
+  <div class="card" style="padding:8px">
+    <ul class="recent-list" id="recentList"></ul>
+    <div class="empty-state" id="recentEmpty" style="display:none"><span class="emoji">&#x1F4DD;</span>아직 활동이 없어요. 학생을 선택하고 기록을 시작해 보세요.</div>
+  </div>
+
+  <div class="tip-card">
+    <div class="tip-icon">&#x1F4A1;</div>
+    <div class="tip-body">
+      <div class="t">오늘의 교사 팁 — 4:1 긍정 비율</div>
+      <div class="d">문제행동 1번 지적할 때마다 바람직한 행동을 4번 칭찬해 주세요. 학생의 자존감과 관계 신뢰가 가장 빨리 회복되는 비율입니다.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PAGE 1: 학생 관찰 / ABC -->
+<!-- ============================================ -->
+<div class="page" id="p-observe">
+  <div id="stuHero-observe"></div>
+  <div class="card" id="noStuMsg">
+    <div class="empty-state"><span class="emoji">&#x1F464;</span>상단에서 학생을 선택하거나 <strong>+</strong> 버튼으로 학생을 추가해 주세요.</div>
+  </div>
+
+  <div class="card" id="stuProfile" style="display:none">
+    <div class="card-title">&#x1F464; 학생 프로필</div>
+    <div id="stuProfileContent"></div>
+    <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="openEditStu()">프로필 수정</button>
+  </div>
+
+  <div class="card" id="abcForm" style="display:none">
+    <div class="card-title">&#x1F4CB; ABC 행동 관찰 기록 작성</div>
+    <div class="card-subtitle">선행사건(A) &rarr; 행동(B) &rarr; 결과(C)를 관찰 가능한 사실로 기록하세요. <button class="btn btn-ghost btn-sm" onclick="openModal('abcExModal')">작성 예시 보기</button></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">날짜</label><input type="date" class="form-input" id="abcDate"></div>
+      <div class="form-group"><label class="form-label">시간 / 장소</label><input class="form-input" id="abcTime" placeholder="예: 2교시 / 교실"></div>
+    </div>
+    <div class="form-group"><label class="form-label">A (선행사건, Antecedent)</label><textarea class="form-textarea" id="abcA" placeholder="행동 직전에 어떤 상황이 있었나요?&#10;예: 수학 익힘책 15쪽을 풀라고 지시했을 때"></textarea></div>
+    <div class="form-group"><label class="form-label">B (행동, Behavior)</label><textarea class="form-textarea" id="abcB" placeholder="학생이 정확히 어떤 행동을 했나요?&#10;예: &quot;싫어!&quot;라고 소리치며 책을 바닥에 던졌다"></textarea></div>
+    <div class="form-group"><label class="form-label">C (결과, Consequence)</label><textarea class="form-textarea" id="abcC" placeholder="행동 직후 어떤 결과가 발생했나요?&#10;예: 교사가 다가가 &quot;책을 주우세요&quot;라고 지시했으나 거부함"></textarea></div>
+    <button class="btn btn-pri" onclick="saveABC()">&#x1F4BE; ABC 기록 저장</button>
+  </div>
+
+  <div class="card" id="abcListCard" style="display:none">
+    <div class="card-title">&#x1F4C4; 누적 ABC 기록 <span class="badge badge-pri" id="abcCount">0건</span></div>
+    <ul class="data-list" id="abcList"></ul>
+    <div class="empty-state" id="abcEmpty"><span class="emoji">&#x1F4C4;</span>저장된 기록이 없습니다.</div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PAGE 2: QABF -->
+<!-- ============================================ -->
+<div class="page" id="p-qabf">
+  <div id="stuHero-qabf"></div>
+  <div class="card">
+    <div class="card-title">&#x1F4CA; QABF 척도 (Questions About Behavioral Function)</div>
+    <div class="card-subtitle">25문항 / 4점 척도(0=전혀 아님, 1=가끔, 2=자주, 3=매우 자주). 5가지 행동 기능별 0~15점으로 자동 집계됩니다.</div>
+
+    <div class="qabf-results" id="qabfResults">
+      <div class="qabf-res-card"><div class="qabf-res-score" id="qR0" style="color:var(--pri)">0</div><div class="qabf-res-label">관심 (Attention)</div><div class="qabf-res-bar"><div class="qabf-res-fill" id="qB0" style="width:0;background:var(--pri)"></div></div></div>
+      <div class="qabf-res-card"><div class="qabf-res-score" id="qR1" style="color:var(--err)">0</div><div class="qabf-res-label">회피 (Escape)</div><div class="qabf-res-bar"><div class="qabf-res-fill" id="qB1" style="width:0;background:var(--err)"></div></div></div>
+      <div class="qabf-res-card"><div class="qabf-res-score" id="qR2" style="color:var(--warn)">0</div><div class="qabf-res-label">획득 (Tangible)</div><div class="qabf-res-bar"><div class="qabf-res-fill" id="qB2" style="width:0;background:var(--warn)"></div></div></div>
+      <div class="qabf-res-card"><div class="qabf-res-score" id="qR3" style="color:var(--ok)">0</div><div class="qabf-res-label">감각 (Sensory)</div><div class="qabf-res-bar"><div class="qabf-res-fill" id="qB3" style="width:0;background:var(--ok)"></div></div></div>
+      <div class="qabf-res-card"><div class="qabf-res-score" id="qR4" style="color:var(--info)">0</div><div class="qabf-res-label">비사회적 (Non-social)</div><div class="qabf-res-bar"><div class="qabf-res-fill" id="qB4" style="width:0;background:var(--info)"></div></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">&#x2705; 25문항 체크리스트</div>
+    <div id="qabfItems"></div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PAGE 3: BIP -->
+<!-- ============================================ -->
+<div class="page" id="p-bip">
+  <div id="stuHero-bip"></div>
+  <div class="card">
+    <div class="card-title">&#x1F3AF; 목표 행동(대체 행동) 설정</div>
+    <div class="form-group"><label class="form-label">대체 행동 (문제행동 대신 할 바람직한 행동)</label><input class="form-input" id="bipAlt" placeholder="예: 쉬고 싶을 때 '쉬고 싶어요' 카드 들기"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">FCT 기술 (기능적 의사소통)</label><input class="form-input" id="bipFCT" placeholder="예: '도와주세요' 카드 사용"></div>
+      <div class="form-group"><label class="form-label">성공 기준</label><input class="form-input" id="bipCrit" placeholder="예: 하루 3회 미만 발생"></div>
+    </div>
+    <button class="btn btn-pri" onclick="saveBIP()">&#x1F4BE; 목표 행동 저장</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">&#x1F4DC; 중재 전략 (예방-교수-강화-반응)</div>
+    <div class="card-subtitle">각 영역에 구체적인 전략을 입력하세요.</div>
+    <div class="form-group"><label class="form-label">&#x1F6E1; 예방 전략 (Antecedent)</label><textarea class="form-textarea" id="bipPrev" placeholder="환경 조정, 선택권 제공, 시각적 지원 등&#10;예: 과제 전 시각적 일과표 제공, 과제 난이도 조절"></textarea></div>
+    <div class="form-group"><label class="form-label">&#x1F4D6; 교수 전략 (Teaching)</label><textarea class="form-textarea" id="bipTeach" placeholder="대체 기술 교수, 사회성 훈련, FCT 등&#10;예: '도움 요청 카드' 사용법 직접 교수(모델링+역할극)"></textarea></div>
+    <div class="form-group"><label class="form-label">&#x2B50; 강화 전략 (Reinforcement)</label><textarea class="form-textarea" id="bipReinf" placeholder="차별 강화(DRA/DRO), 토큰 경제, 4:1 비율 등&#10;예: 대체행동 수행 시 즉각 칭찬 + 스티커 1개"></textarea></div>
+    <div class="form-group"><label class="form-label">&#x1F6A8; 반응 절차 (Response)</label><textarea class="form-textarea" id="bipResp" placeholder="문제행동 발생 시 대응 프로토콜&#10;예: 관심 끌기 행동 시 10초 계획적 무시 후 대체행동 촉진"></textarea></div>
+    <button class="btn btn-pri" onclick="saveBIPStrategy()">&#x1F4BE; 중재 전략 저장</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">&#x270D; 행동 계약서</div>
+    <div class="form-group"><label class="form-label">나(학생)의 약속</label><input class="form-input" id="conStu" placeholder="목표 행동"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">성공 기준</label><input class="form-input" id="conCrit" placeholder="기간/빈도"></div>
+      <div class="form-group"><label class="form-label">선생님의 약속 (보상)</label><input class="form-input" id="conTch" placeholder="보상/강화"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">계약 시작일</label><input type="date" class="form-input" id="conStart"></div>
+      <div class="form-group"><label class="form-label">계약 종료일</label><input type="date" class="form-input" id="conEnd"></div>
+    </div>
+    <button class="btn btn-ok" onclick="printContract()">&#x1F5A8; 계약서 인쇄/저장</button>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PAGE 4: Monitor -->
+<!-- ============================================ -->
+<div class="page" id="p-monitor">
+  <div id="stuHero-monitor"></div>
+  <div class="card">
+    <div class="card-title">&#x1F4DD; 일일 행동 데이터 기록</div>
+    <div class="card-subtitle">CICO (Check-In/Check-Out) — 매일 행동 데이터를 기록합니다.</div>
+    <div class="form-group"><label class="form-label">기록 날짜</label><input type="date" class="form-input" id="monDate"></div>
+    <div class="form-group"><label class="form-label">기록 대상 행동</label><input class="form-input" id="monBeh" placeholder="예: 수업 중 자리이탈"></div>
+    <div class="mon-grid">
+      <div class="mon-field"><label>발생 빈도 (횟수)</label><input type="number" id="monFreq" min="0" value="0"></div>
+      <div class="mon-field"><label>지속 시간 (분)</label><input type="number" id="monDur" min="0" value="0"></div>
+      <div class="mon-field"><label>강도 (1~5)</label><input type="number" id="monInt" min="1" max="5" value="1"></div>
+      <div class="mon-field"><label>대체행동 수행</label><select id="monAlt"><option value="Y">예</option><option value="N">아니오</option></select></div>
+      <div class="mon-field"><label>지연시간 (분)</label><input type="number" id="monLat" min="0" value="0"></div>
+      <div class="mon-field"><label>평정척도 DBR (0~10)</label><input type="number" id="monDBR" min="0" max="10" value="5"></div>
+    </div>
+    <button class="btn btn-pri" style="margin-top:14px" onclick="saveMon()">&#x1F4BE; 데이터 저장</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">&#x1F4CB; BIP 실행 충실도 (오늘)</div>
+    <div class="card-subtitle">오늘 BIP를 얼마나 충실하게 실행했는지 체크하세요.</div>
+    <div class="fid-item"><div class="fid-check" onclick="toggleFid(this)">&#x2713;</div><div class="fid-label">예방 전략 실행</div></div>
+    <div class="fid-item"><div class="fid-check" onclick="toggleFid(this)">&#x2713;</div><div class="fid-label">교수 전략 실행</div></div>
+    <div class="fid-item"><div class="fid-check" onclick="toggleFid(this)">&#x2713;</div><div class="fid-label">강화 제공</div></div>
+    <div class="fid-item"><div class="fid-check" onclick="toggleFid(this)">&#x2713;</div><div class="fid-label">위기 절차 준수</div></div>
+    <button class="btn btn-ok btn-sm" style="margin-top:10px" onclick="saveFid()">충실도 저장</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">&#x1F4C4; 기록 목록 <span class="badge badge-pri" id="monCount">0건</span></div>
+    <ul class="data-list" id="monList"></ul>
+    <div class="empty-state" id="monEmpty"><span class="emoji">&#x1F4CA;</span>기록된 데이터가 없습니다.</div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PAGE 5: Eval -->
+<!-- ============================================ -->
+<div class="page" id="p-eval">
+  <div id="stuHero-eval"></div>
+  <div class="eval-top-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="card">
+      <div class="card-title">&#x1F578; QABF 행동 기능 분석 (레이더)</div>
+      <div class="card-subtitle">5가지 행동 기능별 점수를 한눈에 비교합니다. 가장 높은 영역이 주요 기능입니다.</div>
+      <div style="position:relative;height:280px"><canvas id="radarChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">&#x1F49A; 심리안정실 이용 통계</div>
+      <div class="card-subtitle">이용 사유별 비율 및 월별 이용 빈도입니다.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="position:relative;height:240px"><canvas id="szDonut"></canvas></div>
+        <div style="position:relative;height:240px"><canvas id="szBar"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">&#x1F4C8; 행동 변화 추이 (기초선 vs 중재 후)</div>
+    <div class="card-subtitle">세로 점선이 중재 시작 시점입니다. 중재 후 빈도가 감소하는 추이를 확인하세요.</div>
+    <div class="tabs">
+      <button class="tab on" onclick="switchChart(event,'freq')">빈도</button>
+      <button class="tab" onclick="switchChart(event,'dur')">지속시간</button>
+      <button class="tab" onclick="switchChart(event,'int')">강도</button>
+      <button class="tab" onclick="switchChart(event,'dbr')">DBR 평정</button>
+    </div>
+    <div style="position:relative;height:300px"><canvas id="evalChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">&#x1F4CB; BIP 실행 충실도 추이</div>
+    <div class="card-subtitle">교사가 매일 중재 전략을 얼마나 충실하게 실행했는지(0~100%) 보여줍니다.</div>
+    <div style="position:relative;height:250px"><canvas id="fidChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">&#x2696; 기간별 비교</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">기간 A (기초선) 시작~종료</label>
+        <div style="display:flex;gap:6px"><input type="date" class="form-input" id="compA1"><input type="date" class="form-input" id="compA2"></div>
+      </div>
+      <div class="form-group"><label class="form-label">기간 B (중재 후) 시작~종료</label>
+        <div style="display:flex;gap:6px"><input type="date" class="form-input" id="compB1"><input type="date" class="form-input" id="compB2"></div>
+      </div>
+    </div>
+    <button class="btn btn-pri" onclick="comparePeriods()">비교 생성</button>
+    <div id="compResult" style="margin-top:16px"></div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PAGE 6: Prompt Builder -->
+<!-- ============================================ -->
+<div class="page" id="p-builder">
+  <div class="card">
+    <div class="card-title">&#x1F916; AI 어시스턴트 — 칩을 눌러 조건을 설정하세요</div>
+    <div class="card-subtitle">1번 결과물 형태만 선택해도 생성 가능! 수업 자료를 만들려면 교육과정과 수업 내용도 채워주세요.</div>
+
+    <div style="font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:4px">0. 장애 유형</div>
+    <div class="chip-area" id="ca0">
+      <span class="chip" data-v="[장애: 지적장애]">&#x1F9E0; 지적장애</span>
+      <span class="chip" data-v="[장애: ASD]">&#x1F535; 자폐(ASD)</span>
+      <span class="chip" data-v="[장애: 지체장애]">&#x267F; 지체장애</span>
+      <span class="chip" data-v="[장애: 정서행동]">&#x1F49B; 정서행동</span>
+      <span class="chip" data-v="[장애: ADHD]">&#x26A1; ADHD</span>
+      <span class="chip" data-v="[장애: 청각장애]">&#x1F442; 청각장애</span>
+      <span class="chip" data-v="[장애: 시각장애]">&#x1F441; 시각장애</span>
+      <span class="chip" data-v="[장애: 학습장애]">&#x1F4D6; 학습장애</span>
+      <span class="chip" data-v="[장애: 발달지연]">&#x1F331; 발달지연</span>
+      <span class="chip" data-v="[장애: 중복중증]">&#x1F91D; 중복중증</span>
+    </div>
+    <div style="font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:4px">기능 수준</div>
+    <div class="chip-area" id="ca0b">
+      <span class="chip" data-v="[수준: 입문]">&#x1F7E2; 입문</span>
+      <span class="chip" data-v="[수준: 기초]">&#x1F7E1; 기초</span>
+      <span class="chip" data-v="[수준: 중급]">&#x1F7E0; 중급</span>
+      <span class="chip" data-v="[수준: 기능적]">&#x1F534; 기능적</span>
+      <span class="chip" data-v="[수준: 심화]">&#x1F535; 심화</span>
+    </div>
+
+    <div style="font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:4px">1. 결과물 형태 &#x2B50; 필수</div>
+    <div class="chip-area" id="ca1">
+      <span class="chip" data-v="[결과물: 학습게임 HTML]">&#x1F3AE; 학습 게임</span>
+      <span class="chip" data-v="[결과물: 그림퀴즈 HTML]">&#x1F5BC; 그림 퀴즈</span>
+      <span class="chip" data-v="[결과물: AAC보드 HTML]">&#x1F4AC; AAC 보드</span>
+      <span class="chip" data-v="[결과물: 사회적이야기]">&#x1F4D6; 사회적 이야기</span>
+      <span class="chip" data-v="[결과물: 시각일과표]">&#x1F4C5; 시각 일과표</span>
+      <span class="chip" data-v="[결과물: 감정조절도구 HTML]">&#x1F60A; 감정 조절</span>
+      <span class="chip" data-v="[결과물: 토큰경제 HTML]">&#x1FA99; 토큰 경제</span>
+      <span class="chip" data-v="[결과물: 매칭게임 HTML]">&#x1F517; 매칭 게임</span>
+      <span class="chip" data-v="[결과물: 수개념 HTML]">&#x1F522; 수 개념</span>
+      <span class="chip" data-v="[결과물: 지역사회시뮬 HTML]">&#x1F3EA; 지역사회</span>
+      <span class="chip" data-v="[결과물: 과제분석앱 HTML]">&#x2705; 과제분석</span>
+      <span class="chip" data-v="[결과물: 수업지도안]">&#x1F4DC; 수업 지도안</span>
+      <span class="chip" data-v="[결과물: 협력교수계획안]">&#x1F469;&#x200D;&#x1F3EB; 협력교수</span>
+      <span class="chip" data-v="[결과물: 수정활동지]">&#x270F;&#xFE0F; 수정 활동지</span>
+      <span class="chip" data-v="[결과물: IEP목표초안]">&#x1F4CB; IEP 목표</span>
+      <span class="chip" data-v="[결과물: 행동지원계획]">&#x1F4CA; PBS 계획</span>
+      <span class="chip" data-v="[결과물: 가정연계통신문]">&#x1F4EC; 가정 통신문</span>
+      <span class="chip" data-v="[결과물: PECS카드]">&#x1F0CF; PECS 카드</span>
+      <span class="chip" data-v="[결과물: 시각규칙판]">&#x1F6A6; 시각 규칙판</span>
+    </div>
+
+    <div style="font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:4px">2. 교육과정</div>
+    <div class="chip-area" id="ca2">
+      <span class="chip" data-v="[교육과정: 기본]">&#x1F4D7; 기본</span>
+      <span class="chip" data-v="[교육과정: 공통]">&#x1F4D8; 공통</span>
+      <span class="chip" data-v="[교육과정: 선택중심]">&#x1F4D9; 선택중심</span>
+      <span class="chip" data-v="[교육과정: IEP기반]">&#x1F4D2; IEP기반</span>
+    </div>
+    <div class="chip-area" id="ca2b">
+      <span class="chip" data-v="[학년: 유치원]">&#x1F9E1; 유치원</span>
+      <span class="chip" data-v="[학년: 초1~2]">초1~2</span>
+      <span class="chip" data-v="[학년: 초3~4]">초3~4</span>
+      <span class="chip" data-v="[학년: 초5~6]">초5~6</span>
+      <span class="chip" data-v="[학년: 중학교]">중학교</span>
+      <span class="chip" data-v="[학년: 고등학교]">고등학교</span>
+    </div>
+    <div class="chip-area" id="ca2c">
+      <span class="chip" data-v="[교과: 국어]">&#x1F4D7; 국어</span>
+      <span class="chip" data-v="[교과: 수학]">&#x1F4D8; 수학</span>
+      <span class="chip" data-v="[교과: 사회]">&#x1F4D9; 사회</span>
+      <span class="chip" data-v="[교과: 과학]">&#x1F52C; 과학</span>
+      <span class="chip" data-v="[교과: 체육]">&#x1F3C3; 체육</span>
+      <span class="chip" data-v="[교과: 음악]">&#x1F3B5; 음악</span>
+      <span class="chip" data-v="[교과: 미술]">&#x1F3A8; 미술</span>
+      <span class="chip" data-v="[교과: 진로와직업]">&#x1F4BC; 진로</span>
+      <span class="chip" data-v="[교과: 도덕]">&#x1F49A; 도덕</span>
+      <span class="chip" data-v="[교과: 실과]">&#x1F527; 실과</span>
+      <span class="chip" data-v="[교과: 정보통신]">&#x1F4BB; 정보통신</span>
+      <span class="chip" data-v="[교과: 생활영어]">&#x1F30D; 생활영어</span>
+      <span class="chip" data-v="[교과: 보건]">&#x1F3E5; 보건</span>
+      <span class="chip" data-v="[교과: 창의적체험활동]">&#x1F31F; 창체</span>
+    </div>
+
+    <div style="font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:4px">5. 교수법 (EBP)</div>
+    <div class="chip-area" id="ca5">
+      <span class="chip" data-v="[교수법: ABA]">&#x1F52C; ABA</span>
+      <span class="chip" data-v="[교수법: DTT]">&#x1F501; DTT</span>
+      <span class="chip" data-v="[교수법: UDL]">&#x1F308; UDL</span>
+      <span class="chip" data-v="[교수법: Social Story]">&#x1F4D6; Social Story</span>
+      <span class="chip" data-v="[교수법: 과제분석]">&#x1F517; 과제분석</span>
+      <span class="chip" data-v="[교수법: PECS]">&#x1F0CF; PECS</span>
+      <span class="chip" data-v="[교수법: PBS]">&#x1F49A; PBS</span>
+      <span class="chip" data-v="[교수법: 감각통합]">&#x1F300; 감각통합</span>
+      <span class="chip" data-v="[교수법: 비디오모델링]">&#x1F3A5; 비디오모델링</span>
+      <span class="chip" data-v="[교수법: 자기관리]">&#x1F4CA; 자기관리</span>
+      <span class="chip" data-v="[교수법: 또래지원]">&#x1F46B; 또래지원</span>
+    </div>
+
+    <div style="font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:4px">6. 접근성</div>
+    <div class="chip-area" id="ca6">
+      <span class="chip" data-v="[접근성: TTS]">&#x1F50A; TTS</span>
+      <span class="chip" data-v="[접근성: 큰터치]">&#x1F446; 큰 터치</span>
+      <span class="chip" data-v="[접근성: 고대비]">&#x1F3A8; 고대비</span>
+      <span class="chip" data-v="[접근성: 픽토그램]">&#x1F5BC; 픽토그램</span>
+      <span class="chip" data-v="[접근성: 다감각피드백]">&#x1F389; 다감각</span>
+      <span class="chip" data-v="[접근성: 자기속도]">&#x23F8; 자기 속도</span>
+    </div>
+
+    <div style="font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:4px">7. 디자인</div>
+    <div class="chip-area" id="ca7">
+      <span class="chip" data-v="[디자인: 파스텔]">&#x1F33F; 파스텔</span>
+      <span class="chip" data-v="[디자인: 고대비]">&#x2B1B; 고대비</span>
+      <span class="chip" data-v="[디자인: 밝은따뜻]">&#x2600;&#xFE0F; 밝은 따뜻</span>
+      <span class="chip" data-v="[디자인: 미니멀]">&#x2B1C; 미니멀</span>
+      <span class="chip" data-v="[디자인: 캐릭터]">&#x1F43B; 캐릭터</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">&#x1F4DD; 수업 내용 입력</div>
+    <div class="form-group"><label class="form-label">수업 주제 & 학습 내용 (자세할수록 맞춤형!)</label><textarea class="form-textarea" id="bldTopic" rows="3" placeholder="예: 1~5까지 수 세기&#10;핵심 어휘: 하나~다섯&#10;현재 수준: 3까지 손가락으로 세기 가능&#10;학생 관심사: 공룡"></textarea></div>
+    <div class="form-group">
+      <label class="form-label">생성된 시스템 프롬프트 <span style="font-weight:400;color:var(--muted)">(자동 조합됨 — 수정 가능)</span></label>
+      <textarea class="form-textarea" id="bldOutput" rows="4" placeholder="위에서 칩을 선택하면 여기에 자동 누적됩니다."></textarea>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-pri" onclick="copyBuilder()">&#x1F4CB; 프롬프트 복사</button>
+      <button class="btn btn-ghost" onclick="clearBuilder()">&#x1F504; 초기화</button>
+    </div>
+  </div>
+
+  <!-- LLM Chat Interface -->
+  <div class="card" id="llmChatCard">
+    <div class="card-title">&#x1F4AC; AI 대화 — 로컬 LLM 연동</div>
+    <div class="card-subtitle">위에서 설정한 조건을 바탕으로 AI에게 직접 요청하세요. LM Studio 실행 필요 (기본 포트: 1234)</div>
+
+    <!-- LLM Settings -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:end">
+      <div class="form-group" style="margin-bottom:0;flex:1;min-width:200px">
+        <label class="form-label">LLM 서버 URL</label>
+        <input class="form-input" id="llmEndpoint" value="http://localhost:1234/v1/chat/completions" placeholder="http://localhost:1234/v1/chat/completions">
+      </div>
+      <div class="form-group" style="margin-bottom:0;min-width:120px">
+        <label class="form-label">모델명</label>
+        <input class="form-input" id="llmModel" value="" placeholder="auto">
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="testLLMConnection()" id="llmTestBtn">&#x1F50C; 연결 테스트</button>
+    </div>
+    <div id="llmStatus" style="font-size:.78rem;margin-bottom:12px;display:none"></div>
+
+    <!-- Chat Messages -->
+    <div id="chatMessages" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:16px;min-height:200px;max-height:480px;overflow-y:auto;margin-bottom:14px;display:flex;flex-direction:column;gap:12px">
+      <div class="chat-welcome" style="text-align:center;color:var(--muted);padding:40px 20px;font-size:.88rem;line-height:1.6">
+        &#x1F916; AI 어시스턴트에 오신 것을 환영합니다!<br>
+        위에서 칩을 선택한 뒤, 아래 입력창에 질문이나 요청을 보내세요.<br>
+        <span style="font-size:.78rem;color:var(--muted)">예: "자폐 학생을 위한 수 세기 학습 게임을 만들어주세요"</span>
+      </div>
+    </div>
+
+    <!-- Chat Input -->
+    <div style="display:flex;gap:8px;align-items:end">
+      <textarea class="form-textarea" id="chatInput" rows="2" placeholder="AI에게 요청할 내용을 입력하세요..." style="min-height:44px;resize:vertical;flex:1"></textarea>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <button class="btn btn-pri" onclick="sendToLLM()" id="chatSendBtn" style="height:44px">&#x1F680; 전송</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearChat()" style="font-size:.72rem">대화 초기화</button>
+      </div>
+    </div>
+    <div class="form-hint" style="margin-top:6px">Enter로 줄바꿈 · Ctrl+Enter로 전송 · 시스템 프롬프트가 자동으로 포함됩니다</div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PAGE 7: Crisis -->
+<!-- ============================================ -->
+<div class="page" id="p-crisis">
+  <div class="card">
+    <div class="card-title">&#x1F6A8; 위기행동 7단계 대처 (Acting-Out Cycle)</div>
+    <div class="card-subtitle">각 단계를 클릭하면 상세 대응 전략이 표시됩니다. Colvin & Sugai(1989)</div>
+    <div id="crisisSteps"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">&#x1F49A; 5-4-3-2-1 그라운딩 (학생과 함께 해보세요)</div>
+    <div class="card-subtitle">각 카드를 클릭하고 해당 감각을 적어보세요. 모두 완료하면 마음이 안정됩니다.</div>
+    <div class="ground-steps" id="groundSteps">
+      <div class="ground-card" onclick="activateGround(0)"><div class="emoji">&#x1F440;</div><div class="num">5</div><div class="txt">보이는 것</div></div>
+      <div class="ground-card" onclick="activateGround(1)"><div class="emoji">&#x1F590;</div><div class="num">4</div><div class="txt">느껴지는 것</div></div>
+      <div class="ground-card" onclick="activateGround(2)"><div class="emoji">&#x1F442;</div><div class="num">3</div><div class="txt">들리는 것</div></div>
+      <div class="ground-card" onclick="activateGround(3)"><div class="emoji">&#x1F443;</div><div class="num">2</div><div class="txt">냄새</div></div>
+      <div class="ground-card" onclick="activateGround(4)"><div class="emoji">&#x1F445;</div><div class="num">1</div><div class="txt">맛/좋은 점</div></div>
+    </div>
+    <div class="ground-input" id="groundInput" style="display:none">
+      <label id="groundLabel">보이는 것 5가지를 적어보세요</label>
+      <textarea id="groundText" placeholder="여기에 적어보세요..."></textarea>
+      <button class="btn btn-ok btn-sm" style="margin-top:6px" onclick="completeGround()">&#x2713; 완료</button>
+    </div>
+    <div id="groundDone" style="display:none;text-align:center;padding:20px;color:var(--ok);font-weight:600;font-size:1.1rem">&#x2705; 모든 단계 완료! 지금 기분이 어때요?</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">&#x1F49A; 심리안정실(Safety Zone) 이용 기록</div>
+    <div class="card-subtitle">처벌이 아닌 회복의 공간. 이용 기록을 남겨주세요.</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">이용 사유</label>
+        <select class="form-select" id="szReason"><option>불안</option><option>분노</option><option>위기전조</option><option>피로/과민</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">이용 날짜</label><input type="date" class="form-input" id="szDate"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">입실 시각</label><input type="time" class="form-input" id="szIn"></div>
+      <div class="form-group"><label class="form-label">퇴실 시각</label><input type="time" class="form-input" id="szOut"></div>
+    </div>
+    <div class="form-group"><label class="form-label">사용한 진정 전략</label><input class="form-input" id="szStrategy" placeholder="예: 호흡법, 그라운딩, 음악 듣기"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">교사 개입 정도</label>
+        <select class="form-select" id="szIntv"><option>최소</option><option>보통</option><option>적극적</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">학습 복귀 성공</label>
+        <select class="form-select" id="szReturn"><option value="Y">예</option><option value="N">아니오</option></select>
+      </div>
+    </div>
+    <button class="btn btn-pri" onclick="saveSZ()">&#x1F4BE; 기록 저장</button>
+    <ul class="data-list" id="szList" style="margin-top:16px"></ul>
+    <div class="empty-state" id="szEmpty"><span class="emoji">&#x1F4DD;</span>기록이 없습니다.</div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PAGE 8: Support -->
+<!-- ============================================ -->
+<div class="page" id="p-support">
+  <div class="card">
+    <div class="card-title">&#x1F4DA; 교사 지원 자료</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+      <div style="padding:18px;border:1px solid var(--border);border-radius:var(--r);background:var(--pri-soft)">
+        <strong>&#x1F3AC; PBS 영상 강의</strong>
+        <p style="font-size:.85rem;color:var(--sub);margin:6px 0">서울시교육청 제공 PBS 관련 공식 영상</p>
+        <a href="https://seoulpbs.sen.go.kr/home/kor/board.do?menuPos=66" target="_blank" style="font-size:.85rem;font-weight:700;color:var(--pri)">영상 강의실 바로가기 &rarr;</a>
+      </div>
+      <div style="padding:18px;border:1px solid var(--border);border-radius:var(--r);background:var(--teal-l)">
+        <strong>&#x1F6E1; 위기행동관리팀</strong>
+        <p style="font-size:.85rem;color:var(--sub);margin:6px 0">관리자 + 전문가 + 교사 팀 협력 체계</p>
+      </div>
+      <div style="padding:18px;border:1px solid var(--border);border-radius:var(--r);background:var(--warn-l)">
+        <strong>&#x2696; 교권 보호</strong>
+        <p style="font-size:.85rem;color:var(--sub);margin:6px 0">정당한 교육활동 법적 보호, 교육활동보호센터 지원</p>
+      </div>
+      <div style="padding:18px;border:1px solid var(--border);border-radius:var(--r);background:var(--acc-l)">
+        <strong>&#x1F49A; 회복 지원</strong>
+        <p style="font-size:.85rem;color:var(--sub);margin:6px 0">상해/심리적 어려움 시 공제회 지원 가능</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">&#x1F52C; 근거 기반 교수법(EBP) 11종 가이드</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+        <tr style="background:var(--pri-l)"><th style="padding:10px;text-align:left;color:var(--pri)">교수법</th><th style="padding:10px;text-align:left;color:var(--pri)">영문</th><th style="padding:10px;text-align:left;color:var(--pri)">설명</th></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid var(--border)">&#x1F52C; ABA</td><td style="padding:9px;border-bottom:1px solid var(--border)">Applied Behavior Analysis</td><td style="padding:9px;border-bottom:1px solid var(--border)">응용행동분석 — 행동의 원리를 체계적으로 적용</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid var(--border)">&#x1F501; DTT</td><td style="padding:9px;border-bottom:1px solid var(--border)">Discrete Trial Training</td><td style="padding:9px;border-bottom:1px solid var(--border)">개별 시행 훈련 — 자극&rarr;반응&rarr;강화 반복</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid var(--border)">&#x1F308; UDL</td><td style="padding:9px;border-bottom:1px solid var(--border)">Universal Design for Learning</td><td style="padding:9px;border-bottom:1px solid var(--border)">보편적 학습 설계 — 다양한 표상&middot;참여&middot;행동 수단</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid var(--border)">&#x1F4D6; Social Story</td><td style="padding:9px;border-bottom:1px solid var(--border)">Carol Gray Social Story</td><td style="padding:9px;border-bottom:1px solid var(--border)">사회적 이야기 — 5:1 서술-지시 비율</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid var(--border)">&#x1F517; 과제분석</td><td style="padding:9px;border-bottom:1px solid var(--border)">Task Analysis</td><td style="padding:9px;border-bottom:1px solid var(--border)">복잡한 과제를 단계별로 분해</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid var(--border)">&#x1F0CF; PECS</td><td style="padding:9px;border-bottom:1px solid var(--border)">Picture Exchange Communication</td><td style="padding:9px;border-bottom:1px solid var(--border)">그림 교환 의사소통 체계</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid var(--border)">&#x1F49A; PBS</td><td style="padding:9px;border-bottom:1px solid var(--border)">Positive Behavior Support</td><td style="padding:9px;border-bottom:1px solid var(--border)">긍정적 행동지원 — 예방 중심</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid var(--border)">&#x1F300; 감각통합</td><td style="padding:9px;border-bottom:1px solid var(--border)">Sensory Integration (Ayres)</td><td style="padding:9px;border-bottom:1px solid var(--border)">감각 자극 조절 및 통합 훈련</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid var(--border)">&#x1F3A5; 비디오모델링</td><td style="padding:9px;border-bottom:1px solid var(--border)">Video Modeling</td><td style="padding:9px;border-bottom:1px solid var(--border)">영상 시청을 통한 행동 모방 학습</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid var(--border)">&#x1F4CA; 자기관리</td><td style="padding:9px;border-bottom:1px solid var(--border)">Self-Management</td><td style="padding:9px;border-bottom:1px solid var(--border)">자기 점검, 자기 강화 전략</td></tr>
+        <tr><td style="padding:9px">&#x1F46B; 또래지원</td><td style="padding:9px">Peer Support / PMI</td><td style="padding:9px">또래 매개 중재, 또래 튜터링</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="background:var(--warn-l);border-color:#fde7b8">
+    <div class="card-title" style="color:#b45309">&#x26A0; 반드시 알아두세요</div>
+    <ul style="list-style:none;font-size:.88rem;color:#92400e">
+      <li style="padding:5px 0">&#x2022; AI는 보조 도구입니다. 모든 결과물은 교사가 검토/수정 후 사용하세요.</li>
+      <li style="padding:5px 0">&#x2022; 학생 실명, 생년월일, 학번 등 개인정보를 절대 입력하지 마세요.</li>
+      <li style="padding:5px 0">&#x2022; AI가 제시하는 성취기준 코드는 <a href="https://ncic.re.kr" target="_blank">ncic.re.kr</a>에서 반드시 확인하세요.</li>
+      <li style="padding:5px 0">&#x2022; 교실 내 사용은 자유이나, 상업적 배포 시 저작권에 유의하세요.</li>
+    </ul>
+  </div>
+</div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ===== Modals ===== -->
+<div class="modal-bg" id="addStuModal">
+  <div class="modal">
+    <h3>&#x2795; 새 학생 추가</h3>
+    <div class="form-group"><label class="form-label">익명 ID (실명 금지)</label><input class="form-input" id="newStuId" placeholder="예: A학생, 학생1"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">학교급</label>
+        <select class="form-select" id="newStuLevel"><option>초등</option><option>중등</option><option>고등</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">주요 장애 영역</label>
+        <select class="form-select" id="newStuDis"><option>지적장애</option><option>자폐스펙트럼(ASD)</option><option>지체장애</option><option>청각장애</option><option>시각장애</option><option>정서행동장애</option><option>학습장애</option><option>ADHD</option><option>발달지연</option><option>중복중증</option></select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">비식별 요약 (이 내용만 AI에 전송)</label><textarea class="form-textarea" id="newStuNote" placeholder="주의: 이름, 학년, 실명, 민감정보를 넣지 마세요.&#10;예: 초등 3학년 수준, 지적장애, 수 개념 기초 단계"></textarea></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeModal('addStuModal')">취소</button>
+      <button class="btn btn-pri" onclick="addStudent()">추가</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="editStuModal">
+  <div class="modal">
+    <h3>&#x270F; 프로필 수정</h3>
+    <div class="form-group"><label class="form-label">학교급</label><select class="form-select" id="editLevel"><option>초등</option><option>중등</option><option>고등</option></select></div>
+    <div class="form-group"><label class="form-label">주요 장애 영역</label><select class="form-select" id="editDis"><option>지적장애</option><option>자폐스펙트럼(ASD)</option><option>지체장애</option><option>청각장애</option><option>시각장애</option><option>정서행동장애</option><option>학습장애</option><option>ADHD</option><option>발달지연</option><option>중복중증</option></select></div>
+    <div class="form-group"><label class="form-label">비식별 요약</label><textarea class="form-textarea" id="editNote"></textarea></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeModal('editStuModal')">취소</button>
+      <button class="btn btn-pri" onclick="updateStudent()">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="abcExModal">
+  <div class="modal">
+    <h3>&#x1F4CB; ABC 작성 예시</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:.85rem;margin:12px 0">
+      <tr style="background:var(--err-l)"><th style="padding:8px;text-align:left">구분</th><th style="padding:8px">&#x274C; 나쁜 예시 (주관적)</th><th style="padding:8px">&#x2705; 좋은 예시 (관찰 가능)</th></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid var(--border);font-weight:600">A</td><td style="padding:8px;border-bottom:1px solid var(--border);color:var(--err)">기분이 안 좋아 보일 때</td><td style="padding:8px;border-bottom:1px solid var(--border);color:var(--ok)">수학 익힘책 15쪽을 풀라고 지시했을 때</td></tr>
+      <tr><td style="padding:8px;border-bottom:1px solid var(--border);font-weight:600">B</td><td style="padding:8px;border-bottom:1px solid var(--border);color:var(--err)">반항적으로 행동했다</td><td style="padding:8px;border-bottom:1px solid var(--border);color:var(--ok)">"싫어!"라고 소리치며 책을 바닥에 던졌다</td></tr>
+      <tr><td style="padding:8px;font-weight:600">C</td><td style="padding:8px;color:var(--err)">혼냈다</td><td style="padding:8px;color:var(--ok)">교사가 다가가 "책을 주우세요"라고 지시했으나 거부함</td></tr>
+    </table>
+    <p style="font-size:.8rem;color:var(--muted)">출처: 국립특수교육원</p>
+    <p style="font-size:.85rem;color:var(--sub);margin-top:8px"><strong>Dead Man's Test:</strong> "죽은 사람도 할 수 있으면 행동이 아니다"<br>&#x274C; "수업을 방해하지 않는다" &rarr; &#x2705; "수업 시간에 자리에 앉아 과제를 수행한다"</p>
+    <div style="text-align:right;margin-top:16px"><button class="btn btn-ghost" onclick="closeModal('abcExModal')">닫기</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ==============================
+// AUTH
+// ==============================
+let currentUser=null;
+
+// API helper
+async function api(path, method='GET', body=null) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  if (!r.ok) {
+    const err = await r.json().catch(()=>({error:'요청 실패'}));
+    throw new Error(err.error || '서버 오류');
+  }
+  return r.json();
+}
+
+function switchAuthTab(t){
+  document.getElementById('tabLogin').classList.toggle('on',t==='login');
+  document.getElementById('tabSignup').classList.toggle('on',t==='signup');
+  document.getElementById('formLogin').classList.toggle('on',t==='login');
+  document.getElementById('formSignup').classList.toggle('on',t==='signup');
+}
+async function doLogin(e){
+  e.preventDefault();
+  const email=document.getElementById('loginEmail').value.trim();
+  const password=document.getElementById('loginPw').value;
+  try {
+    const data = await api('/api/auth/login','POST',{email,password});
+    currentUser={id:data.user.id, name:data.user.name, email:data.user.email, school:data.user.school};
+    enterApp();
+  } catch(err) {
+    toast('로그인 실패: '+err.message);
+  }
+}
+async function doSignup(e){
+  e.preventDefault();
+  const name=document.getElementById('suName').value.trim();
+  const email=document.getElementById('suEmail').value.trim();
+  const password=document.getElementById('suPw').value;
+  const school=document.getElementById('suSchool').value.trim();
+  try {
+    const data = await api('/api/auth/register','POST',{email,password,name,school});
+    currentUser={id:data.user.id, name:data.user.name, email:data.user.email, school:data.user.school};
+    toast(name+' 선생님, 환영합니다!');
+    enterApp();
+  } catch(err) {
+    toast('회원가입 실패: '+err.message);
+  }
+}
+function guestEnter(){
+  currentUser={id:null, name:'게스트',email:'guest',school:'둘러보기 모드'};
+  enterApp();
+}
+async function enterApp(){
+  document.getElementById('authScreen').classList.remove('show');
+  document.getElementById('mainApp').classList.add('show');
+  document.getElementById('userName').textContent=currentUser.name;
+  document.getElementById('userRole').textContent=currentUser.school||'선생님';
+  document.getElementById('userAvatar').textContent=currentUser.name.charAt(0);
+  document.getElementById('helloName').textContent=currentUser.name+' 선생님';
+  const today=new Date();
+  const wd=['일','월','화','수','목','금','토'][today.getDay()];
+  document.getElementById('helloDate').textContent=`${today.getFullYear()}년 ${today.getMonth()+1}월 ${today.getDate()}일 (${wd}) · 오늘도 따뜻한 하루 보내세요.`;
+  await loadStudents();
+  renderHome();
+}
+function doLogout(){
+  if(!confirm('로그아웃 하시겠습니까?'))return;
+  currentUser=null;
+  students=[];
+  curStu=null;
+  cachedABC=[];cachedMon=[];cachedFid=[];cachedBIP={};cachedQABF=new Array(25).fill(-1);cachedSZ=[];
+  studentDataCache={};
+  document.getElementById('mainApp').classList.remove('show');
+  document.getElementById('authScreen').classList.add('show');
+  document.getElementById('loginEmail').value='';
+  document.getElementById('loginPw').value='';
+}
+
+// ==============================
+// DATA STORE (API-backed)
+// ==============================
+let students=[];
+let curStu=null; // {id, dbId, level, dis, note}
+// Local caches for current student's data
+let cachedABC=[];
+let cachedMon=[];
+let cachedFid=[];
+let cachedBIP={};
+let cachedQABF=new Array(25).fill(-1);
+let cachedSZ=[];
+// Per-student cache for dashboard
+let studentDataCache={};
+
+async function loadStudents() {
+  if (!currentUser || !currentUser.id) return;
+  try {
+    const data = await api('/api/students?user_id='+currentUser.id);
+    students = (data.students||[]).map(s => ({
+      ...s,
+      id: s.student_code,
+      dbId: s.id,
+      dis: s.disability
+    }));
+    renderStuSelect();
+  } catch(e) {
+    toast('학생 목록 로딩 실패: ' + e.message);
+  }
+}
+
+async function fetchStudentData(dbId) {
+  if (studentDataCache[dbId]) return studentDataCache[dbId];
+  try {
+    const [abcRes, monRes, qabfRes, bipRes, fidRes, szRes] = await Promise.all([
+      api('/api/students/'+dbId+'/abc'),
+      api('/api/students/'+dbId+'/monitor'),
+      api('/api/students/'+dbId+'/qabf'),
+      api('/api/students/'+dbId+'/bip'),
+      api('/api/students/'+dbId+'/fidelity'),
+      api('/api/students/'+dbId+'/sz')
+    ]);
+    const cache = {
+      abc: abcRes.records||[],
+      mon: monRes.records||[],
+      qabf: qabfRes.responses || new Array(25).fill(-1),
+      bip: bipRes.bip||{},
+      fid: fidRes.records||[],
+      sz: szRes.records||[]
+    };
+    studentDataCache[dbId] = cache;
+    return cache;
+  } catch(e) {
+    toast('학생 데이터 로딩 실패: '+e.message);
+    return {abc:[],mon:[],fid:[],bip:{},qabf:new Array(25).fill(-1),sz:[]};
+  }
+}
+
+// ==============================
+// NAV
+// ==============================
+const titles={home:'홈',observe:'학생 관찰 및 이해',qabf:'기능평가 (QABF)',bip:'행동중재계획 (BIP)',monitor:'행동 데이터 기록',eval:'결과 확인 / 평가',builder:'AI 어시스턴트',crisis:'위기행동 관리 및 대처',support:'교사 지원 자료실'};
+function go(ev,page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('p-'+page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(ev&&ev.currentTarget){
+    ev.currentTarget.classList.add('active');
+  }else{
+    const btn=document.querySelector(`.nav-item[data-page="${page}"]`);
+    if(btn)btn.classList.add('active');
+  }
+  document.getElementById('pageTitle').textContent=titles[page]||'';
+  closeSidebar();
+  if(page==='home')renderHome();
+  if(page==='eval')renderAllEvalCharts();
+  renderStuHero(page);
+}
+function goFromHome(page){go(null,page)}
+function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('overlay').classList.add('show')}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('show')}
+
+// ==============================
+// MODAL / TOAST
+// ==============================
+function openModal(id){document.getElementById(id).classList.add('show')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
+
+// ==============================
+// STUDENT COLOR (hashed palette)
+// ==============================
+const stuPalette=['#4f6bed','#ff8fab','#12b886','#f59f00','#7c6cf0','#38b2ac','#ef476f','#1098ad'];
+function stuColor(id){let h=0;for(let i=0;i<id.length;i++){h=(h*31+id.charCodeAt(i))>>>0}return stuPalette[h%stuPalette.length]}
+
+// ==============================
+// STUDENT MANAGEMENT
+// ==============================
+async function addStudent(){
+  const student_code=document.getElementById('newStuId').value.trim();
+  if(!student_code){toast('익명 ID를 입력해주세요.');return}
+  if(students.find(s=>s.id===student_code)){toast('이미 존재하는 ID입니다.');return}
+  const level=document.getElementById('newStuLevel').value;
+  const disability=document.getElementById('newStuDis').value;
+  const note=document.getElementById('newStuNote').value;
+  try {
+    await api('/api/students','POST',{user_id:currentUser.id, student_code, level, disability, note});
+    await loadStudents();
+    document.getElementById('stuSelect').value=student_code;
+    await selectStudent();
+    closeModal('addStuModal');
+    document.getElementById('newStuId').value='';document.getElementById('newStuNote').value='';
+    toast(student_code+' 추가 완료');
+    renderHome();
+  } catch(e) {
+    toast('학생 추가 실패: '+e.message);
+  }
+}
+function renderStuSelect(){
+  const sel=document.getElementById('stuSelect');
+  sel.innerHTML='<option value="">-- 학생 선택 --</option>';
+  students.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.id;sel.appendChild(o)});
+}
+async function selectStudent(){
+  const id=document.getElementById('stuSelect').value;
+  curStu=students.find(s=>s.id===id)||null;
+  const show=!!curStu;
+  document.getElementById('stuProfile').style.display=show?'block':'none';
+  document.getElementById('noStuMsg').style.display=show?'none':'block';
+  document.getElementById('abcForm').style.display=show?'block':'none';
+  document.getElementById('abcListCard').style.display=show?'block':'none';
+  if(curStu){
+    document.getElementById('stuProfileContent').innerHTML=`<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:.88rem;color:var(--sub)"><span><strong>ID:</strong> ${curStu.id}</span><span><strong>학교급:</strong> ${curStu.level}</span><span><strong>장애:</strong> ${curStu.dis}</span></div><p style="font-size:.85rem;color:var(--muted);margin-top:8px">${curStu.note||'(비식별 요약 없음)'}</p>`;
+    // Fetch all data for selected student
+    const data = await fetchStudentData(curStu.dbId);
+    cachedABC=data.abc;
+    cachedMon=data.mon;
+    cachedFid=data.fid;
+    cachedBIP=data.bip;
+    cachedQABF=data.qabf;
+    cachedSZ=data.sz;
+    renderABCList();renderMonList();renderSZList();loadQABF();loadBIP();
+  }
+  // update all hero cards
+  ['observe','qabf','bip','monitor','eval'].forEach(p=>renderStuHero(p));
+}
+function selectStudentById(id){
+  document.getElementById('stuSelect').value=id;
+  selectStudent();
+}
+function openEditStu(){
+  if(!curStu)return;
+  document.getElementById('editLevel').value=curStu.level;
+  document.getElementById('editDis').value=curStu.dis;
+  document.getElementById('editNote').value=curStu.note||'';
+  openModal('editStuModal');
+}
+async function updateStudent(){
+  if(!curStu)return;
+  const level=document.getElementById('editLevel').value;
+  const dis=document.getElementById('editDis').value;
+  const note=document.getElementById('editNote').value;
+  try {
+    await api('/api/students','PUT',{id:curStu.dbId, level, disability:dis, note});
+    curStu.level=level;
+    curStu.dis=dis;
+    curStu.note=note;
+    // Update in students array too
+    const s=students.find(x=>x.dbId===curStu.dbId);
+    if(s){s.level=level;s.dis=dis;s.note=note;}
+    selectStudent();closeModal('editStuModal');toast('프로필 수정 완료');
+  } catch(e) {
+    toast('수정 실패: '+e.message);
+  }
+}
+
+// ==============================
+// STUDENT HERO CARD
+// ==============================
+function renderStuHero(page){
+  const host=document.getElementById('stuHero-'+page);
+  if(!host)return;
+  if(!curStu){host.innerHTML='';return}
+  const abc=cachedABC.length;
+  const mon=cachedMon.length;
+  const sz=cachedSZ.length;
+  const c=stuColor(curStu.id);
+  host.innerHTML=`
+    <div class="stu-hero">
+      <div class="stu-hero-avatar" style="background:linear-gradient(135deg,${c},${c}cc)">${curStu.id.charAt(0)}</div>
+      <div class="stu-hero-main">
+        <div class="stu-hero-name">${curStu.id}
+          <span class="badge badge-pri">${curStu.level}</span>
+          <span class="badge badge-purple">${curStu.dis}</span>
+        </div>
+        <div class="stu-hero-note">${curStu.note||'(비식별 요약 없음)'}</div>
+      </div>
+      <div class="stu-hero-meta">
+        <div class="m"><div class="v">${abc}</div><div class="l">ABC</div></div>
+        <div class="m"><div class="v">${mon}</div><div class="l">데이터</div></div>
+        <div class="m"><div class="v">${sz}</div><div class="l">안정실</div></div>
+      </div>
+    </div>`;
+}
+
+// ==============================
+// HOME DASHBOARD
+// ==============================
+function renderHome(){
+  // Stats
+  document.getElementById('sHomeStu').textContent=students.length;
+  let abcT=0,monT=0,szT=0;
+  students.forEach(s=>{
+    const c=studentDataCache[s.dbId];
+    if(c){abcT+=c.abc.length;monT+=c.mon.length;szT+=c.sz.length}
+  });
+  document.getElementById('sHomeABC').textContent=abcT;
+  document.getElementById('sHomeMon').textContent=monT;
+  document.getElementById('sHomeSZ').textContent=szT;
+
+  // Student cards
+  const grid=document.getElementById('stuGrid');
+  if(!students.length){
+    grid.innerHTML='<div class="card" style="grid-column:1/-1"><div class="empty-state"><span class="emoji">&#x1F464;</span>아직 등록된 학생이 없어요. 우측 상단 + 버튼으로 학생을 추가해 주세요.</div></div>';
+  }else{
+    grid.innerHTML=students.map(s=>{
+      const dc=studentDataCache[s.dbId]||{abc:[],mon:[],sz:[]};
+      const mons=dc.mon.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+      const last=mons[mons.length-1];
+      const first=mons[0];
+      let trend='flat',trendTxt='&#x2192;',deltaTxt='변화 없음';
+      if(mons.length>=2){
+        const delta=last.freq-first.freq;
+        if(delta<-1){trend='down';trendTxt='&#x2193;';deltaTxt=`${delta} 감소`}
+        else if(delta>1){trend='up';trendTxt='&#x2191;';deltaTxt=`+${delta} 증가`}
+      }
+      const abc=dc.abc.length;
+      const sz=dc.sz.length;
+      const c=stuColor(s.id);
+      return `<div class="stu-mini" onclick="selectStudentById('${s.id}');goFromHome('observe')">
+        <div class="stu-mini-head">
+          <div class="stu-avatar" style="background:linear-gradient(135deg,${c},${c}cc)">${s.id.charAt(0)}</div>
+          <div>
+            <div class="stu-mini-name">${s.id}</div>
+            <div class="stu-mini-meta">${s.level} · ${s.dis}</div>
+          </div>
+        </div>
+        <div class="stu-mini-body">${s.note||'(요약 없음)'}</div>
+        <div class="stu-mini-foot">
+          <div class="stu-mini-stat"><span>행동 추이</span><span class="v">${last?last.freq:0}회 <span class="trend ${trend}">${trendTxt}</span></span></div>
+          <div class="stu-mini-stat"><span>ABC</span><span class="v">${abc}건</span></div>
+          <div class="stu-mini-stat"><span>안정실</span><span class="v">${sz}회</span></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Recent activity (combine from all cached students)
+  const rec=[];
+  students.forEach(s=>{
+    const dc=studentDataCache[s.dbId]||{abc:[],mon:[],sz:[]};
+    dc.abc.forEach(r=>rec.push({type:'ABC',color:'var(--pri)',title:`${s.id} · ABC 기록`,desc:r.b?r.b.slice(0,40):'',date:r.date}));
+    dc.mon.slice(-2).forEach(r=>rec.push({type:'MON',color:'var(--ok)',title:`${s.id} · ${r.beh||'행동 데이터'}`,desc:`빈도 ${r.freq}회 / 강도 ${r.int}`,date:r.date}));
+    dc.sz.slice(-1).forEach(r=>rec.push({type:'SZ',color:'var(--warn)',title:`${s.id} · 심리안정실 이용`,desc:`사유: ${r.reason}`,date:r.date}));
+  });
+  rec.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const list=document.getElementById('recentList');
+  const empty=document.getElementById('recentEmpty');
+  if(!rec.length){list.innerHTML='';empty.style.display='block'}
+  else{
+    empty.style.display='none';
+    list.innerHTML=rec.slice(0,6).map(r=>`<li class="recent-item">
+      <span class="recent-dot" style="background:${r.color}"></span>
+      <div class="recent-body"><div class="t">${r.title}</div><div class="d">${r.desc}</div></div>
+      <span class="recent-when">${r.date}</span>
+    </li>`).join('');
+  }
+}
+
+// ==============================
+// ABC
+// ==============================
+async function saveABC(){
+  if(!curStu){toast('학생을 먼저 선택하세요.');return}
+  const a=document.getElementById('abcA').value.trim(),b=document.getElementById('abcB').value.trim(),c=document.getElementById('abcC').value.trim();
+  if(!a||!b||!c){toast('A, B, C를 모두 입력해주세요.');return}
+  const rec={date:document.getElementById('abcDate').value||new Date().toISOString().slice(0,10),time:document.getElementById('abcTime').value,a,b,c};
+  try {
+    await api('/api/students/'+curStu.dbId+'/abc','POST',rec);
+    // Refresh cache
+    const res=await api('/api/students/'+curStu.dbId+'/abc');
+    cachedABC=res.records||[];
+    if(studentDataCache[curStu.dbId])studentDataCache[curStu.dbId].abc=cachedABC;
+    document.getElementById('abcA').value='';document.getElementById('abcB').value='';document.getElementById('abcC').value='';document.getElementById('abcTime').value='';
+    renderABCList();toast('ABC 기록 저장 완료');
+    renderStuHero('observe');
+  } catch(e) {
+    toast('저장 실패: '+e.message);
+  }
+}
+function renderABCList(){
+  if(!curStu)return;
+  const list=cachedABC;
+  const ul=document.getElementById('abcList');ul.innerHTML='';
+  document.getElementById('abcEmpty').style.display=list.length?'none':'block';
+  document.getElementById('abcCount').textContent=list.length+'건';
+  list.slice().reverse().forEach((r)=>{
+    const li=document.createElement('li');li.className='data-item';
+    li.innerHTML=`<div class="data-item-head"><span class="badge badge-pri">${r.date}</span><span class="data-item-date">${r.time||''}</span></div><div class="data-item-body"><strong>A:</strong> ${r.a}<br><strong>B:</strong> ${r.b}<br><strong>C:</strong> ${r.c}</div><div class="data-item-actions"><button class="btn btn-ghost btn-sm" onclick="deleteABC(${r.id})">삭제</button></div>`;
+    ul.appendChild(li);
+  });
+}
+async function deleteABC(recordId){
+  if(!curStu)return;
+  try {
+    await api('/api/students/'+curStu.dbId+'/abc','DELETE',{id:recordId});
+    cachedABC=cachedABC.filter(r=>r.id!==recordId);
+    if(studentDataCache[curStu.dbId])studentDataCache[curStu.dbId].abc=cachedABC;
+    renderABCList();toast('삭제됨');renderStuHero('observe');
+  } catch(e) {
+    toast('삭제 실패: '+e.message);
+  }
+}
+
+// ==============================
+// QABF
+// ==============================
+const qabfQs=[
+  '다른 사람이 관심을 보이지 않을 때 이 행동을 한다',
+  '다른 사람이 가까이 있지 않을 때 이 행동을 한다',
+  '이 행동은 다른 사람의 반응(주목, 웃음, 꾸중 등)을 이끌어낸다',
+  '다른 사람과 1:1로 상호작용하지 않을 때 이 행동을 한다',
+  '다른 사람이 말을 걸거나 관심을 주면 이 행동이 멈춘다',
+  '어려운 과제나 활동을 요구받을 때 이 행동을 한다',
+  '이 행동 후 과제나 활동이 중단 또는 제거된다',
+  '새로운 과제가 주어지면 이 행동이 시작된다',
+  '이 행동은 요구나 지시와 관련이 있다',
+  '과제를 제거하면 이 행동이 멈춘다',
+  '원하는 물건이나 활동을 얻지 못할 때 이 행동을 한다',
+  '이 행동 후 원하는 것(물건, 음식, 활동)을 얻는다',
+  '선호하는 물건이나 활동이 제거될 때 이 행동을 한다',
+  '원하는 것을 주면 이 행동이 멈춘다',
+  '다른 사람이 가진 물건이나 활동을 원할 때 이 행동을 한다',
+  '혼자 있을 때도 이 행동을 한다',
+  '이 행동은 감각적 자극(촉각, 시각, 소리 등)을 제공하는 것 같다',
+  '이 행동은 주변 상황과 관계없이 반복적으로 나타난다',
+  '이 행동을 할 때 즐거워 보이거나 몰입하는 것 같다',
+  '이 행동은 특정한 감각 자극이 있을 때 증가한다',
+  '이 행동은 신체적 불편함(통증, 가려움 등)과 관련 있는 것 같다',
+  '이 행동은 특정 환경 조건(소음, 조명 등)에서 증가한다',
+  '이 행동은 피곤하거나 아플 때 더 심해진다',
+  '이 행동 후 신체적 불편이 감소하는 것 같다',
+  '이 행동은 정서적 각성(불안, 흥분)과 관련이 있는 것 같다'
+];
+const qCats=['관심','관심','관심','관심','관심','회피','회피','회피','회피','회피','획득','획득','획득','획득','획득','감각','감각','감각','감각','감각','비사회적','비사회적','비사회적','비사회적','비사회적'];
+function initQABF(){
+  const c=document.getElementById('qabfItems');c.innerHTML='';
+  qabfQs.forEach((q,i)=>{
+    const d=document.createElement('div');d.className='qabf-item';
+    d.innerHTML=`<span class="qabf-num">${i+1}</span><span class="qabf-q">${q} <span class="badge" style="font-size:.65rem;background:var(--surface2);color:var(--muted)">${qCats[i]}</span></span><div class="qabf-opts">${[0,1,2,3].map(v=>`<button class="qabf-opt" data-q="${i}" data-v="${v}" onclick="setQ(${i},${v},this)">${v}</button>`).join('')}</div>`;
+    c.appendChild(d);
+  });
+}
+async function setQ(qi,val,btn){
+  if(!curStu){toast('학생을 먼저 선택하세요.');return}
+  cachedQABF[qi]=val;
+  btn.parentElement.querySelectorAll('.qabf-opt').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  calcQABF();
+  // Save to server
+  try {
+    await api('/api/students/'+curStu.dbId+'/qabf','POST',{responses:cachedQABF});
+    if(studentDataCache[curStu.dbId])studentDataCache[curStu.dbId].qabf=cachedQABF;
+  } catch(e) {
+    toast('QABF 저장 실패: '+e.message);
+  }
+}
+function calcQABF(){
+  if(!curStu)return;
+  const d=cachedQABF;
+  const sums=[0,0,0,0,0];
+  for(let i=0;i<25;i++){if(d[i]>=0)sums[Math.floor(i/5)]+=d[i]}
+  for(let j=0;j<5;j++){
+    document.getElementById('qR'+j).textContent=sums[j];
+    document.getElementById('qB'+j).style.width=(sums[j]/15*100)+'%';
+  }
+}
+function loadQABF(){
+  if(!curStu)return;
+  const d=cachedQABF;
+  document.querySelectorAll('.qabf-opt').forEach(b=>{
+    const qi=+b.dataset.q,v=+b.dataset.v;
+    b.classList.toggle('sel',d[qi]===v);
+  });
+  calcQABF();
+}
+initQABF();
+
+// ==============================
+// BIP
+// ==============================
+async function saveBIP(){
+  if(!curStu){toast('학생을 먼저 선택하세요.');return}
+  const update={alt:document.getElementById('bipAlt').value,fct:document.getElementById('bipFCT').value,crit:document.getElementById('bipCrit').value};
+  cachedBIP=Object.assign(cachedBIP||{},update);
+  try {
+    await api('/api/students/'+curStu.dbId+'/bip','POST',cachedBIP);
+    if(studentDataCache[curStu.dbId])studentDataCache[curStu.dbId].bip=cachedBIP;
+    toast('목표 행동 저장 완료');
+  } catch(e) {
+    toast('저장 실패: '+e.message);
+  }
+}
+async function saveBIPStrategy(){
+  if(!curStu){toast('학생을 먼저 선택하세요.');return}
+  const update={prev:document.getElementById('bipPrev').value,teach:document.getElementById('bipTeach').value,reinf:document.getElementById('bipReinf').value,resp:document.getElementById('bipResp').value};
+  cachedBIP=Object.assign(cachedBIP||{},update);
+  try {
+    await api('/api/students/'+curStu.dbId+'/bip','POST',cachedBIP);
+    if(studentDataCache[curStu.dbId])studentDataCache[curStu.dbId].bip=cachedBIP;
+    toast('중재 전략 저장 완료');
+  } catch(e) {
+    toast('저장 실패: '+e.message);
+  }
+}
+function loadBIP(){
+  if(!curStu)return;
+  const d=cachedBIP||{};
+  document.getElementById('bipAlt').value=d.alt||'';
+  document.getElementById('bipFCT').value=d.fct||'';
+  document.getElementById('bipCrit').value=d.crit||'';
+  document.getElementById('bipPrev').value=d.prev||'';
+  document.getElementById('bipTeach').value=d.teach||'';
+  document.getElementById('bipReinf').value=d.reinf||'';
+  document.getElementById('bipResp').value=d.resp||'';
+}
+function printContract(){
+  const s=document.getElementById('conStu').value,c=document.getElementById('conCrit').value,t=document.getElementById('conTch').value,d1=document.getElementById('conStart').value,d2=document.getElementById('conEnd').value;
+  if(!s){toast('학생의 약속을 입력해주세요.');return}
+  const w=window.open('','','width=600,height=500');
+  w.document.write(`<html><head><title>행동 계약서</title><style>body{font-family:sans-serif;padding:40px;line-height:2}h1{text-align:center;border-bottom:3px double #333;padding-bottom:10px}.row{display:flex;justify-content:space-between;margin-top:40px}.sig{text-align:center;width:45%;border-top:1px solid #333;padding-top:8px}</style></head><body><h1>행동 계약서</h1><p><strong>나(학생)의 약속:</strong> ${s}</p><p><strong>성공 기준:</strong> ${c}</p><p><strong>선생님의 약속:</strong> ${t}</p><p><strong>계약 기간:</strong> ${d1} ~ ${d2}</p><div class="row"><div class="sig">학생 서명</div><div class="sig">교사 서명</div></div></body></html>`);
+  w.document.close();w.print();
+}
+
+// ==============================
+// MONITOR
+// ==============================
+async function saveMon(){
+  if(!curStu){toast('학생을 먼저 선택하세요.');return}
+  const rec={date:document.getElementById('monDate').value||new Date().toISOString().slice(0,10),beh:document.getElementById('monBeh').value,freq:+document.getElementById('monFreq').value,dur:+document.getElementById('monDur').value,int:+document.getElementById('monInt').value,alt:document.getElementById('monAlt').value,lat:+document.getElementById('monLat').value,dbr:+document.getElementById('monDBR').value,phase:'B'};
+  try {
+    await api('/api/students/'+curStu.dbId+'/monitor','POST',rec);
+    const res=await api('/api/students/'+curStu.dbId+'/monitor');
+    cachedMon=res.records||[];
+    if(studentDataCache[curStu.dbId])studentDataCache[curStu.dbId].mon=cachedMon;
+    renderMonList();toast('데이터 저장 완료');
+    renderStuHero('monitor');
+  } catch(e) {
+    toast('저장 실패: '+e.message);
+  }
+}
+function renderMonList(){
+  if(!curStu)return;
+  const list=cachedMon;
+  const ul=document.getElementById('monList');ul.innerHTML='';
+  document.getElementById('monEmpty').style.display=list.length?'none':'block';
+  document.getElementById('monCount').textContent=list.length+'건';
+  list.slice().reverse().forEach((r)=>{
+    const li=document.createElement('li');li.className='data-item';
+    li.innerHTML=`<div class="data-item-head"><span class="badge badge-pri">${r.date}</span><span class="data-item-date">${r.beh||''}</span></div><div class="data-item-body">빈도:${r.freq}회 | 지속:${r.dur}분 | 강도:${r.int} | 대체행동:${r.alt} | DBR:${r.dbr}</div><div class="data-item-actions"><button class="btn btn-ghost btn-sm" onclick="deleteMon(${r.id})">삭제</button></div>`;
+    ul.appendChild(li);
+  });
+}
+async function deleteMon(recordId){
+  if(!curStu)return;
+  try {
+    await api('/api/students/'+curStu.dbId+'/monitor','DELETE',{id:recordId});
+    cachedMon=cachedMon.filter(r=>r.id!==recordId);
+    if(studentDataCache[curStu.dbId])studentDataCache[curStu.dbId].mon=cachedMon;
+    renderMonList();toast('삭제됨');renderStuHero('monitor');
+  } catch(e) {
+    toast('삭제 실패: '+e.message);
+  }
+}
+
+function toggleFid(el){el.classList.toggle('checked')}
+async function saveFid(){
+  if(!curStu){toast('학생을 먼저 선택하세요.');return}
+  const checks=document.querySelectorAll('.fid-check');
+  const cnt=[...checks].filter(c=>c.classList.contains('checked')).length;
+  try {
+    await api('/api/students/'+curStu.dbId+'/fidelity','POST',{date:new Date().toISOString().slice(0,10),score:cnt,total:4});
+    const res=await api('/api/students/'+curStu.dbId+'/fidelity');
+    cachedFid=res.records||[];
+    if(studentDataCache[curStu.dbId])studentDataCache[curStu.dbId].fid=cachedFid;
+    toast(`충실도 저장 (${cnt}/4)`);
+  } catch(e) {
+    toast('저장 실패: '+e.message);
+  }
+}
+
+// ==============================
+// EVAL CHARTS
+// ==============================
+let chartMetric='freq';
+let evalChart=null,radarChartObj=null,fidChartObj=null,szDonutObj=null,szBarObj=null;
+
+function switchChart(e,metric){
+  document.querySelectorAll('#p-eval .tabs .tab').forEach(t=>t.classList.remove('on'));
+  e.target.classList.add('on');
+  chartMetric=metric;renderBehaviorChart();
+}
+
+function renderAllEvalCharts(){
+  renderRadarChart();
+  renderBehaviorChart();
+  renderFidChart();
+  renderSZCharts();
+}
+
+function renderRadarChart(){
+  if(!curStu)return;
+  const d=cachedQABF;if(!d)return;
+  const sums=[0,0,0,0,0];
+  for(let i=0;i<25;i++){if(d[i]>=0)sums[Math.floor(i/5)]+=d[i]}
+  const ctx=document.getElementById('radarChart');
+  if(radarChartObj)radarChartObj.destroy();
+  radarChartObj=new Chart(ctx,{type:'radar',data:{labels:['관심\n(Attention)','회피\n(Escape)','획득\n(Tangible)','감각\n(Sensory)','비사회적\n(Non-social)'],datasets:[{label:curStu.id+' QABF',data:sums,backgroundColor:'rgba(79,107,237,.15)',borderColor:'#4f6bed',borderWidth:2,pointBackgroundColor:['#4f6bed','#ef476f','#f59f00','#12b886','#1098ad'],pointRadius:6}]},options:{responsive:true,maintainAspectRatio:false,scales:{r:{beginAtZero:true,max:15,ticks:{stepSize:3,font:{size:10}},pointLabels:{font:{size:11}}}},plugins:{legend:{display:false}}}});
+}
+
+function renderBehaviorChart(){
+  if(!curStu)return;
+  const list=cachedMon;
+  if(!list.length)return;
+  const sorted=[...list].sort((a,b)=>a.date.localeCompare(b.date));
+  const labels=sorted.map(r=>r.date.slice(5));
+  const metricNames={freq:'빈도(횟수)',dur:'지속시간(분)',int:'강도(1~5)',dbr:'DBR(0~10)'};
+  const data=sorted.map(r=>r[chartMetric]);
+  const phaseIdx=sorted.findIndex(r=>r.phase==='B');
+  const ctx=document.getElementById('evalChart');
+  if(evalChart)evalChart.destroy();
+
+  const baseData=data.map((v,i)=>i<phaseIdx?v:null);
+  const intData=data.map((v,i)=>i>=phaseIdx?v:null);
+  const baseVals=data.slice(0,phaseIdx),intVals=data.slice(phaseIdx);
+  const baseAvg=baseVals.length?baseVals.reduce((a,b)=>a+b,0)/baseVals.length:0;
+  const intAvg=intVals.length?intVals.reduce((a,b)=>a+b,0)/intVals.length:0;
+
+  evalChart=new Chart(ctx,{type:'line',data:{labels,datasets:[
+    {label:'기초선 (A)',data:baseData,borderColor:'#ef476f',backgroundColor:'rgba(239,71,111,.08)',fill:true,tension:.3,pointRadius:5,pointBackgroundColor:'#ef476f',spanGaps:false},
+    {label:'중재 후 (B)',data:intData,borderColor:'#12b886',backgroundColor:'rgba(18,184,134,.08)',fill:true,tension:.3,pointRadius:5,pointBackgroundColor:'#12b886',spanGaps:false},
+    {label:'기초선 평균 ('+baseAvg.toFixed(1)+')',data:labels.map((_,i)=>i<phaseIdx?baseAvg:null),borderColor:'rgba(239,71,111,.4)',borderDash:[6,4],pointRadius:0,fill:false,spanGaps:false},
+    {label:'중재 후 평균 ('+intAvg.toFixed(1)+')',data:labels.map((_,i)=>i>=phaseIdx?intAvg:null),borderColor:'rgba(18,184,134,.4)',borderDash:[6,4],pointRadius:0,fill:false,spanGaps:false}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},scales:{y:{beginAtZero:true,title:{display:true,text:metricNames[chartMetric]}}}}});
+}
+
+function renderFidChart(){
+  if(!curStu)return;
+  const list=cachedFid;
+  if(!list.length)return;
+  const sorted=[...list].sort((a,b)=>a.date.localeCompare(b.date));
+  const labels=sorted.map(r=>r.date.slice(5));
+  const data=sorted.map(r=>Math.round(r.score/r.total*100));
+  const colors=data.map(v=>v>=75?'#12b886':v>=50?'#f59f00':'#ef476f');
+  const ctx=document.getElementById('fidChart');
+  if(fidChartObj)fidChartObj.destroy();
+  fidChartObj=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'충실도 (%)',data,backgroundColor:colors,borderRadius:6,maxBarThickness:28}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,max:100,title:{display:true,text:'실행 충실도 (%)'},ticks:{callback:v=>v+'%'}}}}});
+}
+
+function renderSZCharts(){
+  if(!curStu)return;
+  const list=cachedSZ;
+  if(!list.length)return;
+  const reasons={};list.forEach(r=>{reasons[r.reason]=(reasons[r.reason]||0)+1});
+  const rLabels=Object.keys(reasons),rData=Object.values(reasons);
+  const rColors=['#4f6bed','#ef476f','#f59f00','#12b886'];
+  const ctx1=document.getElementById('szDonut');
+  if(szDonutObj)szDonutObj.destroy();
+  szDonutObj=new Chart(ctx1,{type:'doughnut',data:{labels:rLabels,datasets:[{data:rData,backgroundColor:rColors.slice(0,rLabels.length),borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10}}}}}});
+  const months={};list.forEach(r=>{const m=r.date.slice(0,7);months[m]=(months[m]||0)+1});
+  const mLabels=Object.keys(months).sort(),mData=mLabels.map(m=>months[m]);
+  const ctx2=document.getElementById('szBar');
+  if(szBarObj)szBarObj.destroy();
+  szBarObj=new Chart(ctx2,{type:'bar',data:{labels:mLabels,datasets:[{label:'이용 횟수',data:mData,backgroundColor:'#1098ad',borderRadius:6,maxBarThickness:32}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+}
+
+function comparePeriods(){
+  if(!curStu){toast('학생을 선택하세요.');return}
+  const a1=document.getElementById('compA1').value,a2=document.getElementById('compA2').value,b1=document.getElementById('compB1').value,b2=document.getElementById('compB2').value;
+  if(!a1||!a2||!b1||!b2){toast('기간 A, B 모두 입력해주세요.');return}
+  const list=cachedMon;
+  const inRange=(d,s,e)=>d>=s&&d<=e;
+  const grpA=list.filter(r=>inRange(r.date,a1,a2)),grpB=list.filter(r=>inRange(r.date,b1,b2));
+  if(!grpA.length||!grpB.length){toast('해당 기간에 데이터가 없습니다.');return}
+  const avg=(arr,k)=>(arr.reduce((s,r)=>s+r[k],0)/arr.length).toFixed(1);
+  const res=document.getElementById('compResult');
+  res.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:.85rem"><tr style="background:var(--pri-l)"><th style="padding:8px">지표</th><th style="padding:8px">기간 A (${grpA.length}건)</th><th style="padding:8px">기간 B (${grpB.length}건)</th><th style="padding:8px">변화</th></tr>${['freq','dur','int','dbr'].map(k=>{const a=avg(grpA,k),b=avg(grpB,k),d=(b-a).toFixed(1);return`<tr><td style="padding:8px;border-bottom:1px solid var(--border)">${{freq:'빈도',dur:'지속시간',int:'강도',dbr:'DBR'}[k]}</td><td style="padding:8px;border-bottom:1px solid var(--border)">${a}</td><td style="padding:8px;border-bottom:1px solid var(--border)">${b}</td><td style="padding:8px;border-bottom:1px solid var(--border);color:${d<0?'var(--ok)':'var(--err)'}"><strong>${d>0?'+':''}${d}</strong></td></tr>`}).join('')}</table>`;
+}
+
+// ==============================
+// PROMPT BUILDER
+// ==============================
+document.querySelectorAll('.chip-area .chip').forEach(chip=>{
+  chip.addEventListener('click',function(){
+    this.classList.toggle('on');
+    buildPrompt();
+  });
+});
+function buildPrompt(){
+  const sel={};
+  document.querySelectorAll('.chip-area .chip.on').forEach(c=>{
+    const v=c.dataset.v;
+    const m=v.match(/\[(.+?):\s*(.+?)\]/);
+    if(m){const cat=m[1],val=m[2];if(!sel[cat])sel[cat]=[];sel[cat].push(val)}
+  });
+  const topic=document.getElementById('bldTopic').value.trim();
+  if(!Object.keys(sel).length && !topic){document.getElementById('bldOutput').value='';return}
+  let p='당신은 특수교육 전문가이자 맞춤형 수업자료 제작 AI입니다.\n아래 조건에 맞는 수업 자료를 제작해 주세요.\n\n';
+  if(sel['결과물']){
+    const r=sel['결과물'].join(', ');
+    const isHTML=sel['결과물'].some(v=>v.includes('HTML'));
+    p+=`## 결과물 형태\n${r}\n`;
+    if(isHTML) p+='- HTML 단일 파일로 제작해 주세요. 별도 외부 파일 없이 하나의 .html로 완성해 주세요.\n';
+    p+='\n';
+  }
+  if(sel['장애']||sel['수준']){
+    p+='## 학생 프로파일\n';
+    if(sel['장애']) p+=`- 장애 유형: ${sel['장애'].join(', ')}\n`;
+    if(sel['수준']) p+=`- 기능 수준: ${sel['수준'].join(', ')}\n`;
+    p+='- 학생의 기능 수준에 맞게 어휘 수준, 문장 길이, 시각 지원 정도를 조절해 주세요.\n\n';
+  }
+  if(sel['교육과정']||sel['학년']||sel['교과']){
+    p+='## 교육과정 & 수업 정보\n';
+    if(sel['교육과정']) p+=`- 교육과정 유형: ${sel['교육과정'].join(', ')} (2022 개정)\n`;
+    if(sel['학년']) p+=`- 학년군: ${sel['학년'].join(', ')}\n`;
+    if(sel['교과']) p+=`- 교과: ${sel['교과'].join(', ')}\n`;
+    p+='\n';
+  }
+  if(topic){p+='## 수업 주제 & 학습 내용\n'+topic+'\n\n'}
+  if(sel['교수법']){
+    p+=`## 적용 교수법 (근거 기반 실제)\n`;
+    sel['교수법'].forEach(v=>{
+      const desc={ABA:'응용행동분석 원리 적용',DTT:'개별 시행 훈련(자극→반응→강화 반복)',UDL:'보편적 학습 설계(다양한 표상/참여/행동 수단)','Social Story':'Carol Gray 사회적 이야기(5:1 서술-지시 비율)',과제분석:'복잡한 과제를 단계별로 분해',PECS:'그림 교환 의사소통 체계',PBS:'긍정적 행동지원(예방 중심)',감각통합:'감각 자극 조절 및 통합(Ayres)',비디오모델링:'영상 시청을 통한 행동 모방 학습',자기관리:'자기 점검/자기 강화 전략',또래지원:'또래 매개 중재/또래 튜터링'};
+      p+=`- ${v}: ${desc[v]||''}\n`;
+    });
+    p+='\n';
+  }
+  if(sel['접근성']){
+    p+=`## 접근성 & 보조공학\n`;
+    sel['접근성'].forEach(v=>{
+      const desc={TTS:'텍스트 음성 변환(Web Speech API) 삽입',큰터치:'큰 터치 영역 확보(최소 48px)',고대비:'고대비 색상 적용',픽토그램:'그림 상징/아이콘 활용',다감각피드백:'시청각+촉각 동시 피드백',자기속도:'학생 자기 주도 진행(자동 넘김 없음)'};
+      p+=`- ${v}: ${desc[v]||''}\n`;
+    });
+    p+='\n';
+  }
+  if(sel['디자인']){p+=`## UI 디자인 스타일\n- ${sel['디자인'].join(', ')}\n\n`}
+  p+='## 제작 지침\n';
+  p+='- 학생 개인정보(실명, 학번 등)는 포함하지 마세요. "학생" 또는 "OO"으로 표기하세요.\n';
+  p+='- 정답/오답 피드백을 포함하고, 오답 시 격려와 재시도 기회를 주세요.\n';
+  p+='- 교사용 지도 메모(활용법, 촉진 방법)를 하단에 포함해 주세요.\n';
+  document.getElementById('bldOutput').value=p;
+}
+document.getElementById('bldTopic').addEventListener('input',buildPrompt);
+function copyBuilder(){
+  const v=document.getElementById('bldOutput').value;
+  if(!v.trim()){toast('프롬프트를 먼저 작성해주세요.');return}
+  navigator.clipboard.writeText(v).then(()=>toast('프롬프트 복사 완료!')).catch(()=>toast('복사 실패'));
+}
+function clearBuilder(){
+  document.querySelectorAll('.chip-area .chip.on').forEach(c=>c.classList.remove('on'));
+  document.getElementById('bldTopic').value='';document.getElementById('bldOutput').value='';
+  toast('초기화 완료');
+}
+
+// ==============================
+// LLM CHAT
+// ==============================
+let chatHistory=[];
+let isStreaming=false;
+
+// Ctrl+Enter to send
+document.getElementById('chatInput').addEventListener('keydown',function(e){
+  if(e.ctrlKey && e.key==='Enter'){e.preventDefault();sendToLLM()}
+});
+
+async function testLLMConnection(){
+  const btn=document.getElementById('llmTestBtn');
+  const status=document.getElementById('llmStatus');
+  const endpoint=document.getElementById('llmEndpoint').value.trim();
+  btn.disabled=true;btn.textContent='연결 중...';
+  status.style.display='block';
+  status.className='llm-status-ok';
+  status.textContent='연결 테스트 중...';
+  try{
+    // Try to reach the models endpoint to verify connection
+    const baseUrl=endpoint.replace(/\/chat\/completions$/,'').replace(/\/$/,'');
+    const modelsUrl=baseUrl+'/models';
+    const r=await fetch('/api/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        endpoint:endpoint,
+        model:document.getElementById('llmModel').value||'default',
+        messages:[{role:'user',content:'hi'}],
+        test:true
+      })
+    });
+    if(r.ok){
+      status.className='llm-status-ok';
+      status.innerHTML='&#x2705; LLM 서버 연결 성공!';
+    }else{
+      const err=await r.json().catch(()=>({error:'연결 실패'}));
+      status.className='llm-status-err';
+      status.innerHTML='&#x274C; '+( err.error||'연결 실패')+' — LM Studio가 실행 중인지 확인하세요.';
+    }
+  }catch(e){
+    status.className='llm-status-err';
+    status.innerHTML='&#x274C; 서버에 연결할 수 없습니다. LM Studio를 실행해주세요.';
+  }
+  btn.disabled=false;btn.textContent='🔌 연결 테스트';
+}
+
+function addChatMessage(role,content){
+  const container=document.getElementById('chatMessages');
+  // Remove welcome message if present
+  const welcome=container.querySelector('.chat-welcome');
+  if(welcome)welcome.remove();
+
+  const div=document.createElement('div');
+  div.className='chat-msg '+role;
+  const avatarIcon=role==='user'?'👤':'🤖';
+  div.innerHTML=`
+    <div class="chat-avatar-sm">${avatarIcon}</div>
+    <div>
+      <div class="chat-bubble">${escapeHtml(content)}</div>
+      ${role==='assistant'?`<div class="chat-actions"><button onclick="copyMsgText(this)">📋 복사</button></div>`:''}
+    </div>
+  `;
+  container.appendChild(div);
+  container.scrollTop=container.scrollHeight;
+  return div;
+}
+
+function addStreamingMessage(){
+  const container=document.getElementById('chatMessages');
+  const welcome=container.querySelector('.chat-welcome');
+  if(welcome)welcome.remove();
+
+  const div=document.createElement('div');
+  div.className='chat-msg assistant';
+  div.id='streamingMsg';
+  div.innerHTML=`
+    <div class="chat-avatar-sm">🤖</div>
+    <div>
+      <div class="chat-bubble"><div class="chat-typing"><span></span><span></span><span></span></div></div>
+    </div>
+  `;
+  container.appendChild(div);
+  container.scrollTop=container.scrollHeight;
+  return div;
+}
+
+function updateStreamingMessage(text){
+  const div=document.getElementById('streamingMsg');
+  if(!div)return;
+  const bubble=div.querySelector('.chat-bubble');
+  bubble.innerHTML=formatChatContent(text);
+  const container=document.getElementById('chatMessages');
+  container.scrollTop=container.scrollHeight;
+}
+
+function finalizeStreamingMessage(text){
+  const div=document.getElementById('streamingMsg');
+  if(!div)return;
+  div.removeAttribute('id');
+  const bubble=div.querySelector('.chat-bubble');
+  bubble.innerHTML=formatChatContent(text);
+  // Add actions
+  const actionsDiv=div.querySelector('.chat-actions');
+  if(!actionsDiv){
+    const wrap=div.querySelector('.chat-bubble').parentElement;
+    const actions=document.createElement('div');
+    actions.className='chat-actions';
+    actions.innerHTML='<button onclick="copyMsgText(this)">📋 복사</button>';
+    wrap.appendChild(actions);
+  }
+}
+
+function formatChatContent(text){
+  // Basic markdown-like formatting
+  let html=escapeHtml(text);
+  // Code blocks
+  html=html.replace(/```(\w*)\n([\s\S]*?)```/g,'<pre><code>$2</code></pre>');
+  // Inline code
+  html=html.replace(/`([^`]+)`/g,'<code>$1</code>');
+  // Bold
+  html=html.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  return html;
+}
+
+function escapeHtml(str){
+  const d=document.createElement('div');
+  d.appendChild(document.createTextNode(str));
+  return d.innerHTML;
+}
+
+function copyMsgText(btn){
+  const bubble=btn.closest('.chat-msg').querySelector('.chat-bubble');
+  const text=bubble.innerText||bubble.textContent;
+  navigator.clipboard.writeText(text).then(()=>toast('복사 완료!')).catch(()=>toast('복사 실패'));
+}
+
+async function sendToLLM(){
+  if(isStreaming)return;
+  const input=document.getElementById('chatInput');
+  const userMsg=input.value.trim();
+  if(!userMsg){toast('메시지를 입력해주세요.');return}
+
+  const endpoint=document.getElementById('llmEndpoint').value.trim();
+  const model=document.getElementById('llmModel').value.trim();
+  const systemPrompt=document.getElementById('bldOutput').value.trim();
+
+  // Add user message to UI
+  addChatMessage('user',userMsg);
+  input.value='';
+
+  // Build messages array
+  const messages=[];
+  if(systemPrompt){
+    messages.push({role:'system',content:systemPrompt});
+  }
+  // Add chat history (last 20 messages for context)
+  chatHistory.push({role:'user',content:userMsg});
+  const recentHistory=chatHistory.slice(-20);
+  messages.push(...recentHistory);
+
+  // Show streaming indicator
+  addStreamingMessage();
+  isStreaming=true;
+  const sendBtn=document.getElementById('chatSendBtn');
+  sendBtn.disabled=true;sendBtn.textContent='생성 중...';
+
+  try{
+    const r=await fetch('/api/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({endpoint,model:model||undefined,messages})
+    });
+
+    if(!r.ok){
+      const err=await r.json().catch(()=>({error:'요청 실패'}));
+      throw new Error(err.error||err.detail||'LLM 서버 오류');
+    }
+
+    // Read streaming response
+    const reader=r.body.getReader();
+    const decoder=new TextDecoder();
+    let fullText='';
+    let buffer='';
+
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      buffer+=decoder.decode(value,{stream:true});
+
+      // Parse SSE lines
+      const lines=buffer.split('\n');
+      buffer=lines.pop()||'';
+
+      for(const line of lines){
+        const trimmed=line.trim();
+        if(!trimmed||!trimmed.startsWith('data: '))continue;
+        const data=trimmed.slice(6);
+        if(data==='[DONE]')continue;
+        try{
+          const json=JSON.parse(data);
+          const delta=json.choices?.[0]?.delta?.content;
+          if(delta){
+            fullText+=delta;
+            updateStreamingMessage(fullText);
+          }
+        }catch(e){/* skip non-JSON lines */}
+      }
+    }
+
+    // Finalize
+    if(fullText){
+      finalizeStreamingMessage(fullText);
+      chatHistory.push({role:'assistant',content:fullText});
+    }else{
+      // No content received — remove streaming message
+      const s=document.getElementById('streamingMsg');
+      if(s)s.remove();
+      addChatMessage('assistant','(응답이 비어있습니다. LLM 서버를 확인해주세요.)');
+    }
+  }catch(e){
+    const s=document.getElementById('streamingMsg');
+    if(s)s.remove();
+    addChatMessage('assistant','⚠️ 오류: '+e.message);
+  }
+
+  isStreaming=false;
+  sendBtn.disabled=false;sendBtn.textContent='🚀 전송';
+}
+
+function clearChat(){
+  chatHistory=[];
+  const container=document.getElementById('chatMessages');
+  container.innerHTML=`<div class="chat-welcome" style="text-align:center;color:var(--muted);padding:40px 20px;font-size:.88rem;line-height:1.6">
+    &#x1F916; AI 어시스턴트에 오신 것을 환영합니다!<br>
+    위에서 칩을 선택한 뒤, 아래 입력창에 질문이나 요청을 보내세요.<br>
+    <span style="font-size:.78rem;color:var(--muted)">예: "자폐 학생을 위한 수 세기 학습 게임을 만들어주세요"</span>
+  </div>`;
+  toast('대화가 초기화되었습니다.');
+}
+
+// ==============================
+// CRISIS 7-STEP
+// ==============================
+const crisisData=[
+  {n:1,name:'안정',en:'Calm',color:'#12b886',detail:'예방 전략을 유지하며 바람직한 행동을 적극 칭찬/강화합니다. 4:1 긍정 비율을 유지하고, 학급 규칙을 시각적으로 안내합니다. 안정 상태를 최대한 오래 유지하는 것이 핵심입니다.'},
+  {n:2,name:'전조',en:'Trigger',color:'#84cc16',detail:'자극 요소를 빠르게 제거하고, 관심을 다른 활동으로 전환합니다. 학생의 표정, 몸짓, 목소리 변화 등 초기 징후를 감지하는 것이 핵심입니다. "뭐가 필요해?" 등의 선택권 제공이 효과적입니다.'},
+  {n:3,name:'흥분',en:'Agitation',color:'#f59f00',detail:'공감적 경청: "힘들었구나" 등 감정을 인정합니다. 개인 공간을 제공하고, 2가지 이내 선택권을 부여합니다. 이 단계에서 적절히 대응하면 고조를 예방할 수 있습니다.'},
+  {n:4,name:'가속',en:'Acceleration',color:'#f97316',detail:'지시를 최소화하고, 안전 거리를 확보합니다. 설득이나 훈계는 역효과를 냅니다. 주변 위험물을 제거하고, 다른 학생들에게도 주의를 기울입니다. 위기행동관리팀에 사전 알림을 보냅니다.'},
+  {n:5,name:'고조/위기',en:'Peak',color:'#ef476f',detail:'안전 확보가 최우선입니다. 주변 학생을 즉시 대피시키고, 위기행동관리팀에 연락합니다. 매뉴얼에 따른 위기관리를 실행하며, 신체적 개입은 최후의 수단으로만 사용합니다. 모든 과정을 기록합니다.'},
+  {n:6,name:'탈고조',en:'De-escalation',color:'#f97316',detail:'간섭을 최소화하고, 독립적 공간(심리안정실)을 제공합니다. 새로운 자극이나 질문을 삼가고, 학생이 스스로 진정할 시간을 줍니다. 아직 불안정하므로 재자극에 주의합니다.'},
+  {n:7,name:'회복',en:'Recovery',color:'#12b886',detail:'쉬운 과제로 학습 복귀를 유도합니다. 사후 협의를 통해 "무엇이 힘들었는지" 함께 이야기하고, 다음을 위한 전략을 조정합니다. 심리안정실 이용 기록을 작성하고, 필요 시 보호자에게 안내합니다.'}
+];
+function initCrisis(){
+  const c=document.getElementById('crisisSteps');
+  crisisData.forEach(s=>{
+    const d=document.createElement('div');d.className='crisis-step';
+    d.onclick=function(){this.classList.toggle('expanded')};
+    d.innerHTML=`<div class="crisis-num" style="background:${s.color}">${s.n}</div><div class="crisis-info"><h4>${s.name} <span style="font-size:.75rem;color:var(--muted)">(${s.en})</span></h4><div class="crisis-detail">${s.detail}</div></div>`;
+    c.appendChild(d);
+  });
+}
+initCrisis();
+
+// ==============================
+// GROUNDING
+// ==============================
+const groundLabels=['보이는 것 5가지를 적어보세요','몸에 느껴지는 감각 4가지를 적어보세요','들리는 소리 3가지를 적어보세요','냄새 2가지를 적어보세요','맛 1가지 또는 좋은 점 1가지를 적어보세요'];
+let groundIdx=-1, groundDone=0;
+function activateGround(idx){
+  const cards=document.querySelectorAll('.ground-card');
+  if(cards[idx].classList.contains('done'))return;
+  groundIdx=idx;
+  document.getElementById('groundInput').style.display='block';
+  document.getElementById('groundLabel').textContent=groundLabels[idx];
+  document.getElementById('groundText').value='';
+  document.getElementById('groundText').focus();
+}
+function completeGround(){
+  if(groundIdx<0)return;
+  const cards=document.querySelectorAll('.ground-card');
+  cards[groundIdx].classList.add('done');
+  document.getElementById('groundInput').style.display='none';
+  groundDone++;
+  if(groundDone>=5){document.getElementById('groundDone').style.display='block'}
+}
+
+// ==============================
+// SAFETY ZONE
+// ==============================
+async function saveSZ(){
+  if(!curStu){toast('학생을 먼저 선택하세요.');return}
+  const rec={date:document.getElementById('szDate').value||new Date().toISOString().slice(0,10),reason:document.getElementById('szReason').value,in_t:document.getElementById('szIn').value,out_t:document.getElementById('szOut').value,strategy:document.getElementById('szStrategy').value,intv:document.getElementById('szIntv').value,ret:document.getElementById('szReturn').value};
+  try {
+    await api('/api/students/'+curStu.dbId+'/sz','POST',rec);
+    const res=await api('/api/students/'+curStu.dbId+'/sz');
+    cachedSZ=res.records||[];
+    if(studentDataCache[curStu.dbId])studentDataCache[curStu.dbId].sz=cachedSZ;
+    renderSZList();toast('기록 저장 완료');
+  } catch(e) {
+    toast('저장 실패: '+e.message);
+  }
+}
+function renderSZList(){
+  if(!curStu)return;
+  const list=cachedSZ;
+  const ul=document.getElementById('szList');ul.innerHTML='';
+  document.getElementById('szEmpty').style.display=list.length?'none':'block';
+  list.slice().reverse().forEach(r=>{
+    const li=document.createElement('li');li.className='data-item';
+    li.innerHTML=`<div class="data-item-head"><span class="badge badge-warn">${r.reason}</span><span class="data-item-date">${r.date} ${r.in_t}~${r.out_t}</span></div><div class="data-item-body">전략: ${r.strategy||'-'} | 개입: ${r.intv} | 복귀: ${r.ret==='Y'?'성공':'미복귀'}</div>`;
+    ul.appendChild(li);
+  });
+}
+
+// ==============================
+// INIT
+// ==============================
+document.getElementById('abcDate').value=new Date().toISOString().slice(0,10);
+document.getElementById('monDate').value=new Date().toISOString().slice(0,10);
+document.getElementById('szDate').value=new Date().toISOString().slice(0,10);
+</script>
+</body>
+</html>
