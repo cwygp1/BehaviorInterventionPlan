@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useToast } from '../../contexts/ToastContext';
+import MarkdownView from '../ui/MarkdownView';
 
 /**
  * Shared block for AI prompt builder modals — shows the AI output and the
@@ -44,10 +45,10 @@ export default function PromptResultBlock({ prompt, output, busy, meta }) {
         </div>
         {busy && !output ? (
           <div style={{ color: 'var(--muted)', fontSize: '.88rem' }}>AI가 응답 생성 중입니다...</div>
+        ) : output ? (
+          <MarkdownView>{output}</MarkdownView>
         ) : (
-          <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '.9rem', color: 'var(--text)', fontFamily: 'inherit', lineHeight: 1.7 }}>
-            {output || '아직 응답이 없습니다.'}
-          </pre>
+          <div style={{ color: 'var(--muted)', fontSize: '.88rem' }}>아직 응답이 없습니다.</div>
         )}
         {truncatedExplicit && (
           <div style={{ marginTop: 10, padding: '10px 12px', background: '#fff3d9', border: '1px solid #f3c47b', borderRadius: 6, fontSize: '.82rem', color: '#a76200' }}>
