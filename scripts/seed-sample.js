@@ -16,10 +16,10 @@
 
 const { sql } = require('@vercel/postgres');
 
-const TARGET_EMAIL = 'cwygp@naver.com';
-const SAMPLE_PREFIX = '샘플_';
-const TOTAL_DAYS = 30;
-const PHASE_SWITCH = 10; // First 10 days = Phase A, days 11-30 = Phase B
+const TARGET_EMAIL = 'gbm8810@naver.com';
+const SAMPLE_PREFIX = 'S_';
+const TOTAL_DAYS = 60;
+const PHASE_SWITCH = 30; // First 10 days = Phase A, days 11-30 = Phase B
 
 // ---- Helpers ----
 const daysAgo = (n) => {
