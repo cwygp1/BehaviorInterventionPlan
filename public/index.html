@@ -298,6 +298,17 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
 .qchip:active{transform:scale(.96)}
 .qchip.on{background:var(--pri);color:#fff;border-color:var(--pri)}
 .qchip.qchip-recent{border-color:var(--pri);color:var(--pri);font-weight:600;background:var(--pri-soft)}
+/* LLM 연결 상태 인디케이터 (토픽바) */
+.llm-indicator{cursor:pointer;padding:5px 12px;border-radius:99px;font-size:.76rem;font-weight:600;border:1px solid var(--border);transition:.15s;background:#f8f9fa;color:var(--muted);user-select:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.llm-indicator:hover{border-color:var(--pri);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.llm-indicator.on{color:#0a7d4e;background:#e7f7ee;border-color:#5cc88d}
+.llm-indicator.off{color:#a76200;background:#fff3d9;border-color:#f3c47b}
+.llm-indicator.err{color:#b32d2e;background:#fde7e8;border-color:#f3a0a1}
+.llm-indicator .dot{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block}
+.llm-status-msg{font-size:.78rem;padding:8px 12px;border-radius:6px;margin-top:8px}
+.llm-status-msg.ok{background:#e7f7ee;color:#0a7d4e}
+.llm-status-msg.err{background:#fde7e8;color:#b32d2e}
+.llm-status-msg.info{background:#e8eefb;color:#2a3568}
 
 /* === Chat Messages === */
 .chat-msg{display:flex;gap:10px;animation:fadeIn .25s ease}
@@ -505,6 +516,9 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
       <h1 id="pageTitle">홈</h1>
     </div>
     <div class="topbar-right">
+      <button class="llm-indicator off" id="llmIndicator" onclick="openLLMSettings()" title="AI(LM Studio) 연결 설정">
+        <span class="dot"></span><span id="llmIndicatorText">AI 미설정</span>
+      </button>
       <div class="stu-bar">
         <select class="stu-select" id="stuSelect" onchange="selectStudent()">
           <option value="">-- 학생 선택 --</option>
@@ -1160,6 +1174,36 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
 </div><!-- /app -->
 
 <!-- ===== Modals ===== -->
+<div class="modal-bg" id="aiSettingsModal">
+  <div class="modal" style="max-width:540px">
+    <h3>&#x1F916; AI(LLM) 연결 설정</h3>
+    <p style="font-size:.84rem;color:var(--sub);margin:6px 0 14px;line-height:1.6">
+      LM Studio 같은 OpenAI 호환 LLM 서버에 연결합니다. <strong>브라우저에서 직접 호출</strong>하므로,
+      LM Studio의 <strong>Server Settings → Cross-Origin Resource Sharing(CORS)</strong>를 ON 해야 합니다.
+    </p>
+    <div class="form-group">
+      <label class="form-label">Endpoint URL</label>
+      <input class="form-input" id="aiEndpoint" placeholder="http://localhost:1234/v1/chat/completions">
+      <div class="form-hint">LM Studio 기본값: <code>http://localhost:1234/v1/chat/completions</code></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">모델명 <span style="color:var(--muted);font-weight:500">(선택, 비우면 LM Studio 기본 모델)</span></label>
+      <input class="form-input" id="aiModel" placeholder="auto">
+    </div>
+    <div id="aiStatusMsg" style="display:none"></div>
+    <div style="display:flex;gap:8px;justify-content:space-between;margin-top:18px;flex-wrap:wrap">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="aiTestConnection()">&#x1F50C; 연결 테스트</button>
+        <button class="btn btn-ghost btn-sm" onclick="aiClearConfig()" style="color:var(--err)">초기화</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="closeModal('aiSettingsModal')">취소</button>
+        <button class="btn btn-pri" onclick="aiSaveConfig()">&#x1F4BE; 저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="pickStuModal">
   <div class="modal">
     <h3>&#x1F464; 학생을 먼저 선택해 주세요</h3>
@@ -1320,6 +1364,140 @@ async function fetchMe(){
     const data=await r.json();
     return data && data.user ? data.user : null;
   }catch(_){ return null; }
+}
+
+// ==============================
+// LLM (AI) connection — direct browser → LM Studio (or any OpenAI-compatible)
+// ==============================
+// Why direct browser call (not /api/chat proxy):
+//   - In Vercel production, the serverless function can't reach the user's
+//     localhost:1234. The browser can. Direct fetch from browser works
+//     identically in local dev and in production.
+//   - User must enable CORS in LM Studio (Server Settings → CORS).
+const LLM_KEY='seai.llm.config';
+const LLM_DEFAULT_ENDPOINT='http://localhost:1234/v1/chat/completions';
+const LLM_SYSTEM_PROMPT='당신은 특수교육 전문가이자 PBS(긍정적 행동지원) 컨설턴트입니다. 답변은 한국어로, 교사가 현장에서 바로 적용 가능한 구체적 형태로 작성합니다. 학생 정보는 익명·비식별 형태만 사용한다는 원칙을 항상 지킵니다.';
+function getLLMConfig(){
+  try{
+    const raw=localStorage.getItem(LLM_KEY);
+    if(!raw)return null;
+    const c=JSON.parse(raw);
+    return (c && c.endpoint) ? c : null;
+  }catch(_){ return null; }
+}
+function setLLMConfig(cfg){
+  localStorage.setItem(LLM_KEY, JSON.stringify(cfg));
+  updateLLMIndicator('on');
+}
+function clearLLMConfig(){
+  localStorage.removeItem(LLM_KEY);
+  updateLLMIndicator('off');
+}
+function updateLLMIndicator(state){
+  const el=document.getElementById('llmIndicator');
+  const txt=document.getElementById('llmIndicatorText');
+  if(!el || !txt) return;
+  el.classList.remove('on','off','err');
+  if(state==='on'){ el.classList.add('on'); txt.textContent='AI 연결됨'; }
+  else if(state==='err'){ el.classList.add('err'); txt.textContent='AI 끊김'; }
+  else { el.classList.add('off'); txt.textContent='AI 미설정'; }
+}
+async function _llmRequest(endpoint, model, messages, opts){
+  const ctrl=new AbortController();
+  const timeout=setTimeout(()=>ctrl.abort(), (opts?.timeout)||120000);
+  try{
+    const r=await fetch(endpoint, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: model || 'auto',
+        messages,
+        stream: false,
+        temperature: opts?.temperature ?? 0.7,
+        max_tokens: opts?.max_tokens ?? 2048,
+      }),
+      signal: ctrl.signal,
+    });
+    if(!r.ok){
+      let errMsg='LLM 응답 오류 ('+r.status+')';
+      try{ const j=await r.json(); if(j.error?.message) errMsg=j.error.message; }catch(_){}
+      throw new Error(errMsg);
+    }
+    const data=await r.json();
+    return data.choices?.[0]?.message?.content || '';
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+// 외부에서 호출하는 메인 진입점
+async function callLLM(prompt, opts){
+  const cfg=getLLMConfig();
+  if(!cfg) throw new Error('AI가 설정되지 않았습니다. 우측 상단 AI 버튼에서 LM Studio 연결을 먼저 설정해 주세요.');
+  const messages=[
+    { role:'system', content: opts?.system || LLM_SYSTEM_PROMPT },
+    { role:'user', content: prompt },
+  ];
+  try{
+    const text=await _llmRequest(cfg.endpoint, cfg.model, messages, opts);
+    updateLLMIndicator('on');
+    return text;
+  }catch(e){
+    updateLLMIndicator('err');
+    throw e;
+  }
+}
+// 설정 모달 핸들러
+function openLLMSettings(){
+  const cfg=getLLMConfig();
+  document.getElementById('aiEndpoint').value = cfg?.endpoint || LLM_DEFAULT_ENDPOINT;
+  document.getElementById('aiModel').value = cfg?.model || '';
+  document.getElementById('aiStatusMsg').style.display='none';
+  openModal('aiSettingsModal');
+}
+function _showAIStatus(type, html){
+  const el=document.getElementById('aiStatusMsg');
+  el.className='llm-status-msg '+type;
+  el.innerHTML=html;
+  el.style.display='block';
+}
+async function aiTestConnection(){
+  const endpoint=document.getElementById('aiEndpoint').value.trim();
+  const model=document.getElementById('aiModel').value.trim();
+  if(!endpoint){ _showAIStatus('err','Endpoint URL을 입력해 주세요.'); return; }
+  _showAIStatus('info','연결 테스트 중... (모델 로드 중이면 30초~1분 걸릴 수 있음)');
+  try{
+    const reply=await _llmRequest(endpoint, model, [
+      {role:'user', content:'한 줄로 "연결 성공"이라고만 답해주세요.'}
+    ], {timeout:60000, max_tokens:200});
+    const trimmed=(reply||'').trim();
+    if(trimmed){
+      _showAIStatus('ok','✅ 연결 성공! 모델 응답: "'+trimmed.slice(0,120)+(trimmed.length>120?'…':'')+'"');
+    } else {
+      _showAIStatus('ok','✅ 통신은 성공했지만 모델이 빈 응답을 반환했습니다.<br><small>LM Studio에 모델이 <strong>Load</strong> 되어 있는지 확인하세요. Reasoning 모델(DeepSeek-R1 등)은 정상 동작이지만 일반 chat 모델 권장 (Qwen2.5-Instruct, Gemma2-it, Llama-3.2-Instruct 등).</small>');
+    }
+  }catch(e){
+    let msg='❌ 연결 실패: '+e.message;
+    if(e.name==='AbortError') msg='❌ 응답 시간 초과 (60초). 더 작은 모델로 바꾸거나, LM Studio에서 모델이 완전히 Load 되었는지 확인하세요.';
+    if(e.message?.includes('Failed to fetch') || e.message?.includes('NetworkError')){
+      msg='❌ 서버에 닿지 못했습니다.<br><small>1) LM Studio가 실행 중인가요? &nbsp; 2) Server 탭에서 Start Server를 눌렀나요? &nbsp; 3) Server Settings에서 <strong>CORS</strong>를 ON 했나요?</small>';
+    }
+    _showAIStatus('err', msg);
+  }
+}
+function aiSaveConfig(){
+  const endpoint=document.getElementById('aiEndpoint').value.trim();
+  const model=document.getElementById('aiModel').value.trim();
+  if(!endpoint){ _showAIStatus('err','Endpoint URL을 입력해 주세요.'); return; }
+  setLLMConfig({endpoint, model});
+  toast('AI 연결 설정이 저장되었습니다.');
+  closeModal('aiSettingsModal');
+}
+function aiClearConfig(){
+  if(!confirm('저장된 AI 연결 설정을 삭제할까요?')) return;
+  clearLLMConfig();
+  document.getElementById('aiEndpoint').value=LLM_DEFAULT_ENDPOINT;
+  document.getElementById('aiModel').value='';
+  _showAIStatus('info','초기화되었습니다.');
 }
 
 // ==============================
@@ -2846,6 +3024,9 @@ function renderSZList(){
 document.getElementById('abcDate').value=new Date().toISOString().slice(0,10);
 document.getElementById('monDate').value=new Date().toISOString().slice(0,10);
 document.getElementById('szDate').value=new Date().toISOString().slice(0,10);
+
+// Initialize LLM indicator from saved config (no network call yet — kept fast).
+updateLLMIndicator(getLLMConfig() ? 'on' : 'off');
 
 // Restore session via the auth cookie (server validates JWT, returns user).
 (async function bootstrapSession(){
