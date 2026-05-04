@@ -50,7 +50,7 @@ export default function AISettingsModal({ open, onClose }) {
     }
   }
 
-  function onSave() {
+  async function onSave() {
     if (!endpoint.trim()) {
       setStatusMsg({ type: 'err', html: 'Endpoint URL을 입력해 주세요.' });
       return;
@@ -60,14 +60,23 @@ export default function AISettingsModal({ open, onClose }) {
       setStatusMsg({ type: 'err', html: '최대 출력 토큰은 256 ~ 65536 사이로 설정해 주세요.' });
       return;
     }
-    saveConfig({ endpoint: endpoint.trim(), model: model.trim(), max_tokens: mt });
-    toast('AI 연결 설정이 저장되었습니다.');
-    onClose();
+    setStatusMsg({ type: 'info', html: '저장 중...' });
+    try {
+      await saveConfig({ endpoint: endpoint.trim(), model: model.trim(), max_tokens: mt });
+      toast('AI 연결 설정이 저장되었습니다.');
+      onClose();
+    } catch (e) {
+      setStatusMsg({ type: 'err', html: '❌ 저장 실패: ' + (e?.message || '알 수 없는 오류') });
+    }
   }
 
-  function onClear() {
+  async function onClear() {
     if (!window.confirm('저장된 AI 연결 설정을 삭제할까요?')) return;
-    clearConfig();
+    try {
+      await clearConfig();
+    } catch (_) {
+      // best-effort — clearConfig swallows server errors but local state is cleared
+    }
     setEndpoint(LLM_DEFAULT_ENDPOINT);
     setModel('');
     setMaxTokens(8000);

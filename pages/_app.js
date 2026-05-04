@@ -7,12 +7,12 @@ import { LLMProvider } from '../contexts/LLMContext';
 export default function App({ Component, pageProps }) {
   return (
     <ToastProvider>
-      <LLMProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <LLMProvider>
           <Component {...pageProps} />
           <Analytics />
-        </AuthProvider>
-      </LLMProvider>
+        </LLMProvider>
+      </AuthProvider>
     </ToastProvider>
   );
 }
