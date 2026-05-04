@@ -290,6 +290,14 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
 .chip{padding:6px 14px;border-radius:99px;font-size:.8rem;border:1px solid var(--border);cursor:pointer;transition:.15s;background:var(--surface);user-select:none}
 .chip:hover{border-color:var(--pri);color:var(--pri);background:var(--pri-soft)}
 .chip.on{background:var(--pri);color:#fff;border-color:var(--pri);box-shadow:0 2px 6px rgba(79,107,237,.25)}
+/* Quick chips — single-click append/set to a specific input/textarea */
+.qchip-area{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 8px}
+.qchip-label{font-size:.72rem;color:var(--muted);font-weight:600;margin:6px 0 4px;letter-spacing:.02em}
+.qchip{padding:4px 11px;border-radius:99px;font-size:.76rem;border:1px solid var(--border);cursor:pointer;transition:.15s;background:var(--surface);user-select:none;color:var(--sub);white-space:nowrap}
+.qchip:hover{border-color:var(--pri);color:var(--pri);background:var(--pri-soft)}
+.qchip:active{transform:scale(.96)}
+.qchip.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.qchip.qchip-recent{border-color:var(--pri);color:var(--pri);font-weight:600;background:var(--pri-soft)}
 
 /* === Chat Messages === */
 .chat-msg{display:flex;gap:10px;animation:fadeIn .25s ease}
@@ -601,11 +609,40 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
     <div class="card-subtitle">선행사건(A) &rarr; 행동(B) &rarr; 결과(C)를 관찰 가능한 사실로 기록하세요. <button class="btn btn-ghost btn-sm" onclick="openModal('abcExModal')">작성 예시 보기</button></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">날짜</label><input type="date" class="form-input" id="abcDate"></div>
-      <div class="form-group"><label class="form-label">시간 / 장소</label><input class="form-input" id="abcTime" placeholder="예: 2교시 / 교실"></div>
+      <div class="form-group">
+        <label class="form-label">시간 / 장소</label>
+        <input class="form-input" id="abcTime" placeholder="예: 2교시 / 교실">
+        <div class="qchip-label">시간</div>
+        <div class="qchip-area">
+          <span class="qchip" data-mode="time">1교시</span><span class="qchip" data-mode="time">2교시</span><span class="qchip" data-mode="time">3교시</span><span class="qchip" data-mode="time">4교시</span><span class="qchip" data-mode="time">5교시</span><span class="qchip" data-mode="time">6교시</span><span class="qchip" data-mode="time">쉬는 시간</span><span class="qchip" data-mode="time">점심</span><span class="qchip" data-mode="time">등교</span><span class="qchip" data-mode="time">하교</span>
+        </div>
+        <div class="qchip-label">장소</div>
+        <div class="qchip-area">
+          <span class="qchip" data-mode="place">교실</span><span class="qchip" data-mode="place">복도</span><span class="qchip" data-mode="place">운동장</span><span class="qchip" data-mode="place">급식실</span><span class="qchip" data-mode="place">특별실</span><span class="qchip" data-mode="place">통합학급</span><span class="qchip" data-mode="place">화장실</span><span class="qchip" data-mode="place">보건실</span>
+        </div>
+      </div>
     </div>
-    <div class="form-group"><label class="form-label">A (선행사건, Antecedent)</label><textarea class="form-textarea" id="abcA" placeholder="행동 직전에 어떤 상황이 있었나요?&#10;예: 수학 익힘책 15쪽을 풀라고 지시했을 때"></textarea></div>
-    <div class="form-group"><label class="form-label">B (행동, Behavior)</label><textarea class="form-textarea" id="abcB" placeholder="학생이 정확히 어떤 행동을 했나요?&#10;예: &quot;싫어!&quot;라고 소리치며 책을 바닥에 던졌다"></textarea></div>
-    <div class="form-group"><label class="form-label">C (결과, Consequence)</label><textarea class="form-textarea" id="abcC" placeholder="행동 직후 어떤 결과가 발생했나요?&#10;예: 교사가 다가가 &quot;책을 주우세요&quot;라고 지시했으나 거부함"></textarea></div>
+    <div class="form-group">
+      <label class="form-label">A (선행사건, Antecedent)</label>
+      <div class="qchip-area">
+        <span class="qchip" data-mode="append" data-target="abcA">지시 받음</span><span class="qchip" data-mode="append" data-target="abcA">활동 전환 시</span><span class="qchip" data-mode="append" data-target="abcA">휴식 끝날 때</span><span class="qchip" data-mode="append" data-target="abcA">또래와 갈등</span><span class="qchip" data-mode="append" data-target="abcA">감각 자극(소음/조명)</span><span class="qchip" data-mode="append" data-target="abcA">낯선 환경</span><span class="qchip" data-mode="append" data-target="abcA">대기 시간</span><span class="qchip" data-mode="append" data-target="abcA">평가/시험 시작</span><span class="qchip" data-mode="append" data-target="abcA">좋아하는 활동 종료</span><span class="qchip" data-mode="append" data-target="abcA">요구 거절됨</span>
+      </div>
+      <textarea class="form-textarea" id="abcA" placeholder="행동 직전에 어떤 상황이 있었나요?&#10;예: 수학 익힘책 15쪽을 풀라고 지시했을 때"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">B (행동, Behavior)</label>
+      <div class="qchip-area">
+        <span class="qchip" data-mode="append" data-target="abcB">자리 이탈</span><span class="qchip" data-mode="append" data-target="abcB">소리 지르기</span><span class="qchip" data-mode="append" data-target="abcB">물건 던지기</span><span class="qchip" data-mode="append" data-target="abcB">거부</span><span class="qchip" data-mode="append" data-target="abcB">회피</span><span class="qchip" data-mode="append" data-target="abcB">공격 행동</span><span class="qchip" data-mode="append" data-target="abcB">자해</span><span class="qchip" data-mode="append" data-target="abcB">반복 행동</span><span class="qchip" data-mode="append" data-target="abcB">울기</span><span class="qchip" data-mode="append" data-target="abcB">도주</span><span class="qchip" data-mode="append" data-target="abcB">무반응</span><span class="qchip" data-mode="append" data-target="abcB">자기 자극</span>
+      </div>
+      <textarea class="form-textarea" id="abcB" placeholder="학생이 정확히 어떤 행동을 했나요?&#10;예: &quot;싫어!&quot;라고 소리치며 책을 바닥에 던졌다"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">C (결과, Consequence)</label>
+      <div class="qchip-area">
+        <span class="qchip" data-mode="append" data-target="abcC">교사 개입</span><span class="qchip" data-mode="append" data-target="abcC">활동 중단</span><span class="qchip" data-mode="append" data-target="abcC">또래 분리</span><span class="qchip" data-mode="append" data-target="abcC">심리안정실 이용</span><span class="qchip" data-mode="append" data-target="abcC">강화 제공</span><span class="qchip" data-mode="append" data-target="abcC">계획적 무시</span><span class="qchip" data-mode="append" data-target="abcC">대체행동 촉진</span><span class="qchip" data-mode="append" data-target="abcC">위기관리팀 호출</span><span class="qchip" data-mode="append" data-target="abcC">보호자 통보</span><span class="qchip" data-mode="append" data-target="abcC">학생 진정</span>
+      </div>
+      <textarea class="form-textarea" id="abcC" placeholder="행동 직후 어떤 결과가 발생했나요?&#10;예: 교사가 다가가 &quot;책을 주우세요&quot;라고 지시했으나 거부함"></textarea>
+    </div>
     <button class="btn btn-pri" onclick="saveABC()">&#x1F4BE; ABC 기록 저장</button>
   </div>
 
@@ -647,30 +684,79 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
   <div id="stuHero-bip"></div>
   <div class="card">
     <div class="card-title">&#x1F3AF; 목표 행동(대체 행동) 설정</div>
-    <div class="form-group"><label class="form-label">대체 행동 (문제행동 대신 할 바람직한 행동)</label><input class="form-input" id="bipAlt" placeholder="예: 쉬고 싶을 때 '쉬고 싶어요' 카드 들기"></div>
+    <div class="form-group">
+      <label class="form-label">대체 행동 (문제행동 대신 할 바람직한 행동)</label>
+      <div class="qchip-area">
+        <span class="qchip" data-mode="append" data-target="bipAlt">쉬어 카드 들기</span><span class="qchip" data-mode="append" data-target="bipAlt">"도와주세요" 카드</span><span class="qchip" data-mode="append" data-target="bipAlt">심호흡 3회</span><span class="qchip" data-mode="append" data-target="bipAlt">감각 도구 요청</span><span class="qchip" data-mode="append" data-target="bipAlt">휴식 신호</span><span class="qchip" data-mode="append" data-target="bipAlt">사회적 거리 두기</span><span class="qchip" data-mode="append" data-target="bipAlt">대안 활동 선택</span>
+      </div>
+      <input class="form-input" id="bipAlt" placeholder="예: 쉬고 싶을 때 '쉬고 싶어요' 카드 들기">
+    </div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">FCT 기술 (기능적 의사소통)</label><input class="form-input" id="bipFCT" placeholder="예: '도와주세요' 카드 사용"></div>
-      <div class="form-group"><label class="form-label">성공 기준</label><input class="form-input" id="bipCrit" placeholder="예: 하루 3회 미만 발생"></div>
+      <div class="form-group">
+        <label class="form-label">FCT 기술 (기능적 의사소통)</label>
+        <div class="qchip-area">
+          <span class="qchip" data-mode="append" data-target="bipFCT">"도와주세요" 카드</span><span class="qchip" data-mode="append" data-target="bipFCT">"쉬고 싶어요" 카드</span><span class="qchip" data-mode="append" data-target="bipFCT">"이해 안 돼요" 카드</span><span class="qchip" data-mode="append" data-target="bipFCT">"그만" 카드</span><span class="qchip" data-mode="append" data-target="bipFCT">PECS 그림 카드</span><span class="qchip" data-mode="append" data-target="bipFCT">AAC 음성 출력</span>
+        </div>
+        <input class="form-input" id="bipFCT" placeholder="예: '도와주세요' 카드 사용">
+      </div>
+      <div class="form-group">
+        <label class="form-label">성공 기준</label>
+        <div class="qchip-area">
+          <span class="qchip" data-mode="append" data-target="bipCrit">하루 3회 미만</span><span class="qchip" data-mode="append" data-target="bipCrit">주 5회 이상</span><span class="qchip" data-mode="append" data-target="bipCrit">2주 연속</span><span class="qchip" data-mode="append" data-target="bipCrit">한 달 연속</span><span class="qchip" data-mode="append" data-target="bipCrit">80% 이상</span><span class="qchip" data-mode="append" data-target="bipCrit">강도 2 이하</span>
+        </div>
+        <input class="form-input" id="bipCrit" placeholder="예: 하루 3회 미만 발생">
+      </div>
     </div>
     <button class="btn btn-pri" onclick="saveBIP()">&#x1F4BE; 목표 행동 저장</button>
   </div>
 
   <div class="card">
     <div class="card-title">&#x1F4DC; 중재 전략 (예방-교수-강화-반응)</div>
-    <div class="card-subtitle">각 영역에 구체적인 전략을 입력하세요.</div>
-    <div class="form-group"><label class="form-label">&#x1F6E1; 예방 전략 (Antecedent)</label><textarea class="form-textarea" id="bipPrev" placeholder="환경 조정, 선택권 제공, 시각적 지원 등&#10;예: 과제 전 시각적 일과표 제공, 과제 난이도 조절"></textarea></div>
-    <div class="form-group"><label class="form-label">&#x1F4D6; 교수 전략 (Teaching)</label><textarea class="form-textarea" id="bipTeach" placeholder="대체 기술 교수, 사회성 훈련, FCT 등&#10;예: '도움 요청 카드' 사용법 직접 교수(모델링+역할극)"></textarea></div>
-    <div class="form-group"><label class="form-label">&#x2B50; 강화 전략 (Reinforcement)</label><textarea class="form-textarea" id="bipReinf" placeholder="차별 강화(DRA/DRO), 토큰 경제, 4:1 비율 등&#10;예: 대체행동 수행 시 즉각 칭찬 + 스티커 1개"></textarea></div>
-    <div class="form-group"><label class="form-label">&#x1F6A8; 반응 절차 (Response)</label><textarea class="form-textarea" id="bipResp" placeholder="문제행동 발생 시 대응 프로토콜&#10;예: 관심 끌기 행동 시 10초 계획적 무시 후 대체행동 촉진"></textarea></div>
+    <div class="card-subtitle">각 영역에 구체적인 전략을 입력하세요. 칩을 클릭하면 textarea에 줄 단위로 누적됩니다.</div>
+    <div class="form-group">
+      <label class="form-label">&#x1F6E1; 예방 전략 (Antecedent)</label>
+      <div class="qchip-area">
+        <span class="qchip" data-mode="append" data-target="bipPrev">시각적 일과표 제공</span><span class="qchip" data-mode="append" data-target="bipPrev">선택권 2~3가지 제공</span><span class="qchip" data-mode="append" data-target="bipPrev">환경 조정(파티션 사용)</span><span class="qchip" data-mode="append" data-target="bipPrev">과제 난이도 조정</span><span class="qchip" data-mode="append" data-target="bipPrev">사전 예고 5분 전</span><span class="qchip" data-mode="append" data-target="bipPrev">감각 휴식 시간 일과 내 배치</span><span class="qchip" data-mode="append" data-target="bipPrev">4:1 긍정 비율 유지</span><span class="qchip" data-mode="append" data-target="bipPrev">좌석 배치 변경</span><span class="qchip" data-mode="append" data-target="bipPrev">시각 단서 카드</span><span class="qchip" data-mode="append" data-target="bipPrev">작업 분량 시각적 표시</span>
+      </div>
+      <textarea class="form-textarea" id="bipPrev" placeholder="환경 조정, 선택권 제공, 시각적 지원 등&#10;예: 과제 전 시각적 일과표 제공, 과제 난이도 조절"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">&#x1F4D6; 교수 전략 (Teaching)</label>
+      <div class="qchip-area">
+        <span class="qchip" data-mode="append" data-target="bipTeach">FCT 직접 교수</span><span class="qchip" data-mode="append" data-target="bipTeach">모델링 후 역할극</span><span class="qchip" data-mode="append" data-target="bipTeach">사회적 이야기(Carol Gray)</span><span class="qchip" data-mode="append" data-target="bipTeach">비디오 모델링</span><span class="qchip" data-mode="append" data-target="bipTeach">자기관리 훈련</span><span class="qchip" data-mode="append" data-target="bipTeach">또래 매개 중재(PMI)</span><span class="qchip" data-mode="append" data-target="bipTeach">과제 분석 단계별</span><span class="qchip" data-mode="append" data-target="bipTeach">점진적 촉진 줄이기</span>
+      </div>
+      <textarea class="form-textarea" id="bipTeach" placeholder="대체 기술 교수, 사회성 훈련, FCT 등&#10;예: '도움 요청 카드' 사용법 직접 교수(모델링+역할극)"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">&#x2B50; 강화 전략 (Reinforcement)</label>
+      <div class="qchip-area">
+        <span class="qchip" data-mode="append" data-target="bipReinf">차별강화 DRA(대체행동)</span><span class="qchip" data-mode="append" data-target="bipReinf">차별강화 DRO(부재 강화)</span><span class="qchip" data-mode="append" data-target="bipReinf">토큰 경제</span><span class="qchip" data-mode="append" data-target="bipReinf">즉각 칭찬 + 스티커</span><span class="qchip" data-mode="append" data-target="bipReinf">활동 강화(선호 활동)</span><span class="qchip" data-mode="append" data-target="bipReinf">4:1 긍정:재지도 비율</span><span class="qchip" data-mode="append" data-target="bipReinf">자연 강화 활용</span><span class="qchip" data-mode="append" data-target="bipReinf">고등급 강화물 신중 사용</span>
+      </div>
+      <textarea class="form-textarea" id="bipReinf" placeholder="차별 강화(DRA/DRO), 토큰 경제, 4:1 비율 등&#10;예: 대체행동 수행 시 즉각 칭찬 + 스티커 1개"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">&#x1F6A8; 반응 절차 (Response)</label>
+      <div class="qchip-area">
+        <span class="qchip" data-mode="append" data-target="bipResp">계획적 무시 10초</span><span class="qchip" data-mode="append" data-target="bipResp">대체행동 즉각 촉진</span><span class="qchip" data-mode="append" data-target="bipResp">안전 거리 확보</span><span class="qchip" data-mode="append" data-target="bipResp">심리안정실 이동</span><span class="qchip" data-mode="append" data-target="bipResp">위기관리팀 호출</span><span class="qchip" data-mode="append" data-target="bipResp">보호자 연락</span><span class="qchip" data-mode="append" data-target="bipResp">그라운딩 5-4-3-2-1</span><span class="qchip" data-mode="append" data-target="bipResp">신체적 개입(최후 수단, 5원칙 준수)</span>
+      </div>
+      <textarea class="form-textarea" id="bipResp" placeholder="문제행동 발생 시 대응 프로토콜&#10;예: 관심 끌기 행동 시 10초 계획적 무시 후 대체행동 촉진"></textarea>
+    </div>
     <button class="btn btn-pri" onclick="saveBIPStrategy()">&#x1F4BE; 중재 전략 저장</button>
   </div>
 
   <div class="card">
     <div class="card-title">&#x270D; 행동 계약서</div>
+    <div style="margin-bottom:10px"><button class="btn btn-ghost btn-sm" onclick="copyBIPToContract()">&#x1F4CB; BIP에서 가져오기</button> <span style="font-size:.75rem;color:var(--muted)">위에 입력된 대체 행동·성공 기준을 자동 채움</span></div>
     <div class="form-group"><label class="form-label">나(학생)의 약속</label><input class="form-input" id="conStu" placeholder="목표 행동"></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">성공 기준</label><input class="form-input" id="conCrit" placeholder="기간/빈도"></div>
-      <div class="form-group"><label class="form-label">선생님의 약속 (보상)</label><input class="form-input" id="conTch" placeholder="보상/강화"></div>
+      <div class="form-group">
+        <label class="form-label">선생님의 약속 (보상)</label>
+        <div class="qchip-area">
+          <span class="qchip" data-mode="append" data-target="conTch">스티커 5개당 작은 선물</span><span class="qchip" data-mode="append" data-target="conTch">특별 활동 시간</span><span class="qchip" data-mode="append" data-target="conTch">선택 시간</span><span class="qchip" data-mode="append" data-target="conTch">또래 칭찬 카드</span><span class="qchip" data-mode="append" data-target="conTch">보호자 칭찬 통신문</span><span class="qchip" data-mode="append" data-target="conTch">자리 선택권</span>
+        </div>
+        <input class="form-input" id="conTch" placeholder="보상/강화">
+      </div>
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">계약 시작일</label><input type="date" class="form-input" id="conStart"></div>
@@ -689,7 +775,11 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
     <div class="card-title">&#x1F4DD; 일일 행동 데이터 기록</div>
     <div class="card-subtitle">CICO (Check-In/Check-Out) — 매일 행동 데이터를 기록합니다.</div>
     <div class="form-group"><label class="form-label">기록 날짜</label><input type="date" class="form-input" id="monDate"></div>
-    <div class="form-group"><label class="form-label">기록 대상 행동</label><input class="form-input" id="monBeh" placeholder="예: 수업 중 자리이탈"></div>
+    <div class="form-group">
+      <label class="form-label">기록 대상 행동</label>
+      <div class="qchip-area" id="monBehSuggest"></div>
+      <input class="form-input" id="monBeh" placeholder="예: 수업 중 자리이탈">
+    </div>
     <div class="mon-grid">
       <div class="mon-field"><label>발생 빈도 (횟수)</label><input type="number" id="monFreq" min="0" value="0"></div>
       <div class="mon-field"><label>지속 시간 (분)</label><input type="number" id="monDur" min="0" value="0"></div>
@@ -905,8 +995,8 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
     </div>
   </div>
 
-  <!-- LLM Chat Interface -->
-  <div class="card" id="llmChatCard">
+  <!-- LLM Chat Interface — temporarily hidden until production LLM endpoint is wired up. -->
+  <div class="card" id="llmChatCard" style="display:none">
     <div class="card-title">&#x1F4AC; AI 대화 — 로컬 LLM 연동</div>
     <div class="card-subtitle">위에서 설정한 조건을 바탕으로 AI에게 직접 요청하세요. LM Studio 실행 필요 (기본 포트: 1234)</div>
 
@@ -986,7 +1076,13 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
       <div class="form-group"><label class="form-label">입실 시각</label><input type="time" class="form-input" id="szIn"></div>
       <div class="form-group"><label class="form-label">퇴실 시각</label><input type="time" class="form-input" id="szOut"></div>
     </div>
-    <div class="form-group"><label class="form-label">사용한 진정 전략</label><input class="form-input" id="szStrategy" placeholder="예: 호흡법, 그라운딩, 음악 듣기"></div>
+    <div class="form-group">
+      <label class="form-label">사용한 진정 전략</label>
+      <div class="qchip-area">
+        <span class="qchip" data-mode="append" data-target="szStrategy">호흡법</span><span class="qchip" data-mode="append" data-target="szStrategy">그라운딩 5-4-3-2-1</span><span class="qchip" data-mode="append" data-target="szStrategy">음악 듣기</span><span class="qchip" data-mode="append" data-target="szStrategy">빛 차단</span><span class="qchip" data-mode="append" data-target="szStrategy">무게감 담요</span><span class="qchip" data-mode="append" data-target="szStrategy">스퀴즈볼</span><span class="qchip" data-mode="append" data-target="szStrategy">타이머 시각화</span><span class="qchip" data-mode="append" data-target="szStrategy">그림책 읽기</span><span class="qchip" data-mode="append" data-target="szStrategy">점진적 이완</span><span class="qchip" data-mode="append" data-target="szStrategy">산책</span>
+      </div>
+      <input class="form-input" id="szStrategy" placeholder="예: 호흡법, 그라운딩, 음악 듣기">
+    </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">교사 개입 정도</label>
         <select class="form-select" id="szIntv"><option>최소</option><option>보통</option><option>적극적</option></select>
@@ -1227,6 +1323,77 @@ async function fetchMe(){
 }
 
 // ==============================
+// Quick-chip helpers (click → append/set to target input)
+// ==============================
+let _abcTimeVal='', _abcPlaceVal='';
+function qchipAppend(targetId, text){
+  const el=document.getElementById(targetId);
+  if(!el)return;
+  const isInput = el.tagName === 'INPUT';
+  const cur=el.value.trim();
+  const sep = isInput ? ', ' : '\n';
+  el.value = cur ? cur + sep + text : text;
+}
+function qchipSet(targetId, text){
+  const el=document.getElementById(targetId);
+  if(el) el.value=text;
+}
+function qchipAssembleTimePlace(){
+  const parts=[_abcTimeVal,_abcPlaceVal].filter(Boolean);
+  const el=document.getElementById('abcTime');
+  if(el) el.value=parts.join(' / ');
+}
+function qchipResetAbcTimePlace(){
+  _abcTimeVal=''; _abcPlaceVal='';
+  document.querySelectorAll('[data-mode="time"].on, [data-mode="place"].on').forEach(c=>c.classList.remove('on'));
+}
+// Single global click delegate — handles all qchips by data-mode/data-target/data-text.
+document.addEventListener('click', (e)=>{
+  const chip=e.target.closest('.qchip[data-mode]');
+  if(!chip) return;
+  const mode=chip.dataset.mode;
+  const text=chip.dataset.text || chip.textContent.trim();
+  const target=chip.dataset.target;
+  if(mode==='append'){
+    qchipAppend(target, text);
+  } else if(mode==='set'){
+    qchipSet(target, text);
+    chip.parentNode.querySelectorAll('.qchip').forEach(c=>c.classList.remove('on'));
+    chip.classList.add('on');
+  } else if(mode==='time' || mode==='place'){
+    chip.parentNode.querySelectorAll('.qchip').forEach(c=>c.classList.remove('on'));
+    chip.classList.add('on');
+    if(mode==='time') _abcTimeVal=text; else _abcPlaceVal=text;
+    qchipAssembleTimePlace();
+  }
+});
+// Monitor 행동 이름 자동 채움: 학생별 이전 사용 행동(★) + 표준 행동 칩
+function renderMonBehSuggest(){
+  const host=document.getElementById('monBehSuggest');
+  if(!host) return;
+  const standard=['자리 이탈','소리 지르기','자해','공격 행동','거부','회피','반복 행동','울기','물건 던지기','도주'];
+  const recent= curStu ? [...new Set((cachedMon||[]).map(r=>r.beh).filter(Boolean))] : [];
+  const recentSet=new Set(recent);
+  const merged=[
+    ...recent.map(b=>({label:b,recent:true})),
+    ...standard.filter(b=>!recentSet.has(b)).map(b=>({label:b,recent:false}))
+  ].slice(0,12);
+  host.innerHTML = merged.map(({label,recent})=>{
+    const escaped = label.replace(/"/g,'&quot;');
+    return `<span class="qchip${recent?' qchip-recent':''}" data-mode="set" data-target="monBeh" data-text="${escaped}">${recent?'★ ':''}${label}</span>`;
+  }).join('');
+}
+// 행동 계약서 — BIP에서 자동 채움
+function copyBIPToContract(){
+  const alt=(document.getElementById('bipAlt')?.value||'').trim();
+  const crit=(document.getElementById('bipCrit')?.value||'').trim();
+  if(!alt && !crit){ toast('BIP에 저장된 내용이 없습니다.'); return; }
+  if(alt) document.getElementById('conStu').value=alt;
+  if(crit) document.getElementById('conCrit').value=crit;
+  toast('BIP 데이터로 채웠습니다.');
+}
+
+// ==============================
 // Loading UX helpers
 // ==============================
 function showLoading(msg){
@@ -1454,6 +1621,7 @@ function go(ev,page){
     // edits made elsewhere (or in another tab). Re-renders on completion.
     loadHomeSummary().then(()=>renderHome());
   }
+  if(page==='monitor') renderMonBehSuggest();
   if(page==='eval')renderAllEvalCharts();
   renderStuHero(page);
 }
@@ -1595,6 +1763,8 @@ async function selectStudent(){
       cachedQABF=data.qabf;
       cachedSZ=data.sz;
       renderABCList();renderMonList();renderSZList();loadQABF();loadBIP();
+      // Refresh Monitor 행동 이름 칩 — 학생별 이전 사용 행동(★)을 우선 노출.
+      renderMonBehSuggest();
       // If the eval page is currently active, redraw its charts for the new
       // student. Without this the user sees the previous student's charts
       // until they navigate away and back.
@@ -1806,6 +1976,7 @@ async function saveABC(){
     cachedABC=res.records||[];
     if(studentDataCache[curStu.dbId])studentDataCache[curStu.dbId].abc=cachedABC;
     document.getElementById('abcA').value='';document.getElementById('abcB').value='';document.getElementById('abcC').value='';document.getElementById('abcTime').value='';
+    qchipResetAbcTimePlace();
     renderABCList();toast('ABC 기록 저장 완료');
     renderStuHero('observe');
   } catch(e) {
@@ -1949,11 +2120,178 @@ function loadBIP(){
   document.getElementById('bipResp').value=d.resp||'';
 }
 function printContract(){
-  const s=document.getElementById('conStu').value,c=document.getElementById('conCrit').value,t=document.getElementById('conTch').value,d1=document.getElementById('conStart').value,d2=document.getElementById('conEnd').value;
+  const s=document.getElementById('conStu').value.trim(),
+        c=document.getElementById('conCrit').value.trim(),
+        t=document.getElementById('conTch').value.trim(),
+        d1=document.getElementById('conStart').value,
+        d2=document.getElementById('conEnd').value;
   if(!s){toast('학생의 약속을 입력해주세요.');return}
-  const w=window.open('','','width=600,height=500');
-  w.document.write(`<html><head><title>행동 계약서</title><style>body{font-family:sans-serif;padding:40px;line-height:2}h1{text-align:center;border-bottom:3px double #333;padding-bottom:10px}.row{display:flex;justify-content:space-between;margin-top:40px}.sig{text-align:center;width:45%;border-top:1px solid #333;padding-top:8px}</style></head><body><h1>행동 계약서</h1><p><strong>나(학생)의 약속:</strong> ${s}</p><p><strong>성공 기준:</strong> ${c}</p><p><strong>선생님의 약속:</strong> ${t}</p><p><strong>계약 기간:</strong> ${d1} ~ ${d2}</p><div class="row"><div class="sig">학생 서명</div><div class="sig">교사 서명</div></div></body></html>`);
-  w.document.close();w.print();
+
+  const studentId=(curStu && curStu.id) ? curStu.id : '';
+  const teacherName=(currentUser && currentUser.name) ? currentUser.name : '';
+  const today=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'});
+  const fmtDate=(v)=> v ? new Date(v).toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'}) : '____.__.__';
+
+  const html=`<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>행동 계약서</title>
+<style>
+@page { size: A4; margin: 18mm; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Pretendard','맑은 고딕','Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+  color:#1a2238;background:#fafbff;padding:30px;line-height:1.7;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact;
+}
+.contract{
+  max-width:720px;margin:0 auto;background:#fff;
+  padding:50px 55px 40px;
+  border:7px double #2a3568;position:relative;
+}
+.contract::before{
+  content:'';position:absolute;top:14px;left:14px;right:14px;bottom:14px;
+  border:1px solid #c9b066;pointer-events:none;
+}
+.header{text-align:center;margin-bottom:30px;padding-bottom:22px;
+  border-bottom:2px solid #c9b066;position:relative}
+.header::after{content:'';position:absolute;left:50%;bottom:-7px;
+  transform:translateX(-50%);width:12px;height:12px;
+  background:#c9b066;border-radius:50%}
+.seal{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:58px;height:58px;background:#c9b066;color:#fff;
+  border-radius:50%;font-size:1.6rem;font-weight:800;
+  margin-bottom:14px;font-family:serif;
+  box-shadow:0 4px 12px rgba(201,176,102,.4);
+}
+h1{font-size:2.1rem;font-weight:800;letter-spacing:10px;
+  color:#2a3568;margin-bottom:6px;padding-left:10px}
+.subtitle{font-size:.74rem;color:#999;letter-spacing:5px;
+  text-transform:uppercase;font-weight:600}
+.student-tag{
+  display:inline-block;background:#2a3568;color:#fff;
+  padding:5px 16px;border-radius:99px;font-size:.82rem;
+  font-weight:700;letter-spacing:1px;margin-top:14px;
+}
+.intro{
+  font-size:.9rem;color:#555;text-align:center;
+  margin-bottom:28px;padding:0 30px;line-height:1.7;
+}
+.section{margin-bottom:18px;page-break-inside:avoid}
+.section-title{
+  font-size:.88rem;font-weight:700;color:#2a3568;
+  display:flex;align-items:center;margin-bottom:8px;letter-spacing:.5px;
+}
+.section-num{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;background:#2a3568;color:#fff;
+  border-radius:50%;font-weight:700;font-size:.78rem;margin-right:10px;
+}
+.section-content{
+  background:#f6f8ff;border-left:4px solid #c9b066;
+  padding:14px 18px;border-radius:0 4px 4px 0;
+  font-size:1.04rem;color:#1a2238;min-height:30px;
+  white-space:pre-wrap;word-break:keep-all;
+}
+.section-content.empty{color:#aaa;font-style:italic}
+.period{
+  text-align:center;background:#fff7e6;
+  border:1.5px dashed #c9b066;padding:16px;
+  border-radius:6px;margin:24px 0;
+}
+.period-label{font-size:.72rem;color:#888;letter-spacing:4px;
+  margin-bottom:6px;font-weight:600}
+.period-value{color:#2a3568;font-size:1.05rem;letter-spacing:1px;font-weight:700}
+.signatures{
+  display:flex;gap:36px;margin-top:46px;padding-top:24px;
+  border-top:1px solid #e0e0e0;
+}
+.sig{flex:1;text-align:center}
+.sig-line{
+  border-bottom:1.5px solid #2a3568;
+  height:46px;margin-bottom:8px;position:relative;
+}
+.sig-line::after{
+  content:'(서명 또는 도장)';position:absolute;
+  left:50%;top:50%;transform:translate(-50%,-50%);
+  font-size:.72rem;color:#bbb;
+}
+.sig-label{font-weight:700;color:#2a3568;font-size:.94rem;
+  letter-spacing:1px}
+.sig-name{font-size:.78rem;color:#777;margin-top:3px}
+.footer{
+  text-align:center;margin-top:24px;padding-top:14px;
+  border-top:1px dashed #ddd;font-size:.7rem;color:#999;
+  letter-spacing:.3px;
+}
+@media print{
+  body{background:#fff;padding:0}
+  .contract{box-shadow:none}
+}
+</style>
+</head>
+<body>
+<div class="contract">
+  <div class="header">
+    <div class="seal">約</div>
+    <h1>행동 계약서</h1>
+    <div class="subtitle">Behavior Contract</div>
+    ${studentId ? `<div class="student-tag">대상 학생 · ${studentId}</div>` : ''}
+  </div>
+
+  <p class="intro">
+    저는 아래의 약속을 지키기 위해 노력하고,<br>
+    선생님은 저의 노력을 응원하며 함께하겠습니다.
+  </p>
+
+  <div class="section">
+    <div class="section-title"><span class="section-num">1</span>나(학생)의 약속</div>
+    <div class="section-content${s?'':' empty'}">${s||'(미입력)'}</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="section-num">2</span>성공 기준</div>
+    <div class="section-content${c?'':' empty'}">${c||'(미입력)'}</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="section-num">3</span>선생님의 약속 (보상)</div>
+    <div class="section-content${t?'':' empty'}">${t||'(미입력)'}</div>
+  </div>
+
+  <div class="period">
+    <div class="period-label">계약 기간</div>
+    <div class="period-value">${fmtDate(d1)} &nbsp;~&nbsp; ${fmtDate(d2)}</div>
+  </div>
+
+  <div class="signatures">
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-label">학생 서명</div>
+      <div class="sig-name">${studentId || '____________'}</div>
+    </div>
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-label">교사 서명</div>
+      <div class="sig-name">${teacherName || '____________'}</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    이 계약서는 학생의 긍정적 행동 변화를 격려하기 위한 도구입니다.<br>
+    작성일 · ${today}
+  </div>
+</div>
+</body>
+</html>`;
+
+  const w=window.open('','','width=820,height=1000');
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>w.print(), 250);
 }
 
 // ==============================
@@ -1967,7 +2305,7 @@ async function saveMon(){
     const res=await api('/api/students/'+curStu.dbId+'/monitor');
     cachedMon=res.records||[];
     if(studentDataCache[curStu.dbId])studentDataCache[curStu.dbId].mon=cachedMon;
-    renderMonList();toast('데이터 저장 완료');
+    renderMonList();renderMonBehSuggest();toast('데이터 저장 완료');
     renderStuHero('monitor');
   } catch(e) {
     toast('저장 실패: '+e.message);
