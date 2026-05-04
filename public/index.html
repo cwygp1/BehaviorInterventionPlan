@@ -49,8 +49,22 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
 .auth-field label{display:block;font-size:.8rem;font-weight:600;color:var(--sub);margin-bottom:6px}
 .auth-field input{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:10px;font-size:.92rem;background:#fff;transition:.15s}
 .auth-field input:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-l)}
-.auth-btn{width:100%;padding:12px;background:linear-gradient(135deg,#4f6bed,#6979f0);color:#fff;border:none;border-radius:10px;font-size:.95rem;font-weight:700;cursor:pointer;transition:.2s;margin-top:4px}
+.auth-btn{width:100%;padding:12px;background:linear-gradient(135deg,#4f6bed,#6979f0);color:#fff;border:none;border-radius:10px;font-size:.95rem;font-weight:700;cursor:pointer;transition:.2s;margin-top:4px;display:inline-flex;align-items:center;justify-content:center;gap:8px}
 .auth-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(79,107,237,.35)}
+.auth-btn:disabled{opacity:.7;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.7);backdrop-filter:blur(2px);z-index:9999;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+.loading-overlay.show{display:flex}
+.loading-overlay .spinner-lg{width:42px;height:42px;border:4px solid rgba(79,107,237,.2);border-top-color:#4f6bed;border-radius:50%;animation:spin .8s linear infinite}
+.loading-overlay .msg{font-size:.9rem;color:var(--sub);font-weight:600}
+.pick-stu-item{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:.15s}
+.pick-stu-item:last-child{border-bottom:none}
+.pick-stu-item:hover{background:var(--pri-l)}
+.pick-stu-item .ava{width:34px;height:34px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0}
+.pick-stu-item .name{font-weight:700;font-size:.92rem;color:var(--ink)}
+.pick-stu-item .meta{font-size:.78rem;color:var(--muted);margin-top:2px}
+.pick-stu-item .arrow{margin-left:auto;color:var(--muted);font-size:1.1rem}
 .auth-divider{text-align:center;margin:18px 0;position:relative;font-size:.75rem;color:var(--muted)}
 .auth-divider::before,.auth-divider::after{content:'';position:absolute;top:50%;width:40%;height:1px;background:var(--border)}
 .auth-divider::before{left:0}.auth-divider::after{right:0}
@@ -359,6 +373,12 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
 </head>
 <body>
 
+<!-- ===== Global Loading Overlay ===== -->
+<div class="loading-overlay" id="globalLoading">
+  <div class="spinner-lg"></div>
+  <div class="msg" id="globalLoadingMsg">잠시만 기다려 주세요...</div>
+</div>
+
 <!-- ===== Auth Screen ===== -->
 <div class="auth-screen show" id="authScreen">
   <div class="auth-card">
@@ -382,7 +402,7 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
         <label>비밀번호</label>
         <input type="password" id="loginPw" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;" required>
       </div>
-      <button type="submit" class="auth-btn">로그인하기</button>
+      <button type="submit" class="auth-btn" id="loginBtn">로그인하기</button>
     </form>
 
     <!-- Signup -->
@@ -414,7 +434,7 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
           <button type="button" class="terms-link" onclick="openModal('termsModal')">전문 보기</button>
         </label>
       </div>
-      <button type="submit" class="auth-btn">가입하고 시작하기</button>
+      <button type="submit" class="auth-btn" id="signupBtn">가입하고 시작하기</button>
     </form>
 
     <div class="auth-divider">또는</div>
@@ -1044,6 +1064,19 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
 </div><!-- /app -->
 
 <!-- ===== Modals ===== -->
+<div class="modal-bg" id="pickStuModal">
+  <div class="modal">
+    <h3>&#x1F464; 학생을 먼저 선택해 주세요</h3>
+    <p style="font-size:.85rem;color:var(--sub);margin:6px 0 14px">행동 중재 기능은 특정 학생에 대한 기록·평가입니다. 작업할 학생을 선택하거나 새로 추가해 주세요.</p>
+    <ul id="pickStuList" style="list-style:none;padding:0;margin:0 0 14px;max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:10px"></ul>
+    <div id="pickStuEmpty" style="display:none;text-align:center;padding:18px;color:var(--muted);font-size:.88rem;border:1px dashed var(--border);border-radius:10px;margin-bottom:14px">아직 등록된 학생이 없어요.<br>아래 "새 학생 추가" 버튼으로 시작해 주세요.</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="cancelPickStudent()">취소</button>
+      <button class="btn btn-pri" onclick="openAddFromPick()">&#x2795; 새 학생 추가</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="addStuModal">
   <div class="modal">
     <h3>&#x2795; 새 학생 추가</h3>
@@ -1058,7 +1091,7 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
     </div>
     <div class="form-group"><label class="form-label">비식별 요약 (이 내용만 AI에 전송)</label><textarea class="form-textarea" id="newStuNote" placeholder="주의: 이름, 학년, 실명, 민감정보를 넣지 마세요.&#10;예: 초등 3학년 수준, 지적장애, 수 개념 기초 단계"></textarea></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-      <button class="btn btn-ghost" onclick="closeModal('addStuModal')">취소</button>
+      <button class="btn btn-ghost" onclick="cancelAddStudent()">취소</button>
       <button class="btn btn-pri" onclick="addStudent()">추가</button>
     </div>
   </div>
@@ -1141,14 +1174,34 @@ let currentUser=null;
 
 // API helper
 async function api(path, method='GET', body=null) {
-  const opts = { method, headers: {'Content-Type':'application/json'} };
+  // credentials:'same-origin' is the default for fetch on same-origin requests,
+  // but we set it explicitly so the auth cookie is always sent.
+  const opts = { method, headers: {'Content-Type':'application/json'}, credentials: 'same-origin' };
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(path, opts);
+  if (r.status === 401) {
+    // Session expired or invalid — kick to auth screen.
+    handleSessionExpired();
+    const err = await r.json().catch(()=>({error:'로그인이 필요합니다'}));
+    throw new Error(err.error || '로그인이 필요합니다');
+  }
   if (!r.ok) {
     const err = await r.json().catch(()=>({error:'요청 실패'}));
     throw new Error(err.error || '서버 오류');
   }
   return r.json();
+}
+function handleSessionExpired(){
+  currentUser=null;
+  students=[];
+  curStu=null;
+  studentDataCache={};
+  const main=document.getElementById('mainApp');
+  const auth=document.getElementById('authScreen');
+  if(main && auth){
+    main.classList.remove('show');
+    auth.classList.add('show');
+  }
 }
 
 function switchAuthTab(t){
@@ -1157,16 +1210,64 @@ function switchAuthTab(t){
   document.getElementById('formLogin').classList.toggle('on',t==='login');
   document.getElementById('formSignup').classList.toggle('on',t==='signup');
 }
+// ==============================
+// Session bootstrap (cookie-backed)
+// ==============================
+// Auth is now token-based: the server sets an httpOnly JWT cookie on
+// login/register and validates it on every request. The browser cannot
+// read the cookie directly, so to know "am I logged in?" we call /api/me.
+// /api/auth/logout clears the cookie. There's nothing in localStorage.
+async function fetchMe(){
+  try{
+    const r=await fetch('/api/me',{credentials:'same-origin'});
+    if(!r.ok)return null;
+    const data=await r.json();
+    return data && data.user ? data.user : null;
+  }catch(_){ return null; }
+}
+
+// ==============================
+// Loading UX helpers
+// ==============================
+function showLoading(msg){
+  const el=document.getElementById('globalLoading');
+  if(!el)return;
+  document.getElementById('globalLoadingMsg').textContent=msg||'잠시만 기다려 주세요...';
+  el.classList.add('show');
+}
+function hideLoading(){
+  const el=document.getElementById('globalLoading');
+  if(el)el.classList.remove('show');
+}
+function setBtnLoading(btnId, loading, loadingText){
+  const b=document.getElementById(btnId);
+  if(!b)return;
+  if(loading){
+    if(!b.dataset.origText)b.dataset.origText=b.textContent;
+    b.disabled=true;
+    b.innerHTML=`<span class="btn-spinner"></span><span>${loadingText||'처리 중...'}</span>`;
+  }else{
+    b.disabled=false;
+    if(b.dataset.origText){b.textContent=b.dataset.origText;}
+  }
+}
+
 async function doLogin(e){
   e.preventDefault();
   const email=document.getElementById('loginEmail').value.trim();
   const password=document.getElementById('loginPw').value;
+  setBtnLoading('loginBtn', true, '로그인 중...');
+  showLoading('로그인 중입니다...');
   try {
     const data = await api('/api/auth/login','POST',{email,password});
     currentUser={id:data.user.id, name:data.user.name, email:data.user.email, school:data.user.school};
-    enterApp();
+    showLoading('학생 데이터 불러오는 중...');
+    await enterApp();
   } catch(err) {
     toast('로그인 실패: '+err.message);
+  } finally {
+    setBtnLoading('loginBtn', false);
+    hideLoading();
   }
 }
 async function doSignup(e){
@@ -1191,18 +1292,26 @@ async function doSignup(e){
     terms_version: 'v1.0',
     user_agent: navigator.userAgent.slice(0,300)
   };
+  setBtnLoading('signupBtn', true, '가입 중...');
+  showLoading('계정을 만드는 중입니다...');
   try {
     const data = await api('/api/auth/register','POST',{email,password,name,school,consent});
     currentUser={id:data.user.id, name:data.user.name, email:data.user.email, school:data.user.school};
     toast(name+' 선생님, 환영합니다!');
-    enterApp();
+    showLoading('초기 데이터 준비 중...');
+    await enterApp();
   } catch(err) {
     toast('회원가입 실패: '+err.message);
+  } finally {
+    setBtnLoading('signupBtn', false);
+    hideLoading();
   }
 }
-function guestEnter(){
+async function guestEnter(){
   currentUser={id:null, name:'게스트',email:'guest',school:'둘러보기 모드'};
-  enterApp();
+  showLoading('둘러보기 모드 준비 중...');
+  try { await enterApp(); }
+  finally { hideLoading(); }
 }
 async function enterApp(){
   document.getElementById('authScreen').classList.remove('show');
@@ -1215,10 +1324,20 @@ async function enterApp(){
   const wd=['일','월','화','수','목','금','토'][today.getDay()];
   document.getElementById('helloDate').textContent=`${today.getFullYear()}년 ${today.getMonth()+1}월 ${today.getDate()}일 (${wd}) · 오늘도 따뜻한 하루 보내세요.`;
   await loadStudents();
+  // One round-trip aggregates everything the home dashboard needs (per-student
+  // counts/trend + recent activity feed). Replaces the previous 6×N parallel
+  // prefetch — way fewer DB hits and scales with student count.
+  if(students.length){
+    showLoading('홈 요약 불러오는 중...');
+    await loadHomeSummary();
+  }
   renderHome();
 }
-function doLogout(){
+async function doLogout(){
   if(!confirm('로그아웃 하시겠습니까?'))return;
+  // Clear cookie on the server. We don't block the UI on its result —
+  // even if it fails (network error), we still clear local state.
+  try{ await fetch('/api/auth/logout',{method:'POST',credentials:'same-origin'}); }catch(_){}
   currentUser=null;
   students=[];
   curStu=null;
@@ -1242,13 +1361,28 @@ let cachedFid=[];
 let cachedBIP={};
 let cachedQABF=new Array(25).fill(-1);
 let cachedSZ=[];
-// Per-student cache for dashboard
+// Per-student cache for dashboard (full data, populated on student click)
 let studentDataCache={};
+// Home dashboard summary — counts + trend per student + recent activity feed,
+// fetched in a single /api/students/summary call. Used by the home cards
+// before the user has clicked into any individual student.
+let homeSummaryCache={};   // { [dbId]: { abc_count, mon_count, sz_count, first_freq, last_freq, last_beh, last_date } }
+let homeRecentCache=[];    // [ { type, student_id, student_code, desc, date, created_at } ]
+async function loadHomeSummary(){
+  try{
+    const res=await api('/api/students/summary');
+    homeSummaryCache=res.summaries||{};
+    homeRecentCache=res.recent||[];
+  }catch(e){
+    // Non-fatal — keep whatever cache we have.
+    console.warn('summary load failed:', e.message);
+  }
+}
 
 async function loadStudents() {
   if (!currentUser || !currentUser.id) return;
   try {
-    const data = await api('/api/students?user_id='+currentUser.id);
+    const data = await api('/api/students');
     students = (data.students||[]).map(s => ({
       ...s,
       id: s.student_code,
@@ -1292,7 +1426,17 @@ async function fetchStudentData(dbId) {
 // NAV
 // ==============================
 const titles={home:'홈',observe:'학생 관찰 및 이해',qabf:'기능평가 (QABF)',bip:'행동중재계획 (BIP)',monitor:'행동 데이터 기록',eval:'결과 확인 / 평가',builder:'AI 어시스턴트',crisis:'위기행동 관리 및 대처',support:'교사 지원 자료실'};
+// PBS pages that require a selected student before navigating in.
+const PBS_PAGES=['observe','qabf','bip','monitor','eval'];
+let pendingTargetPage=null;
+
 function go(ev,page){
+  // Guard: PBS pages require a selected student.
+  if(PBS_PAGES.includes(page) && !curStu){
+    if(ev && ev.preventDefault) ev.preventDefault();
+    requireStudentFor(page);
+    return;
+  }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('p-'+page).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -1304,11 +1448,76 @@ function go(ev,page){
   }
   document.getElementById('pageTitle').textContent=titles[page]||'';
   closeSidebar();
-  if(page==='home')renderHome();
+  if(page==='home'){
+    renderHome();
+    // Refresh home summary in the background so counts stay accurate after
+    // edits made elsewhere (or in another tab). Re-renders on completion.
+    loadHomeSummary().then(()=>renderHome());
+  }
   if(page==='eval')renderAllEvalCharts();
   renderStuHero(page);
 }
 function goFromHome(page){go(null,page)}
+
+// ==============================
+// Student-selection gate
+// ==============================
+function requireStudentFor(page){
+  pendingTargetPage=page;
+  // No students yet → skip the picker, jump straight to the "add student" modal.
+  if(!students || students.length===0){
+    openModal('addStuModal');
+    return;
+  }
+  renderPickStuList();
+  openModal('pickStuModal');
+}
+function renderPickStuList(){
+  const ul=document.getElementById('pickStuList');
+  const empty=document.getElementById('pickStuEmpty');
+  if(!students || students.length===0){
+    ul.innerHTML='';
+    empty.style.display='block';
+    return;
+  }
+  empty.style.display='none';
+  ul.innerHTML=students.map(s=>{
+    const c=stuColor(s.id);
+    const initial=(s.id||'?').charAt(0);
+    return `<li class="pick-stu-item" onclick="pickStudent('${s.id.replace(/'/g,"\\'")}')">
+      <div class="ava" style="background:linear-gradient(135deg,${c},${c}cc)">${initial}</div>
+      <div>
+        <div class="name">${s.id}</div>
+        <div class="meta">${s.level||''}${s.dis?' · '+s.dis:''}</div>
+      </div>
+      <div class="arrow">&rsaquo;</div>
+    </li>`;
+  }).join('');
+}
+async function pickStudent(id){
+  closeModal('pickStuModal');
+  showLoading('학생 데이터 불러오는 중...');
+  try {
+    await selectStudentById(id);
+    const target=pendingTargetPage;
+    pendingTargetPage=null;
+    if(target) go(null, target);
+  } finally {
+    hideLoading();
+  }
+}
+function openAddFromPick(){
+  closeModal('pickStuModal');
+  openModal('addStuModal');
+}
+function cancelPickStudent(){
+  pendingTargetPage=null;
+  closeModal('pickStuModal');
+}
+function cancelAddStudent(){
+  pendingTargetPage=null;
+  closeModal('addStuModal');
+}
 function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('overlay').classList.add('show')}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('show')}
 
@@ -1336,7 +1545,7 @@ async function addStudent(){
   const disability=document.getElementById('newStuDis').value;
   const note=document.getElementById('newStuNote').value;
   try {
-    await api('/api/students','POST',{user_id:currentUser.id, student_code, level, disability, note});
+    await api('/api/students','POST',{student_code, level, disability, note});
     await loadStudents();
     document.getElementById('stuSelect').value=student_code;
     await selectStudent();
@@ -1344,6 +1553,13 @@ async function addStudent(){
     document.getElementById('newStuId').value='';document.getElementById('newStuNote').value='';
     toast(student_code+' 추가 완료');
     renderHome();
+    // If the user was trying to enter a PBS page that required a student,
+    // navigate them there now that the student exists.
+    if(pendingTargetPage){
+      const target=pendingTargetPage;
+      pendingTargetPage=null;
+      go(null, target);
+    }
   } catch(e) {
     toast('학생 추가 실패: '+e.message);
   }
@@ -1354,31 +1570,47 @@ function renderStuSelect(){
   students.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.id;sel.appendChild(o)});
 }
 async function selectStudent(){
-  const id=document.getElementById('stuSelect').value;
-  curStu=students.find(s=>s.id===id)||null;
-  const show=!!curStu;
-  document.getElementById('stuProfile').style.display=show?'block':'none';
-  document.getElementById('noStuMsg').style.display=show?'none':'block';
-  document.getElementById('abcForm').style.display=show?'block':'none';
-  document.getElementById('abcListCard').style.display=show?'block':'none';
-  if(curStu){
-    document.getElementById('stuProfileContent').innerHTML=`<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:.88rem;color:var(--sub)"><span><strong>ID:</strong> ${curStu.id}</span><span><strong>학교급:</strong> ${curStu.level}</span><span><strong>장애:</strong> ${curStu.dis}</span></div><p style="font-size:.85rem;color:var(--muted);margin-top:8px">${curStu.note||'(비식별 요약 없음)'}</p>`;
-    // Fetch all data for selected student
-    const data = await fetchStudentData(curStu.dbId);
-    cachedABC=data.abc;
-    cachedMon=data.mon;
-    cachedFid=data.fid;
-    cachedBIP=data.bip;
-    cachedQABF=data.qabf;
-    cachedSZ=data.sz;
-    renderABCList();renderMonList();renderSZList();loadQABF();loadBIP();
-  }
-  // update all hero cards
-  ['observe','qabf','bip','monitor','eval'].forEach(p=>renderStuHero(p));
+  // Re-entry guard — prevent overlapping fetches when the user clicks fast.
+  // If a load is already in flight, return that same promise so callers can await it.
+  if(selectStudent._inflight) return selectStudent._inflight;
+  selectStudent._inflight=(async()=>{
+    const id=document.getElementById('stuSelect').value;
+    curStu=students.find(s=>s.id===id)||null;
+    const show=!!curStu;
+    document.getElementById('stuProfile').style.display=show?'block':'none';
+    document.getElementById('noStuMsg').style.display=show?'none':'block';
+    document.getElementById('abcForm').style.display=show?'block':'none';
+    document.getElementById('abcListCard').style.display=show?'block':'none';
+    if(curStu){
+      document.getElementById('stuProfileContent').innerHTML=`<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:.88rem;color:var(--sub)"><span><strong>ID:</strong> ${curStu.id}</span><span><strong>학교급:</strong> ${curStu.level}</span><span><strong>장애:</strong> ${curStu.dis}</span></div><p style="font-size:.85rem;color:var(--muted);margin-top:8px">${curStu.note||'(비식별 요약 없음)'}</p>`;
+      // Show loading hint only if we'll actually hit the network (cache miss).
+      const willFetch=!studentDataCache[curStu.dbId];
+      if(willFetch)toast('학생 데이터 로딩 중...');
+      // Fetch all data for selected student
+      const data = await fetchStudentData(curStu.dbId);
+      cachedABC=data.abc;
+      cachedMon=data.mon;
+      cachedFid=data.fid;
+      cachedBIP=data.bip;
+      cachedQABF=data.qabf;
+      cachedSZ=data.sz;
+      renderABCList();renderMonList();renderSZList();loadQABF();loadBIP();
+      // If the eval page is currently active, redraw its charts for the new
+      // student. Without this the user sees the previous student's charts
+      // until they navigate away and back.
+      const evalPage=document.getElementById('p-eval');
+      if(evalPage && evalPage.classList.contains('active')){
+        renderAllEvalCharts();
+      }
+    }
+    // update all hero cards
+    ['observe','qabf','bip','monitor','eval'].forEach(p=>renderStuHero(p));
+  })().finally(()=>{ selectStudent._inflight=null; });
+  return selectStudent._inflight;
 }
-function selectStudentById(id){
+async function selectStudentById(id){
   document.getElementById('stuSelect').value=id;
-  selectStudent();
+  await selectStudent();
 }
 function openEditStu(){
   if(!curStu)return;
@@ -1400,7 +1632,10 @@ async function updateStudent(){
     // Update in students array too
     const s=students.find(x=>x.dbId===curStu.dbId);
     if(s){s.level=level;s.dis=dis;s.note=note;}
-    selectStudent();closeModal('editStuModal');toast('프로필 수정 완료');
+    closeModal('editStuModal');
+    toast('프로필 수정 완료');
+    // Refresh student-scoped views; cached so this is fast.
+    await selectStudent();
   } catch(e) {
     toast('수정 실패: '+e.message);
   }
@@ -1438,14 +1673,42 @@ function renderStuHero(page){
 // ==============================
 // HOME DASHBOARD
 // ==============================
+// Compute home-card metrics for one student. Prefer the full student cache
+// when it exists (most accurate, reflects unsaved-but-cached changes); fall
+// back to the home summary cache otherwise.
+function getHomeMetrics(s){
+  const dc=studentDataCache[s.dbId];
+  if(dc){
+    const mons=dc.mon.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    return {
+      abc_count: dc.abc.length,
+      mon_count: dc.mon.length,
+      sz_count: dc.sz.length,
+      first_freq: mons[0]?.freq,
+      last_freq: mons[mons.length-1]?.freq,
+    };
+  }
+  const sm=homeSummaryCache[s.dbId];
+  if(sm){
+    return {
+      abc_count: sm.abc_count||0,
+      mon_count: sm.mon_count||0,
+      sz_count: sm.sz_count||0,
+      first_freq: sm.first_freq,
+      last_freq: sm.last_freq,
+    };
+  }
+  return { abc_count:0, mon_count:0, sz_count:0 };
+}
+
 function renderHome(){
-  // Stats
-  document.getElementById('sHomeStu').textContent=students.length;
+  // Top stats — sum from summary (or studentDataCache when richer)
   let abcT=0,monT=0,szT=0;
   students.forEach(s=>{
-    const c=studentDataCache[s.dbId];
-    if(c){abcT+=c.abc.length;monT+=c.mon.length;szT+=c.sz.length}
+    const m=getHomeMetrics(s);
+    abcT+=m.abc_count; monT+=m.mon_count; szT+=m.sz_count;
   });
+  document.getElementById('sHomeStu').textContent=students.length;
   document.getElementById('sHomeABC').textContent=abcT;
   document.getElementById('sHomeMon').textContent=monT;
   document.getElementById('sHomeSZ').textContent=szT;
@@ -1456,20 +1719,15 @@ function renderHome(){
     grid.innerHTML='<div class="card" style="grid-column:1/-1"><div class="empty-state"><span class="emoji">&#x1F464;</span>아직 등록된 학생이 없어요. 우측 상단 + 버튼으로 학생을 추가해 주세요.</div></div>';
   }else{
     grid.innerHTML=students.map(s=>{
-      const dc=studentDataCache[s.dbId]||{abc:[],mon:[],sz:[]};
-      const mons=dc.mon.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-      const last=mons[mons.length-1];
-      const first=mons[0];
-      let trend='flat',trendTxt='&#x2192;',deltaTxt='변화 없음';
-      if(mons.length>=2){
-        const delta=last.freq-first.freq;
-        if(delta<-1){trend='down';trendTxt='&#x2193;';deltaTxt=`${delta} 감소`}
-        else if(delta>1){trend='up';trendTxt='&#x2191;';deltaTxt=`+${delta} 증가`}
+      const m=getHomeMetrics(s);
+      let trend='flat',trendTxt='&#x2192;';
+      if(m.first_freq != null && m.last_freq != null){
+        const delta=m.last_freq - m.first_freq;
+        if(delta<-1){trend='down';trendTxt='&#x2193;'}
+        else if(delta>1){trend='up';trendTxt='&#x2191;'}
       }
-      const abc=dc.abc.length;
-      const sz=dc.sz.length;
       const c=stuColor(s.id);
-      return `<div class="stu-mini" onclick="selectStudentById('${s.id}');goFromHome('observe')">
+      return `<div class="stu-mini" onclick="goFromHome('observe');selectStudentById('${s.id}')">
         <div class="stu-mini-head">
           <div class="stu-avatar" style="background:linear-gradient(135deg,${c},${c}cc)">${s.id.charAt(0)}</div>
           <div>
@@ -1479,23 +1737,47 @@ function renderHome(){
         </div>
         <div class="stu-mini-body">${s.note||'(요약 없음)'}</div>
         <div class="stu-mini-foot">
-          <div class="stu-mini-stat"><span>행동 추이</span><span class="v">${last?last.freq:0}회 <span class="trend ${trend}">${trendTxt}</span></span></div>
-          <div class="stu-mini-stat"><span>ABC</span><span class="v">${abc}건</span></div>
-          <div class="stu-mini-stat"><span>안정실</span><span class="v">${sz}회</span></div>
+          <div class="stu-mini-stat"><span>행동 추이</span><span class="v">${m.last_freq != null ? m.last_freq : 0}회 <span class="trend ${trend}">${trendTxt}</span></span></div>
+          <div class="stu-mini-stat"><span>ABC</span><span class="v">${m.abc_count}건</span></div>
+          <div class="stu-mini-stat"><span>안정실</span><span class="v">${m.sz_count}회</span></div>
         </div>
       </div>`;
     }).join('');
   }
 
-  // Recent activity (combine from all cached students)
-  const rec=[];
-  students.forEach(s=>{
-    const dc=studentDataCache[s.dbId]||{abc:[],mon:[],sz:[]};
-    dc.abc.forEach(r=>rec.push({type:'ABC',color:'var(--pri)',title:`${s.id} · ABC 기록`,desc:r.b?r.b.slice(0,40):'',date:r.date}));
-    dc.mon.slice(-2).forEach(r=>rec.push({type:'MON',color:'var(--ok)',title:`${s.id} · ${r.beh||'행동 데이터'}`,desc:`빈도 ${r.freq}회 / 강도 ${r.int}`,date:r.date}));
-    dc.sz.slice(-1).forEach(r=>rec.push({type:'SZ',color:'var(--warn)',title:`${s.id} · 심리안정실 이용`,desc:`사유: ${r.reason}`,date:r.date}));
-  });
-  rec.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  // Recent activity — prefer summary feed (single query, sorted server-side).
+  // Fall back to local studentDataCache if summary hasn't loaded yet.
+  let rec=[];
+  if(homeRecentCache.length){
+    const colorByType={ABC:'var(--pri)', MON:'var(--ok)', SZ:'var(--warn)'};
+    const titleByType={
+      ABC:(r)=>`${r.student_code} · ABC 기록`,
+      MON:(r)=>`${r.student_code} · ${r.desc||'행동 데이터'}`,
+      SZ:(r)=>`${r.student_code} · 심리안정실 이용`,
+    };
+    const descByType={
+      ABC:(r)=> r.desc ? r.desc.slice(0,40) : '',
+      MON:(r)=> r.desc ? `행동: ${r.desc}` : '',
+      SZ:(r)=> r.desc ? `사유: ${r.desc}` : '',
+    };
+    rec=homeRecentCache.map(r=>({
+      type:r.type,
+      color:colorByType[r.type]||'var(--pri)',
+      title:(titleByType[r.type]||(()=>r.student_code))(r),
+      desc:(descByType[r.type]||(()=>''))(r),
+      date:r.date,
+    }));
+  }else{
+    students.forEach(s=>{
+      const dc=studentDataCache[s.dbId];
+      if(!dc)return;
+      dc.abc.forEach(r=>rec.push({type:'ABC',color:'var(--pri)',title:`${s.id} · ABC 기록`,desc:r.b?r.b.slice(0,40):'',date:r.date}));
+      dc.mon.slice(-2).forEach(r=>rec.push({type:'MON',color:'var(--ok)',title:`${s.id} · ${r.beh||'행동 데이터'}`,desc:`빈도 ${r.freq}회 / 강도 ${r.int}`,date:r.date}));
+      dc.sz.slice(-1).forEach(r=>rec.push({type:'SZ',color:'var(--warn)',title:`${s.id} · 심리안정실 이용`,desc:`사유: ${r.reason}`,date:r.date}));
+    });
+    rec.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  }
+
   const list=document.getElementById('recentList');
   const empty=document.getElementById('recentEmpty');
   if(!rec.length){list.innerHTML='';empty.style.display='block'}
@@ -1538,7 +1820,7 @@ function renderABCList(){
   document.getElementById('abcCount').textContent=list.length+'건';
   list.slice().reverse().forEach((r)=>{
     const li=document.createElement('li');li.className='data-item';
-    li.innerHTML=`<div class="data-item-head"><span class="badge badge-pri">${r.date}</span><span class="data-item-date">${r.time||''}</span></div><div class="data-item-body"><strong>A:</strong> ${r.a}<br><strong>B:</strong> ${r.b}<br><strong>C:</strong> ${r.c}</div><div class="data-item-actions"><button class="btn btn-ghost btn-sm" onclick="deleteABC(${r.id})">삭제</button></div>`;
+    li.innerHTML=`<div class="data-item-head"><span class="badge badge-pri">${r.created_at||r.date}</span><span class="data-item-date">${r.time||''}</span></div><div class="data-item-body"><strong>A:</strong> ${r.a}<br><strong>B:</strong> ${r.b}<br><strong>C:</strong> ${r.c}</div><div class="data-item-actions"><button class="btn btn-ghost btn-sm" onclick="deleteABC(${r.id})">삭제</button></div>`;
     ul.appendChild(li);
   });
 }
@@ -1699,7 +1981,7 @@ function renderMonList(){
   document.getElementById('monCount').textContent=list.length+'건';
   list.slice().reverse().forEach((r)=>{
     const li=document.createElement('li');li.className='data-item';
-    li.innerHTML=`<div class="data-item-head"><span class="badge badge-pri">${r.date}</span><span class="data-item-date">${r.beh||''}</span></div><div class="data-item-body">빈도:${r.freq}회 | 지속:${r.dur}분 | 강도:${r.int} | 대체행동:${r.alt} | DBR:${r.dbr}</div><div class="data-item-actions"><button class="btn btn-ghost btn-sm" onclick="deleteMon(${r.id})">삭제</button></div>`;
+    li.innerHTML=`<div class="data-item-head"><span class="badge badge-pri">${r.created_at||r.date}</span><span class="data-item-date">${r.beh||''}</span></div><div class="data-item-body">빈도:${r.freq}회 | 지속:${r.dur}분 | 강도:${r.int} | 대체행동:${r.alt} | DBR:${r.dbr}</div><div class="data-item-actions"><button class="btn btn-ghost btn-sm" onclick="deleteMon(${r.id})">삭제</button></div>`;
     ul.appendChild(li);
   });
 }
@@ -2226,6 +2508,25 @@ function renderSZList(){
 document.getElementById('abcDate').value=new Date().toISOString().slice(0,10);
 document.getElementById('monDate').value=new Date().toISOString().slice(0,10);
 document.getElementById('szDate').value=new Date().toISOString().slice(0,10);
+
+// Restore session via the auth cookie (server validates JWT, returns user).
+(async function bootstrapSession(){
+  showLoading('세션 확인 중...');
+  try{
+    const me=await fetchMe();
+    if(!me)return; // Not logged in — auth screen stays visible.
+    currentUser={id:me.id, name:me.name, email:me.email, school:me.school};
+    showLoading('학생 데이터 불러오는 중...');
+    await enterApp();
+  }catch(_e){
+    // Bootstrap failed — show auth screen.
+    currentUser=null;
+    document.getElementById('mainApp').classList.remove('show');
+    document.getElementById('authScreen').classList.add('show');
+  }finally{
+    hideLoading();
+  }
+})();
 </script>
 </body>
 </html>

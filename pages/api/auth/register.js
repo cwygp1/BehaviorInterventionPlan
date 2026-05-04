@@ -1,5 +1,6 @@
 import { sql } from '../../../lib/db';
 import bcrypt from 'bcryptjs';
+import { signSessionToken, setAuthCookie } from '../../../lib/auth';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -28,7 +29,11 @@ export default async function handler(req, res) {
       RETURNING id, email, name, school, terms_version, terms_agreed_at, created_at
     `;
 
-    return res.status(201).json({ user: result.rows[0] });
+    const user = result.rows[0];
+    const token = signSessionToken({ sub: user.id, email: user.email });
+    setAuthCookie(res, token);
+
+    return res.status(201).json({ user });
   } catch (error) {
     console.error('Register error:', error);
     if (error.code === '23505') {

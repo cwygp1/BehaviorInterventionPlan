@@ -1,16 +1,14 @@
 import { sql } from '../../lib/db';
+import { requireAuth } from '../../lib/auth';
 
-export default async function handler(req, res) {
+export default requireAuth(async function handler(req, res) {
+  const userId = req.userId;
   try {
     switch (req.method) {
       case 'GET': {
-        const { user_id } = req.query;
-        if (!user_id) {
-          return res.status(400).json({ error: 'user_id is required' });
-        }
         const result = await sql`
           SELECT * FROM chat_history
-          WHERE user_id = ${user_id}
+          WHERE user_id = ${userId}
           ORDER BY created_at DESC
           LIMIT 50
         `;
@@ -18,24 +16,20 @@ export default async function handler(req, res) {
       }
 
       case 'POST': {
-        const { user_id, role, content } = req.body || {};
-        if (!user_id || !role || !content) {
-          return res.status(400).json({ error: 'user_id, role, and content are required' });
+        const { role, content } = req.body || {};
+        if (!role || !content) {
+          return res.status(400).json({ error: 'role and content are required' });
         }
         const result = await sql`
           INSERT INTO chat_history (user_id, role, content)
-          VALUES (${user_id}, ${role}, ${content})
+          VALUES (${userId}, ${role}, ${content})
           RETURNING *
         `;
         return res.status(201).json({ message: result.rows[0] });
       }
 
       case 'DELETE': {
-        const { user_id } = req.body || {};
-        if (!user_id) {
-          return res.status(400).json({ error: 'user_id is required' });
-        }
-        await sql`DELETE FROM chat_history WHERE user_id = ${user_id}`;
+        await sql`DELETE FROM chat_history WHERE user_id = ${userId}`;
         return res.status(200).json({ success: true });
       }
 
@@ -46,4 +40,4 @@ export default async function handler(req, res) {
     console.error('Chat History API error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
-}
+});

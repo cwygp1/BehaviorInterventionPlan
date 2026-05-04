@@ -1,27 +1,25 @@
 import { sql } from '../../../lib/db';
+import { requireAuth } from '../../../lib/auth';
 
-export default async function handler(req, res) {
+export default requireAuth(async function handler(req, res) {
+  const userId = req.userId;
   try {
     switch (req.method) {
       case 'GET': {
-        const { user_id } = req.query;
-        if (!user_id) {
-          return res.status(400).json({ error: 'user_id is required' });
-        }
         const result = await sql`
-          SELECT * FROM students WHERE user_id = ${user_id} ORDER BY created_at DESC
+          SELECT * FROM students WHERE user_id = ${userId} ORDER BY created_at DESC
         `;
         return res.status(200).json({ students: result.rows });
       }
 
       case 'POST': {
-        const { user_id, student_code, level, disability, note } = req.body || {};
-        if (!user_id || !student_code) {
-          return res.status(400).json({ error: 'user_id and student_code are required' });
+        const { student_code, level, disability, note } = req.body || {};
+        if (!student_code) {
+          return res.status(400).json({ error: 'student_code is required' });
         }
         const result = await sql`
           INSERT INTO students (user_id, student_code, level, disability, note)
-          VALUES (${user_id}, ${student_code}, ${level || ''}, ${disability || ''}, ${note || ''})
+          VALUES (${userId}, ${student_code}, ${level || ''}, ${disability || ''}, ${note || ''})
           RETURNING *
         `;
         return res.status(201).json({ student: result.rows[0] });
@@ -32,10 +30,12 @@ export default async function handler(req, res) {
         if (!id) {
           return res.status(400).json({ error: 'id is required' });
         }
+        // Ownership check is enforced via the WHERE clause — a student
+        // belonging to another user simply won't match and returns 404.
         const result = await sql`
           UPDATE students
           SET level = ${level || ''}, disability = ${disability || ''}, note = ${note || ''}
-          WHERE id = ${id}
+          WHERE id = ${id} AND user_id = ${userId}
           RETURNING *
         `;
         if (result.rows.length === 0) {
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
         if (!id) {
           return res.status(400).json({ error: 'id is required' });
         }
-        await sql`DELETE FROM students WHERE id = ${id}`;
+        await sql`DELETE FROM students WHERE id = ${id} AND user_id = ${userId}`;
         return res.status(200).json({ success: true });
       }
 
@@ -60,4 +60,4 @@ export default async function handler(req, res) {
     console.error('Students API error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
-}
+});
