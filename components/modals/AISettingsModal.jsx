@@ -34,7 +34,7 @@ export default function AISettingsModal({ open, onClose }) {
         [{ role: 'user', content: '한 줄로 "연결 성공"이라고만 답해주세요.' }],
         { timeout: 60000, max_tokens: 200 }
       );
-      const trimmed = (reply || '').trim();
+      const trimmed = (reply?.content || '').trim();
       if (trimmed) {
         setStatusMsg({ type: 'ok', html: '✅ 연결 성공! 모델 응답: "' + trimmed.slice(0, 120) + (trimmed.length > 120 ? '…' : '') + '"' });
       } else {
