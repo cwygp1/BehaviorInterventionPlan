@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   callLLM,
+  callLLMVision,
   clearAllLLMCaches,
   clearLLMConfig,
   deleteServerLLMConfig,
@@ -18,6 +19,7 @@ const LLMContext = createContext({
   clearConfig: async () => {},
   call: async () => '',
   callDetailed: async () => ({ content: '' }),
+  callVisionDetailed: async () => ({ content: '' }),
   setStatus: () => {},
 });
 
@@ -165,8 +167,23 @@ export function LLMProvider({ children }) {
     [config]
   );
 
+  // 이미지(비전) 입력 호출 — { content, reasoning, finish_reason, usage } 반환.
+  const callVisionDetailed = useCallback(
+    async (prompt, images, opts) => {
+      try {
+        const r = await callLLMVision(prompt, images, opts, config);
+        setStatus('on');
+        return r;
+      } catch (e) {
+        setStatus('err');
+        throw e;
+      }
+    },
+    [config]
+  );
+
   return (
-    <LLMContext.Provider value={{ config, status, saveConfig, clearConfig, call, callDetailed, setStatus }}>
+    <LLMContext.Provider value={{ config, status, saveConfig, clearConfig, call, callDetailed, callVisionDetailed, setStatus }}>
       {children}
     </LLMContext.Provider>
   );

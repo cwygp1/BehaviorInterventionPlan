@@ -18,8 +18,12 @@ const TITLES = {
   videos: 'PBS 영상 강의실',
 };
 
-export default function Topbar({ activePage, onMenu, onOpenLLMSettings, onAddStudent }) {
-  const { students, curStuId, selectStudent } = useStudents();
+export default function Topbar({ activePage, onMenu, onOpenLLMSettings, onAddStudent, onManageClasses }) {
+  const {
+    students, curStuId, selectStudent,
+    years, curYear, selectYear,
+    yearClasses, curClassId, selectClass,
+  } = useStudents();
 
   return (
     <div className="topbar">
@@ -30,6 +34,31 @@ export default function Topbar({ activePage, onMenu, onOpenLLMSettings, onAddStu
       <div className="topbar-right">
         <LLMIndicator onClick={onOpenLLMSettings} />
         <div className="stu-bar">
+          {/* 년도 선택 */}
+          <select
+            className="stu-select"
+            value={curYear}
+            onChange={(e) => selectYear(e.target.value)}
+            title="학년도"
+          >
+            {years.map((y) => (
+              <option key={y} value={y}>{y}년</option>
+            ))}
+          </select>
+          {/* 학급 선택 */}
+          <select
+            className="stu-select"
+            value={curClassId || ''}
+            onChange={(e) => selectClass(e.target.value || null)}
+            title="학급"
+          >
+            {yearClasses.length === 0 && <option value="">학급 없음</option>}
+            {yearClasses.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <button className="stu-add" onClick={onManageClasses} title="학급 관리">⚙</button>
+          {/* 학생 선택 */}
           <select
             className="stu-select"
             value={curStuId || ''}
@@ -40,7 +69,7 @@ export default function Topbar({ activePage, onMenu, onOpenLLMSettings, onAddStu
               <option key={s.id} value={s.id}>{s.code}</option>
             ))}
           </select>
-          <button className="stu-add" onClick={onAddStudent} title="학생 추가">+</button>
+          <button className="stu-add" onClick={onAddStudent} title="학생 추가" disabled={!curClassId}>+</button>
         </div>
       </div>
     </div>

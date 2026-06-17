@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   fetchStudents,
   fetchHomeSummary,
@@ -6,40 +6,67 @@ import {
   createStudent as apiCreateStudent,
   updateStudent as apiUpdateStudent,
 } from '../lib/api/students';
+import {
+  fetchClasses,
+  createClass as apiCreateClass,
+  updateClass as apiUpdateClass,
+  deleteClass as apiDeleteClass,
+} from '../lib/api/classes';
 import { useAuth } from './AuthContext';
 
 const StudentContext = createContext({});
 
+const DEFAULT_YEAR = new Date().getFullYear();
+
 /**
- * Holds the student list, currently selected student, full per-student data
- * cache, and home dashboard summary. Acts as the single source of truth so
- * page components don't need to manage their own fetches.
+ * Holds the class hierarchy (선생님 → 년도 → 학급 → 학생), the student list,
+ * currently selected year / class / student, the full per-student data cache,
+ * and the home dashboard summary. Acts as the single source of truth so page
+ * components don't need to manage their own fetches.
  */
 export function StudentProvider({ children }) {
   const { user } = useAuth();
-  const [students, setStudents] = useState([]);
-  const [curStuId, setCurStuId] = useState(null); // student.id (db pk)
+  const [allStudents, setAllStudents] = useState([]); // every student for the user
+  const [classes, setClasses] = useState([]);         // every class for the user
+  const [curYear, setCurYear] = useState(DEFAULT_YEAR);
+  const [curClassId, setCurClassId] = useState(null);
+  const [curStuId, setCurStuId] = useState(null);      // student.id (db pk)
   const [studentDataCache, setStudentDataCache] = useState({});
   const [homeSummary, setHomeSummary] = useState({ summaries: {}, recent: [] });
   const inflightRef = useRef({});
+  const seedingRef = useRef(false);
 
   // Reset everything when user logs out / changes.
   useEffect(() => {
     if (!user) {
-      setStudents([]);
+      setAllStudents([]);
+      setClasses([]);
+      setCurYear(DEFAULT_YEAR);
+      setCurClassId(null);
       setCurStuId(null);
       setStudentDataCache({});
       setHomeSummary({ summaries: {}, recent: [] });
     }
   }, [user]);
 
-  // Initial load when user logs in.
   const reloadStudents = useCallback(async () => {
     if (!user) return [];
     try {
       const data = await fetchStudents();
       const list = (data.students || []).map((s) => ({ ...s, code: s.student_code }));
-      setStudents(list);
+      setAllStudents(list);
+      return list;
+    } catch (_e) {
+      return [];
+    }
+  }, [user]);
+
+  const reloadClasses = useCallback(async () => {
+    if (!user) return [];
+    try {
+      const data = await fetchClasses();
+      const list = data.classes || [];
+      setClasses(list);
       return list;
     } catch (_e) {
       return [];
@@ -54,15 +81,103 @@ export function StudentProvider({ children }) {
     } catch (_e) {}
   }, [user]);
 
+  // Class CRUD ---------------------------------------------------------------
+  const addClass = useCallback(async (school_year, name) => {
+    const data = await apiCreateClass({ school_year, name });
+    await reloadClasses();
+    return data.class;
+  }, [reloadClasses]);
+
+  const renameClass = useCallback(async (id, name, school_year) => {
+    const payload = school_year != null ? { id, name, school_year } : { id, name };
+    const data = await apiUpdateClass(payload);
+    await reloadClasses();
+    return data.class;
+  }, [reloadClasses]);
+
+  const removeClass = useCallback(async (id) => {
+    await apiDeleteClass(id);
+    if (curClassId === id) setCurClassId(null);
+    await Promise.all([reloadClasses(), reloadStudents()]);
+  }, [curClassId, reloadClasses, reloadStudents]);
+
+  // Initial load when user logs in.
   useEffect(() => {
     if (user) {
+      reloadClasses();
       reloadStudents();
       reloadHomeSummary();
     }
-  }, [user, reloadStudents, reloadHomeSummary]);
+  }, [user, reloadClasses, reloadStudents, reloadHomeSummary]);
 
-  // Fetches all per-student data on demand, with a re-entry guard so fast
-  // student-switching doesn't cause overlapping fetches.
+  // Auto-seed a default class for brand-new users so there is always somewhere
+  // to add students. Runs once when the user has loaded classes and has none.
+  useEffect(() => {
+    if (!user) return;
+    if (classes.length > 0) return;
+    if (seedingRef.current) return;
+    seedingRef.current = true;
+    (async () => {
+      try {
+        await addClass(DEFAULT_YEAR, '1반');
+      } catch (_e) {
+        // ignore (e.g. race / already exists)
+      } finally {
+        seedingRef.current = false;
+      }
+    })();
+  }, [user, classes.length, addClass]);
+
+  // Derived: the set of school years present, newest first.
+  const years = useMemo(() => {
+    const set = new Set(classes.map((c) => c.school_year));
+    set.add(curYear);
+    return Array.from(set).sort((a, b) => b - a);
+  }, [classes, curYear]);
+
+  // Classes within the currently selected year.
+  const yearClasses = useMemo(
+    () => classes.filter((c) => c.school_year === curYear).sort((a, b) => a.name.localeCompare(b.name, 'ko')),
+    [classes, curYear]
+  );
+
+  // Keep curClassId valid: when the year changes (or classes load), select the
+  // first class of that year if the current selection isn't in it.
+  useEffect(() => {
+    if (yearClasses.length === 0) {
+      if (curClassId !== null) setCurClassId(null);
+      return;
+    }
+    if (!yearClasses.some((c) => c.id === curClassId)) {
+      setCurClassId(yearClasses[0].id);
+    }
+  }, [yearClasses, curClassId]);
+
+  // The students of the currently selected class. This is what the selector,
+  // dashboard, and pick-student modal show.
+  const students = useMemo(
+    () => allStudents.filter((s) => s.class_id === curClassId),
+    [allStudents, curClassId]
+  );
+
+  // If the selected student leaves the current class scope, clear it.
+  useEffect(() => {
+    if (curStuId && !students.some((s) => s.id === curStuId)) {
+      setCurStuId(null);
+    }
+  }, [students, curStuId]);
+
+  const selectYear = useCallback((yr) => {
+    setCurYear(Number(yr));
+    setCurStuId(null); // class will be re-picked by the effect above
+  }, []);
+
+  const selectClass = useCallback((cid) => {
+    setCurClassId(cid ? Number(cid) : null);
+    setCurStuId(null);
+  }, []);
+
+  // Per-student data --------------------------------------------------------
   const ensureStudentData = useCallback(async (sid) => {
     if (!sid) return null;
     if (studentDataCache[sid]) return studentDataCache[sid];
@@ -101,11 +216,13 @@ export function StudentProvider({ children }) {
   }, []);
 
   const addStudent = useCallback(async (payload) => {
-    const data = await apiCreateStudent(payload);
+    // Default the new student into the currently selected class.
+    const body = { class_id: curClassId, ...payload };
+    const data = await apiCreateStudent(body);
     await reloadStudents();
     await reloadHomeSummary();
     return data.student;
-  }, [reloadStudents, reloadHomeSummary]);
+  }, [curClassId, reloadStudents, reloadHomeSummary]);
 
   const editStudent = useCallback(async (payload) => {
     const data = await apiUpdateStudent(payload);
@@ -113,12 +230,28 @@ export function StudentProvider({ children }) {
     return data.student;
   }, [reloadStudents]);
 
-  const curStu = students.find((s) => s.id === curStuId) || null;
+  const curStu = allStudents.find((s) => s.id === curStuId) || null;
   const curStuData = curStuId ? studentDataCache[curStuId] : null;
+  const curClass = classes.find((c) => c.id === curClassId) || null;
 
   return (
     <StudentContext.Provider
       value={{
+        // class hierarchy
+        classes,
+        years,
+        yearClasses,
+        curYear,
+        curClassId,
+        curClass,
+        selectYear,
+        selectClass,
+        reloadClasses,
+        addClass,
+        renameClass,
+        removeClass,
+        // students
+        allStudents,
         students,
         curStu,
         curStuId,

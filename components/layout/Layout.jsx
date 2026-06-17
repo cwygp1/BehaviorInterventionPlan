@@ -6,6 +6,7 @@ import AISettingsModal from '../modals/AISettingsModal';
 import AddStudentModal from '../modals/AddStudentModal';
 import PickStudentModal from '../modals/PickStudentModal';
 import EditStudentModal from '../modals/EditStudentModal';
+import ManageClassesModal from '../modals/ManageClassesModal';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -18,6 +19,7 @@ export default function Layout({ children, activePage, onNavigate }) {
   const [addOpen, setAddOpen] = useState(false);
   const [pickOpen, setPickOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [classesOpen, setClassesOpen] = useState(false);
   const [pendingPage, setPendingPage] = useState(null);
 
   function tryNavigate(page) {
@@ -47,6 +49,7 @@ export default function Layout({ children, activePage, onNavigate }) {
           onMenu={() => setSidebarOpen(true)}
           onOpenLLMSettings={() => setAISettingsOpen(true)}
           onAddStudent={() => setAddOpen(true)}
+          onManageClasses={() => setClassesOpen(true)}
         />
         <div className="content">{children}</div>
       </main>
@@ -69,6 +72,7 @@ export default function Layout({ children, activePage, onNavigate }) {
         onAddNew={() => { setPickOpen(false); setAddOpen(true); }}
       />
       <EditStudentModal open={editOpen} onClose={() => setEditOpen(false)} />
+      <ManageClassesModal open={classesOpen} onClose={() => setClassesOpen(false)} />
     </div>
   );
 }

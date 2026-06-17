@@ -6,38 +6,80 @@ export default requireAuth(async function handler(req, res) {
   try {
     switch (req.method) {
       case 'GET': {
-        const result = await sql`
-          SELECT * FROM students WHERE user_id = ${userId} ORDER BY created_at DESC
-        `;
+        // Optionally scope to a single class via ?class_id=. Always include the
+        // class's school_year and name so the client can group by 년도 → 학급.
+        const { class_id } = req.query;
+        const result = class_id
+          ? await sql`
+              SELECT s.*, c.school_year, c.name AS class_name
+              FROM students s
+              LEFT JOIN classes c ON c.id = s.class_id
+              WHERE s.user_id = ${userId} AND s.class_id = ${Number(class_id)}
+              ORDER BY s.created_at DESC
+            `
+          : await sql`
+              SELECT s.*, c.school_year, c.name AS class_name
+              FROM students s
+              LEFT JOIN classes c ON c.id = s.class_id
+              WHERE s.user_id = ${userId}
+              ORDER BY s.created_at DESC
+            `;
         return res.status(200).json({ students: result.rows });
       }
 
       case 'POST': {
-        const { student_code, level, disability, note } = req.body || {};
+        const { student_code, level, disability, note, class_id } = req.body || {};
         if (!student_code) {
           return res.status(400).json({ error: 'student_code is required' });
         }
+        if (!class_id) {
+          return res.status(400).json({ error: 'class_id is required' });
+        }
+        // Verify the class belongs to this user before attaching the student.
+        const cls = await sql`
+          SELECT id FROM classes WHERE id = ${Number(class_id)} AND user_id = ${userId}
+        `;
+        if (cls.rows.length === 0) {
+          return res.status(403).json({ error: 'Forbidden' });
+        }
         const result = await sql`
-          INSERT INTO students (user_id, student_code, level, disability, note)
-          VALUES (${userId}, ${student_code}, ${level || ''}, ${disability || ''}, ${note || ''})
+          INSERT INTO students (user_id, class_id, student_code, level, disability, note)
+          VALUES (${userId}, ${Number(class_id)}, ${student_code}, ${level || ''}, ${disability || ''}, ${note || ''})
           RETURNING *
         `;
         return res.status(201).json({ student: result.rows[0] });
       }
 
       case 'PUT': {
-        const { id, level, disability, note } = req.body || {};
+        const { id, level, disability, note, class_id } = req.body || {};
         if (!id) {
           return res.status(400).json({ error: 'id is required' });
         }
+        // Optionally move the student to another class. Verify ownership of the
+        // target class first so a student can't be moved into someone else's class.
+        if (class_id != null) {
+          const cls = await sql`
+            SELECT id FROM classes WHERE id = ${Number(class_id)} AND user_id = ${userId}
+          `;
+          if (cls.rows.length === 0) {
+            return res.status(403).json({ error: 'Forbidden' });
+          }
+        }
         // Ownership check is enforced via the WHERE clause — a student
         // belonging to another user simply won't match and returns 404.
-        const result = await sql`
-          UPDATE students
-          SET level = ${level || ''}, disability = ${disability || ''}, note = ${note || ''}
-          WHERE id = ${id} AND user_id = ${userId}
-          RETURNING *
-        `;
+        const result = class_id != null
+          ? await sql`
+              UPDATE students
+              SET level = ${level || ''}, disability = ${disability || ''}, note = ${note || ''}, class_id = ${Number(class_id)}
+              WHERE id = ${id} AND user_id = ${userId}
+              RETURNING *
+            `
+          : await sql`
+              UPDATE students
+              SET level = ${level || ''}, disability = ${disability || ''}, note = ${note || ''}
+              WHERE id = ${id} AND user_id = ${userId}
+              RETURNING *
+            `;
         if (result.rows.length === 0) {
           return res.status(404).json({ error: 'Student not found' });
         }

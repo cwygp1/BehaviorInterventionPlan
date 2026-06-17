@@ -7,11 +7,12 @@ const LEVELS = ['초등', '중등', '고등'];
 const DISABILITIES = ['지적장애', '자폐스펙트럼(ASD)', '지체장애', '청각장애', '시각장애', '정서행동장애', '학습장애', 'ADHD', '발달지연', '중복중증'];
 
 export default function EditStudentModal({ open, onClose }) {
-  const { curStu, editStudent } = useStudents();
+  const { curStu, editStudent, classes } = useStudents();
   const toast = useToast();
   const [level, setLevel] = useState('');
   const [dis, setDis] = useState('');
   const [note, setNote] = useState('');
+  const [classId, setClassId] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -19,6 +20,7 @@ export default function EditStudentModal({ open, onClose }) {
       setLevel(curStu.level || LEVELS[0]);
       setDis(curStu.disability || DISABILITIES[0]);
       setNote(curStu.note || '');
+      setClassId(curStu.class_id || '');
     }
   }, [open, curStu]);
 
@@ -26,7 +28,7 @@ export default function EditStudentModal({ open, onClose }) {
     if (!curStu) return;
     setBusy(true);
     try {
-      await editStudent({ id: curStu.id, level, disability: dis, note });
+      await editStudent({ id: curStu.id, level, disability: dis, note, class_id: classId ? Number(classId) : undefined });
       toast('프로필 수정 완료');
       onClose();
     } catch (e) {
@@ -52,6 +54,14 @@ export default function EditStudentModal({ open, onClose }) {
             {DISABILITIES.map((d) => <option key={d}>{d}</option>)}
           </select>
         </div>
+      </div>
+      <div className="form-group">
+        <label className="form-label">소속 학급</label>
+        <select className="form-select" value={classId} onChange={(e) => setClassId(e.target.value)}>
+          {(classes || []).map((c) => (
+            <option key={c.id} value={c.id}>{c.school_year}년 · {c.name}</option>
+          ))}
+        </select>
       </div>
       <div className="form-group">
         <label className="form-label">비식별 요약</label>

@@ -1,0 +1,214 @@
+import { useEffect, useState } from 'react';
+import Modal from '../ui/Modal';
+import StuHero, { NoStudentHint } from '../student/StuHero';
+import { useStudents } from '../../contexts/StudentContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
+import { useLLM } from '../../contexts/LLMContext';
+import { fetchIEP, saveIEPGoal } from '../../lib/api/students';
+import { downloadIepReport } from '../../lib/utils/printIep';
+
+const GRADE = { 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
+
+export default function IepReportPage() {
+  const { curStu, curStuId, curStuData, ensureStudentData } = useStudents();
+  const { user } = useAuth();
+  const toast = useToast();
+  const { callDetailed, status: llmStatus } = useLLM();
+  const aiOn = llmStatus !== 'off';
+
+  const [goals, setGoals] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const curYear = new Date().getFullYear();
+  const [yearF, setYearF] = useState(curYear);
+  const [sem, setSem] = useState('');
+  const [savingId, setSavingId] = useState(null);
+  const [synthId, setSynthId] = useState(null);
+  const teacher = user?.name || '';
+
+  // 수동 프롬프트 모달 (AI 미연결)
+  const [manualGoalId, setManualGoalId] = useState(null);
+  const [promptText, setPromptText] = useState('');
+  const [pasteText, setPasteText] = useState('');
+
+  useEffect(() => {
+    if (!curStuId) { setGoals([]); return; }
+    setLoading(true);
+    fetchIEP(curStuId).then((d) => setGoals(d.goals || [])).catch(() => toast('IEP 목표를 불러오지 못했습니다.')).finally(() => setLoading(false));
+  }, [curStuId, toast]);
+
+  if (!curStu) return (<><StuHero /><NoStudentHint /></>);
+
+  const years = [...new Set([curYear, ...goals.map((g) => g.school_year).filter(Boolean)])].sort((a, b) => b - a);
+  const list = goals.filter((g) => (!yearF || g.school_year === yearF) && (!sem || String(g.semester) === sem));
+
+  function updateGoal(id, patch) { setGoals((prev) => prev.map((g) => (g.id === id ? { ...g, ...patch } : g))); }
+  function updateMonth(id, idx, key, val) {
+    setGoals((prev) => prev.map((g) => {
+      if (g.id !== id) return g;
+      const monthly = (g.monthly || []).map((m, i) => (i === idx
+        ? { ...m, [key]: key === 'methods' ? val.split(/\r?\n/).map((s) => s.replace(/^\s*[-•·]\s*/, '').trim()).filter(Boolean) : val }
+        : m));
+      return { ...g, monthly };
+    }));
+  }
+
+  async function saveGoal(g) {
+    setSavingId(g.id);
+    try {
+      await saveIEPGoal(curStuId, {
+        id: g.id, school_year: g.school_year, subject: g.subject, grade_code: g.grade_code, area: g.area,
+        standard_code: g.standard_code, standard_text: g.standard_text, semester: g.semester,
+        semester_goal: g.semester_goal, plop: g.plop, crit_type: g.crit_type, crit_start: g.crit_start, crit_end: g.crit_end,
+        monthly: g.monthly || [], semestral_eval: g.semestral_eval,
+      });
+      toast('저장 완료');
+    } catch (e) { toast('저장 실패: ' + e.message); } finally { setSavingId(null); }
+  }
+
+  async function buildSynthPrompt(g) {
+    const data = curStuData || (await ensureStudentData(curStuId)) || {};
+    const note = curStu.note ? `비식별 요약: ${curStu.note}\n` : '';
+    const mon = (g.monthly || []).map((m) => `${m.month}월) 목표:${(m.goal || '').replace(/\n/g, ' ')} / 내용:${(m.content || '').replace(/\n/g, ' ')} / 평가:${(m.eval || '').replace(/\n/g, ' ')}`).join('\n');
+    return (
+      `너는 특수교육 IEP 전문가다. 아래 한 영역의 월별 계획을 종합하여 학기 단위의 현행수준·학기목표·평가를 작성하라.\n\n` +
+      `[학생] ${curStu.code} · ${curStu.level || ''} · ${curStu.disability || ''}\n${note}` +
+      `[영역] ${g.subject}${g.area ? ' · ' + g.area : ''} (${g.semester}학기)\n` +
+      `[월별 계획]\n${mon || '(없음)'}\n\n` +
+      `요구사항:\n- 현행수준(plop): 학생 자료에 근거해 구체적으로.\n- 학기목표(semester_goal): 월별을 종합한 학기 도달점을 "- "로 시작하는 2~4개 항목으로 다양하게.\n- 평가(semestral_eval): 도달도와 학습 과정·변화를 "- "로 시작하는 2~4개 항목으로 다양하게.\n- 실명/식별정보 금지.\n\n` +
+      `반드시 JSON만 출력: {"plop":"- ...\\n- ...","semester_goal":"- ...\\n- ...","semestral_eval":"- ...\\n- ..."}`
+    );
+  }
+  function applySynth(id, j) {
+    updateGoal(id, {
+      plop: j.plop != null ? String(j.plop) : undefined,
+      semester_goal: j.semester_goal != null ? String(j.semester_goal) : undefined,
+      semestral_eval: (j.semestral_eval != null) ? String(j.semestral_eval) : undefined,
+    });
+  }
+  async function aiSynth(g) {
+    if (!aiOn) { openManual(g); return; }
+    setSynthId(g.id);
+    try {
+      const prompt = await buildSynthPrompt(g);
+      const r = await callDetailed('/no_think\n' + prompt, { temperature: 0.4 });
+      const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
+      const m = (out || '').match(/\{[\s\S]*\}/);
+      if (!m) { toast(r.finish_reason === 'length' ? '응답이 잘렸어요. AI max_tokens를 늘려보세요.' : 'AI 응답 해석 실패'); return; }
+      applySynth(g.id, JSON.parse(m[0]));
+      toast('월별을 종합해 학기 현행수준·목표·평가를 작성했어요. (확인 후 저장)');
+    } catch (e) { toast('AI 종합 실패: ' + e.message); } finally { setSynthId(null); }
+  }
+
+  async function openManual(g) {
+    setManualGoalId(g.id); setPasteText(''); setPromptText('프롬프트 생성 중…');
+    try { setPromptText(await buildSynthPrompt(g)); } catch (e) { setPromptText('생성 실패: ' + e.message); }
+  }
+  async function copyPrompt() { try { await navigator.clipboard.writeText(promptText); toast('복사했어요.'); } catch (_) { toast('직접 선택해 복사하세요.'); } }
+  function applyManual() {
+    const m = (pasteText || '').match(/\{[\s\S]*\}/);
+    if (!m) { toast('붙여넣은 내용에서 JSON을 찾지 못했어요.'); return; }
+    try { applySynth(manualGoalId, JSON.parse(m[0])); toast('적용했어요. 확인 후 저장하세요.'); setManualGoalId(null); }
+    catch (e) { toast('JSON 파싱 실패: ' + e.message); }
+  }
+
+  function onWord() {
+    if (!list.length) { toast('출력할 목표가 없습니다.'); return; }
+    downloadIepReport({
+      student: { code: curStu.code, level: curStu.level, disability: curStu.disability },
+      teacherName: teacher, school: user?.school || '', year: yearF || curYear, semester: sem, goals: list,
+    });
+  }
+
+  return (
+    <>
+      <StuHero />
+
+      <div className="card">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <div className="card-title" style={{ marginBottom: 0 }}>📄 IEP 계획서 (편집 · 출력)</div>
+            <div className="card-subtitle">영역별로 월별 계획을 직접 수정하고, "✨ AI 종합"으로 학기 현행수준·목표·평가를 채운 뒤 저장·출력합니다.</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <select className="form-input" style={{ width: 'auto' }} value={yearF} onChange={(e) => setYearF(Number(e.target.value))}>
+              <option value={0}>전체 학년도</option>
+              {years.map((y) => <option key={y} value={y}>{y}학년도</option>)}
+            </select>
+            <select className="form-input" style={{ width: 'auto' }} value={sem} onChange={(e) => setSem(e.target.value)}>
+              <option value="">전체 학기</option><option value="1">1학기</option><option value="2">2학기</option>
+            </select>
+            <button className="btn btn-ok" onClick={onWord}>📄 Word(.doc) 다운로드</button>
+          </div>
+        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12, fontSize: 13 }}>
+          <tbody>
+            <tr><td style={hl}>성명</td><td style={td}>{curStu.code}</td><td style={hl}>학년·반</td><td style={td}>{curStu.level}</td><td style={hl}>담임</td><td style={td}>{teacher}</td></tr>
+            <tr><td style={hl}>장애유형</td><td style={td}>{curStu.disability}</td><td style={hl}>학교</td><td style={td}>{user?.school || ''}</td><td style={hl}>학년도</td><td style={td}>{yearF || '전체'}</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      {loading && <div className="card"><div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#6b7280' }}><span style={spinner} /> 불러오는 중…</div></div>}
+      {!loading && list.length === 0 && <div className="card"><div className="empty-state">이 학년도·학기에 저장된 목표가 없습니다. "IEP 목표 생성"에서 만들거나 "전년도 IEP"에서 불러오세요.</div></div>}
+
+      {!loading && list.map((g) => (
+        <div className="card" key={g.id}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <div className="card-title" style={{ marginBottom: 0 }}>📘 {g.subject}{g.area ? ' · ' + g.area : ''} <span style={{ fontWeight: 400, fontSize: 12, color: '#6b7280' }}>· {g.school_year || '-'}학년도 {g.semester}학기 · {GRADE[g.grade_code] || ''}</span></div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => aiSynth(g)} disabled={synthId === g.id}>{synthId === g.id ? 'AI 종합 중…' : (aiOn ? '✨ AI 종합 (월별→학기)' : '📋 AI 프롬프트')}</button>
+              <button className="btn btn-pri btn-sm" onClick={() => saveGoal(g)} disabled={savingId === g.id}>{savingId === g.id ? '저장 중…' : '💾 저장'}</button>
+            </div>
+          </div>
+
+          <div className="form-row" style={{ marginTop: 8 }}>
+            <div className="form-group"><label className="form-label">현행수준</label><textarea className="form-textarea" rows={3} value={g.plop || ''} onChange={(e) => updateGoal(g.id, { plop: e.target.value })} /></div>
+            <div className="form-group"><label className="form-label">학기목표 (여러 줄 "-")</label><textarea className="form-textarea" rows={3} value={g.semester_goal || ''} onChange={(e) => updateGoal(g.id, { semester_goal: e.target.value })} /></div>
+          </div>
+          <div className="form-group"><label className="form-label">학기 평가 (여러 줄 "-")</label><textarea className="form-textarea" rows={3} value={g.semestral_eval || ''} onChange={(e) => updateGoal(g.id, { semestral_eval: e.target.value })} /></div>
+
+          <div className="form-label" style={{ marginTop: 6 }}>월별 개별화교육계획/평가 (직접 수정)</div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={tbl}>
+              <thead><tr><th style={{ ...th, width: 48 }}>월</th><th style={th}>교육목표</th><th style={th}>교육내용</th><th style={{ ...th, width: 150 }}>교육방법</th><th style={{ ...th, width: '30%' }}>평가</th></tr></thead>
+              <tbody>
+                {(g.monthly || []).map((m, i) => (
+                  <tr key={i}>
+                    <td style={tc}>{m.month}월</td>
+                    <td style={tdc}><textarea style={cell} value={m.goal || ''} onChange={(e) => updateMonth(g.id, i, 'goal', e.target.value)} /></td>
+                    <td style={tdc}><textarea style={cell} value={m.content || ''} onChange={(e) => updateMonth(g.id, i, 'content', e.target.value)} /></td>
+                    <td style={tdc}><textarea style={cell} value={(m.methods || []).map((x) => '- ' + x).join('\n')} onChange={(e) => updateMonth(g.id, i, 'methods', e.target.value)} /></td>
+                    <td style={tdc}><textarea style={cell} value={m.eval || ''} onChange={(e) => updateMonth(g.id, i, 'eval', e.target.value)} /></td>
+                  </tr>
+                ))}
+                {(!g.monthly || g.monthly.length === 0) && <tr><td colSpan={5} style={{ ...tdc, color: '#6b7280', textAlign: 'center' }}>월별 계획이 없습니다. "IEP 목표 생성"에서 월별을 만들면 여기서 수정할 수 있어요.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+
+      <Modal open={!!manualGoalId} onClose={() => setManualGoalId(null)} maxWidth={700}>
+        <h3>📋 AI 종합 프롬프트 (연결된 AI 없이 사용)</h3>
+        <p style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.6 }}>① 프롬프트를 복사해 외부 AI에 붙여넣고 ② 받은 JSON을 아래에 붙여넣어 "적용".</p>
+        <div className="form-group"><label className="form-label">① 프롬프트</label><textarea className="form-textarea" rows={8} readOnly value={promptText} onFocus={(e) => e.target.select()} /></div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}><button className="btn btn-ghost" onClick={copyPrompt}>📋 복사</button></div>
+        <div className="form-group"><label className="form-label">② AI 응답 붙여넣기</label><textarea className="form-textarea" rows={6} value={pasteText} onChange={(e) => setPasteText(e.target.value)} placeholder='{"plop":...,"semester_goal":...,"semestral_eval":...}' /></div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button className="btn btn-ghost" onClick={() => setManualGoalId(null)}>닫기</button>
+          <button className="btn btn-pri" onClick={applyManual}>응답 적용</button>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+const hl = { border: '1px solid #e3e6eb', background: '#f3f4f6', fontWeight: 700, padding: '7px 9px', width: 90, whiteSpace: 'nowrap' };
+const td = { border: '1px solid #e3e6eb', padding: '7px 9px' };
+const tbl = { width: '100%', borderCollapse: 'collapse', fontSize: 12.5, marginTop: 4 };
+const th = { background: '#2f5496', color: '#fff', border: '1px solid #d9d9d9', padding: '8px 9px', fontSize: 12, textAlign: 'center' };
+const tdc = { border: '1px solid #e3e6eb', padding: 4, verticalAlign: 'top' };
+const tc = { border: '1px solid #e3e6eb', padding: '7px 9px', textAlign: 'center', verticalAlign: 'top', background: '#f3f6fc', fontWeight: 700, whiteSpace: 'nowrap' };
+const cell = { width: '100%', border: 'none', outline: 'none', resize: 'vertical', fontFamily: 'inherit', fontSize: 12.5, background: 'transparent', lineHeight: 1.55, minHeight: 64, whiteSpace: 'pre-wrap' };
+const spinner = { display: 'inline-block', width: 18, height: 18, border: '3px solid rgba(79,107,237,.25)', borderTopColor: '#4f6bed', borderRadius: '50%', animation: 'spin .8s linear infinite' };

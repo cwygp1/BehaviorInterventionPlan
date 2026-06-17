@@ -22,6 +22,14 @@ const NAV = [
     ],
   },
   {
+    group: '개별화교육 (IEP)',
+    items: [
+      { id: 'priorIep', label: '전년도 IEP', icon: '🗓', requiresStudent: true },
+      { id: 'iep', label: 'IEP 목표 생성', icon: '📋', requiresStudent: true },
+      { id: 'iepReport', label: 'IEP 계획서(완성·출력)', icon: '📄', requiresStudent: true },
+    ],
+  },
+  {
     group: 'AI 도구',
     items: [
       { id: 'builder', label: 'AI 어시스턴트', icon: '🤖' },
