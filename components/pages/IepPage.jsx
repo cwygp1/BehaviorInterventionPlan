@@ -8,7 +8,7 @@ import { useLLM } from '../../contexts/LLMContext';
 import { fetchIEP, saveIEPGoal, deleteIEPGoal } from '../../lib/api/students';
 import { downloadIepWord } from '../../lib/utils/printIep';
 
-const GRADE = { 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
+const GRADE = { 0: '일상생활(공통)', 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
 const GORDER = [2, 4, 6, 9, 12];
 
 // 지원 수준 사다리(기능분석·ZPD). 월별 분해에도 재사용.
