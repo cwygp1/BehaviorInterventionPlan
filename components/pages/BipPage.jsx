@@ -3,7 +3,7 @@ import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { QChipGroup, makeAppender } from '../ui/QChip';
+import { EditableChipGroup, makeAppender } from '../ui/QChip';
 import BIPPromptModal from '../modals/BIPPromptModal';
 import FamilyLetterModal from '../modals/FamilyLetterModal';
 import { saveBIP as apiSaveBIP } from '../../lib/api/students';
@@ -111,18 +111,18 @@ export default function BipPage() {
         </div>
         <div className="form-group">
           <label className="form-label">대체 행동</label>
-          <QChipGroup options={ALT_CHIPS} onPick={makeAppender(alt, setAlt, true)} />
+          <EditableChipGroup storageKey="bip_alt" defaults={ALT_CHIPS} onPick={makeAppender(alt, setAlt, true)} />
           <input className="form-input" value={alt} onChange={(e) => setAlt(e.target.value)} placeholder="문제행동 대신 할 바람직한 행동" />
         </div>
         <div className="form-row">
           <div className="form-group">
             <label className="form-label">FCT 기술</label>
-            <QChipGroup options={FCT_CHIPS} onPick={makeAppender(fct, setFct, true)} />
+            <EditableChipGroup storageKey="bip_fct" defaults={FCT_CHIPS} onPick={makeAppender(fct, setFct, true)} />
             <input className="form-input" value={fct} onChange={(e) => setFct(e.target.value)} />
           </div>
           <div className="form-group">
             <label className="form-label">성공 기준</label>
-            <QChipGroup options={CRIT_CHIPS} onPick={makeAppender(crit, setCrit, true)} />
+            <EditableChipGroup storageKey="bip_crit" defaults={CRIT_CHIPS} onPick={makeAppender(crit, setCrit, true)} />
             <input className="form-input" value={crit} onChange={(e) => setCrit(e.target.value)} />
           </div>
         </div>
@@ -132,22 +132,22 @@ export default function BipPage() {
         <div className="card-title">📜 중재 전략 (예방-교수-강화-반응)</div>
         <div className="form-group">
           <label className="form-label">🛡 예방 전략</label>
-          <QChipGroup options={PREV_CHIPS} onPick={makeAppender(prev, setPrev, false)} />
+          <EditableChipGroup storageKey="bip_prev" defaults={PREV_CHIPS} onPick={makeAppender(prev, setPrev, false)} />
           <textarea className="form-textarea" value={prev} onChange={(e) => setPrev(e.target.value)} />
         </div>
         <div className="form-group">
           <label className="form-label">📖 교수 전략</label>
-          <QChipGroup options={TEACH_CHIPS} onPick={makeAppender(teach, setTeach, false)} />
+          <EditableChipGroup storageKey="bip_teach" defaults={TEACH_CHIPS} onPick={makeAppender(teach, setTeach, false)} />
           <textarea className="form-textarea" value={teach} onChange={(e) => setTeach(e.target.value)} />
         </div>
         <div className="form-group">
           <label className="form-label">⭐ 강화 전략</label>
-          <QChipGroup options={REINF_CHIPS} onPick={makeAppender(reinf, setReinf, false)} />
+          <EditableChipGroup storageKey="bip_reinf" defaults={REINF_CHIPS} onPick={makeAppender(reinf, setReinf, false)} />
           <textarea className="form-textarea" value={reinf} onChange={(e) => setReinf(e.target.value)} />
         </div>
         <div className="form-group">
           <label className="form-label">🚨 반응 절차</label>
-          <QChipGroup options={RESP_CHIPS} onPick={makeAppender(resp, setResp, false)} />
+          <EditableChipGroup storageKey="bip_resp" defaults={RESP_CHIPS} onPick={makeAppender(resp, setResp, false)} />
           <textarea className="form-textarea" value={resp} onChange={(e) => setResp(e.target.value)} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
@@ -172,7 +172,7 @@ export default function BipPage() {
           </div>
           <div className="form-group">
             <label className="form-label">선생님의 약속 (보상)</label>
-            <QChipGroup options={REWARD_CHIPS} onPick={makeAppender(conTch, setConTch, true)} />
+            <EditableChipGroup storageKey="bip_reward" defaults={REWARD_CHIPS} onPick={makeAppender(conTch, setConTch, true)} />
             <input className="form-input" value={conTch} onChange={(e) => setConTch(e.target.value)} />
           </div>
         </div>

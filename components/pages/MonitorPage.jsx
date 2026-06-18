@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
-import { QChipGroup } from '../ui/QChip';
+import { EditableChipGroup } from '../ui/QChip';
 import { createMonitor, deleteMonitor as apiDelMon, createFidelity } from '../../lib/api/students';
 import ObservationPeriodModal from '../modals/ObservationPeriodModal';
 
@@ -89,16 +89,16 @@ export default function MonitorPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div>
             <div className="card-title" style={{ marginBottom: 0 }}>📍 현재 관찰 단계 (Phase)</div>
-            <div className="card-subtitle">단일대상연구의 핵심 — 기초선(A)·중재(B)를 명확히 구분해야 결과 차트가 의미를 가집니다.</div>
+            <div className="card-subtitle">단일대상연구의 핵심 — <strong>A(기초선)</strong>는 중재 전 현재 수준, <strong>B(중재)</strong>는 BIP·전략을 <u>실제로 적용한 이후</u>의 데이터입니다. 두 단계를 명확히 구분해야 결과 차트가 의미를 가집니다.</div>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={() => setPeriodModalOpen(true)}>📍 새 관찰 기간 시작</button>
         </div>
         <div className="qchip-area" style={{ marginTop: 10 }}>
-          <span className={'qchip' + (phase === 'A' ? ' on' : '')} onClick={() => setPhase('A')}>A · 기초선 (Baseline)</span>
-          <span className={'qchip' + (phase === 'B' ? ' on' : '')} onClick={() => setPhase('B')}>B · 중재 (Intervention)</span>
+          <span className={'qchip' + (phase === 'A' ? ' on' : '')} onClick={() => setPhase('A')}>A · 기초선 (중재 전)</span>
+          <span className={'qchip' + (phase === 'B' ? ' on' : '')} onClick={() => setPhase('B')}>B · 중재 (전략 적용 후)</span>
         </div>
         <p style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 8 }}>
-          현재 저장될 phase: <strong style={{ color: 'var(--pri)' }}>{phase}</strong> — 기초선이 충분히 모이면 BIP 적용 후 B로 전환하세요.
+          현재 저장될 phase: <strong style={{ color: 'var(--pri)' }}>{phase}</strong> — 먼저 <strong>A(기초선)</strong>으로 중재 전 수준을 충분히 모은 뒤, BIP·중재 전략을 <strong>실제로 적용한 다음</strong> 그 효과 데이터를 <strong>B(중재)</strong>로 기록하세요. (B는 기초선이 아니라 전략 적용 이후의 수집 데이터입니다.)
           {curStuData?.periods?.length > 0 && (() => {
             const active = curStuData.periods.find((p) => !p.end_date);
             if (active) {
@@ -123,7 +123,7 @@ export default function MonitorPage() {
         </div>
         <div className="form-group">
           <label className="form-label">기록 대상 행동</label>
-          <QChipGroup options={behOptions} mode="set" target={beh} onChange={setBeh} />
+          <EditableChipGroup storageKey="mon_beh" defaults={behOptions} mode="set" target={beh} onChange={setBeh} />
           <input className="form-input" value={beh} onChange={(e) => setBeh(e.target.value)} />
         </div>
         <div className="mon-grid">

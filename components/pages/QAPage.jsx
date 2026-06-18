@@ -3,6 +3,7 @@ import { useLLM } from '../../contexts/LLMContext';
 import { useToast } from '../../contexts/ToastContext';
 import PromptResultBlock from '../modals/PromptResultBlock';
 import AIActionBar from '../ui/AIActionBar';
+import { EditableChipGroup } from '../ui/QChip';
 
 const SAMPLE_QUESTIONS = [
   '학급에서 4:1 긍정 비율을 지키려면 어떻게 해야 하나요?',
@@ -88,11 +89,7 @@ ${q}`;
           <div style={{ fontSize: '.78rem', color: 'var(--muted)', marginBottom: 6, fontWeight: 700 }}>
             📌 자주 묻는 질문 <span style={{ color: 'var(--muted)', fontWeight: 500 }}>· 클릭하면 위 질문창에 채워집니다{status === 'on' ? ' (AI 연결됨 — 자동 호출)' : ''}</span>
           </div>
-          <div className="qchip-area">
-            {SAMPLE_QUESTIONS.map((q, i) => (
-              <span key={i} className="qchip" onClick={() => selectQuestion(q)}>{q}</span>
-            ))}
-          </div>
+          <EditableChipGroup storageKey="qa_questions" defaults={SAMPLE_QUESTIONS} onPick={(q) => selectQuestion(q)} />
         </div>
       </div>
 

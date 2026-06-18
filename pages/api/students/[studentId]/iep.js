@@ -29,6 +29,9 @@ export default requireStudentAccess(async function handler(req, res) {
       case 'PUT': {
         const b = req.body || {};
         const monthly = JSON.stringify(Array.isArray(b.monthly) ? b.monthly : []);
+        const evalFoci = JSON.stringify(Array.isArray(b.eval_foci) ? b.eval_foci : []);
+        // 자가 치유: eval_foci 컬럼이 아직 없는 DB(마이그레이션 전)에서도 저장이 되도록 보강.
+        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS eval_foci JSONB NOT NULL DEFAULT '[]'`;
         if (b.id) {
           const r = await sql`
             UPDATE iep_goals SET
@@ -37,6 +40,7 @@ export default requireStudentAccess(async function handler(req, res) {
               standard_code = ${b.standard_code || ''}, standard_text = ${b.standard_text || ''},
               semester = ${b.semester || 1}, semester_goal = ${b.semester_goal || ''}, plop = ${b.plop || ''},
               crit_type = ${b.crit_type || 'rate'}, crit_start = ${b.crit_start ?? 30}, crit_end = ${b.crit_end ?? 80},
+              eval_foci = ${evalFoci}::jsonb,
               monthly = ${monthly}::jsonb, semestral_eval = ${b.semestral_eval || ''}, updated_at = NOW()
             WHERE id = ${b.id} AND student_id = ${studentId}
             RETURNING *
@@ -46,9 +50,9 @@ export default requireStudentAccess(async function handler(req, res) {
         }
         const r = await sql`
           INSERT INTO iep_goals
-            (student_id, school_year, subject, grade_code, area, standard_code, standard_text, semester, semester_goal, plop, crit_type, crit_start, crit_end, monthly, semestral_eval, updated_at)
+            (student_id, school_year, subject, grade_code, area, standard_code, standard_text, semester, semester_goal, plop, crit_type, crit_start, crit_end, eval_foci, monthly, semestral_eval, updated_at)
           VALUES
-            (${studentId}, ${b.school_year || 0}, ${b.subject || ''}, ${b.grade_code || 0}, ${b.area || ''}, ${b.standard_code || ''}, ${b.standard_text || ''}, ${b.semester || 1}, ${b.semester_goal || ''}, ${b.plop || ''}, ${b.crit_type || 'rate'}, ${b.crit_start ?? 30}, ${b.crit_end ?? 80}, ${monthly}::jsonb, ${b.semestral_eval || ''}, NOW())
+            (${studentId}, ${b.school_year || 0}, ${b.subject || ''}, ${b.grade_code || 0}, ${b.area || ''}, ${b.standard_code || ''}, ${b.standard_text || ''}, ${b.semester || 1}, ${b.semester_goal || ''}, ${b.plop || ''}, ${b.crit_type || 'rate'}, ${b.crit_start ?? 30}, ${b.crit_end ?? 80}, ${evalFoci}::jsonb, ${monthly}::jsonb, ${b.semestral_eval || ''}, NOW())
           RETURNING *
         `;
         return res.status(200).json({ goal: fmtRow(r.rows[0]) });

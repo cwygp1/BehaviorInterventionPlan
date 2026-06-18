@@ -2,7 +2,7 @@ import { useState } from 'react';
 import StuHero from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
-import { QChipGroup, makeAppender } from '../ui/QChip';
+import { EditableChipGroup, makeAppender } from '../ui/QChip';
 import CrisisPromptModal from '../modals/CrisisPromptModal';
 import { createSZ, deleteSZ as apiDelSz } from '../../lib/api/students';
 
@@ -154,7 +154,7 @@ export default function CrisisPage() {
             </div>
             <div className="form-group">
               <label className="form-label">사용한 진정 전략</label>
-              <QChipGroup options={SZ_STRATEGY} onPick={makeAppender(szStrategy, setSzStrategy, true)} />
+              <EditableChipGroup storageKey="sz_strategy" defaults={SZ_STRATEGY} onPick={makeAppender(szStrategy, setSzStrategy, true)} />
               <input className="form-input" value={szStrategy} onChange={(e) => setSzStrategy(e.target.value)} />
             </div>
             <div className="form-row">

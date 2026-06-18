@@ -11,8 +11,8 @@ function buildPrompt(stu, data) {
     `[${i + 1}] ${r.date || ''} ${r.time || ''}\n  A: ${r.a || ''}\n  B: ${r.b || ''}\n  C: ${r.c || ''}`
   ).join('\n');
   const qabfArr = data?.qabf || [];
-  const qabfTotals = { 관심: 0, 회피: 0, 획득: 0, 감각: 0, 비사회적: 0 };
-  const FUNC_BY_INDEX = ['관심', '회피', '획득', '감각', '비사회적'];
+  const qabfTotals = { 관심: 0, 회피: 0, 자동감각: 0, 신체: 0, 강화물: 0 };
+  const FUNC_BY_INDEX = ['관심', '회피', '자동감각', '신체', '강화물'];
   qabfArr.forEach((v, i) => {
     if (v >= 0) qabfTotals[FUNC_BY_INDEX[i % 5]] += v;
   });
@@ -32,9 +32,9 @@ ${abc || '(기록 없음)'}
 ## QABF 5기능 점수 (각 0~15)
 - 관심(Attention): ${qabfTotals.관심}
 - 회피(Escape): ${qabfTotals.회피}
-- 획득(Tangible): ${qabfTotals.획득}
-- 감각/자동(Sensory): ${qabfTotals.감각}
-- 비사회적(Non-social): ${qabfTotals.비사회적}
+- 자동·감각(Automatic/Sensory): ${qabfTotals.자동감각}
+- 신체(Physical/통증): ${qabfTotals.신체}
+- 강화물 획득(Tangible): ${qabfTotals.강화물}
 
 ## 작성 요구사항
 2024 서울시교육청 PBS 가이드북 기반으로 다음 7개 항목을 한국어로 작성합니다.

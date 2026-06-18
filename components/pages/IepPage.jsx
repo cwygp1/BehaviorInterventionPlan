@@ -6,20 +6,29 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { fetchIEP, saveIEPGoal, deleteIEPGoal } from '../../lib/api/students';
-import { downloadIepWord } from '../../lib/utils/printIep';
+import { downloadIepWord, downloadIepFormWord } from '../../lib/utils/printIep';
 
 const GRADE = { 0: '일상생활(공통)', 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
 const GORDER = [2, 4, 6, 9, 12];
 
-// 지원 수준 사다리(기능분석·ZPD). 월별 분해에도 재사용.
-const LEVELS = [
-  { n: '①', role: '관심·주의', pre: null },
-  { n: '②', role: '모방·도움받아', pre: '교사의 시범을 보고 도움을 받아 ' },
-  { n: '③', role: '부분 수행', pre: '부분적으로 ' },
-  { n: '④', role: '독립 수행', pre: '스스로 ' },
-  { n: '⑤', role: '상황 적용', pre: '다양한 상황에서 스스로 ' },
-  { n: '⑥', role: '일반화·유지', pre: '여러 상황에서 꾸준히 ' },
-];
+// 「일상생활 활동」 영역 계층 구조: 대영역(5) → 중영역(하위 영역)
+// 출처: 개별화교육계획 가이드북 / 일상생활 활동 영역 구분
+const DAILY_SUBJECT = '일상생활 활동';
+const DAILY_AREA_GROUPS = {
+  '의사소통': ['의사소통의 기초', '보완대체의사소통의 탐색과 선택', '의사소통의 활용'],
+  '자립생활': ['신변 자립', '자기 관리', '안전한 생활', '자기 결정과 상호 작용'],
+  '생활 적응': ['감각 지각과 활용', '의사소통 방법의 선택과 적용', '수용과 표현', '대인 관계 형성과 규범 실천', '공동체 및 지역사회 참여', '신체 긴장도 조절', '신체 동작 기초 기술', '의사소통 기초 기술'],
+  '여가활동': ['개인 여가활동', '공동체 여가활동', '지역사회 여가활동'],
+  '신체활동': ['신체 인지와 움직임', '신체 조절과 이동', '생활 속 체력 증진'],
+};
+const DAILY_BIG_AREAS = Object.keys(DAILY_AREA_GROUPS);
+// 중영역(하위 영역) → 대영역 역매핑
+const DAILY_MID_TO_BIG = Object.entries(DAILY_AREA_GROUPS).reduce((acc, [big, mids]) => {
+  mids.forEach((m) => { acc[m] = big; });
+  return acc;
+}, {});
+
+// 월별 점증 시 지원 수준 표현(서술 보조용). 평가초점을 나누는 기준이 아님.
 const SUP = ['교사의 도움을 받아 ', '부분적으로 ', '교사 감독 하에 스스로 ', '스스로 ', '다양한 상황에서 스스로 '];
 const CONTENT_SUFFIX = ['탐색·모방 활동', '구조화된 연습 활동', '실제 상황 적용 연습', '모의·실제 상황 일반화 활동'];
 
@@ -32,11 +41,59 @@ function methodsForType(disability) {
 }
 const monthsOf = (sem) => (String(sem) === '2' ? [9, 10, 11, 12, 1] : [3, 4, 5, 6, 7]);
 const baseOf = (goal) => goal.replace(/^스스로\s*/, '').replace(/\s*\.?$/, '');
-const levelFocus = (text, i) => {
-  const base = text.replace(/\s*\.?$/, '');
-  if (i === 0) return base + '에 관심을 보이고 주의를 기울인다.';
-  return LEVELS[i].pre + base + '.';
-};
+
+// 받침 유무로 을/를 조사 선택
+function josaEulReul(word) {
+  const w = (word || '').trim();
+  if (!w) return '을';
+  const last = w[w.length - 1];
+  const code = last.charCodeAt(0);
+  if (code < 0xAC00 || code > 0xD7A3) return '을(를)';
+  return (code - 0xAC00) % 28 === 0 ? '를' : '을';
+}
+// 동사를 평서형(~한다)으로 변환
+function verbToDeclarative(verb) {
+  const v = (verb || '').trim();
+  if (!v) return '수행한다';
+  if (v.endsWith('하기')) return v.slice(0, -2) + '한다';
+  if (v.endsWith('기')) return v.slice(0, -1) + '다';
+  if (v.endsWith('다')) return v;
+  return v + '한다';
+}
+// 성취기준 분석/해석 결과(동사·행위지향·서술자)로 평가초점 목록 생성.
+// 지원 수준이 아니라 "서술자(대상/내용)의 스펙트럼"을 펼쳐 평가초점을 만든다.
+function buildEvalFoci(verb, intent, descriptor, fallbackText) {
+  const decl = verbToDeclarative(verb);
+  const raw = (descriptor || '').trim() || (fallbackText || '').replace(/\s*\.?$/, '');
+  const items = raw.split(/[,/·、|\n]+| 및 | 와 | 과 /).map((s) => s.trim()).filter(Boolean);
+  const list = (items.length ? items : [raw]).map((it) => {
+    const lead = intent ? intent.trim() + ' ' : '';
+    return `${lead}${it}${josaEulReul(it)} ${decl}.`;
+  });
+  return [...new Set(list)];
+}
+
+// LLM이 종종 살짝 깨진 JSON을 내놓는다(예: "eval":": " 처럼 콜론·따옴표 중복, 후행 콤마).
+// 1차 파싱 실패 시 흔한 오류를 보정해 한 번 더 시도한다.
+function parseLooseJSON(raw) {
+  const m = String(raw || '').match(/\{[\s\S]*\}/);
+  if (!m) throw new Error('JSON({…})을 찾지 못했어요.');
+  const text = m[0];
+  try {
+    return JSON.parse(text);
+  } catch (e1) {
+    const repaired = text
+      .replace(/```(?:json)?/gi, '')
+      .replace(/:\s*"\s*:\s*"/g, ': "')          // "key":": "  →  "key": "
+      .replace(/”|“/g, '"').replace(/’|‘/g, "'")  // 스마트 따옴표 정규화
+      .replace(/,\s*([}\]])/g, '$1');             // 후행 콤마 제거
+    try {
+      return JSON.parse(repaired);
+    } catch (e2) {
+      throw e1; // 원본 오류 메시지를 노출
+    }
+  }
+}
 
 export default function IepPage() {
   const { curStu, curStuId, curStuData, ensureStudentData } = useStudents();
@@ -72,7 +129,7 @@ export default function IepPage() {
       throw new Error(r.finish_reason === 'length' ? 'AI 응답이 토큰 한도로 잘렸어요. AI 설정에서 max_tokens를 늘려보세요.' : 'AI 응답에서 JSON을 찾지 못했어요.');
     }
     try {
-      const j = JSON.parse(m[0]);
+      const j = parseLooseJSON(m[0]);
       logAI('ok', label, '성공 · ' + meta, m[0]);
       return j;
     } catch (e) {
@@ -84,6 +141,7 @@ export default function IepPage() {
   const [rows, setRows] = useState([]); // achievement standards
   const [fSubject, setFSubject] = useState('');
   const [fGrade, setFGrade] = useState('');
+  const [fBigArea, setFBigArea] = useState(''); // 일상생활 활동 대영역
   const [fArea, setFArea] = useState('');
   const [fSearch, setFSearch] = useState('');
   const [sel, setSel] = useState(null);
@@ -91,7 +149,7 @@ export default function IepPage() {
   const [verb, setVerb] = useState('');
   const [intent, setIntent] = useState('');
   const [descriptor, setDescriptor] = useState('');
-  const [ladder, setLadder] = useState({}); // idx -> 'ok'|'no'
+  const [evalFoci, setEvalFoci] = useState([]); // 평가초점 목록(성취기준 분석→해석→개발)
 
   const [goal, setGoal] = useState('');
   const [plop, setPlop] = useState('');
@@ -136,24 +194,35 @@ export default function IepPage() {
     const pool = rows.filter((r) => !fSubject || r.subject === fSubject);
     return GORDER.filter((g) => pool.some((r) => r.gradeCode === g));
   }, [rows, fSubject]);
+  const isDaily = fSubject === DAILY_SUBJECT;
+  // 일상생활 활동: 데이터에 실제 존재하는 대영역만 노출
+  const bigAreas = useMemo(() => {
+    if (!isDaily) return [];
+    const present = new Set(rows.filter((r) => r.subject === DAILY_SUBJECT).map((r) => DAILY_MID_TO_BIG[r.area]).filter(Boolean));
+    return DAILY_BIG_AREAS.filter((b) => present.has(b));
+  }, [rows, isDaily]);
   const areas = useMemo(() => {
     const pool = rows.filter((r) => (!fSubject || r.subject === fSubject) && (!fGrade || r.gradeCode === +fGrade));
-    return [...new Set(pool.map((r) => r.area).filter(Boolean))];
-  }, [rows, fSubject, fGrade]);
+    let list = [...new Set(pool.map((r) => r.area).filter(Boolean))];
+    // 일상생활 활동이고 대영역이 선택된 경우, 중영역만 그 그룹으로 좁힘
+    if (isDaily && fBigArea) list = list.filter((a) => DAILY_MID_TO_BIG[a] === fBigArea);
+    return list;
+  }, [rows, fSubject, fGrade, isDaily, fBigArea]);
   const candidates = useMemo(() => {
     const q = fSearch.trim();
     return rows.filter((r) =>
       (!fSubject || r.subject === fSubject) &&
       (!fGrade || r.gradeCode === +fGrade) &&
+      (!isDaily || !fBigArea || DAILY_MID_TO_BIG[r.area] === fBigArea) &&
       (!fArea || r.area === fArea) &&
       (!q || r.text.includes(q) || r.code.includes(q))
     );
-  }, [rows, fSubject, fGrade, fArea, fSearch]);
+  }, [rows, fSubject, fGrade, isDaily, fBigArea, fArea, fSearch]);
 
   function pickStandard(r) {
     setSel(r);
     setVerb(r.verb || ''); setIntent(r.intent || ''); setDescriptor(r.descriptor || '');
-    setLadder({});
+    setEvalFoci(buildEvalFoci(r.verb || '', r.intent || '', r.descriptor || '', r.text));
     setGoal('스스로 ' + r.text.replace(/\s*\.?$/, '') + '.');
     setMonthly([]); setSemEval('');
     setEditingId(null);
@@ -165,7 +234,7 @@ export default function IepPage() {
       { subject: g.subject, gradeCode: g.grade_code, area: g.area, code: g.standard_code, text: g.standard_text, verb: '', intent: '', descriptor: '' };
     setSel(std);
     setVerb(std.verb || ''); setIntent(std.intent || ''); setDescriptor(std.descriptor || '');
-    setLadder({});
+    setEvalFoci(Array.isArray(g.eval_foci) ? g.eval_foci : []);
     setGoal(g.semester_goal || ''); setPlop(g.plop || '');
     setSchoolYear(g.school_year || new Date().getFullYear());
     setSem(String(g.semester || 1)); setCritType(g.crit_type || 'rate');
@@ -182,13 +251,13 @@ export default function IepPage() {
 
   function newGoal() {
     setSel(null); setEditingId(null); setMonthly([]); setSemEval(''); setGoal('');
-    setVerb(''); setIntent(''); setDescriptor(''); setLadder({});
+    setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]);
   }
 
   // 전년도 목표 하나를 "기준"으로 삼아 올해 목표 작성을 시작.
   function startFromPrior(g) {
     const s = { subject: g.subject, gradeCode: g.grade_code, area: g.area, code: g.standard_code || 'PRIOR', text: g.semester_goal || g.standard_text || '', verb: '', intent: '', descriptor: '' };
-    setSel(s); setVerb(''); setIntent(''); setDescriptor(''); setLadder({});
+    setSel(s); setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]);
     setGoal(g.semester_goal || ('스스로 ' + (s.text || '').replace(/\s*\.?$/, '') + '.'));
     if (g.plop) setPlop(g.plop);
     setEditingId(null); setMonthly([]); setSemEval('');
@@ -196,32 +265,24 @@ export default function IepPage() {
     setTimeout(() => { const el = typeof document !== 'undefined' && document.getElementById('iep-editor'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 80);
   }
 
-  const targets = useMemo(() => {
-    let lastOk = -1, anyNo = false;
-    LEVELS.forEach((_, i) => { if (ladder[i] === 'ok') lastOk = i; if (ladder[i] === 'no') anyNo = true; });
-    if (lastOk >= 0 && lastOk < LEVELS.length - 1) return [...new Set([lastOk + 1, Math.min(lastOk + 2, LEVELS.length - 1)])];
-    if (lastOk === LEVELS.length - 1) return [LEVELS.length - 1];
-    if (anyNo) return [1, 2];
-    return [];
-  }, [ladder]);
-
-  function toggleLadder(i, v) {
-    setLadder((prev) => ({ ...prev, [i]: prev[i] === v ? undefined : v }));
+  // 평가초점 목록 편집
+  function genFociNow() {
+    if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
+    setEvalFoci(buildEvalFoci(verb, intent, descriptor, sel.text));
+    toast('성취기준 분석·해석을 바탕으로 평가초점을 생성했어요.');
   }
-  function useTargetAsGoal() {
-    if (!sel) return;
-    const i = targets[0];
-    if (i == null) { toast('사다리에서 가능/어려움을 먼저 체크하세요.'); return; }
-    setGoal(levelFocus(sel.text, i));
-    toast('추천 목표를 학기목표로 가져왔어요.');
-  }
+  function addFocus() { setEvalFoci((prev) => [...prev, '']); }
+  function editFocus(i, val) { setEvalFoci((prev) => prev.map((f, idx) => (idx === i ? val : f))); }
+  function removeFocus(i) { setEvalFoci((prev) => prev.filter((_, idx) => idx !== i)); }
 
   function generate() {
     if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
     const ms = monthsOf(sem), n = ms.length;
     const base = baseOf(goal);
     const s = +cStart, e = +cEnd;
+    const isQual = critType === 'qual';
     const methods = methodsForType(curStu?.disability);
+    const foci = (evalFoci || []).map((f) => f.trim()).filter(Boolean);
     const crit = (i) => {
       const v = Math.round(s + (e - s) * (i / (n - 1)));
       return critType === 'rate' ? `독립 수행 ${v}%` : `10회 중 ${Math.max(1, Math.round(v / 10))}회 성공`;
@@ -230,10 +291,12 @@ export default function IepPage() {
     const stem = (verb || sel.verb || '').replace(/하기$|기$/, '');
     const obj = (descriptor || base).trim();
     const phase = (i) => CONTENT_SUFFIX[Math.min(CONTENT_SUFFIX.length - 1, Math.floor(i / (n / CONTENT_SUFFIX.length)))];
+    // 평가초점을 월에 고르게 배분(질적 평가 서술의 기준점)
+    const fociFor = (i) => (foci.length ? foci.filter((_, k) => k % n === i || (foci.length <= n && k === i)) : []);
     const list = ms.map((m, i) => {
       const goal = [
         `- ${support(i)}${base}.`,
-        `- ${crit(i)} 수준으로 수행하기.`,
+        isQual ? null : `- ${crit(i)} 수준으로 수행하기.`,
         intent ? `- ${intent} 태도를 유지하며 활동에 참여하기.` : null,
       ].filter(Boolean).join('\n');
       const content = [
@@ -241,14 +304,23 @@ export default function IepPage() {
         `- 교사 시범 후 ${stem ? stem + '하기를 ' : ''}단계별(과제분석)로 따라 하기`,
         `- ${i < n - 1 ? '구조화된 학습 자료로' : '실제·모의 상황에서'} ${stem ? stem + '하기 ' : ''}반복·적용하기`,
       ].join('\n');
-      const evalText = [
-        `- ${crit(i)} 기준 도달 여부 확인`,
-        `- 수행 과정과 지원 수준의 변화를 서술 기록 (예: 초기 ${i === 0 ? '촉진 필요' : '부분 수행'} → 반복 후 ${i < n - 1 ? '독립성 증가' : '대부분 독립 수행'})`,
-      ].join('\n');
+      const fThis = fociFor(i);
+      const evalText = isQual
+        ? [
+            fThis.length ? `- 평가초점: ${fThis.join(' / ')}` : (foci.length ? `- 평가초점: ${foci.join(' / ')}` : `- 평가초점을 중심으로 수행 양상을 질적으로 기록`),
+            `- 수업 맥락(교사 중재·학생 반응·또래/환경 상호작용)을 포함해 학습 과정과 결과를 서술 평가`,
+            `- 초기 ${i === 0 ? '촉진 필요' : '부분 수행'} → 반복 후 ${i < n - 1 ? '독립성 증가' : '대부분 독립 수행'} 등 변곡점을 내러티브로 기록`,
+          ].join('\n')
+        : [
+            `- ${crit(i)} 기준 도달 여부 확인`,
+            foci.length ? `- 평가초점(${fThis.length ? fThis.join(' / ') : foci[0]}) 중심의 질적 수행 기록 병행` : `- 수행 과정과 지원 수준의 변화를 서술 기록`,
+          ].join('\n');
       return { month: m, goal, content, methods: [...methods], eval: evalText };
     });
     setMonthly(list);
-    setSemEval(`학기말 ${e}${critType === 'rate' ? '%' : '회'} 기준 도달 여부와 함께 학습 과정의 변화·일반화 정도를 서술 평가.`);
+    setSemEval(isQual
+      ? `평가초점을 중심으로 한 학기 학습 과정과 결과를 내러티브(서술형)로 종합 평가 — 수치·등급이 아니라 학생의 성장·변화 양상과 변곡점을 질적으로 기술.`
+      : `학기말 ${e}${critType === 'rate' ? '%' : '회'} 기준 도달 여부와 함께, 평가초점 중심의 학습 과정 변화·일반화 정도를 질적으로 서술 평가.`);
   }
 
   function editMonth(i, key, val) {
@@ -301,19 +373,25 @@ export default function IepPage() {
     setAiDecBusy(true);
     try {
       const prompt =
-        '다음 2022 개정 특수교육 기본교육과정 성취기준을 "평가초점 개발" 방법론에 따라 세 요소로 분해하세요.\n' +
-        '- verb: 측정 가능한 동사(과정·기능). 명사형(예: 탐색하기, 비교하기)으로.\n' +
-        '- intent: 행위의 지향(가치·태도). 부사/태도 표현. 없으면 빈 문자열.\n' +
-        '- descriptor: 서술자(지식·이해·대상). 무엇에 대한 것인지 핵심 대상/내용.\n' +
-        '반드시 JSON 객체 하나만 출력하세요. 예: {"verb":"탐색하기","intent":"다양하게","descriptor":"나"}\n\n' +
+        '다음 2022 개정 특수교육 기본교육과정 성취기준을 "평가초점 개발" 방법론에 따라 분석·해석하세요.\n' +
+        '1) 성취기준 분석(명시적 요소):\n' +
+        '   - verb: 측정 가능한 동사(과정·기능). 명사형(예: 탐색하기, 비교하기).\n' +
+        '   - intent: 행위의 지향(가치·태도). 부사/태도 표현. 없으면 빈 문자열.\n' +
+        '   - descriptor: 서술자(지식·이해·대상). 핵심 대상/내용.\n' +
+        '2) 성취기준 해석(서술자 스펙트럼 확장) 후 평가초점을 개발:\n' +
+        '   - foci: 평가초점 문장 배열(3~6개). 각 문장은 "행위지향 + 서술자(대상) + 동사(평서형 ~한다)" 형태의 완결된 한 문장.\n' +
+        '   - 평가초점은 "지원 수준(도움받아/부분/독립)"으로 나누지 말 것. 서술자(대상·내용)의 다양성으로 펼칠 것.\n' +
+        '반드시 JSON 객체 하나만 출력. 예: {"verb":"탐색하기","intent":"다양한 방법으로","descriptor":"나","foci":["다양한 방법으로 나의 신상에 관심을 가진다.","다양한 방법으로 나의 몸을 살펴본다."]}\n\n' +
         `성취기준: [${sel.code}] ${sel.text}`;
-      const j = await llmJSON('AI 분해', prompt, { temperature: 0.2 });
+      const j = await llmJSON('AI 분석', prompt, { temperature: 0.2 });
       if (j.verb != null) setVerb(String(j.verb));
       if (j.intent != null) setIntent(String(j.intent));
       if (j.descriptor != null) setDescriptor(String(j.descriptor));
-      toast('AI가 성취기준을 분해했어요.');
+      if (Array.isArray(j.foci) && j.foci.length) setEvalFoci(j.foci.map(String).map((s) => s.trim()).filter(Boolean));
+      else setEvalFoci(buildEvalFoci(j.verb || verb, j.intent != null ? j.intent : intent, j.descriptor || descriptor, sel.text));
+      toast('AI가 성취기준을 분석하고 평가초점을 개발했어요.');
     } catch (e) {
-      toast('AI 분해 실패: ' + e.message);
+      toast('AI 분석 실패: ' + e.message);
     } finally {
       setAiDecBusy(false);
     }
@@ -346,26 +424,34 @@ export default function IepPage() {
   async function buildGenPrompt() {
     const data = curStuData || (await ensureStudentData(curStuId)) || {};
     const ms = monthsOf(sem);
+    const isQual = critType === 'qual';
     const u = critType === 'rate' ? '%' : '회';
     const summary = buildStudentSummary(data);
+    const fociBlock = (evalFoci || []).filter((f) => f.trim()).length
+      ? `[평가초점] (성취기준 분석→해석으로 개발, 평가의 기준점)\n${evalFoci.filter((f) => f.trim()).map((f) => '· ' + f.trim()).join('\n')}\n`
+      : '';
     const priorGoals2 = savedGoals.filter((g) => g.school_year && g.school_year < schoolYear);
     const priorBlock = priorGoals2.length
       ? '\n[전년도 IEP 참고]\n' + priorGoals2.slice(0, 12).map((g) => `· (${g.school_year} ${g.semester}학기) ${g.subject}${g.area ? '·' + g.area : ''}: 목표 "${g.semester_goal}" / 평가 "${g.semestral_eval || '-'}"`).join('\n') + '\n'
       : '';
+    const critLine = isQual
+      ? `[평가 방식] 질적 평가 — 수치·등급이 아니라 위 평가초점을 중심으로 학습 과정과 결과를 내러티브(서술형)로 평가.\n`
+      : `[평가 기준] ${critType === 'rate' ? '독립 수행 비율' : '기회 중 성공 횟수'} 기준을 ${cStart}${u}에서 ${cEnd}${u}로 매월 점증(양적). 평가초점 중심의 질적 서술을 병행.\n`;
     return (
       `너는 특수교육 IEP 작성 전문가다. 아래 "학생 자료"와 "전년도 IEP"를 실제로 반영해, 선택한 성취기준에 대한 개별화교육계획을 작성하라.\n\n` +
       `[학생 자료]\n${summary}\n${priorBlock}\n` +
       `[성취기준] [${sel.code}] ${sel.text} (교과 ${sel.subject}${sel.area ? ' · ' + sel.area : ''})\n` +
+      fociBlock +
       `[학기목표(참고)] ${goal}\n` +
       `[대상 월] ${ms.join(', ')} (총 ${ms.length}개월)\n` +
-      `[평가 기준] ${critType === 'rate' ? '독립 수행 비율' : '기회 중 성공 횟수'} 기준을 ${cStart}${u}에서 ${cEnd}${u}로 매월 점증.\n\n` +
+      critLine + `\n` +
       `요구사항:\n` +
       `1) 현행수준(plop)은 위 학생 자료(ABC·행동데이터·BIP·안정실 등)를 근거로 구체적으로 서술.\n` +
       `2) 월별로 지원 수준을 점차 줄이며(도움받아→부분→독립→적용) 목표를 점증시킬 것.\n` +
       `3) 교육목표·교육내용·교육방법·평가는 각 줄을 "- "로 시작하는 항목으로 2~3개씩 상세히.\n` +
-      `4) 평가에는 해당 학생 자료에 비추어 기대되는 변화를 서술형으로 포함.\n` +
+      `4) 평가(eval)는 ${isQual ? '평가초점을 중심으로, 수업 맥락·학생 반응·성장 변곡점을 담은 내러티브(서술형)로만 작성(수치 금지).' : '양적 기준 도달 여부와 함께 평가초점 중심의 질적 서술을 함께 포함.'}\n` +
       `5) 학생 실명/식별정보는 절대 쓰지 말 것(익명 ID만).\n` +
-      `6) 학기목표(semester_goal)도 성취기준과 학생 자료를 반영해 측정 가능한 한 문장으로 작성.\n\n` +
+      `6) 학기목표(semester_goal)도 성취기준과 학생 자료를 반영해 한 문장으로 작성.\n\n` +
       `반드시 아래 JSON만 출력(설명 금지):\n` +
       `{"semester_goal":"...","plop":"...","monthly":[{"month":${ms[0]},"goal":"- ...\\n- ...","content":"- ...\\n- ...","methods":["...","..."],"eval":"- ...\\n- ..."}],"semestral_eval":"..."}`
     );
@@ -415,9 +501,7 @@ export default function IepPage() {
     catch (_) { toast('자동 복사가 막혔어요. 텍스트를 직접 선택해 복사하세요.'); }
   }
   function applyPasted() {
-    const m = (pasteText || '').match(/\{[\s\S]*\}/);
-    if (!m) { toast('붙여넣은 내용에서 JSON({…})을 찾지 못했어요.'); return; }
-    try { applyGen(JSON.parse(m[0])); toast('응답을 파싱해 적용했어요.'); setManualOpen(false); }
+    try { applyGen(parseLooseJSON(pasteText)); toast('응답을 파싱해 적용했어요.'); setManualOpen(false); }
     catch (e) { toast('JSON 파싱 실패: ' + e.message); }
   }
 
@@ -433,6 +517,7 @@ export default function IepPage() {
         standard_code: sel.code, standard_text: sel.text,
         semester: +sem, semester_goal: goal, plop,
         crit_type: critType, crit_start: +cStart, crit_end: +cEnd,
+        eval_foci: (evalFoci || []).map((f) => f.trim()).filter(Boolean),
         monthly, semestral_eval: semEval,
       };
       if (editingId) body.id = editingId;
@@ -467,6 +552,17 @@ export default function IepPage() {
     });
   }
 
+  // 평가초점 연수자료 양식(생활지원/교과 중심)대로 Word 내보내기
+  function exportFormWord(goals) {
+    if (!goals.length) { toast('저장된 IEP 목표가 없습니다. 먼저 저장하세요.'); return; }
+    downloadIepFormWord({
+      student: { code: curStu.code, level: curStu.level, disability: curStu.disability },
+      teacherName: user?.name || '',
+      school: user?.school || '',
+      goals,
+    });
+  }
+
   if (!curStu) return (<><StuHero /><NoStudentHint /></>);
 
   const priorGoals = savedGoals.filter((g) => g.school_year && g.school_year < schoolYear);
@@ -480,7 +576,10 @@ export default function IepPage() {
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>🗂 저장된 IEP 목표 ({savedGoals.length}) <span style={{ fontWeight: 400, fontSize: 12, color: '#6b7280' }}>— 수정하려면 [✏ 수정], 새로 만들려면 아래에서 성취기준 선택</span></div>
-            <button className="btn btn-ok btn-sm" onClick={() => exportWord(savedGoals)} disabled={goalsLoading}>📄 전체 Word 다운로드</button>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <button className="btn btn-ok btn-sm" onClick={() => exportFormWord(savedGoals)} disabled={goalsLoading}>📄 양식 Word (생활지원/교과 중심)</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => exportWord(savedGoals)} disabled={goalsLoading}>📄 표 Word (월별 점증)</button>
+            </div>
           </div>
           {goalsLoading && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 2px', color: '#6b7280' }}>
@@ -497,7 +596,8 @@ export default function IepPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                   <button className="btn btn-pri btn-sm" onClick={() => loadGoal(g)}>{editingId === g.id ? '수정 중' : '✏ 수정'}</button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => exportWord([g])}>이 목표만 Word</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => exportFormWord([g])}>양식 Word</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => exportWord([g])}>표 Word</button>
                   <button className="btn btn-ghost btn-sm" onClick={() => removeGoal(g.id)}>삭제</button>
                 </div>
               </div>
@@ -530,7 +630,7 @@ export default function IepPage() {
         <div className="form-row">
           <div className="form-group">
             <label className="form-label">교과</label>
-            <select className="form-input" value={fSubject} onChange={(e) => { setFSubject(e.target.value); setFGrade(''); setFArea(''); }}>
+            <select className="form-input" value={fSubject} onChange={(e) => { setFSubject(e.target.value); setFGrade(''); setFBigArea(''); setFArea(''); }}>
               <option value="">전체 교과</option>
               {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -542,10 +642,19 @@ export default function IepPage() {
               {grades.map((g) => <option key={g} value={g}>{GRADE[g]}</option>)}
             </select>
           </div>
+          {isDaily && (
+            <div className="form-group">
+              <label className="form-label">대영역</label>
+              <select className="form-input" value={fBigArea} onChange={(e) => { setFBigArea(e.target.value); setFArea(''); }}>
+                <option value="">전체 대영역</option>
+                {bigAreas.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+          )}
           <div className="form-group">
-            <label className="form-label">영역</label>
+            <label className="form-label">{isDaily ? '중영역(하위 영역)' : '영역'}</label>
             <select className="form-input" value={fArea} onChange={(e) => setFArea(e.target.value)}>
-              <option value="">전체 영역</option>
+              <option value="">{isDaily ? '전체 중영역' : '전체 영역'}</option>
               {areas.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
@@ -559,7 +668,7 @@ export default function IepPage() {
           {candidates.slice(0, 200).map((r) => (
             <div key={r.code} onClick={() => pickStandard(r)}
               style={{ border: '1px solid ' + (sel?.code === r.code ? '#3b6ef5' : '#e3e6eb'), background: sel?.code === r.code ? '#eaf0ff' : '#fff', borderRadius: 9, padding: '8px 11px', cursor: 'pointer' }}>
-              <div style={{ fontSize: 11, color: '#3b6ef5', fontWeight: 700 }}>[{r.code}] {GRADE[r.gradeCode]}{r.area ? ' · ' + r.area : ''}</div>
+              <div style={{ fontSize: 11, color: '#3b6ef5', fontWeight: 700 }}>[{r.code}] {GRADE[r.gradeCode]}{r.subject === DAILY_SUBJECT && DAILY_MID_TO_BIG[r.area] ? ' · ' + DAILY_MID_TO_BIG[r.area] + ' › ' + r.area : (r.area ? ' · ' + r.area : '')}</div>
               <div style={{ fontSize: 13, marginTop: 2 }}>{r.text}</div>
             </div>
           ))}
@@ -567,45 +676,41 @@ export default function IepPage() {
         </div>
       </div>
 
-      {/* ② 평가초점 분해 + ZPD */}
+      {/* ② 평가초점 개발 (성취기준 분석 → 해석 → 평가초점) */}
       {sel && (
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div>
-              <div className="card-title" style={{ marginBottom: 0 }}>🔍 ② 평가초점 개발 (분해 → 지원 수준 · ZPD)</div>
+              <div className="card-title" style={{ marginBottom: 0 }}>🔍 ② 평가초점 개발 (성취기준 분석 → 해석 → 평가초점)</div>
               <div className="card-subtitle">선택: [{sel.code}] {sel.text}</div>
             </div>
-            {aiOn && <button className="btn btn-ghost btn-sm" onClick={aiDecompose} disabled={aiDecBusy}>{aiDecBusy ? 'AI 분해 중…' : '✨ AI 분해'}</button>}
+            {aiOn && <button className="btn btn-ghost btn-sm" onClick={aiDecompose} disabled={aiDecBusy}>{aiDecBusy ? 'AI 분석 중…' : '✨ AI 분석'}</button>}
+          </div>
+          <div className="card-subtitle" style={{ marginTop: 2 }}>
+            평가초점은 <strong>지원 수준으로 나누는 것이 아니라</strong>, 성취기준을 동사·행위지향·서술자로 분석하고 서술자(대상·내용)의 스펙트럼을 확장해 개발합니다.
           </div>
           <div className="form-row">
-            <div className="form-group"><label className="form-label">측정 가능한 동사 (과정·기능)</label><input className="form-input" value={verb} onChange={(e) => setVerb(e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">행위의 지향 (가치·태도)</label><input className="form-input" value={intent} onChange={(e) => setIntent(e.target.value)} placeholder="(없으면 비움)" /></div>
+            <div className="form-group"><label className="form-label">측정 가능한 동사 (과정·기능)</label><input className="form-input" value={verb} onChange={(e) => setVerb(e.target.value)} placeholder="예: 탐색하기" /></div>
+            <div className="form-group"><label className="form-label">행위의 지향 (가치·태도)</label><input className="form-input" value={intent} onChange={(e) => setIntent(e.target.value)} placeholder="예: 다양한 방법으로 (없으면 비움)" /></div>
           </div>
-          <div className="form-group"><label className="form-label">서술자 (지식·이해·대상)</label><textarea className="form-textarea" value={descriptor} onChange={(e) => setDescriptor(e.target.value)} /></div>
+          <div className="form-group"><label className="form-label">서술자 (지식·이해·대상) — 쉼표·줄바꿈으로 여러 대상 나열 시 평가초점이 여러 개 생성됩니다</label><textarea className="form-textarea" value={descriptor} onChange={(e) => setDescriptor(e.target.value)} placeholder="예: 나의 신상, 나의 몸, 나의 선호, 나의 흥미" /></div>
 
-          <label className="form-label" style={{ marginTop: 6 }}>지원 수준별 평가초점 — 각 단계에서 학생의 가능/어려움을 체크하면 학기목표 구간을 추천합니다.</label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {LEVELS.map((lv, i) => {
-              const st = ladder[i];
-              const isTarget = targets.includes(i);
-              const bg = st === 'ok' ? '#e6f6ef' : st === 'no' ? '#fdf1e3' : isTarget ? '#f0eaff' : '#fff';
-              const bd = isTarget ? '#7c4dff' : st === 'ok' ? '#bfe6d4' : st === 'no' ? '#f3dab4' : '#e3e6eb';
-              return (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '28px 1fr auto', gap: 10, alignItems: 'center', border: '1px solid ' + bd, borderRadius: 9, padding: '8px 11px', background: bg }}>
-                  <div style={{ fontWeight: 700, color: '#6b7280' }}>{lv.n}</div>
-                  <div style={{ fontSize: 13 }}>
-                    <span style={{ fontSize: 11, color: '#6b7280' }}>{lv.role}{isTarget ? ' · 학기목표 후보' : ''}</span><br />{levelFocus(sel.text, i)}
-                  </div>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button className={'btn btn-sm ' + (st === 'ok' ? 'btn-ok' : 'btn-ghost')} onClick={() => toggleLadder(i, 'ok')}>가능</button>
-                    <button className={'btn btn-sm ' + (st === 'no' ? 'btn-pri' : 'btn-ghost')} onClick={() => toggleLadder(i, 'no')}>어려움</button>
-                  </div>
-                </div>
-              );
-            })}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+            <label className="form-label" style={{ margin: 0 }}>평가초점 목록 — 사전에 수립해 질적 평가의 기준점으로 사용</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button className="btn btn-ghost btn-sm" onClick={genFociNow}>↻ 분석·해석으로 생성</button>
+              <button className="btn btn-ghost btn-sm" onClick={addFocus}>+ 평가초점 추가</button>
+            </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-            <button className="btn btn-pri" onClick={useTargetAsGoal}>↓ 추천 목표를 학기목표로</button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+            {evalFoci.length === 0 && <div className="empty-state" style={{ padding: 12 }}>아직 평가초점이 없습니다. "↻ 분석·해석으로 생성" 또는 "+ 평가초점 추가"를 눌러 만드세요.</div>}
+            {evalFoci.map((f, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '24px 1fr auto', gap: 8, alignItems: 'center' }}>
+                <div style={{ fontWeight: 700, color: '#6b7280', textAlign: 'center' }}>{i + 1}</div>
+                <input className="form-input" value={f} onChange={(e) => editFocus(i, e.target.value)} placeholder="예: 다양한 방법으로 나의 신상을 탐색한다." />
+                <button className="btn btn-ghost btn-sm" onClick={() => removeFocus(i)} title="삭제">✕</button>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -627,9 +732,21 @@ export default function IepPage() {
             <div className="form-group"><label className="form-label">학기</label>
               <select className="form-input" value={sem} onChange={(e) => setSem(e.target.value)}><option value="1">1학기 (3~7월)</option><option value="2">2학기 (9~12월)</option></select></div>
             <div className="form-group"><label className="form-label">평가 방식</label>
-              <select className="form-input" value={critType} onChange={(e) => setCritType(e.target.value)}><option value="rate">독립 수행 비율(%)</option><option value="freq">기회 중 성공 횟수(10회 중)</option></select></div>
-            <div className="form-group"><label className="form-label">시작 수준</label><input type="number" className="form-input" value={cStart} onChange={(e) => setCStart(e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">학기말 목표</label><input type="number" className="form-input" value={cEnd} onChange={(e) => setCEnd(e.target.value)} /></div>
+              <select className="form-input" value={critType} onChange={(e) => setCritType(e.target.value)}>
+                <option value="rate">양적 · 독립 수행 비율(%)</option>
+                <option value="freq">양적 · 기회 중 성공 횟수(10회 중)</option>
+                <option value="qual">질적 · 평가초점 기반 서술(내러티브)</option>
+              </select></div>
+            {critType !== 'qual' ? (
+              <>
+                <div className="form-group"><label className="form-label">시작 수준</label><input type="number" className="form-input" value={cStart} onChange={(e) => setCStart(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">학기말 목표</label><input type="number" className="form-input" value={cEnd} onChange={(e) => setCEnd(e.target.value)} /></div>
+              </>
+            ) : (
+              <div className="form-group" style={{ flex: '2 1 280px' }}><label className="form-label">질적 평가 안내</label>
+                <div className="form-input" style={{ background: 'var(--surface2)', color: 'var(--sub)', fontSize: '.82rem', display: 'flex', alignItems: 'center' }}>수치 기준 없이 ②의 평가초점을 중심으로 학습 과정·결과를 서술 평가합니다.</div>
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className="btn btn-pri" onClick={generate}>규칙 초안 (빠름, AI 없음)</button>

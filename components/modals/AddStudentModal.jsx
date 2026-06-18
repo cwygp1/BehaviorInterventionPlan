@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
-import { QChipGroup, makeAppender } from '../ui/QChip';
+import { EditableChipGroup, makeAppender } from '../ui/QChip';
 
 const LEVELS = ['초등', '중등', '고등'];
 const DISABILITIES = ['지적장애', '자폐스펙트럼(ASD)', '지체장애', '청각장애', '시각장애', '정서행동장애', '학습장애', 'ADHD', '발달지연', '중복중증'];
@@ -92,11 +92,11 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
         <>
           <div className="form-group">
             <label className="form-label">강점 (칩을 눌러 추가)</label>
-            <QChipGroup options={STRENGTH_CHIPS} onPick={makeAppender(note, setNote, false)} />
+            <EditableChipGroup storageKey="stu_strength" defaults={STRENGTH_CHIPS} onPick={makeAppender(note, setNote, false)} />
           </div>
           <div className="form-group">
             <label className="form-label">어려움 (칩을 눌러 추가)</label>
-            <QChipGroup options={DIFFICULTY_CHIPS} onPick={makeAppender(note, setNote, false)} />
+            <EditableChipGroup storageKey="stu_difficulty" defaults={DIFFICULTY_CHIPS} onPick={makeAppender(note, setNote, false)} />
           </div>
           <div className="form-group">
             <label className="form-label">비식별 요약 / 현행수준 (이 내용만 AI에 전송)</label>

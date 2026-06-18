@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
-import { QChipGroup, makeAppender } from '../ui/QChip';
+import { EditableChipGroup, makeAppender } from '../ui/QChip';
 import Modal from '../ui/Modal';
 import EditStudentModal from '../modals/EditStudentModal';
 import RAISDModal from '../modals/RAISDModal';
@@ -101,23 +101,23 @@ export default function ObservePage() {
           <div className="form-group">
             <label className="form-label">시간 / 장소</label>
             <input className="form-input" value={timeText} readOnly placeholder="시간/장소 칩에서 선택" />
-            <QChipGroup label="시간" options={ABC_TIMES} mode="set" target={timeVal} onChange={setTimeVal} />
-            <QChipGroup label="장소" options={ABC_PLACES} mode="set" target={placeVal} onChange={setPlaceVal} />
+            <EditableChipGroup label="시간" storageKey="abc_time" defaults={ABC_TIMES} mode="set" target={timeVal} onChange={setTimeVal} />
+            <EditableChipGroup label="장소" storageKey="abc_place" defaults={ABC_PLACES} mode="set" target={placeVal} onChange={setPlaceVal} />
           </div>
         </div>
         <div className="form-group">
           <label className="form-label">A (선행사건, Antecedent)</label>
-          <QChipGroup options={A_CHIPS} onPick={makeAppender(a, setA, false)} />
+          <EditableChipGroup storageKey="abc_a" defaults={A_CHIPS} onPick={makeAppender(a, setA, false)} />
           <textarea className="form-textarea" value={a} onChange={(e) => setA(e.target.value)} placeholder="행동 직전에 어떤 상황이 있었나요?" />
         </div>
         <div className="form-group">
           <label className="form-label">B (행동, Behavior)</label>
-          <QChipGroup options={B_CHIPS} onPick={makeAppender(b, setB, false)} />
+          <EditableChipGroup storageKey="abc_b" defaults={B_CHIPS} onPick={makeAppender(b, setB, false)} />
           <textarea className="form-textarea" value={b} onChange={(e) => setB(e.target.value)} placeholder="학생이 정확히 어떤 행동을 했나요?" />
         </div>
         <div className="form-group">
           <label className="form-label">C (결과, Consequence)</label>
-          <QChipGroup options={C_CHIPS} onPick={makeAppender(c, setC, false)} />
+          <EditableChipGroup storageKey="abc_c" defaults={C_CHIPS} onPick={makeAppender(c, setC, false)} />
           <textarea className="form-textarea" value={c} onChange={(e) => setC(e.target.value)} placeholder="행동 직후 어떤 결과가 발생했나요?" />
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

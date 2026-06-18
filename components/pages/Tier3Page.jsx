@@ -10,7 +10,7 @@ const STEPS = [
   },
   {
     n: 2, page: 'qabf', icon: '📊', title: '기능평가 (QABF)',
-    desc: '25문항 4점 척도로 문제행동의 기능을 정량화 (관심·회피·획득·감각·비사회적).',
+    desc: '25문항 4점 척도로 문제행동의 기능을 정량화 (관심·회피·자동감각·신체·강화물).',
     measure: (d) => (d?.qabf || []).filter((v) => v >= 0).length,
     measureLabel: '/25 문항 응답',
   },

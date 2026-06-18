@@ -7,7 +7,7 @@ const TOPICS = [
   {
     id: 'pbs-basic',
     title: '문제행동의 이해와 기능 평가 (FBA·QABF)',
-    desc: 'FBA·QABF 25문항·기능 5범주(관심·회피·획득·감각·비사회적). PBS 기초.',
+    desc: 'FBA·QABF 25문항·기능 5범주(관심·회피·자동감각·신체·강화물). PBS 기초.',
     tag: 'PBS 기초', tagColor: '#4f6bed', tagBg: '#e9edff', icon: '📊',
     queries: ['긍정적 행동지원 PBS 기능평가 FBA', 'QABF 행동기능 평가'],
   },

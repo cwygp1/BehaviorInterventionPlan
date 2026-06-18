@@ -4,6 +4,7 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { saveCICO, deleteCICO } from '../../lib/api/students';
 import { printDPRCard } from '../../lib/utils/printDPR';
+import { EditableChipGroup } from '../ui/QChip';
 
 const PRESETS = {
   '초등 (7교시 + 종례)': ['1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '종례'],
@@ -235,11 +236,7 @@ export default function Tier2Page({ onNavigate }) {
         {/* 오늘의 목표 */}
         <div className="form-group">
           <label className="form-label">🎯 오늘의 목표 행동 <span style={{ color: 'var(--muted)', fontSize: '.74rem', fontWeight: 500 }}>(1~3개 권장)</span></label>
-          <div className="qchip-area">
-            {COMMON_GOALS.map((g) => (
-              <span key={g} className="qchip" onClick={() => addGoal(g)}>+ {g}</span>
-            ))}
-          </div>
+          <EditableChipGroup storageKey="tier2_goals" defaults={COMMON_GOALS} onPick={(g) => addGoal(g)} />
           <div style={{ display: 'flex', gap: 8 }}>
             <input
               className="form-input"

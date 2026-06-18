@@ -4,9 +4,12 @@ import { useStudents } from '../../contexts/StudentContext';
 import EvalPromptModal from '../modals/EvalPromptModal';
 import EvalReportModal from '../modals/EvalReportModal';
 import { pnd, pndInterpretation, tauU, tauUInterpretation } from '../../lib/utils/effectSize';
+import QabfFnChart from '../ui/QabfFnChart';
 
-const FUNC_LABELS = ['관심', '회피', '획득', '감각', '비사회적'];
-const FUNC_COLORS = ['#4f6bed', '#ef476f', '#f59f00', '#12b886', '#1098ad'];
+const METRIC_LABELS = { freq: '발생 빈도 (회)', dur: '지속 시간 (분)', int: '강도 (1~5)', dbr: 'DBR (0~10)' };
+
+const FUNC_LABELS = ['관심', '회피', '자동·감각', '신체', '강화물'];
+const FUNC_COLORS = ['#4f6bed', '#ef476f', '#12b886', '#9c36b5', '#f59f00'];
 
 let chartLib = null;
 async function loadChart() {
@@ -75,14 +78,44 @@ export default function EvalPage() {
     };
   }, [qabf]);
 
-  // Behavior chart with Phase A/B coloring
+  // Behavior chart with Phase A/B coloring + 구역 나누기(기초선/중재) + 축 제목
   useChart(behRef, () => {
     const sorted = [...mon].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const labels = sorted.map((r) => (r.date || '').slice(5));
     const baseData = sorted.map((r) => (r.phase === 'A' ? r[metric] : null));
     const intData = sorted.map((r) => (r.phase !== 'A' ? r[metric] : null));
+    const aCount = sorted.filter((r) => r.phase === 'A').length; // 기초선(A) 구간 길이
     const baseAvg = (() => { const a = sorted.filter((r) => r.phase === 'A').map((r) => r[metric]); return a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0; })();
     const intAvg = (() => { const a = sorted.filter((r) => r.phase !== 'A').map((r) => r[metric]); return a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0; })();
+
+    // 구역 나누기: 기초선(A) / 중재(B) 영역을 배경 음영 + 점선 분리선 + 라벨로 표시
+    const phaseRegion = {
+      id: 'phaseRegion',
+      beforeDraw(chart) {
+        const { ctx, chartArea, scales: { x } } = chart;
+        if (!chartArea || !x || !labels.length) return;
+        const { left, right, top, bottom } = chartArea;
+        const hasSplit = aCount > 0 && aCount < labels.length;
+        const bx = hasSplit ? (x.getPixelForValue(aCount - 1) + x.getPixelForValue(aCount)) / 2
+          : (aCount >= labels.length ? right : left);
+        ctx.save();
+        ctx.fillStyle = 'rgba(239,71,111,.06)';
+        ctx.fillRect(left, top, bx - left, bottom - top);
+        ctx.fillStyle = 'rgba(18,184,134,.06)';
+        ctx.fillRect(bx, top, right - bx, bottom - top);
+        if (hasSplit) {
+          ctx.strokeStyle = 'rgba(0,0,0,.4)';
+          ctx.setLineDash([5, 4]);
+          ctx.beginPath(); ctx.moveTo(bx, top); ctx.lineTo(bx, bottom); ctx.stroke();
+          ctx.setLineDash([]);
+        }
+        ctx.font = 'bold 11px sans-serif';
+        if (bx - left > 40) { ctx.fillStyle = '#ef476f'; ctx.fillText('기초선(A)', left + 6, top + 14); }
+        if (right - bx > 40) { ctx.fillStyle = '#12b886'; ctx.fillText('중재(B)', bx + 6, top + 14); }
+        ctx.restore();
+      },
+    };
+
     return {
       type: 'line',
       data: {
@@ -94,7 +127,16 @@ export default function EvalPage() {
           { label: 'B 평균(' + intAvg.toFixed(1) + ')', data: labels.map(() => intAvg), borderColor: 'rgba(18,184,134,.4)', borderDash: [6, 4], pointRadius: 0 },
         ],
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: METRIC_LABELS[metric] || '값' } },
+          x: { title: { display: true, text: '회기 (날짜)' } },
+        },
+      },
+      plugins: [phaseRegion],
     };
   }, [mon, metric]);
 
@@ -167,8 +209,12 @@ export default function EvalPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 14 }}>
         <div className="card">
-          <div className="card-title">🕸 QABF 행동 기능 분석</div>
+          <div className="card-title">🕸 QABF 행동 기능 분석 (레이더)</div>
           <div style={{ position: 'relative', height: 280 }}><canvas ref={radarRef} /></div>
+        </div>
+        <div className="card">
+          <div className="card-title">📈 QABF 기능·심각도 그래프 (공식 양식)</div>
+          <QabfFnChart responses={qabf} />
         </div>
         <div className="card">
           <div className="card-title">💚 심리안정실 사유 분포</div>
