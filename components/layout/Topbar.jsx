@@ -22,6 +22,7 @@ export default function Topbar({ activePage, onMenu, onOpenLLMSettings, onAddStu
   const {
     students, curStuId, selectStudent,
     years, curYear, selectYear,
+    curSemester, selectSemester,
     yearClasses, curClassId, selectClass,
   } = useStudents();
 
@@ -44,6 +45,16 @@ export default function Topbar({ activePage, onMenu, onOpenLLMSettings, onAddStu
             {years.map((y) => (
               <option key={y} value={y}>{y}년</option>
             ))}
+          </select>
+          {/* 학기 선택 */}
+          <select
+            className="stu-select"
+            value={curSemester}
+            onChange={(e) => selectSemester(e.target.value)}
+            title="학기"
+          >
+            <option value={1}>1학기</option>
+            <option value={2}>2학기</option>
           </select>
           {/* 학급 선택 */}
           <select

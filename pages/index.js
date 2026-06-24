@@ -7,6 +7,7 @@ import Layout from '../components/layout/Layout';
 import LoadingOverlay from '../components/ui/LoadingOverlay';
 
 import HomePage from '../components/pages/HomePage';
+import StartPointPage from '../components/pages/StartPointPage';
 import ObservePage from '../components/pages/ObservePage';
 import QabfPage from '../components/pages/QabfPage';
 import BipPage from '../components/pages/BipPage';
@@ -61,6 +62,7 @@ export default function Home() {
 function PageRouter({ activePage, onNavigate }) {
   switch (activePage) {
     case 'home': return <HomePage onNavigate={onNavigate} />;
+    case 'startpoint': return <StartPointPage />;
     case 'observe': return <ObservePage />;
     case 'qabf': return <QabfPage />;
     case 'bip': return <BipPage />;

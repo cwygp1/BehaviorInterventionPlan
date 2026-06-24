@@ -5,7 +5,7 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
-import { fetchIEP, saveIEPGoal, deleteIEPGoal } from '../../lib/api/students';
+import { fetchIEP, saveIEPGoal, deleteIEPGoal, fetchStartpoint } from '../../lib/api/students';
 import { downloadIepWord, downloadIepFormWord } from '../../lib/utils/printIep';
 
 const GRADE = { 0: '일상생활(공통)', 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
@@ -96,7 +96,7 @@ function parseLooseJSON(raw) {
 }
 
 export default function IepPage() {
-  const { curStu, curStuId, curStuData, ensureStudentData } = useStudents();
+  const { curStu, curStuId, curStuData, ensureStudentData, curYear, curSemester, studentTier, tier2Groups } = useStudents();
   const { user } = useAuth();
   const toast = useToast();
   const { callDetailed, config, status: llmStatus } = useLLM();
@@ -153,9 +153,12 @@ export default function IepPage() {
 
   const [goal, setGoal] = useState('');
   const [plop, setPlop] = useState('');
-  const [schoolYear, setSchoolYear] = useState(new Date().getFullYear());
-  const [sem, setSem] = useState('1');
+  // 기본 학년도·학기는 상단 전역 선택값을 따른다(반·학기 일관성).
+  const [schoolYear, setSchoolYear] = useState(curYear || new Date().getFullYear());
+  const [sem, setSem] = useState(String(curSemester || 1));
   const [critType, setCritType] = useState('rate');
+  const [supportTier, setSupportTier] = useState(''); // 모듈4: 지원 수준(Tier 1/2/3)
+  const [startpoint, setStartpoint] = useState(null); // 모듈1 출발점 산출물(연동용)
   const [cStart, setCStart] = useState(30);
   const [cEnd, setCEnd] = useState(80);
   const [monthly, setMonthly] = useState([]);
@@ -182,6 +185,12 @@ export default function IepPage() {
     if (!curStuId) { setSavedGoals([]); return; }
     setGoalsLoading(true);
     fetchIEP(curStuId).then((d) => setSavedGoals(d.goals || [])).catch(() => {}).finally(() => setGoalsLoading(false));
+  }, [curStuId]);
+
+  // 모듈1 출발점 산출물 로드 (모듈2 목표 생성의 출발점으로 연동).
+  useEffect(() => {
+    if (!curStuId) { setStartpoint(null); return; }
+    fetchStartpoint(curStuId).then((r) => setStartpoint(r?.data?.data || null)).catch(() => setStartpoint(null));
   }, [curStuId]);
 
   // Default 현행수준 from the student's note when a student is chosen.
@@ -238,6 +247,7 @@ export default function IepPage() {
     setGoal(g.semester_goal || ''); setPlop(g.plop || '');
     setSchoolYear(g.school_year || new Date().getFullYear());
     setSem(String(g.semester || 1)); setCritType(g.crit_type || 'rate');
+    setSupportTier(g.support_tier || '');
     setCStart(g.crit_start ?? 30); setCEnd(g.crit_end ?? 80);
     setMonthly(Array.isArray(g.monthly) ? g.monthly : []);
     setSemEval(g.semestral_eval || '');
@@ -251,7 +261,7 @@ export default function IepPage() {
 
   function newGoal() {
     setSel(null); setEditingId(null); setMonthly([]); setSemEval(''); setGoal('');
-    setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]);
+    setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setSupportTier('');
   }
 
   // 전년도 목표 하나를 "기준"으로 삼아 올해 목표 작성을 시작.
@@ -417,6 +427,14 @@ export default function IepPage() {
     }
     const qabf = data?.qabf || [];
     if (Array.isArray(qabf) && qabf.some((v) => v >= 0)) lines.push('QABF 기능평가 완료(행동 기능 분석 자료 있음).');
+    // 모듈1 출발점 산출물 — 이 IEP 목표의 출발점(행동=지원요구 신호).
+    const sp = startpoint || {};
+    if (sp.supportNeeds || sp.functions || sp.perfLevel) {
+      lines.push('[모듈1 출발점 — 학습자 분석 산출물]');
+      if (sp.supportNeeds) lines.push(`  · 생활지원 요구: ${String(sp.supportNeeds).replace(/\n/g, ' / ')}`);
+      if (sp.functions) lines.push(`  · 기능 목록화: ${String(sp.functions).replace(/\n/g, ' / ')}`);
+      if (sp.perfLevel) lines.push(`  · 수행 가능 수준: ${String(sp.perfLevel).replace(/\n/g, ' / ')}`);
+    }
     return lines.join('\n');
   }
 
@@ -437,6 +455,9 @@ export default function IepPage() {
     const critLine = isQual
       ? `[평가 방식] 질적 평가 — 수치·등급이 아니라 위 평가초점을 중심으로 학습 과정과 결과를 내러티브(서술형)로 평가.\n`
       : `[평가 기준] ${critType === 'rate' ? '독립 수행 비율' : '기회 중 성공 횟수'} 기준을 ${cStart}${u}에서 ${cEnd}${u}로 매월 점증(양적). 평가초점 중심의 질적 서술을 병행.\n`;
+    const tierLine = supportTier
+      ? `[지원 수준] ${supportTier} — 이 학생에게 필요한 지원 강도. 교육방법·촉진 수준을 이 Tier에 맞춰 명시할 것.\n`
+      : '';
     return (
       `너는 특수교육 IEP 작성 전문가다. 아래 "학생 자료"와 "전년도 IEP"를 실제로 반영해, 선택한 성취기준에 대한 개별화교육계획을 작성하라.\n\n` +
       `[학생 자료]\n${summary}\n${priorBlock}\n` +
@@ -444,7 +465,7 @@ export default function IepPage() {
       fociBlock +
       `[학기목표(참고)] ${goal}\n` +
       `[대상 월] ${ms.join(', ')} (총 ${ms.length}개월)\n` +
-      critLine + `\n` +
+      critLine + tierLine + `\n` +
       `요구사항:\n` +
       `1) 현행수준(plop)은 위 학생 자료(ABC·행동데이터·BIP·안정실 등)를 근거로 구체적으로 서술.\n` +
       `2) 월별로 지원 수준을 점차 줄이며(도움받아→부분→독립→적용) 목표를 점증시킬 것.\n` +
@@ -517,6 +538,7 @@ export default function IepPage() {
         standard_code: sel.code, standard_text: sel.text,
         semester: +sem, semester_goal: goal, plop,
         crit_type: critType, crit_start: +cStart, crit_end: +cEnd,
+        support_tier: supportTier,
         eval_foci: (evalFoci || []).map((f) => f.trim()).filter(Boolean),
         monthly, semestral_eval: semEval,
       };
@@ -567,9 +589,30 @@ export default function IepPage() {
 
   const priorGoals = savedGoals.filter((g) => g.school_year && g.school_year < schoolYear);
 
+  const curTier = curStuId ? studentTier(curStuId) : 1;
+  const curTierGroups = (tier2Groups || []).filter((g) => (g.members || []).some((m) => m.student_id === curStuId));
+  const TIER_BADGE = { 1: { t: 'Tier 1 (학급 보편)', c: '#4f6bed' }, 2: { t: 'Tier 2 (소그룹)', c: '#e8590c' }, 3: { t: 'Tier 3 (개별)', c: '#c43653' } };
+
   return (
     <>
       <StuHero />
+
+      {/* Tier 구성 참고 — IEP는 Tier 1·2·3 데이터를 조합해 목표를 세운다 */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+        padding: '8px 14px', marginBottom: 4, borderRadius: 8,
+        background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: '.84rem',
+      }}>
+        <strong style={{ color: 'var(--pri)' }}>🧩 Tier 구성</strong>
+        <span style={{
+          padding: '2px 10px', borderRadius: 99, color: '#fff', fontWeight: 700, fontSize: '.76rem',
+          background: TIER_BADGE[curTier].c,
+        }}>{TIER_BADGE[curTier].t}</span>
+        {curTierGroups.length > 0 && (
+          <span style={{ color: 'var(--muted)' }}>소속 소그룹: {curTierGroups.map((g) => g.name).join(', ')}</span>
+        )}
+        <span style={{ color: 'var(--muted)' }}>· IEP 목표는 Tier 1(학급)·Tier 2(소그룹)·Tier 3(개별) 자료를 조합해 작성합니다.</span>
+      </div>
 
       {/* 저장된 목표 — 수정 진입점(맨 위) */}
       {(goalsLoading || savedGoals.length > 0) && (
@@ -724,6 +767,14 @@ export default function IepPage() {
             </div>
             {editingId && <button className="btn btn-ghost btn-sm" onClick={newGoal}>+ 새 목표 작성</button>}
           </div>
+          {startpoint && (startpoint.supportNeeds || startpoint.functions || startpoint.perfLevel) && (
+            <div style={{ background: '#eef4ff', border: '1px solid #b9cdf0', borderRadius: 8, padding: '10px 12px', margin: '4px 0 12px', fontSize: 12.5, color: '#274690', lineHeight: 1.6 }}>
+              <strong>🧭 모듈1 출발점 연동</strong> — 이 산출물이 목표의 출발점입니다(AI 생성에 자동 반영).
+              {startpoint.supportNeeds && <div>· 생활지원 요구: {String(startpoint.supportNeeds).replace(/\n/g, ' / ')}</div>}
+              {startpoint.functions && <div>· 기능 목록화: {String(startpoint.functions).replace(/\n/g, ' / ')}</div>}
+              {startpoint.perfLevel && <div>· 수행 가능 수준: {String(startpoint.perfLevel).replace(/\n/g, ' / ')}</div>}
+            </div>
+          )}
           <div className="form-group"><label className="form-label">학기목표 (수정 가능)</label><textarea className="form-textarea" value={goal} onChange={(e) => setGoal(e.target.value)} /></div>
           <div className="form-group"><label className="form-label">현행수준 (학생 비식별 요약에서 연동 · 수정 가능)</label><textarea className="form-textarea" value={plop} onChange={(e) => setPlop(e.target.value)} /></div>
           <div className="form-row">
@@ -736,6 +787,13 @@ export default function IepPage() {
                 <option value="rate">양적 · 독립 수행 비율(%)</option>
                 <option value="freq">양적 · 기회 중 성공 횟수(10회 중)</option>
                 <option value="qual">질적 · 평가초점 기반 서술(내러티브)</option>
+              </select></div>
+            <div className="form-group"><label className="form-label">지원 수준 (모듈4)</label>
+              <select className="form-input" value={supportTier} onChange={(e) => setSupportTier(e.target.value)}>
+                <option value="">미지정</option>
+                <option value="Tier 1 (보편적 지원)">Tier 1 · 보편적 지원</option>
+                <option value="Tier 2 (소그룹 지원)">Tier 2 · 소그룹 지원</option>
+                <option value="Tier 3 (개별 집중 지원)">Tier 3 · 개별 집중 지원</option>
               </select></div>
             {critType !== 'qual' ? (
               <>

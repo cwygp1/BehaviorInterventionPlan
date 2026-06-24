@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchClassPBS, saveClassPBS } from '../../lib/api/students';
+import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import PromptResultBlock from '../modals/PromptResultBlock';
@@ -10,6 +11,7 @@ const REWARD_ICONS = ['🎁', '🍿', '🎬', '🍕', '🎮', '🎨', '⚽', '�
 export default function ClassPBSPage() {
   const toast = useToast();
   const { call, status } = useLLM();
+  const { curYear, curSemester, curClassId, curClass } = useStudents();
   const [goal, setGoal] = useState('모두가 행복한 교실');
   const [target, setTarget] = useState(100);
   const [current, setCurrent] = useState(0);
@@ -24,21 +26,37 @@ export default function ClassPBSPage() {
   const [coachOutput, setCoachOutput] = useState('');
   const [coachBusy, setCoachBusy] = useState(false);
 
+  // Load the PBS state for the currently selected 반 + 학기. Each (반, 학기)
+  // keeps its own goal/points/rewards; defaults are restored when there is no
+  // saved state yet so a fresh class/semester starts clean.
   useEffect(() => {
-    fetchClassPBS().then((d) => {
+    if (!curClassId) return;
+    let cancelled = false;
+    fetchClassPBS(curClassId, curSemester).then((d) => {
+      if (cancelled) return;
       if (d?.data) {
         setGoal(d.data.goal || '모두가 행복한 교실');
         setTarget(d.data.target_points || 100);
         setCurrent(d.data.current_points || 0);
         setRewards(d.data.rewards && d.data.rewards.length ? d.data.rewards : []);
+      } else {
+        setGoal('모두가 행복한 교실');
+        setTarget(100);
+        setCurrent(0);
+        setRewards([]);
       }
     }).catch(() => {});
-  }, []);
+    return () => { cancelled = true; };
+  }, [curClassId, curSemester]);
 
   async function onSave() {
+    if (!curClassId) { toast('먼저 학급을 선택해주세요.'); return; }
     setBusy(true);
     try {
-      await saveClassPBS({ goal, target_points: +target, current_points: +current, rewards });
+      await saveClassPBS({
+        class_id: curClassId, semester: curSemester,
+        goal, target_points: +target, current_points: +current, rewards,
+      });
       toast('학급 PBS 상태 저장 완료');
     } catch (e) { toast('저장 실패: ' + e.message); }
     finally { setBusy(false); }
@@ -95,8 +113,31 @@ ${question}
   const sortedRewards = [...rewards].filter((r) => r.name && r.points > 0).sort((a, b) => a.points - b.points);
   const nextReward = sortedRewards.find((r) => r.points > current);
 
+  if (!curClassId) {
+    return (
+      <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
+        <div style={{ fontSize: '2.4rem', marginBottom: 8 }}>🏫</div>
+        Tier 1 PBS는 <strong>학년도 · 학기 · 반</strong>별로 설정합니다.<br />
+        상단에서 학급을 먼저 선택(또는 ⚙로 추가)해주세요.
+      </div>
+    );
+  }
+
   return (
     <>
+      {/* Scope banner — Tier 1은 학년도·학기·반 단위 */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+        padding: '8px 14px', marginBottom: 12, borderRadius: 8,
+        background: 'var(--pri-soft)', border: '1px solid var(--pri-l)', fontSize: '.84rem',
+      }}>
+        <span style={{ fontWeight: 700, color: 'var(--pri)' }}>📍 적용 범위</span>
+        <span className="badge badge-pri">{curYear}학년도</span>
+        <span className="badge badge-pri">{curSemester}학기</span>
+        <span className="badge badge-pri">{curClass?.name || '—'}</span>
+        <span style={{ color: 'var(--muted)' }}>이 학급·학기 전용 PBS 설정입니다.</span>
+      </div>
+
       {/* Hero card with progress */}
       <div className="card" style={{
         background: 'linear-gradient(135deg, #4f6bed 0%, #6979f0 100%)',

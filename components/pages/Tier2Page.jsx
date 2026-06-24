@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import StuHero, { NoStudentHint } from '../student/StuHero';
+import StuHero from '../student/StuHero';
+import Tier2GroupPanel from '../student/Tier2GroupPanel';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { saveCICO, deleteCICO } from '../../lib/api/students';
@@ -38,7 +39,7 @@ function readPeriodData(scores, periodName) {
 }
 
 export default function Tier2Page({ onNavigate }) {
-  const { curStu, curStuId, curStuData, updateStudentData } = useStudents();
+  const { curStu, curStuId, curStuData, updateStudentData, curClassId, tier2Groups } = useStudents();
   const toast = useToast();
 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -51,6 +52,12 @@ export default function Tier2Page({ onNavigate }) {
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
   const [expandedHist, setExpandedHist] = useState(null);
+  const [groupId, setGroupId] = useState(null); // 현재 선택된 Tier 2 소그룹
+
+  // 년/학기/반을 바꾸거나 그룹이 삭제되면 선택을 해제(목록 화면으로 복귀).
+  useEffect(() => {
+    if (groupId && !tier2Groups.some((g) => g.id === groupId)) setGroupId(null);
+  }, [tier2Groups, groupId]);
 
   const cicoRecords = curStuData?.cico || [];
   const todayRecord = cicoRecords.find((r) => r.date === date);
@@ -82,7 +89,15 @@ export default function Tier2Page({ onNavigate }) {
     }
   }, [date, todayRecord, curStu, cicoRecords.length]);
 
-  if (!curStu) return <NoStudentHint />;
+  if (!curClassId) {
+    return (
+      <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
+        <div style={{ fontSize: '2.4rem', marginBottom: 8 }}>🏫</div>
+        Tier 2 소그룹은 <strong>반·학기</strong> 단위로 구성합니다.<br />
+        상단에서 학급을 먼저 선택해주세요.
+      </div>
+    );
+  }
 
   function addGoal(text) {
     const t = text.trim();
@@ -191,9 +206,19 @@ export default function Tier2Page({ onNavigate }) {
 
   return (
     <>
-      <StuHero />
+      {/* 1) 첫 화면 = 소그룹 관리. 그룹 선택 후 구성원 → CICO로 진행. */}
+      <Tier2GroupPanel selectedGroupId={groupId} onSelectGroup={setGroupId} />
 
-      {/* Hero */}
+      {!groupId ? null : !curStu ? (
+        <div className="card">
+          <div className="empty-state">
+            <span className="emoji">👆</span>
+            소그룹 구성원 이름을 누르면 해당 학생의 CICO / DPR 일일 기록을 시작합니다.
+          </div>
+        </div>
+      ) : (
+      <>
+      {/* Hero (선택된 학생의 CICO 요약) */}
       <div className="card" style={{
         background: 'linear-gradient(135deg, #f59f00 0%, #e8590c 100%)',
         color: '#fff', border: 'none', position: 'relative', overflow: 'hidden',
@@ -212,6 +237,8 @@ export default function Tier2Page({ onNavigate }) {
           )}
         </div>
       </div>
+
+      <StuHero />
 
       {/* 일일 입력 폼 */}
       <div className="card">
@@ -444,6 +471,8 @@ export default function Tier2Page({ onNavigate }) {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* 안내 */}
       <details>

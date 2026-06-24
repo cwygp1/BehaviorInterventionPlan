@@ -1,4 +1,4 @@
-import StuHero, { NoStudentHint } from '../student/StuHero';
+import StuHero from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 
 const STEPS = [
@@ -35,14 +35,22 @@ const STEPS = [
 ];
 
 export default function Tier3Page({ onNavigate }) {
-  const { curStu, curStuData } = useStudents();
+  const { curStu, curStuData, curClassId, students, tier3Ids, curStuId, selectStudent } = useStudents();
 
-  if (!curStu) return <NoStudentHint />;
+  if (!curClassId) {
+    return (
+      <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
+        <div style={{ fontSize: '2.4rem', marginBottom: 8 }}>🏫</div>
+        Tier 3 대상은 <strong>Tier 2 소그룹 구성원 중 일부</strong>를 선택해 지정합니다.<br />
+        상단에서 학급을 먼저 선택하고, Tier 2에서 소그룹/구성원을 만들어주세요.
+      </div>
+    );
+  }
+
+  const tier3Students = students.filter((s) => tier3Ids.has(s.id));
 
   return (
     <>
-      <StuHero />
-
       {/* Hero — Tier 3 개요 */}
       <div className="card" style={{
         background: 'linear-gradient(135deg, #ef476f 0%, #c43653 100%)',
@@ -59,6 +67,50 @@ export default function Tier3Page({ onNavigate }) {
           </p>
         </div>
       </div>
+
+      {/* Tier 3 대상 학생 — Tier 2 소그룹 구성원 중 'Tier 3' 표시된 학생 */}
+      <div className="card">
+        <div className="card-title">🎯 Tier 3 대상 학생 <span className="badge badge-pri">{tier3Students.length}명</span></div>
+        <div className="card-subtitle">
+          Tier 2 소그룹에서 <strong>Tier 3</strong>로 표시한 학생이 개별 중재 대상입니다.
+          대상 지정은 <strong>Tier 2 · 소그룹 지원</strong> 화면에서 체크하세요.
+        </div>
+        {tier3Students.length === 0 ? (
+          <div className="empty-state" style={{ marginTop: 10 }}>
+            <span className="emoji">🫥</span>아직 Tier 3 대상으로 지정된 학생이 없습니다.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+            {tier3Students.map((s) => {
+              const on = curStuId === s.id;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => selectStudent(s.id)}
+                  style={{
+                    padding: '8px 14px', borderRadius: 99, cursor: 'pointer', fontSize: '.86rem', fontWeight: 700,
+                    border: '1px solid ' + (on ? '#c43653' : 'var(--border)'),
+                    background: on ? '#ef476f' : '#fff', color: on ? '#fff' : '#c43653',
+                  }}
+                >
+                  🎯 {s.code}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {!curStu ? (
+        <div className="card">
+          <div className="empty-state">
+            <span className="emoji">👆</span>
+            위에서 Tier 3 대상 학생을 선택하면 5단계 개별 중재 워크플로가 표시됩니다.
+          </div>
+        </div>
+      ) : (
+      <>
+      <StuHero />
 
       {/* 5단계 워크플로 */}
       <div className="card">
@@ -150,6 +202,8 @@ export default function Tier3Page({ onNavigate }) {
           <button className="btn btn-pri btn-sm" onClick={() => onNavigate?.('eval')}>✅ 결과 차트 보기</button>
         </div>
       </div>
+      </>
+      )}
     </>
   );
 }

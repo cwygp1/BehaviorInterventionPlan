@@ -8,12 +8,13 @@ const NAV = [
   },
   {
     group: 'Tier 2 · 소그룹 지원',
-    items: [{ id: 'tier2', label: 'CICO / DPR', icon: '👥', requiresStudent: true }],
+    items: [{ id: 'tier2', label: 'CICO / DPR', icon: '👥' }],
   },
   {
     group: 'Tier 3 · 개별 맞춤형 중재',
     items: [
-      { id: 'tier3', label: '개요 / 5단계 워크플로', icon: '🎯', requiresStudent: true },
+      { id: 'tier3', label: '개요 / 5단계 워크플로', icon: '🎯' },
+      { id: 'startpoint', label: '출발점 (모듈1)', icon: '🧭', requiresStudent: true },
       { id: 'observe', label: '학생 관찰 / ABC', icon: '🔍', requiresStudent: true },
       { id: 'qabf', label: '기능평가 (QABF)', icon: '📊', requiresStudent: true },
       { id: 'bip', label: '중재계획 (BIP)', icon: '📝', requiresStudent: true },

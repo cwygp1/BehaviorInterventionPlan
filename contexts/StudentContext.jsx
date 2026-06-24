@@ -12,11 +12,22 @@ import {
   updateClass as apiUpdateClass,
   deleteClass as apiDeleteClass,
 } from '../lib/api/classes';
+import {
+  fetchTier2Groups,
+  createTier2Group as apiCreateTier2Group,
+  updateTier2Group as apiUpdateTier2Group,
+  deleteTier2Group as apiDeleteTier2Group,
+  addTier2Member as apiAddTier2Member,
+  removeTier2Member as apiRemoveTier2Member,
+  setTier2Tier3 as apiSetTier2Tier3,
+} from '../lib/api/tier2';
 import { useAuth } from './AuthContext';
 
 const StudentContext = createContext({});
 
 const DEFAULT_YEAR = new Date().getFullYear();
+// 1학기 = 3~8월, 2학기 = 9~2월 (한국 학사일정 기준).
+const DEFAULT_SEMESTER = (new Date().getMonth() + 1) >= 3 && (new Date().getMonth() + 1) <= 8 ? 1 : 2;
 
 /**
  * Holds the class hierarchy (선생님 → 년도 → 학급 → 학생), the student list,
@@ -29,9 +40,11 @@ export function StudentProvider({ children }) {
   const [allStudents, setAllStudents] = useState([]); // every student for the user
   const [classes, setClasses] = useState([]);         // every class for the user
   const [curYear, setCurYear] = useState(DEFAULT_YEAR);
+  const [curSemester, setCurSemester] = useState(DEFAULT_SEMESTER); // 1 | 2
   const [curClassId, setCurClassId] = useState(null);
   const [curStuId, setCurStuId] = useState(null);      // student.id (db pk)
   const [studentDataCache, setStudentDataCache] = useState({});
+  const [tier2Groups, setTier2Groups] = useState([]);  // Tier 2 소그룹 for cur class+semester
   const [homeSummary, setHomeSummary] = useState({ summaries: {}, recent: [] });
   const inflightRef = useRef({});
   const seedingRef = useRef(false);
@@ -42,9 +55,11 @@ export function StudentProvider({ children }) {
       setAllStudents([]);
       setClasses([]);
       setCurYear(DEFAULT_YEAR);
+      setCurSemester(DEFAULT_SEMESTER);
       setCurClassId(null);
       setCurStuId(null);
       setStudentDataCache({});
+      setTier2Groups([]);
       setHomeSummary({ summaries: {}, recent: [] });
     }
   }, [user]);
@@ -101,6 +116,89 @@ export function StudentProvider({ children }) {
     await Promise.all([reloadClasses(), reloadStudents()]);
   }, [curClassId, reloadClasses, reloadStudents]);
 
+  // Tier 2 소그룹 (scoped to current class + semester) -----------------------
+  const reloadTier2Groups = useCallback(async () => {
+    if (!user || !curClassId) { setTier2Groups([]); return []; }
+    try {
+      const data = await fetchTier2Groups(curClassId, curSemester);
+      const list = data.groups || [];
+      setTier2Groups(list);
+      return list;
+    } catch (_e) {
+      setTier2Groups([]);
+      return [];
+    }
+  }, [user, curClassId, curSemester]);
+
+  // All Tier 2 group mutations update local state IMMEDIATELY (optimistic) so
+  // the UI feels instant, then sync to the server in the background. On error
+  // we reload from the server to recover the true state.
+  const addTier2Group = useCallback(async (name, note) => {
+    const data = await apiCreateTier2Group({ class_id: curClassId, semester: curSemester, name, note });
+    const g = { ...data.group, members: data.group.members || [] };
+    setTier2Groups((prev) => [...prev, g]);
+    return g;
+  }, [curClassId, curSemester]);
+
+  const renameTier2Group = useCallback(async (id, name, note) => {
+    setTier2Groups((prev) => prev.map((g) => g.id === id ? { ...g, name: name ?? g.name, note: note ?? g.note } : g));
+    try { const data = await apiUpdateTier2Group({ id, name, note }); return data.group; }
+    catch (e) { await reloadTier2Groups(); throw e; }
+  }, [reloadTier2Groups]);
+
+  const removeTier2Group = useCallback(async (id) => {
+    const snapshot = tier2Groups;
+    setTier2Groups((prev) => prev.filter((g) => g.id !== id));
+    try { await apiDeleteTier2Group(id); }
+    catch (e) { setTier2Groups(snapshot); throw e; }
+  }, [tier2Groups]);
+
+  const addTier2Member = useCallback(async (groupId, studentId) => {
+    const stu = allStudents.find((s) => s.id === studentId);
+    setTier2Groups((prev) => prev.map((g) => {
+      if (g.id !== groupId) return g;
+      if ((g.members || []).some((m) => m.student_id === studentId)) return g;
+      const member = { id: `tmp-${groupId}-${studentId}`, student_id: studentId, code: stu?.code || stu?.student_code || '', tier3: false };
+      return { ...g, members: [...(g.members || []), member] };
+    }));
+    try { await apiAddTier2Member(groupId, studentId); }
+    catch (e) { await reloadTier2Groups(); throw e; }
+  }, [allStudents, reloadTier2Groups]);
+
+  const removeTier2Member = useCallback(async (groupId, studentId) => {
+    setTier2Groups((prev) => prev.map((g) => g.id === groupId
+      ? { ...g, members: (g.members || []).filter((m) => m.student_id !== studentId) } : g));
+    try { await apiRemoveTier2Member(groupId, studentId); }
+    catch (e) { await reloadTier2Groups(); throw e; }
+  }, [reloadTier2Groups]);
+
+  const setTier2Tier3 = useCallback(async (groupId, studentId, tier3) => {
+    setTier2Groups((prev) => prev.map((g) => g.id === groupId
+      ? { ...g, members: (g.members || []).map((m) => m.student_id === studentId ? { ...m, tier3 } : m) } : g));
+    try { await apiSetTier2Tier3(groupId, studentId, tier3); }
+    catch (e) { await reloadTier2Groups(); throw e; }
+  }, [reloadTier2Groups]);
+
+  // 학기 전환용: 같은 반의 다른 학기 소그룹(이름 + 구성원)을 현재 학기로 복사.
+  const copyTier2GroupsFrom = useCallback(async (fromSemester) => {
+    if (!curClassId) return 0;
+    const data = await fetchTier2Groups(curClassId, fromSemester);
+    const src = data.groups || [];
+    let made = 0;
+    for (const g of src) {
+      try {
+        const created = await apiCreateTier2Group({ class_id: curClassId, semester: curSemester, name: g.name, note: g.note });
+        const gid = created.group?.id;
+        for (const m of (g.members || [])) {
+          try { await apiAddTier2Member(gid, m.student_id); } catch (_e) { /* skip */ }
+        }
+        made++;
+      } catch (_e) { /* skip duplicates */ }
+    }
+    await reloadTier2Groups();
+    return made;
+  }, [curClassId, curSemester, reloadTier2Groups]);
+
   // Initial load when user logs in.
   useEffect(() => {
     if (user) {
@@ -109,6 +207,11 @@ export function StudentProvider({ children }) {
       reloadHomeSummary();
     }
   }, [user, reloadClasses, reloadStudents, reloadHomeSummary]);
+
+  // Reload Tier 2 groups whenever the current class or semester changes.
+  useEffect(() => {
+    reloadTier2Groups();
+  }, [reloadTier2Groups]);
 
   // Auto-seed a default class for brand-new users so there is always somewhere
   // to add students. Runs once when the user has loaded classes and has none.
@@ -177,6 +280,10 @@ export function StudentProvider({ children }) {
     setCurStuId(null);
   }, []);
 
+  const selectSemester = useCallback((sem) => {
+    setCurSemester(Number(sem));
+  }, []);
+
   // Per-student data --------------------------------------------------------
   const ensureStudentData = useCallback(async (sid) => {
     if (!sid) return null;
@@ -234,6 +341,26 @@ export function StudentProvider({ children }) {
   const curStuData = curStuId ? studentDataCache[curStuId] : null;
   const curClass = classes.find((c) => c.id === curClassId) || null;
 
+  // Derived tier membership for the current class + semester.
+  // tier2MemberIds: students who belong to any Tier 2 소그룹.
+  // tier3Ids: members flagged for Tier 3 개별 중재 (a subset of Tier 2).
+  const { tier2MemberIds, tier3Ids } = useMemo(() => {
+    const t2 = new Set();
+    const t3 = new Set();
+    tier2Groups.forEach((g) => (g.members || []).forEach((m) => {
+      t2.add(m.student_id);
+      if (m.tier3) t3.add(m.student_id);
+    }));
+    return { tier2MemberIds: t2, tier3Ids: t3 };
+  }, [tier2Groups]);
+
+  // The highest tier a student is currently engaged in (1 = class-wide only).
+  const studentTier = useCallback((sid) => {
+    if (tier3Ids.has(sid)) return 3;
+    if (tier2MemberIds.has(sid)) return 2;
+    return 1;
+  }, [tier2MemberIds, tier3Ids]);
+
   return (
     <StudentContext.Provider
       value={{
@@ -242,14 +369,29 @@ export function StudentProvider({ children }) {
         years,
         yearClasses,
         curYear,
+        curSemester,
         curClassId,
         curClass,
         selectYear,
+        selectSemester,
         selectClass,
         reloadClasses,
         addClass,
         renameClass,
         removeClass,
+        // Tier 2 소그룹 + Tier 3 flag
+        tier2Groups,
+        reloadTier2Groups,
+        addTier2Group,
+        renameTier2Group,
+        removeTier2Group,
+        addTier2Member,
+        removeTier2Member,
+        setTier2Tier3,
+        copyTier2GroupsFrom,
+        tier2MemberIds,
+        tier3Ids,
+        studentTier,
         // students
         allStudents,
         students,
