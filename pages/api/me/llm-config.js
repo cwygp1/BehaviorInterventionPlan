@@ -1,5 +1,6 @@
 import { sql } from '../../../lib/db';
 import { requireAuth } from '../../../lib/auth';
+import { ensureLlmConfigCached } from '../../../lib/ensureSchema';
 
 // Per-user LLM (LM Studio) settings.
 //   GET    /api/me/llm-config          → { config } | { config: null }
@@ -10,6 +11,13 @@ import { requireAuth } from '../../../lib/auth';
 // don't leak between accounts on a shared browser.
 export default requireAuth(async function handler(req, res) {
   const userId = req.userId;
+
+  // `/api/migrate`가 아직 안 돌았어도 model_fast 컬럼이 보장되도록 자가치유.
+  try {
+    await ensureLlmConfigCached();
+  } catch (e) {
+    return res.status(500).json({ error: 'DB 스키마 준비 실패: ' + (e?.message || 'unknown') });
+  }
 
   if (req.method === 'GET') {
     const r = await sql`
