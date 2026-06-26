@@ -372,13 +372,26 @@ export default function IepPage() {
     if (!aiOn) { ruleStepsNow(); return; }
     setTaskBusy(true);
     try {
+      const target = (goal || sel.text || '').trim();
+      const ctx = [];
+      if (verb) ctx.push(`핵심 수행 동사: ${verb}`);
+      if (descriptor) ctx.push(`대상·내용(서술자): ${descriptor}`);
+      if (intent) ctx.push(`행위지향(태도): ${intent}`);
+      const fociList = (evalFoci || []).map((f) => f.trim()).filter(Boolean);
+      if (fociList.length) ctx.push(`평가초점: ${fociList.join(' / ')}`);
       const prompt =
-        '다음 특수교육 학기목표(또는 성취기준)를 학생이 순서대로 수행할 "과제분석 단계"로 분해하라.\n' +
-        '각 단계는 관찰 가능한 하나의 행동으로, 4~8개. 군더더기 없이 행동만 적는다.\n' +
-        `학기목표: ${goal || sel.text}\n` +
+        '다음 특수교육 학기목표를 학생이 순서대로 수행할 "과제분석 단계"로 분해하라.\n' +
+        '규칙:\n' +
+        '1) 각 단계는 관찰 가능한 하나의 행동, 4~8개.\n' +
+        `2) 모든 단계는 "${target}"을(를) 실제로 완성하기 위한 하위 행동이어야 한다. 마지막 단계는 목표 행동(위 핵심 동사) 자체를 직접 수행한다.\n` +
+        '3) "손 씻기", "자리에 앉기" 같은 일반적 준비 행동이나 목표와 무관한 행동은 절대 넣지 말 것.\n' +
+        '4) 아래 맥락(동사·대상·평가초점)을 반드시 반영할 것.\n' +
+        `학기목표: ${target}\n` +
         (sel?.text ? `성취기준: ${sel.text}\n` : '') +
-        '아래 JSON만 출력: {"steps":["손 씻기","자리에 앉기"]}';
-      const j = await llmJSON('과제분석 단계 분해', prompt, { tier: 'fast', temperature: 0.3 });
+        (ctx.length ? `맥락:\n- ${ctx.join('\n- ')}\n` : '') +
+        '출력은 JSON만. 아래 형식에서 < > 안을 실제 단계 행동으로 채우되, 형식 예시 문구를 그대로 복사하지 말 것:\n' +
+        '{"steps":["<1단계 행동>","<2단계 행동>","<3단계 행동>"]}';
+      const j = await llmJSON('과제분석 단계 분해', prompt, { temperature: 0.3 });
       const steps = Array.isArray(j.steps) ? j.steps.map((s) => String(s).trim()).filter(Boolean) : [];
       if (!steps.length) throw new Error('단계를 추출하지 못했어요.');
       setTaskSteps(steps);
