@@ -93,8 +93,8 @@ export default function PriorIepPage() {
         '교과(영역)별로 학기·학기목표·현행수준·평가를 추출하고, 월별 계획이 있으면 함께 추출하라. 식별정보 제거. 반드시 JSON 배열만 출력:\n' +
         '[{"subject":"국어","area":"읽기","semester":1,"semester_goal":"...","plop":"...","semestral_eval":"...","monthly":[{"month":3,"goal":"...","content":"...","methods":["..."],"eval":"..."}]}]';
       let r;
-      if (impImages.length) r = await callVisionDetailed('/no_think\n다음 이미지는 학생의 전년도 IEP 문서다. 글자를 읽어(OCR) ' + instr, impImages, { temperature: 0.3 });
-      else r = await callDetailed('/no_think\n다음은 학생의 전년도 IEP 문서 텍스트다. ' + instr + '\n\n[문서]\n' + impText.slice(0, 12000), { temperature: 0.3 });
+      if (impImages.length) r = await callVisionDetailed('/no_think\n다음 이미지는 학생의 전년도 IEP 문서다. 글자를 읽어(OCR) ' + instr, impImages, { temperature: 0.3, tier: 'fast' });
+      else r = await callDetailed('/no_think\n다음은 학생의 전년도 IEP 문서 텍스트다. ' + instr + '\n\n[문서]\n' + impText.slice(0, 12000), { temperature: 0.3, tier: 'fast' });
       const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
       const m = (out || '').match(/\[[\s\S]*\]/);
       if (!m) { toast(r.finish_reason === 'length' ? 'AI 응답이 잘렸어요. max_tokens를 늘려보세요.' : '목표 목록을 찾지 못했어요.'); return; }

@@ -1,10 +1,14 @@
 import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLLM } from '../../contexts/LLMContext';
+import { useUIActions } from '../../contexts/UIActionsContext';
 import { stuColor } from '../../lib/utils/colors';
 
 export default function HomePage({ onNavigate }) {
   const { user } = useAuth();
-  const { students, homeSummary, studentDataCache, selectStudent } = useStudents();
+  const { students, homeSummary, studentDataCache, selectStudent, curStuId } = useStudents();
+  const { status: llmStatus } = useLLM();
+  const { openAddStudent, openAISettings } = useUIActions();
   const today = new Date();
   const wd = ['일', '월', '화', '수', '목', '금', '토'][today.getDay()];
 
@@ -31,12 +35,48 @@ export default function HomePage({ onNavigate }) {
   const recent = homeSummary.recent || [];
   const colorByType = { ABC: 'var(--pri)', MON: 'var(--ok)', SZ: 'var(--warn)' };
 
+  // ── 온보딩(처음 시작하기) 단계 ────────────────────────────────
+  const hasStudent = students.length > 0;
+  const aiOn = llmStatus === 'on';
+  const hasObs = totals.abc > 0;
+  const onboardSteps = [
+    { key: 'stu', done: hasStudent, icon: '👤', t: '학생 추가하기', d: '이름 없이 학생 코드로 등록해요.', cta: '학생 추가', action: openAddStudent },
+    { key: 'ai', done: aiOn, icon: '🤖', t: 'AI 어시스턴트 연결하기 (선택)', d: '연결하면 BIP·IEP 초안을 자동으로 만들어줘요.', cta: aiOn ? null : 'AI 연결', action: openAISettings },
+    { key: 'obs', done: hasObs, icon: '🔍', t: '첫 ABC 관찰 기록하기', d: '학생을 고르고 첫 행동 관찰을 남겨보세요.', cta: '관찰 시작', action: () => onNavigate('observe') },
+  ];
+  // 학생을 추가하고 첫 관찰까지 마치면 온보딩 카드를 숨긴다(필수 단계 기준).
+  const showOnboarding = !(hasStudent && hasObs);
+  const nextStep = onboardSteps.find((s) => !s.done && s.cta);
+
   return (
     <>
       <div className="dash-hello">
         <h2>안녕하세요, {user?.name} 선생님 <span className="wave">👋</span></h2>
         <p>{today.getFullYear()}년 {today.getMonth() + 1}월 {today.getDate()}일 ({wd}) · 오늘도 따뜻한 하루 보내세요.</p>
       </div>
+
+      {showOnboarding && (
+        <div className="card" style={{ borderColor: 'var(--pri-l)', background: 'linear-gradient(135deg,#fff 0%,var(--pri-soft) 100%)' }}>
+          <div className="card-title">🚀 시작하기 — 3단계면 준비 끝!</div>
+          <div className="card-subtitle">아래 순서대로 진행하면 바로 사용할 수 있어요. (학급은 자동으로 만들어 두었습니다.)</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {onboardSteps.map((s, i) => (
+              <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 'var(--r-sm)', background: '#fff', border: '1px solid var(--border)' }}>
+                <span aria-hidden="true" style={{ width: 28, height: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontWeight: 800, color: '#fff', background: s.done ? 'var(--ok)' : 'var(--muted)' }}>
+                  {s.done ? '✓' : i + 1}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--text)', textDecoration: s.done ? 'line-through' : 'none', opacity: s.done ? 0.6 : 1 }}>{s.icon} {s.t}</div>
+                  <div style={{ fontSize: '.8rem', color: 'var(--muted)' }}>{s.d}</div>
+                </div>
+                {!s.done && s.cta && (
+                  <button className={'btn btn-sm ' + (nextStep && nextStep.key === s.key ? 'btn-pri' : 'btn-ghost')} onClick={s.action}>{s.cta}</button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="dash-stats">
         <div className="stat-card"><div className="stat-icon pri">👥</div><div><div className="stat-val">{students.length}</div><div className="stat-label">등록 학생</div></div></div>
@@ -48,7 +88,13 @@ export default function HomePage({ onNavigate }) {
       <div className="card">
         <div className="card-title">👤 학생별 한눈 요약</div>
         {students.length === 0 ? (
-          <div className="empty-state"><span className="emoji">👤</span>아직 등록된 학생이 없어요. 우측 상단 + 버튼으로 학생을 추가해 주세요.</div>
+          <div className="empty-state">
+            <span className="emoji">👤</span>
+            아직 등록된 학생이 없어요.
+            <div style={{ marginTop: 12 }}>
+              <button className="btn btn-pri" onClick={openAddStudent}>＋ 학생 추가하기</button>
+            </div>
+          </div>
         ) : (
           <div className="stu-grid">
             {students.map((s) => {
@@ -93,7 +139,11 @@ export default function HomePage({ onNavigate }) {
 
       <div className="card">
         <div className="card-title">🧭 개별 중재 5단계 워크플로</div>
-        <div className="card-subtitle">학생을 선택한 뒤 1번부터 순서대로 진행하세요.</div>
+        <div className="card-subtitle">
+          {curStuId
+            ? '1번부터 순서대로 진행하세요. 각 단계 아래의 "다음 단계" 버튼으로도 이동할 수 있어요.'
+            : '⚠ 먼저 학생을 선택하세요. 단계를 누르면 학생 선택 창이 자동으로 열립니다.'}
+        </div>
         <div className="flow-strip">
           {[
             { id: 'observe', n: 1, icon: '🔍', t: '학생 관찰 / ABC', d: '행동 관찰 기록' },

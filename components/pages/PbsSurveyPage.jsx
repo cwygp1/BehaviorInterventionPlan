@@ -72,7 +72,7 @@ export default function PbsSurveyPage() {
         '2) 학교 규칙(기대행동) 3가지 제안과 근거\n' +
         '3) 기대행동 × 핵심 장소 매트릭스(각 칸에 관찰가능한 규칙 1~2개)\n' +
         '4) 교사 지원 요구에 대한 실행 제안';
-      const out = await call(prompt);
+      const out = await call(prompt, { tier: 'fast' });
       setAiOut(out || '응답이 비어 있습니다.');
     } catch (e) { toast('AI 요약 실패: ' + e.message); }
     finally { setAiBusy(false); }

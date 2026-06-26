@@ -1,7 +1,44 @@
+import { useEffect, useRef } from 'react';
+
 // Reusable modal — uses the existing CSS classes from globals.css.
 // Click outside (on .modal-bg) closes via onClose; click on inner .modal does not.
-// A small × close button is rendered at the top-right of every modal.
+// ESC 키로 닫기, 열릴 때 첫 포커스 이동, Tab 포커스 트랩(모달 밖으로 새지 않음)을 지원한다.
 export default function Modal({ open, onClose, children, maxWidth }) {
+  const boxRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    function onKey(e) {
+      if (e.key === 'Escape' && onClose) { onClose(); return; }
+      if (e.key !== 'Tab') return;
+      // 포커스 트랩
+      const box = boxRef.current;
+      if (!box) return;
+      const items = box.querySelectorAll(
+        'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])'
+      );
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+
+    document.addEventListener('keydown', onKey);
+    // 열릴 때 첫 입력 요소(없으면 닫기 버튼)로 포커스 이동.
+    const t = setTimeout(() => {
+      const box = boxRef.current;
+      if (!box) return;
+      const focusable = box.querySelector(
+        'input,textarea,select,button:not(.modal-close)'
+      ) || box.querySelector('.modal-close');
+      focusable?.focus?.();
+    }, 40);
+
+    return () => { document.removeEventListener('keydown', onKey); clearTimeout(t); };
+  }, [open, onClose]);
+
   if (!open) return null;
   return (
     <div
@@ -10,9 +47,15 @@ export default function Modal({ open, onClose, children, maxWidth }) {
         if (e.target === e.currentTarget && onClose) onClose();
       }}
     >
-      <div className="modal" style={maxWidth ? { maxWidth } : undefined}>
+      <div
+        className="modal"
+        ref={boxRef}
+        role="dialog"
+        aria-modal="true"
+        style={maxWidth ? { maxWidth } : undefined}
+      >
         {onClose && (
-          <button className="modal-close" onClick={onClose} title="닫기" aria-label="닫기">×</button>
+          <button className="modal-close" onClick={onClose} title="닫기 (ESC)" aria-label="닫기 (ESC 키)">×</button>
         )}
         {children}
       </div>

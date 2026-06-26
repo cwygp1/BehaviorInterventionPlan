@@ -244,6 +244,20 @@ export default function EvalPage() {
 
       <div className="card">
         <div className="card-title">⚖ 기간별 비교 (효과크기 포함)</div>
+        <div className="card-subtitle">
+          <strong>기간 A(기초선)</strong>와 <strong>기간 B(중재)</strong>의 시작·종료 날짜를 각각 고르면, 두 구간의 행동 데이터를 비교합니다.
+          각 기간에 데이터가 최소 1건 이상 있어야 하며, 신뢰할 만한 결과를 위해 <strong>구간당 3건 이상</strong>을 권장해요.
+        </div>
+        <details style={{ margin: '0 0 12px', background: 'var(--pri-soft)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '10px 12px' }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '.86rem', color: 'var(--pri-d)' }}>❓ PND·Tau-U가 무엇인가요?</summary>
+          <div style={{ marginTop: 8, fontSize: '.84rem', color: 'var(--sub)', lineHeight: 1.7 }}>
+            둘 다 “중재가 기초선보다 얼마나 나아졌는지”를 나타내는 효과크기 지표예요. 클수록 효과가 큽니다.
+            <ul style={{ margin: '6px 0 0 18px' }}>
+              <li><strong>PND</strong>: 중재 데이터가 기초선의 최고치를 넘지 않은(=개선된) 비율(%). <em>대략 90%↑ 매우 효과적 · 70~90% 효과적 · 50~70% 의심 · 50%↓ 효과 미미</em></li>
+              <li><strong>Tau-U</strong>: 두 구간의 중첩을 보정한 지표(0~1). <em>대략 0.8↑ 큼 · 0.6~0.8 중간 · 0.2~0.6 작음</em></li>
+            </ul>
+          </div>
+        </details>
         <div className="form-row">
           <div className="form-group"><label className="form-label">기간 A (기초선)</label>
             <div style={{ display: 'flex', gap: 6 }}>

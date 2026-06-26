@@ -28,7 +28,7 @@ export default function DeadMansModal({ open, onClose }) {
     if (status !== 'on') { toast('AI 연결을 먼저 설정해주세요. (우상단 AI 버튼)'); return; }
     setBusy(true); setOutput('');
     try {
-      const reply = await call(DEFAULT_PROMPT(input.trim()), { max_tokens: 600 });
+      const reply = await call(DEFAULT_PROMPT(input.trim()), { max_tokens: 600, tier: 'fast' });
       setOutput(reply);
     } catch (e) {
       toast('AI 호출 실패: ' + e.message);

@@ -99,7 +99,7 @@ ${question}
     if (status !== 'on') { toast('AI 연결을 먼저 설정해주세요.'); return; }
     setCoachBusy(true); setCoachOutput('');
     try {
-      const reply = await call(buildCoachPrompt());
+      const reply = await call(buildCoachPrompt(), { tier: 'fast' });
       setCoachOutput(reply);
     } catch (e) { toast('AI 호출 실패: ' + e.message); }
     finally { setCoachBusy(false); }

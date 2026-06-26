@@ -3,18 +3,18 @@ import { useAuth } from '../../contexts/AuthContext';
 const NAV = [
   { group: '시작', items: [{ id: 'home', label: '홈', icon: '🏠' }] },
   {
-    group: 'Tier 1 · 보편적 지원',
+    group: '학급 전체용 (Tier 1)',
     items: [
       { id: 'classpbs', label: '학급 차원 PBS', icon: '🏫' },
       { id: 'pbssurvey', label: 'PBS 기초 설문조사', icon: '📋' },
     ],
   },
   {
-    group: 'Tier 2 · 소그룹 지원',
+    group: '소그룹용 (Tier 2)',
     items: [{ id: 'tier2', label: 'CICO / DPR', icon: '👥' }],
   },
   {
-    group: 'Tier 3 · 개별 맞춤형 중재',
+    group: '한 학생 집중 지원 (Tier 3)',
     items: [
       { id: 'tier3', label: '개요 / 5단계 워크플로', icon: '🎯' },
       { id: 'observe', label: '학생 관찰 / ABC', icon: '🔍', requiresStudent: true, step: 1 },
@@ -36,13 +36,14 @@ const NAV = [
   {
     group: 'AI 도구',
     items: [
+      { id: 'generator', label: 'AI 생성기', icon: '✨' },
       { id: 'builder', label: 'AI 어시스턴트', icon: '🤖' },
       { id: 'qa', label: 'PBS Q&A 전문가', icon: '💬' },
       { id: 'pyeong', label: '평어 생성기', icon: '✍' },
     ],
   },
   {
-    group: '위기 / 지원',
+    group: '위기 대처 · 자료실',
     items: [
       { id: 'crisis', label: '위기행동 대처', icon: '🚨' },
       { id: 'support', label: '교사 지원', icon: '📚' },
@@ -79,7 +80,8 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
                   key={item.id}
                   className={'nav-item' + (activePage === item.id ? ' active' : '') + (locked ? ' locked' : '')}
                   onClick={() => onNavigate(item.id)}
-                  title={locked ? '학생을 먼저 선택하세요' : undefined}
+                  title={locked ? '학생을 먼저 선택해야 열려요 (누르면 학생 선택 창이 열립니다)' : undefined}
+                  aria-label={locked ? `${item.label} — 학생 선택 필요` : undefined}
                 >
                   {item.step ? <span className="nav-step">{item.step}</span> : <span className="icon">{item.icon}</span>}
                   <span className="nav-text">{item.label}</span>

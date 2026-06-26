@@ -9,6 +9,7 @@ import EditStudentModal from '../modals/EditStudentModal';
 import ManageClassesModal from '../modals/ManageClassesModal';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { UIActionsProvider } from '../../contexts/UIActionsContext';
 
 export default function Layout({ children, activePage, onNavigate }) {
   const { students, curStuId, selectStudent } = useStudents();
@@ -52,7 +53,13 @@ export default function Layout({ children, activePage, onNavigate }) {
           onAddStudent={() => setAddOpen(true)}
           onManageClasses={() => setClassesOpen(true)}
         />
-        <div className="content">{children}</div>
+        <UIActionsProvider value={{
+          openAddStudent: () => setAddOpen(true),
+          openAISettings: () => setAISettingsOpen(true),
+          openManageClasses: () => setClassesOpen(true),
+        }}>
+          <div className="content">{children}</div>
+        </UIActionsProvider>
       </main>
 
       <AISettingsModal open={aiSettingsOpen} onClose={() => setAISettingsOpen(false)} />

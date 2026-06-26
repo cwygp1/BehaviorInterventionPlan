@@ -10,6 +10,16 @@ import { downloadIepReport } from '../../lib/utils/printIep';
 
 const GRADE = { 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
 
+// 모델이 살짝 깨진 JSON(스마트 따옴표, 후행 콤마 등)을 내도 1차 실패 시 보정 후 재시도.
+function parseLooseJSON(raw) {
+  try { return JSON.parse(raw); } catch (_) { /* 보정 시도 */ }
+  let s = String(raw)
+    .replace(/[“”]/g, '"')   // 스마트 큰따옴표
+    .replace(/[‘’]/g, "'")   // 스마트 작은따옴표
+    .replace(/,\s*([}\]])/g, '$1');     // 후행 콤마 제거
+  return JSON.parse(s);
+}
+
 export default function IepReportPage() {
   const { curStu, curStuId, curStuData, ensureStudentData } = useStudents();
   const { user } = useAuth();
@@ -95,9 +105,9 @@ export default function IepReportPage() {
       const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
       const m = (out || '').match(/\{[\s\S]*\}/);
       if (!m) { toast(r.finish_reason === 'length' ? '응답이 잘렸어요. AI max_tokens를 늘려보세요.' : 'AI 응답 해석 실패'); return; }
-      applySynth(g.id, JSON.parse(m[0]));
-      toast('월별을 종합해 학기 현행수준·목표·평가를 작성했어요. (확인 후 저장)');
-    } catch (e) { toast('AI 종합 실패: ' + e.message); } finally { setSynthId(null); }
+      applySynth(g.id, parseLooseJSON(m[0]));
+      toast('월별을 종합해 학기 현행수준·목표·평가를 작성했어요. (확인 후 저장)', 'success');
+    } catch (e) { toast('AI 종합 실패: ' + e.message + ' — "프롬프트 복사"로 외부 AI에서 시도해 보세요.'); openManual(g); } finally { setSynthId(null); }
   }
 
   async function openManual(g) {
@@ -108,7 +118,7 @@ export default function IepReportPage() {
   function applyManual() {
     const m = (pasteText || '').match(/\{[\s\S]*\}/);
     if (!m) { toast('붙여넣은 내용에서 JSON을 찾지 못했어요.'); return; }
-    try { applySynth(manualGoalId, JSON.parse(m[0])); toast('적용했어요. 확인 후 저장하세요.'); setManualGoalId(null); }
+    try { applySynth(manualGoalId, parseLooseJSON(m[0])); toast('적용했어요. 확인 후 저장하세요.', 'success'); setManualGoalId(null); }
     catch (e) { toast('JSON 파싱 실패: ' + e.message); }
   }
 

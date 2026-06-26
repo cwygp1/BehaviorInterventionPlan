@@ -4,6 +4,7 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { EditableChipGroup, makeAppender } from '../ui/QChip';
+import TokenField from '../ui/TokenField';
 import BIPPromptModal from '../modals/BIPPromptModal';
 import FamilyLetterModal from '../modals/FamilyLetterModal';
 import { saveBIP as apiSaveBIP } from '../../lib/api/students';
@@ -132,23 +133,19 @@ export default function BipPage() {
         <div className="card-title">📜 중재 전략 (예방-교수-강화-반응)</div>
         <div className="form-group">
           <label className="form-label">🛡 예방 전략</label>
-          <EditableChipGroup storageKey="bip_prev" defaults={PREV_CHIPS} onPick={makeAppender(prev, setPrev, false)} />
-          <textarea className="form-textarea" value={prev} onChange={(e) => setPrev(e.target.value)} />
+          <TokenField value={prev} onChange={setPrev} options={PREV_CHIPS} storageKey="bip_prev" editPlaceholder="이 학생 맥락의 예방 전략" />
         </div>
         <div className="form-group">
           <label className="form-label">📖 교수 전략</label>
-          <EditableChipGroup storageKey="bip_teach" defaults={TEACH_CHIPS} onPick={makeAppender(teach, setTeach, false)} />
-          <textarea className="form-textarea" value={teach} onChange={(e) => setTeach(e.target.value)} />
+          <TokenField value={teach} onChange={setTeach} options={TEACH_CHIPS} storageKey="bip_teach" editPlaceholder="이 학생 맥락의 교수 전략" />
         </div>
         <div className="form-group">
           <label className="form-label">⭐ 강화 전략</label>
-          <EditableChipGroup storageKey="bip_reinf" defaults={REINF_CHIPS} onPick={makeAppender(reinf, setReinf, false)} />
-          <textarea className="form-textarea" value={reinf} onChange={(e) => setReinf(e.target.value)} />
+          <TokenField value={reinf} onChange={setReinf} options={REINF_CHIPS} storageKey="bip_reinf" editPlaceholder="이 학생 맥락의 강화 전략" />
         </div>
         <div className="form-group">
           <label className="form-label">🚨 반응 절차</label>
-          <EditableChipGroup storageKey="bip_resp" defaults={RESP_CHIPS} onPick={makeAppender(resp, setResp, false)} />
-          <textarea className="form-textarea" value={resp} onChange={(e) => setResp(e.target.value)} />
+          <TokenField value={resp} onChange={setResp} options={RESP_CHIPS} storageKey="bip_resp" editPlaceholder="이 학생 맥락의 반응 절차" />
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
           <button className="btn btn-ghost" onClick={onPrintBIP}>🖨 BIP 인쇄/PDF</button>
@@ -212,13 +209,28 @@ export default function BipPage() {
       <FamilyLetterModal open={letterOpen} onClose={() => setLetterOpen(false)} />
       <BIPPromptModal open={aiOpen} onClose={() => setAiOpen(false)}
         onApply={(parsed) => {
-          if (parsed.alt) setAlt(parsed.alt);
-          if (parsed.fct) setFct(parsed.fct);
-          if (parsed.crit) setCrit(parsed.crit);
-          if (parsed.prev) setPrev(parsed.prev);
-          if (parsed.teach) setTeach(parsed.teach);
-          if (parsed.reinf) setReinf(parsed.reinf);
-          if (parsed.resp) setResp(parsed.resp);
+          // 교사가 이미 작성한 내용을 함부로 덮어쓰지 않는다.
+          // 충돌 시: [확인] 기존 내용 아래에 덧붙이기 / [취소] 기존을 AI 제안으로 교체.
+          const inputFields = new Set(['alt', 'fct', 'crit']); // 단일 줄 입력
+          const fields = [
+            ['alt', alt, setAlt], ['fct', fct, setFct], ['crit', crit, setCrit],
+            ['prev', prev, setPrev], ['teach', teach, setTeach], ['reinf', reinf, setReinf], ['resp', resp, setResp],
+          ];
+          const hasConflict = fields.some(([k, cur]) => parsed[k] && cur && cur.trim());
+          let mode = 'fill'; // 빈 칸만 채움
+          if (hasConflict) {
+            mode = window.confirm('이미 입력한 내용이 있어요.\n\n[확인] 기존 내용 아래에 AI 제안을 덧붙입니다\n[취소] 기존 내용을 AI 제안으로 교체합니다')
+              ? 'append' : 'replace';
+          }
+          fields.forEach(([k, cur, set]) => {
+            const v = parsed[k];
+            if (!v) return;
+            if (!cur || !cur.trim()) { set(v); return; }      // 빈 칸 → 채움
+            if (mode === 'append') set(cur + (inputFields.has(k) ? ' / ' : '\n') + '(AI 제안) ' + v);
+            else if (mode === 'replace') set(v);              // 교체
+            // mode === 'fill' → 기존 유지
+          });
+          toast('AI 초안을 반영했어요. 확인 후 저장하세요.', 'success');
         }}
       />
     </>

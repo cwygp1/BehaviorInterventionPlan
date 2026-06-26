@@ -1,7 +1,7 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
   --bg:#f6f8fc;--surface:#fff;--surface2:#eef2f9;--border:#e4e9f2;
-  --text:#1f2a44;--sub:#56607a;--muted:#8b93a8;
+  --text:#1f2a44;--sub:#4b5563;--muted:#6b7280;
   --pri:#4f6bed;--pri-l:#e9edff;--pri-d:#3a54cf;--pri-soft:#f0f3ff;
   --acc:#ff8fab;--acc-l:#ffeef4;
   --ok:#12b886;--ok-l:#e6faf3;
@@ -16,10 +16,12 @@
   --sh-lg:0 8px 24px rgba(70,90,140,.10);
   --sh-card:0 1px 3px rgba(70,90,140,.05),0 2px 8px rgba(70,90,140,.04);
 }
-html{font-size:15px;scroll-behavior:smooth}
+html{font-size:16px;scroll-behavior:smooth}
 body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
 button{cursor:pointer;font-family:inherit}
-input,select,textarea{font-family:inherit;font-size:.9rem}
+input,select,textarea{font-family:inherit;font-size:.95rem}
+/* 키보드 사용자 포커스 가시성 (마우스 클릭에는 표시 안 함) */
+a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visible,.chip:focus-visible,.tab:focus-visible,.nav-item:focus-visible,.btn:focus-visible{outline:2px solid var(--pri);outline-offset:2px;border-radius:6px}
 
 /* === Auth Screen === */
 .auth-screen{display:none;min-height:100vh;background:linear-gradient(135deg,#eef3ff 0%,#f6f8fc 50%,#fff1f5 100%);align-items:center;justify-content:center;padding:20px}
@@ -37,12 +39,16 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
 .auth-field{margin-bottom:14px}
 .auth-field label{display:block;font-size:.8rem;font-weight:600;color:var(--sub);margin-bottom:6px}
 .auth-field input{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:10px;font-size:.92rem;background:#fff;transition:.15s}
-.auth-field input:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-l)}
+.auth-field input:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px rgba(79,107,237,.35)}
 .auth-btn{width:100%;padding:12px;background:linear-gradient(135deg,#4f6bed,#6979f0);color:#fff;border:none;border-radius:10px;font-size:.95rem;font-weight:700;cursor:pointer;transition:.2s;margin-top:4px;display:inline-flex;align-items:center;justify-content:center;gap:8px}
 .auth-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(79,107,237,.35)}
 .auth-btn:disabled{opacity:.7;cursor:not-allowed;transform:none;box-shadow:none}
 .btn-spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* 빠른 입력(한 문장 → A·B·C 자동 분배) 카드 */
+.quick-capture{background:var(--pri-soft);border:1px solid var(--pri-l);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:12px}
+.quick-capture .qc-row{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
+.quick-capture .qc-row > :first-child{flex:1;min-width:0}
 .loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.7);backdrop-filter:blur(2px);z-index:9999;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px}
 .loading-overlay.show{display:flex}
 .loading-overlay .spinner-lg{width:42px;height:42px;border:4px solid rgba(79,107,237,.2);border-top-color:#4f6bed;border-radius:50%;animation:spin .8s linear infinite}
@@ -81,7 +87,7 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
 .brand-text h2{font-size:.95rem;font-weight:800;color:var(--text);line-height:1.2}
 .brand-text p{font-size:.72rem;color:var(--muted);margin-top:1px}
 .nav-section{padding:8px 12px}
-.nav-label{padding:10px 10px 6px;font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.nav-label{padding:10px 10px 6px;font-size:.74rem;color:var(--sub);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
 .nav-item{display:flex;align-items:center;gap:12px;padding:10px 12px;color:var(--sub);font-size:.88rem;font-weight:500;cursor:pointer;transition:.15s;border:none;background:none;width:100%;text-align:left;border-radius:10px;margin-bottom:2px;position:relative}
 .nav-item:hover{background:var(--pri-soft);color:var(--pri)}
 .nav-item.active{background:var(--pri-l);color:var(--pri);font-weight:700}
@@ -95,7 +101,17 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
 .nav-item.locked .nav-step{background:var(--muted)}
 .nav-lock{flex-shrink:0;font-size:.7rem;opacity:.8}
 
-.stepnav{display:flex;align-items:center;gap:12px;margin-top:18px;padding:14px 18px;background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh-card)}
+/* 5단계 진행 스트립 (모든 단계를 한눈에 + 클릭 이동) */
+.stepnav-progress{display:flex;gap:6px;margin-top:18px;overflow-x:auto;padding-bottom:2px}
+.stepnav-pill{flex:1 1 0;min-width:88px;display:flex;align-items:center;gap:6px;justify-content:center;padding:9px 10px;border:1px solid var(--border);background:#fff;border-radius:99px;font-size:.76rem;font-weight:600;color:var(--sub);cursor:pointer;white-space:nowrap;transition:.15s}
+.stepnav-pill:hover{border-color:var(--pri);color:var(--pri)}
+.stepnav-pill .pnum{width:20px;height:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--surface2);color:var(--sub);font-weight:800;font-size:.72rem}
+.stepnav-pill.cur{border-color:var(--pri);background:var(--pri-l);color:var(--pri-d)}
+.stepnav-pill.cur .pnum{background:var(--pri);color:#fff}
+.stepnav-pill.done{color:var(--ok);border-color:var(--ok-l)}
+.stepnav-pill.done .pnum{background:var(--ok);color:#fff}
+@media(max-width:640px){.stepnav-pill{min-width:48px}.stepnav-pill .plabel{display:none}}
+.stepnav{display:flex;align-items:center;gap:12px;margin-top:10px;padding:14px 18px;background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh-card)}
 .stepnav-side{flex:1;display:flex}
 .stepnav-side-right{justify-content:flex-end}
 .stepnav-mid{flex-shrink:0;font-size:.75rem;font-weight:800;letter-spacing:.04em;color:var(--muted)}
@@ -150,9 +166,22 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
 }
 @media(max-width:480px){
   .topbar{padding:10px 14px}
-  .topbar-right .stu-bar{gap:4px}
+  .topbar-right .stu-bar{gap:4px;flex-wrap:wrap}
+  .stu-select{min-width:0!important;flex:1 1 92px}
+  .stu-add{width:40px;height:40px}
   .user-info{display:none}
   .dash-stats{grid-template-columns:1fr 1fr!important}
+  /* 좁은 화면에서 다항목 입력 그리드를 1열로 */
+  .mon-grid{grid-template-columns:1fr!important}
+  .qabf-results{grid-template-columns:1fr 1fr}
+}
+/* 초소형 화면(<=380px): 터치 타깃 확보 + 여백 축소 */
+@media(max-width:380px){
+  .content{padding:14px}
+  .card{padding:16px}
+  .topbar h1{font-size:.9rem}
+  .btn,.btn-sm{min-height:40px;padding:9px 12px}
+  .qchip{min-height:34px}
 }
 
 /* === Cards === */
@@ -165,7 +194,7 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
 .form-group{margin-bottom:14px}
 .form-label{display:block;font-size:.82rem;font-weight:600;color:var(--sub);margin-bottom:5px}
 .form-input,.form-select,.form-textarea{width:100%;padding:10px 13px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:.9rem;background:var(--surface);color:var(--text);transition:.15s}
-.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-l)}
+.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px rgba(79,107,237,.35)}
 .form-textarea{min-height:84px;resize:vertical;line-height:1.5}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:600px){.form-row{grid-template-columns:1fr}}
@@ -183,7 +212,7 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
 .btn-block{width:100%;justify-content:center}
 
 /* === Badge === */
-.badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:.72rem;font-weight:600}
+.badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:.76rem;font-weight:600}
 .badge-pri{background:var(--pri-l);color:var(--pri)}
 .badge-ok{background:var(--ok-l);color:var(--ok)}
 .badge-warn{background:var(--warn-l);color:#b45309}
@@ -314,7 +343,7 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
 /* Quick chips — single-click append/set to a specific input/textarea */
 .qchip-area{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 8px}
 .qchip-label{font-size:.72rem;color:var(--muted);font-weight:600;margin:6px 0 4px;letter-spacing:.02em}
-.qchip{padding:4px 11px;border-radius:99px;font-size:.76rem;border:1px solid var(--border);cursor:pointer;transition:.15s;background:var(--surface);user-select:none;color:var(--sub);white-space:nowrap}
+.qchip{padding:7px 12px;border-radius:99px;font-size:.8rem;border:1px solid var(--border);cursor:pointer;transition:.15s;background:var(--surface);user-select:none;color:var(--sub);white-space:nowrap;display:inline-flex;align-items:center}
 .qchip:hover{border-color:var(--pri);color:var(--pri);background:var(--pri-soft)}
 .qchip:active{transform:scale(.96)}
 .qchip.on{background:var(--pri);color:#fff;border-color:var(--pri)}
@@ -386,8 +415,12 @@ input,select,textarea{font-family:inherit;font-size:.9rem}
 .fid-label{font-size:.9rem;color:var(--sub)}
 
 /* === Toast === */
-.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--text);color:#fff;padding:12px 26px;border-radius:99px;font-size:.88rem;z-index:9999;transition:.3s;opacity:0;pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.25);font-weight:500}
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--text);color:#fff;padding:12px 24px;border-radius:99px;font-size:.9rem;z-index:9999;transition:.3s;opacity:0;pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.25);font-weight:600;display:inline-flex;align-items:center;gap:8px;max-width:90vw}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{background:#0a7d4e}
+.toast.error{background:#b32d2e}
+.toast.info{background:var(--pri-d)}
+.toast .toast-ico{font-size:1rem;line-height:1}
 
 /* === Modal === */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(31,42,68,.45);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(2px)}

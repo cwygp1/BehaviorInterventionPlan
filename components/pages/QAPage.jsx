@@ -44,7 +44,7 @@ ${q}`;
     if (status !== 'on') { toast('AI 연결을 먼저 설정해주세요.'); return; }
     setBusy(true); setOutput('');
     try {
-      const reply = await call(buildPrompt(text));
+      const reply = await call(buildPrompt(text), { tier: 'fast' });
       setOutput(reply);
     } catch (e) { toast('AI 호출 실패: ' + e.message); }
     finally { setBusy(false); }
@@ -62,7 +62,7 @@ ${q}`;
     // Auto-call AI with the picked question (avoid stale state — pass q directly)
     setBusy(true);
     try {
-      const reply = await call(buildPrompt(q));
+      const reply = await call(buildPrompt(q), { tier: 'fast' });
       setOutput(reply);
     } catch (e) { toast('AI 호출 실패: ' + e.message); }
     finally { setBusy(false); }

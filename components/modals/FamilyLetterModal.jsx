@@ -457,7 +457,7 @@ ${category}
           <AIActionBar prompt={buildPrompt()} onCallAI={runAI} busy={aiBusy} callLabel="🤖 AI 초안 생성" disabled={!curStu} align="flex-start" />
           {aiOut && <button className="btn btn-ok btn-sm" onClick={applyAI}>✅ 본문에 적용</button>}
         </div>
-        {(aiOut || aiBusy) && <PromptResultBlock prompt={buildPrompt()} output={aiOut} busy={aiBusy} />}
+        {(aiOut || aiBusy) && <PromptResultBlock prompt={buildPrompt()} output={aiOut} busy={aiBusy} onChange={setAiOut} />}
       </div>
 
       {/* 본문 */}

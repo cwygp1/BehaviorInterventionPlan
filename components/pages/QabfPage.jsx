@@ -19,13 +19,38 @@ export default function QabfPage() {
   const [responses, setResponses] = useState(new Array(25).fill(-1));
   const [busy, setBusy] = useState(false);
 
+  // 작성 중 응답 자동 임시저장(학생별, 브라우저 세션). 저장 전에 페이지를 떠나도 복원된다.
+  const qabfDraftKey = curStuId ? `qabfDraft:${curStuId}` : null;
+
   useEffect(() => {
+    if (!curStuId) return;
+    // 1) 임시저장(draft)이 있으면 우선 복원
+    try {
+      const raw = qabfDraftKey && sessionStorage.getItem(qabfDraftKey);
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (Array.isArray(d) && d.length === 25) { setResponses(d); return; }
+      }
+    } catch (_) { /* ignore */ }
+    // 2) 없으면 서버 저장값
     if (curStuData?.qabf && Array.isArray(curStuData.qabf)) {
       setResponses(curStuData.qabf.length === 25 ? curStuData.qabf : new Array(25).fill(-1));
     } else {
       setResponses(new Array(25).fill(-1));
     }
-  }, [curStuId, curStuData?.qabf]);
+  }, [curStuId, curStuData?.qabf, qabfDraftKey]);
+
+  // 서버 저장값과 다른 미저장 응답만 draft로 보관 (저장/초기 상태면 draft 제거).
+  useEffect(() => {
+    if (!qabfDraftKey) return;
+    try {
+      const saved = (curStuData?.qabf && curStuData.qabf.length === 25) ? curStuData.qabf : new Array(25).fill(-1);
+      const allEmpty = responses.every((v) => v < 0);
+      const sameAsSaved = JSON.stringify(responses) === JSON.stringify(saved);
+      if (allEmpty || sameAsSaved) sessionStorage.removeItem(qabfDraftKey);
+      else sessionStorage.setItem(qabfDraftKey, JSON.stringify(responses));
+    } catch (_) { /* ignore */ }
+  }, [responses, qabfDraftKey, curStuData?.qabf]);
 
   if (!curStu) return <><StuHero /><NoStudentHint /></>;
 
@@ -47,7 +72,8 @@ export default function QabfPage() {
     try {
       await apiSaveQABF(curStuId, responses);
       updateStudentData(curStuId, (cur) => ({ ...cur, qabf: responses }));
-      toast('QABF 저장 완료');
+      try { if (qabfDraftKey) sessionStorage.removeItem(qabfDraftKey); } catch (_) { /* ignore */ }
+      toast('QABF 저장 완료', 'success');
     } catch (e) {
       toast('저장 실패: ' + e.message);
     } finally {
@@ -105,7 +131,13 @@ export default function QabfPage() {
             </div>
             <div className="qchip-area">
               {SCALE.map((v) => (
-                <span key={v} className={'qchip' + (responses[i] === v ? ' on' : '')} onClick={() => setVal(i, v)}>
+                <span
+                  key={v}
+                  className={'qchip' + (responses[i] === v ? ' on' : '')}
+                  role="button" tabIndex={0} aria-pressed={responses[i] === v}
+                  onClick={() => setVal(i, v)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setVal(i, v); } }}
+                >
                   {v} · {SCALE_LABELS[v]}
                 </span>
               ))}

@@ -62,15 +62,28 @@ function verbToDeclarative(verb) {
   return v + '한다';
 }
 // 성취기준 분석/해석 결과(동사·행위지향·서술자)로 평가초점 목록 생성.
-// 지원 수준이 아니라 "서술자(대상/내용)의 스펙트럼"을 펼쳐 평가초점을 만든다.
-function buildEvalFoci(verb, intent, descriptor, fallbackText) {
-  const decl = verbToDeclarative(verb);
+// 지원 수준이 아니라 "서술자(대상/내용) + 같은 의미의 여러 동사"의 스펙트럼을 펼쳐 평가초점을 만든다.
+// verbAlts: 대표 동사와 "같은 의미"로 쓸 수 있는 측정 가능한 동사 목록(예: 시도하기 → 말 걸기, 대답하기 …).
+//           주어지면 평가초점마다 동사를 번갈아 사용해 같은 의미를 다양한 행동으로 표현한다.
+function buildEvalFoci(verb, intent, descriptor, fallbackText, verbAlts) {
   const raw = (descriptor || '').trim() || (fallbackText || '').replace(/\s*\.?$/, '');
   const items = raw.split(/[,/·、|\n]+| 및 | 와 | 과 /).map((s) => s.trim()).filter(Boolean);
-  const list = (items.length ? items : [raw]).map((it) => {
-    const lead = intent ? intent.trim() + ' ' : '';
-    return `${lead}${it}${josaEulReul(it)} ${decl}.`;
-  });
+  const objs = items.length ? items : [raw];
+  // 동의어 동사 목록: verbAlts 우선, 없으면 동사 칸에 쉼표·줄바꿈으로 직접 적은 여러 동사도 허용.
+  const verbs = (Array.isArray(verbAlts) && verbAlts.length
+    ? verbAlts
+    : String(verb || '').split(/[,/·、|\n]+/))
+    .map((v) => v.trim()).filter(Boolean);
+  const vlist = verbs.length ? verbs : [verb];
+  const lead = intent ? intent.trim() + ' ' : '';
+  // 서술자·동사 중 많은 쪽 길이에 맞춰 펼치되, 동사를 번갈아 써서 같은 의미를 다양하게 표현.
+  const n = Math.max(objs.length, vlist.length);
+  const list = [];
+  for (let i = 0; i < n; i++) {
+    const it = objs[i % objs.length];
+    const decl = verbToDeclarative(vlist[i % vlist.length]);
+    list.push(`${lead}${it}${josaEulReul(it)} ${decl}.`);
+  }
   return [...new Set(list)];
 }
 
@@ -148,6 +161,7 @@ export default function IepPage() {
   const [sel, setSel] = useState(null);
 
   const [verb, setVerb] = useState('');
+  const [verbAlts, setVerbAlts] = useState([]); // 대표 동사와 같은 의미의 측정 가능한 동사 목록
   const [intent, setIntent] = useState('');
   const [descriptor, setDescriptor] = useState('');
   const [evalFoci, setEvalFoci] = useState([]); // 평가초점 목록(성취기준 분석→해석→개발)
@@ -282,7 +296,7 @@ export default function IepPage() {
   // 평가초점 목록 편집
   function genFociNow() {
     if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
-    setEvalFoci(buildEvalFoci(verb, intent, descriptor, sel.text));
+    setEvalFoci(buildEvalFoci(verb, intent, descriptor, sel.text, verbAlts));
     toast('성취기준 분석·해석을 바탕으로 평가초점을 생성했어요.');
   }
   function addFocus() { setEvalFoci((prev) => [...prev, '']); }
@@ -389,20 +403,24 @@ export default function IepPage() {
       const prompt =
         '다음 2022 개정 특수교육 기본교육과정 성취기준을 "평가초점 개발" 방법론에 따라 분석·해석하세요.\n' +
         '1) 성취기준 분석(명시적 요소):\n' +
-        '   - verb: 측정 가능한 동사(과정·기능). 명사형(예: 탐색하기, 비교하기).\n' +
+        '   - verb: 측정 가능한 대표 동사(과정·기능). 명사형(예: 탐색하기, 비교하기).\n' +
+        '   - verbs: 위 verb와 "같은 의미·같은 성취 의도"로 쓸 수 있는 측정 가능한 동사·행동 표현 배열(3~6개). 같은 목표를 서로 다른 구체 행동으로 표현하며 명사형(~하기/~기). 예: verb가 "시도하기"면 ["시도하기","말 걸기","대답하기","표현하기","반응하기"].\n' +
         '   - intent: 행위의 지향(가치·태도). 부사/태도 표현. 없으면 빈 문자열.\n' +
         '   - descriptor: 서술자(지식·이해·대상). 핵심 대상/내용.\n' +
-        '2) 성취기준 해석(서술자 스펙트럼 확장) 후 평가초점을 개발:\n' +
+        '2) 성취기준 해석(서술자·동사 스펙트럼 확장) 후 평가초점을 개발:\n' +
         '   - foci: 평가초점 문장 배열(3~6개). 각 문장은 "행위지향 + 서술자(대상) + 동사(평서형 ~한다)" 형태의 완결된 한 문장.\n' +
-        '   - 평가초점은 "지원 수준(도움받아/부분/독립)"으로 나누지 말 것. 서술자(대상·내용)의 다양성으로 펼칠 것.\n' +
-        '반드시 JSON 객체 하나만 출력. 예: {"verb":"탐색하기","intent":"다양한 방법으로","descriptor":"나","foci":["다양한 방법으로 나의 신상에 관심을 가진다.","다양한 방법으로 나의 몸을 살펴본다."]}\n\n' +
+        '   - ★ 각 평가초점은 verbs의 "서로 다른 동사"를 사용해 같은 의미를 다양한 행동으로 펼칠 것. 모든 초점에 똑같은 동사를 반복하지 말 것.\n' +
+        '   - 평가초점은 "지원 수준(도움받아/부분/독립)"으로 나누지 말 것. 서술자(대상·내용)와 동사의 다양성으로 펼칠 것.\n' +
+        '반드시 JSON 객체 하나만 출력. 예: {"verb":"시도하기","verbs":["시도하기","말 걸기","대답하기","표현하기"],"intent":"스스로","descriptor":"의사소통","foci":["스스로 친구에게 말을 건다.","친구가 묻는 말에 대답한다.","필요한 것을 몸짓이나 말로 표현한다.","대화를 이어가려고 시도한다."]}\n\n' +
         `성취기준: [${sel.code}] ${sel.text}`;
       const j = await llmJSON('AI 분석', prompt, { temperature: 0.2 });
       if (j.verb != null) setVerb(String(j.verb));
+      const alts = Array.isArray(j.verbs) ? j.verbs.map(String).map((s) => s.trim()).filter(Boolean) : [];
+      setVerbAlts(alts);
       if (j.intent != null) setIntent(String(j.intent));
       if (j.descriptor != null) setDescriptor(String(j.descriptor));
       if (Array.isArray(j.foci) && j.foci.length) setEvalFoci(j.foci.map(String).map((s) => s.trim()).filter(Boolean));
-      else setEvalFoci(buildEvalFoci(j.verb || verb, j.intent != null ? j.intent : intent, j.descriptor || descriptor, sel.text));
+      else setEvalFoci(buildEvalFoci(j.verb || verb, j.intent != null ? j.intent : intent, j.descriptor || descriptor, sel.text, alts.length ? alts : verbAlts));
       toast('AI가 성취기준을 분석하고 평가초점을 개발했어요.');
     } catch (e) {
       toast('AI 분석 실패: ' + e.message);
@@ -544,6 +562,9 @@ export default function IepPage() {
     try { await navigator.clipboard.writeText(pyeongLines.map((l) => '- ' + l).join('\n')); toast('평어 전체 복사했어요.'); }
     catch (_) { toast('복사가 막혔어요. 직접 선택해 복사하세요.'); }
   }
+  // 생성된 평어는 교사가 직접 수정 가능.
+  function editPyeong(i, val) { setPyeongLines((prev) => prev.map((x, idx) => (idx === i ? val : x))); }
+  function removePyeong(i) { setPyeongLines((prev) => prev.filter((_, idx) => idx !== i)); }
 
   // AI 미연결: 프롬프트를 만들어 복사 → 외부 AI 응답을 붙여넣어 파싱.
   async function openManualPrompt() {
@@ -766,8 +787,36 @@ export default function IepPage() {
           <div className="card-subtitle" style={{ marginTop: 2 }}>
             평가초점은 <strong>지원 수준으로 나누는 것이 아니라</strong>, 성취기준을 동사·행위지향·서술자로 분석하고 서술자(대상·내용)의 스펙트럼을 확장해 개발합니다.
           </div>
+          <details style={{ margin: '6px 0 12px', background: 'var(--pri-soft)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '10px 12px' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '.86rem', color: 'var(--pri-d)' }}>❓ 평가초점이 무엇인가요? (예시 보기)</summary>
+            <div style={{ marginTop: 8, fontSize: '.84rem', color: 'var(--sub)', lineHeight: 1.7 }}>
+              평가초점은 한 성취기준 안에서 학생이 <strong>“무엇을(서술자) 어떻게(동사)”</strong> 수행하는지를 여러 갈래로 펼쳐 둔, 질적 평가의 기준점이에요.
+              ‘도움받아 / 독립’ 같은 지원 수준으로 나누는 것이 아닙니다.
+              <div style={{ marginTop: 8, background: '#fff', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px' }}>
+                <div style={{ fontWeight: 700, color: 'var(--text)' }}>예) 성취기준: “자신을 소개한다”</div>
+                <div style={{ marginTop: 4 }}>→ 평가초점 목록</div>
+                <ul style={{ margin: '4px 0 0 18px' }}>
+                  <li>나의 신상(이름·나이)을 말한다</li>
+                  <li>나의 선호(좋아하는 것)를 표현한다</li>
+                  <li>나의 몸·기분 상태를 나타낸다</li>
+                </ul>
+              </div>
+              팁: 아래 <strong>서술자</strong> 칸에 대상(예: 나의 신상, 나의 선호…)을 쉼표로 나열하면 초점이 자동으로 여러 개 만들어져요.
+            </div>
+          </details>
           <div className="form-row">
-            <div className="form-group"><label className="form-label">측정 가능한 동사 (과정·기능)</label><input className="form-input" value={verb} onChange={(e) => setVerb(e.target.value)} placeholder="예: 탐색하기" /></div>
+            <div className="form-group">
+              <label className="form-label">측정 가능한 동사 (과정·기능) — 쉼표로 같은 의미의 여러 동사 입력 가능</label>
+              <input className="form-input" value={verb} onChange={(e) => setVerb(e.target.value)} placeholder="예: 시도하기 (또는 시도하기, 말 걸기, 대답하기)" />
+              {verbAlts.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                  <span style={{ fontSize: 12, color: '#6b7280' }}>같은 의미 동사:</span>
+                  {verbAlts.map((v, i) => (
+                    <span key={i} style={{ fontSize: 12, background: 'var(--surface2)', color: 'var(--sub)', borderRadius: 6, padding: '1px 6px' }}>{v}</span>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="form-group"><label className="form-label">행위의 지향 (가치·태도)</label><input className="form-input" value={intent} onChange={(e) => setIntent(e.target.value)} placeholder="예: 다양한 방법으로 (없으면 비움)" /></div>
           </div>
           <div className="form-group"><label className="form-label">서술자 (지식·이해·대상) — 쉼표·줄바꿈으로 여러 대상 나열 시 평가초점이 여러 개 생성됩니다</label><textarea className="form-textarea" value={descriptor} onChange={(e) => setDescriptor(e.target.value)} placeholder="예: 나의 신상, 나의 몸, 나의 선호, 나의 흥미" /></div>
@@ -869,7 +918,10 @@ export default function IepPage() {
                 </div>
                 <ul style={{ listStyle: 'none', padding: 0, margin: '4px 0 0' }}>
                   {pyeongLines.map((l, i) => (
-                    <li key={i} style={{ fontSize: '.86rem', lineHeight: 1.6, padding: '4px 0', borderBottom: '1px solid #fde4cc' }}>- {l}</li>
+                    <li key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #fde4cc' }}>
+                      <input className="form-input" value={l} onChange={(e) => editPyeong(i, e.target.value)} style={{ flex: 1, fontSize: '.86rem', padding: '4px 8px' }} />
+                      <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0, padding: '2px 8px' }} onClick={() => removePyeong(i)} title="삭제" aria-label="평어 삭제">✕</button>
+                    </li>
                   ))}
                 </ul>
               </>

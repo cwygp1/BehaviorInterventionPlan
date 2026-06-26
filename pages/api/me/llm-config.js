@@ -13,7 +13,7 @@ export default requireAuth(async function handler(req, res) {
 
   if (req.method === 'GET') {
     const r = await sql`
-      SELECT endpoint, model, max_tokens
+      SELECT endpoint, model, model_fast, max_tokens
         FROM user_llm_configs
        WHERE user_id = ${userId}
     `;
@@ -25,13 +25,14 @@ export default requireAuth(async function handler(req, res) {
       config: {
         endpoint: row.endpoint,
         model: row.model || '',
+        model_fast: row.model_fast || '',
         max_tokens: row.max_tokens || 8000,
       },
     });
   }
 
   if (req.method === 'PUT') {
-    const { endpoint, model, max_tokens } = req.body || {};
+    const { endpoint, model, model_fast, max_tokens } = req.body || {};
     if (typeof endpoint !== 'string' || !endpoint.trim()) {
       return res.status(400).json({ error: 'endpoint는 필수입니다.' });
     }
@@ -41,18 +42,20 @@ export default requireAuth(async function handler(req, res) {
     }
     const ep = endpoint.trim();
     const md = (typeof model === 'string' ? model.trim() : '') || '';
+    const mf = (typeof model_fast === 'string' ? model_fast.trim() : '') || '';
     await sql`
-      INSERT INTO user_llm_configs (user_id, endpoint, model, max_tokens, updated_at)
-      VALUES (${userId}, ${ep}, ${md}, ${mt}, NOW())
+      INSERT INTO user_llm_configs (user_id, endpoint, model, model_fast, max_tokens, updated_at)
+      VALUES (${userId}, ${ep}, ${md}, ${mf}, ${mt}, NOW())
       ON CONFLICT (user_id)
       DO UPDATE SET
         endpoint   = EXCLUDED.endpoint,
         model      = EXCLUDED.model,
+        model_fast = EXCLUDED.model_fast,
         max_tokens = EXCLUDED.max_tokens,
         updated_at = NOW()
     `;
     return res.status(200).json({
-      config: { endpoint: ep, model: md, max_tokens: mt },
+      config: { endpoint: ep, model: md, model_fast: mf, max_tokens: mt },
     });
   }
 

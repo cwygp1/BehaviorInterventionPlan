@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -20,7 +20,9 @@ export default function MonitorPage() {
   const [alt, setAlt] = useState('Y');
   const [lat, setLat] = useState(0);
   const [dbr, setDbr] = useState(5);
-  const [phase, setPhase] = useState('B'); // ★ B3: 명시적 전환
+  // 기본값은 A(기초선). 학생별로 한 번, 데이터가 있으면 가장 최근 기록의 단계를 이어받는다.
+  const [phase, setPhase] = useState('A');
+  const phaseInitedFor = useRef(null);
 
   const [fidPrev, setFidPrev] = useState(false);
   const [fidTeach, setFidTeach] = useState(false);
@@ -29,6 +31,16 @@ export default function MonitorPage() {
 
   const [busy, setBusy] = useState(false);
   const [periodModalOpen, setPeriodModalOpen] = useState(false);
+
+  // 학생을 처음 열 때(데이터 도착 후) 한 번만 적절한 단계로 초기화.
+  useEffect(() => {
+    if (!curStuId) return;
+    const recs = curStuData?.mon;
+    if (!recs) return; // 데이터 로딩 대기
+    if (phaseInitedFor.current === curStuId) return;
+    phaseInitedFor.current = curStuId;
+    setPhase(recs.length ? (recs[0].phase || 'A') : 'A');
+  }, [curStuId, curStuData?.mon]);
 
   const recentBehs = useMemo(() => {
     const cached = curStuData?.mon || [];
@@ -110,9 +122,21 @@ export default function MonitorPage() {
           </div>
           <button className="btn btn-ghost btn-sm" onClick={() => setPeriodModalOpen(true)}>📍 새 관찰 기간 시작</button>
         </div>
-        <div className="qchip-area" style={{ marginTop: 10 }}>
-          <span className={'qchip' + (phase === 'A' ? ' on' : '')} onClick={() => setPhase('A')}>A · 기초선 (중재 전)</span>
-          <span className={'qchip' + (phase === 'B' ? ' on' : '')} onClick={() => setPhase('B')}>B · 중재 (전략 적용 후)</span>
+        <div className="qchip-area" style={{ marginTop: 10 }} role="group" aria-label="관찰 단계 선택">
+          <span
+            className={'qchip' + (phase === 'A' ? ' on' : '')}
+            role="button" tabIndex={0} aria-pressed={phase === 'A'}
+            onClick={() => setPhase('A')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPhase('A'); } }}
+            style={phase === 'A' ? { background: 'var(--err)', borderColor: 'var(--err)', color: '#fff' } : { borderColor: 'var(--err)', color: 'var(--err)' }}
+          >📊 A · 기초선 (중재 전)</span>
+          <span
+            className={'qchip' + (phase === 'B' ? ' on' : '')}
+            role="button" tabIndex={0} aria-pressed={phase === 'B'}
+            onClick={() => setPhase('B')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPhase('B'); } }}
+            style={phase === 'B' ? { background: 'var(--pri)', borderColor: 'var(--pri)', color: '#fff' } : { borderColor: 'var(--pri)', color: 'var(--pri)' }}
+          >🎯 B · 중재 (전략 적용 후)</span>
         </div>
         <p style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 8 }}>
           현재 저장될 phase: <strong style={{ color: 'var(--pri)' }}>{phase}</strong> — 먼저 <strong>A(기초선)</strong>으로 중재 전 수준을 충분히 모은 뒤, BIP·중재 전략을 <strong>실제로 적용한 다음</strong> 그 효과 데이터를 <strong>B(중재)</strong>로 기록하세요. (B는 기초선이 아니라 전략 적용 이후의 수집 데이터입니다.)

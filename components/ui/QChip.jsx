@@ -24,9 +24,19 @@ export function QChipGroup({ label, options, mode = 'append', target, onChange, 
             <span
               key={text}
               className={cls}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isOn ? 'true' : undefined}
               onClick={() => {
                 if (mode === 'set') onChange?.(text);
                 else onPick?.(text);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  if (mode === 'set') onChange?.(text);
+                  else onPick?.(text);
+                }
               }}
             >
               {recent ? '★ ' : ''}{text}
@@ -103,14 +113,24 @@ export function EditableChipGroup({ label, storageKey, defaults = [], mode = 'ap
           const isOn = mode === 'set' && target === opt.text;
           const cls = 'qchip' + (isOn ? ' on' : '') + (opt.custom ? ' qchip-recent' : '');
           return (
-            <span key={opt.text} className={cls} onClick={() => clickChip(opt.text)} style={manage && opt.custom ? { outline: '1px dashed #ef476f' } : undefined}>
+            <span
+              key={opt.text}
+              className={cls}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isOn ? 'true' : undefined}
+              onClick={() => clickChip(opt.text)}
+              onKeyDown={(e) => { if (!manage && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); clickChip(opt.text); } }}
+              style={manage && opt.custom ? { outline: '1px dashed var(--err)' } : undefined}
+            >
               {opt.custom ? '＋ ' : ''}{opt.text}
               {manage && opt.custom && (
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); removeChip(opt.text); }}
-                  title="삭제"
-                  style={{ marginLeft: 6, border: 'none', background: 'transparent', color: '#ef476f', cursor: 'pointer', fontWeight: 700 }}
+                  title={`${opt.text} 삭제`}
+                  aria-label={`${opt.text} 삭제`}
+                  style={{ marginLeft: 4, width: 24, height: 24, minWidth: 24, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', color: 'var(--err)', cursor: 'pointer', fontWeight: 700, fontSize: '1.05rem', borderRadius: 4, lineHeight: 1 }}
                 >×</button>
               )}
             </span>
@@ -130,11 +150,25 @@ export function EditableChipGroup({ label, storageKey, defaults = [], mode = 'ap
             />
           </span>
         ) : (
-          <span className="qchip" onClick={() => setAdding(true)} style={{ borderStyle: 'dashed', color: 'var(--pri)' }}>＋ 항목 추가</span>
+          <span
+            className="qchip"
+            role="button"
+            tabIndex={0}
+            onClick={() => setAdding(true)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setAdding(true); } }}
+            style={{ borderStyle: 'dashed', color: 'var(--pri)' }}
+          >＋ 항목 추가</span>
         )}
 
         {userChips.length > 0 && (
-          <span className="qchip" onClick={() => setManage((m) => !m)} style={{ borderStyle: 'dashed', color: manage ? '#ef476f' : 'var(--muted)' }}>
+          <span
+            className="qchip"
+            role="button"
+            tabIndex={0}
+            onClick={() => setManage((m) => !m)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setManage((m) => !m); } }}
+            style={{ borderStyle: 'dashed', color: manage ? 'var(--err)' : 'var(--muted)' }}
+          >
             {manage ? '완료' : '✎ 내 칩 관리'}
           </span>
         )}

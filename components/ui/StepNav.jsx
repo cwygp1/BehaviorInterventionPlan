@@ -24,24 +24,41 @@ export default function StepNav({ cur, onNavigate }) {
   const next = idx < TIER3_FLOW.length - 1 ? TIER3_FLOW[idx + 1] : null;
 
   return (
-    <div className="stepnav">
-      <div className="stepnav-side">
-        {prev && (
-          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate(prev.id)}>
-            ← {prev.label}
+    <>
+      {/* 전체 5단계를 한눈에 — 어느 단계든 눌러서 바로 이동 */}
+      <div className="stepnav-progress" role="navigation" aria-label="개별 중재 5단계">
+        {TIER3_FLOW.map((s, i) => (
+          <button
+            key={s.id}
+            className={'stepnav-pill' + (i === idx ? ' cur' : '') + (i < idx ? ' done' : '')}
+            onClick={() => onNavigate(s.id)}
+            title={`${i + 1}. ${s.label}`}
+            aria-current={i === idx ? 'step' : undefined}
+          >
+            <span className="pnum" aria-hidden="true">{i < idx ? '✓' : i + 1}</span>
+            <span className="plabel">{s.label}</span>
           </button>
-        )}
+        ))}
       </div>
-      <div className="stepnav-mid">STEP {idx + 1} / {TIER3_FLOW.length}</div>
-      <div className="stepnav-side stepnav-side-right">
-        {next ? (
-          <button className="btn btn-pri btn-sm" onClick={() => onNavigate(next.id)}>
-            다음: {next.label} →
-          </button>
-        ) : (
-          <span className="stepnav-done">✅ 마지막 단계</span>
-        )}
+      <div className="stepnav">
+        <div className="stepnav-side">
+          {prev && (
+            <button className="btn btn-ghost btn-sm" onClick={() => onNavigate(prev.id)}>
+              ← {prev.label}
+            </button>
+          )}
+        </div>
+        <div className="stepnav-mid">STEP {idx + 1} / {TIER3_FLOW.length}</div>
+        <div className="stepnav-side stepnav-side-right">
+          {next ? (
+            <button className="btn btn-pri btn-sm" onClick={() => onNavigate(next.id)}>
+              다음: {next.label} →
+            </button>
+          ) : (
+            <span className="stepnav-done">✅ 마지막 단계</span>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

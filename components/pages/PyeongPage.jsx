@@ -20,7 +20,7 @@ export default function PyeongPage() {
     setBusy(true); setLines([]);
     try {
       const prompt = buildPyeongPrompt({ standard, performance, level, count: +count });
-      const out = await call(prompt);
+      const out = await call(prompt, { tier: 'fast' });
       const parsed = parsePyeongLines(out);
       if (!parsed.length) { toast('평어를 추출하지 못했어요. 다시 시도해 주세요.'); }
       setLines(parsed);
@@ -35,6 +35,11 @@ export default function PyeongPage() {
   async function copyOne(l) {
     try { await navigator.clipboard.writeText(l); toast('복사했어요.'); } catch (_) {}
   }
+
+  // 생성된 평어는 교사가 직접 수정 가능.
+  function editLine(i, val) { setLines((prev) => prev.map((x, idx) => (idx === i ? val : x))); }
+  function removeLine(i) { setLines((prev) => prev.filter((_, idx) => idx !== i)); }
+  function addLine() { setLines((prev) => [...prev, '']); }
 
   function loadExample() {
     setStandard('[6음01-06] 바른 자세와 호흡으로 노래 부르거나 바른 자세와 주법으로 악기를 연주한다.');
@@ -79,17 +84,19 @@ export default function PyeongPage() {
       {lines.length > 0 && (
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-            <div className="card-title" style={{ marginBottom: 0 }}>결과 ({lines.length})</div>
+            <div className="card-title" style={{ marginBottom: 0 }}>결과 ({lines.length}) <span style={{ fontWeight: 400, fontSize: 12, color: '#94a3b8' }}>· 직접 수정 가능</span></div>
             <button className="btn btn-ghost btn-sm" onClick={copyAll}>📋 전체 복사</button>
           </div>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {lines.map((l, i) => (
-              <li key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '7px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <span style={{ flex: 1, fontSize: '.9rem', lineHeight: 1.6 }}>{l}</span>
+              <li key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <input className="form-input" value={l} onChange={(e) => editLine(i, e.target.value)} style={{ flex: 1, fontSize: '.9rem' }} />
                 <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0 }} onClick={() => copyOne(l)}>복사</button>
+                <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0 }} onClick={() => removeLine(i)} title="삭제" aria-label="평어 삭제">✕</button>
               </li>
             ))}
           </ul>
+          <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={addLine}>+ 평어 추가</button>
         </div>
       )}
     </>
