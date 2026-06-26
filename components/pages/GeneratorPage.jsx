@@ -154,15 +154,30 @@ export default function GeneratorPage() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 12, marginTop: 12 }}>
-          {GEN_TOOLS.map((t) => (
+          {GEN_TOOLS.map((t) => {
+            const fast = t.tier === 'fast';
+            return (
             <button key={t.id} className="card" onClick={() => openTool(t)}
               style={{ textAlign: 'left', cursor: 'pointer', border: '1px solid #e5e7eb', transition: 'box-shadow .15s', display: 'block' }}>
-              <div style={{ fontSize: '1.6rem', lineHeight: 1 }}>{t.icon}</div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ fontSize: '1.6rem', lineHeight: 1 }}>{t.icon}</div>
+                <span
+                  title={fast ? '빠른 응답 — 짧은 정형 텍스트에 적합 (빠름 모델)' : '상대적으로 느림 — 추론이 많은 작업 (품질 모델)'}
+                  style={{
+                    flexShrink: 0, fontSize: '.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: 999,
+                    background: fast ? '#dcfce7' : '#fef3c7', color: fast ? '#166534' : '#92400e',
+                    border: '1px solid ' + (fast ? '#bbf7d0' : '#fde68a'), whiteSpace: 'nowrap',
+                  }}
+                >
+                  {fast ? '⚡ 빠름' : '🐢 느림'}
+                </span>
+              </div>
               <div className="card-title" style={{ margin: '8px 0 4px' }}>{t.title}</div>
               <div style={{ fontSize: '.82rem', color: '#64748b', lineHeight: 1.5 }}>{t.desc}</div>
               {t.requiresStudent && <span className="badge badge-info" style={{ marginTop: 8, display: 'inline-block' }}>학생 필요</span>}
             </button>
-          ))}
+            );
+          })}
         </div>
 
         {history.length > 0 && (

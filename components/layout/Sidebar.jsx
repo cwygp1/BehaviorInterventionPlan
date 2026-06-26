@@ -39,7 +39,6 @@ const NAV = [
       { id: 'generator', label: 'AI 생성기', icon: '✨' },
       { id: 'builder', label: 'AI 어시스턴트', icon: '🤖' },
       { id: 'qa', label: 'PBS Q&A 전문가', icon: '💬' },
-      { id: 'pyeong', label: '평어 생성기', icon: '✍' },
     ],
   },
   {

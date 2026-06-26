@@ -22,7 +22,6 @@ import SupportPage from '../components/pages/SupportPage';
 import ClassPBSPage from '../components/pages/ClassPBSPage';
 import PbsSurveyPage from '../components/pages/PbsSurveyPage';
 import QAPage from '../components/pages/QAPage';
-import PyeongPage from '../components/pages/PyeongPage';
 import GeneratorPage from '../components/pages/GeneratorPage';
 import Tier2Page from '../components/pages/Tier2Page';
 import Tier3Page from '../components/pages/Tier3Page';
@@ -84,7 +83,6 @@ function PageRouter({ activePage, onNavigate }) {
     case 'tier3': return <Tier3Page onNavigate={onNavigate} />;
     case 'videos': return <VideoLecturesPage onNavigate={onNavigate} />;
     case 'qa': return <QAPage />;
-    case 'pyeong': return <PyeongPage />;
     case 'generator': return <GeneratorPage />;
     default: return <HomePage onNavigate={onNavigate} />;
   }
