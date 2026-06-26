@@ -71,6 +71,12 @@ export default function GeneratorPage() {
   function setField(key, val) {
     setValues((prev) => ({ ...prev, [key]: val }));
   }
+  // 예시 채우기 — 기본값으로 초기화한 뒤 샘플 값을 덮어쓴다(미지정 필드는 default 유지).
+  function applySample(sample) {
+    if (!tool || !sample) return;
+    setValues({ ...initValues(tool), ...(sample.values || {}) });
+    setResult(null);
+  }
   function toggleMulti(key, opt) {
     setValues((prev) => {
       const cur = Array.isArray(prev[key]) ? prev[key] : [];
@@ -87,7 +93,8 @@ export default function GeneratorPage() {
   }
 
   async function runPrompt(prompt) {
-    const out = await call(prompt, { system: tool.system || GEN_SYSTEM });
+    // 도구별 tier 지정(예: 평어·통신문·풀어쓰기는 'fast'). 미지정이면 resolveModel이 품질 모델로 폴백.
+    const out = await call(prompt, { system: tool.system || GEN_SYSTEM, tier: tool.tier });
     const text = String(out || '');
     const packed = { text, list: tool.output === 'list' ? parseLines(text) : null, prompt };
     setResult(packed);
@@ -221,6 +228,17 @@ export default function GeneratorPage() {
       {/* 입력 폼 */}
       <div className="card">
         <div className="card-title">입력</div>
+        {tool.samples && tool.samples.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+            <span style={{ fontSize: '.78rem', color: '#94a3b8', flexShrink: 0 }}>예시 채우기:</span>
+            {tool.samples.map((s, i) => (
+              <button type="button" key={i} className="chip" style={{ cursor: 'pointer' }}
+                onClick={() => applySample(s)} title="입력 칸을 예시 값으로 채웁니다">
+                {s.label || `예시 ${i + 1}`}
+              </button>
+            ))}
+          </div>
+        )}
         {(tool.fields || []).map((f) => (
           <div className="form-group" key={f.key}>
             <label className="form-label">{f.label}</label>

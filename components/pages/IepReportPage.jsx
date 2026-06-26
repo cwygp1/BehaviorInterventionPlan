@@ -70,6 +70,8 @@ export default function IepReportPage() {
         id: g.id, school_year: g.school_year, subject: g.subject, grade_code: g.grade_code, area: g.area,
         standard_code: g.standard_code, standard_text: g.standard_text, semester: g.semester,
         semester_goal: g.semester_goal, plop: g.plop, crit_type: g.crit_type, crit_start: g.crit_start, crit_end: g.crit_end,
+        support_tier: g.support_tier, eval_foci: g.eval_foci || [], task_steps: g.task_steps || [],
+        chain_type: g.chain_type, prompt_system: g.prompt_system,
         monthly: g.monthly || [], semestral_eval: g.semestral_eval,
       });
       toast('저장 완료');
@@ -172,14 +174,27 @@ export default function IepReportPage() {
             </div>
           </div>
 
-          <div className="form-row" style={{ marginTop: 8 }}>
-            <div className="form-group"><label className="form-label">현행수준</label><textarea className="form-textarea" rows={3} value={g.plop || ''} onChange={(e) => updateGoal(g.id, { plop: e.target.value })} /></div>
-            <div className="form-group"><label className="form-label">학기목표 (여러 줄 "-")</label><textarea className="form-textarea" rows={3} value={g.semester_goal || ''} onChange={(e) => updateGoal(g.id, { semester_goal: e.target.value })} /></div>
+          {/* ── 학기별 섹션 (현행수준·학기목표·학기평가) ── */}
+          <div style={secBox}>
+            <div style={secHead}>
+              <span style={secTitle}>🗓 학기별 개별화교육계획/평가</span>
+              <span style={{ ...secTag, background: '#4f6bed' }}>학기 단위</span>
+            </div>
+            <div className="form-row">
+              <div className="form-group"><label className="form-label">현행수준</label><textarea className="form-textarea" rows={3} value={g.plop || ''} onChange={(e) => updateGoal(g.id, { plop: e.target.value })} /></div>
+              <div className="form-group"><label className="form-label">학기목표 (여러 줄 "-")</label><textarea className="form-textarea" rows={3} value={g.semester_goal || ''} onChange={(e) => updateGoal(g.id, { semester_goal: e.target.value })} /></div>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">학기 평가 (여러 줄 "-")</label><textarea className="form-textarea" rows={3} value={g.semestral_eval || ''} onChange={(e) => updateGoal(g.id, { semestral_eval: e.target.value })} /></div>
           </div>
-          <div className="form-group"><label className="form-label">학기 평가 (여러 줄 "-")</label><textarea className="form-textarea" rows={3} value={g.semestral_eval || ''} onChange={(e) => updateGoal(g.id, { semestral_eval: e.target.value })} /></div>
 
-          <div className="form-label" style={{ marginTop: 6 }}>월별 개별화교육계획/평가 (직접 수정)</div>
-          <div style={{ overflowX: 'auto' }}>
+          {/* ── 월별 섹션 (월별 표) ── */}
+          <div style={secBox}>
+            <div style={secHead}>
+              <span style={secTitle}>📅 월별 개별화교육계획/평가</span>
+              <span style={{ ...secTag, background: '#0d9488' }}>월 단위</span>
+              <span style={{ fontSize: '.74rem', color: '#6b7280' }}>· 모든 칸 직접 수정</span>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
             <table style={tbl}>
               <thead><tr><th style={{ ...th, width: 48 }}>월</th><th style={th}>교육목표</th><th style={th}>교육내용</th><th style={{ ...th, width: 150 }}>교육방법</th><th style={{ ...th, width: '30%' }}>평가</th></tr></thead>
               <tbody>
@@ -195,6 +210,7 @@ export default function IepReportPage() {
                 {(!g.monthly || g.monthly.length === 0) && <tr><td colSpan={5} style={{ ...tdc, color: '#6b7280', textAlign: 'center' }}>월별 계획이 없습니다. "IEP 목표 생성"에서 월별을 만들면 여기서 수정할 수 있어요.</td></tr>}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       ))}
@@ -214,6 +230,10 @@ export default function IepReportPage() {
   );
 }
 
+const secBox = { border: '1px solid #e6e8ee', borderRadius: 10, padding: '10px 12px', marginTop: 12, background: '#fafbfd' };
+const secHead = { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, paddingBottom: 6, borderBottom: '1px dashed #d4d8e0', flexWrap: 'wrap' };
+const secTitle = { fontWeight: 700, fontSize: '.92rem', color: '#2f5496' };
+const secTag = { fontSize: '.72rem', fontWeight: 700, color: '#fff', borderRadius: 99, padding: '2px 8px' };
 const hl = { border: '1px solid #e3e6eb', background: '#f3f4f6', fontWeight: 700, padding: '7px 9px', width: 90, whiteSpace: 'nowrap' };
 const td = { border: '1px solid #e3e6eb', padding: '7px 9px' };
 const tbl = { width: '100%', borderCollapse: 'collapse', fontSize: 12.5, marginTop: 4 };

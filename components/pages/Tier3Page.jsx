@@ -1,5 +1,20 @@
+import { useState } from 'react';
 import StuHero from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
+import { fetchIEP } from '../../lib/api/students';
+import { QABF_QUESTIONS, QABF_FUNCTION_LABELS } from '../../lib/qabf';
+import { downloadTier3Doc } from '../../lib/utils/printTier3';
+
+// QABF 응답(0~3, 25문항)에서 심각도 합이 가장 큰 기능(들)을 행동의 기능 문구로.
+function qabfFunctionText(responses) {
+  const totals = { attention: 0, escape: 0, sensory: 0, physical: 0, tangible: 0 };
+  (responses || []).forEach((v, i) => { if (v >= 0 && QABF_QUESTIONS[i]) totals[QABF_QUESTIONS[i].f] += v; });
+  const max = Math.max(...Object.values(totals));
+  if (max <= 0) return '';
+  return Object.keys(totals).filter((f) => totals[f] === max).map((f) => QABF_FUNCTION_LABELS[f]).join(' · ');
+}
 
 const STEPS = [
   {
@@ -35,7 +50,35 @@ const STEPS = [
 ];
 
 export default function Tier3Page({ onNavigate }) {
-  const { curStu, curStuData, curClassId, students, tier3Ids, curStuId, selectStudent } = useStudents();
+  const { curStu, curStuData, curClassId, students, tier3Ids, curStuId, selectStudent, ensureStudentData } = useStudents();
+  const { user } = useAuth();
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
+
+  // 흩어진 모듈 데이터를 모아 갑님 양식(Tier 3 통합 문서)으로 Word 출력.
+  async function onExportTier3() {
+    if (!curStu) { toast('Tier 3 대상 학생을 먼저 선택하세요.'); return; }
+    setExporting(true);
+    try {
+      const data = curStuData || (await ensureStudentData(curStuId));
+      let goals = [];
+      try { const d = await fetchIEP(curStuId); goals = d.goals || []; } catch (_) { /* IEP 미작성 가능 */ }
+      downloadTier3Doc({
+        student: { code: curStu.code, level: curStu.level, disability: curStu.disability, note: curStu.note },
+        teacherName: user?.name || '',
+        school: user?.school || '',
+        goals,
+        bip: data?.bip || {},
+        problemBehavior: data?.abc?.[0]?.b || '',
+        functionText: qabfFunctionText(data?.qabf),
+      });
+      toast('Tier 3 통합 문서(Word)를 생성했어요.', 'success');
+    } catch (e) {
+      toast('생성 실패: ' + e.message);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   if (!curClassId) {
     return (
@@ -111,6 +154,22 @@ export default function Tier3Page({ onNavigate }) {
       ) : (
       <>
       <StuHero />
+
+      {/* Tier 3 통합 문서 — 흩어진 모듈을 한 양식으로 */}
+      <div className="card" style={{ background: 'linear-gradient(135deg,#fff1f4 0%,#ffe7ee 100%)', borderColor: '#f4a8be' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div className="card-title" style={{ marginBottom: 4, color: '#c43653' }}>📄 Tier 3 통합 문서</div>
+            <div style={{ fontSize: '.85rem', color: '#a13050', lineHeight: 1.6 }}>
+              연간·월별 목표(IEP) + 행동중재계획(BIP·QABF) + 모니터링 계획을 <strong>하나의 Word 문서</strong>로 모아 출력합니다.
+              저장값이 없는 칸은 편집형 틀로 채워져, 받은 뒤 바로 수정·결재할 수 있어요.
+            </div>
+          </div>
+          <button className="btn btn-pri" onClick={onExportTier3} disabled={exporting} style={{ flexShrink: 0 }}>
+            {exporting ? '생성 중…' : '📄 통합 문서 Word'}
+          </button>
+        </div>
+      </div>
 
       {/* 5단계 워크플로 */}
       <div className="card">

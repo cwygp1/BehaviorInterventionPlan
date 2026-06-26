@@ -7,7 +7,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { fetchIEP, saveIEPGoal, deleteIEPGoal, fetchStartpoint } from '../../lib/api/students';
 import { buildPyeongPrompt, parsePyeongLines, PYEONG_LEVELS } from '../../lib/pyeong';
-import { downloadIepWord, downloadIepFormWord } from '../../lib/utils/printIep';
+import { downloadIepWord, downloadIepFormWord, downloadTaskSheet } from '../../lib/utils/printIep';
 
 const GRADE = { 0: '일상생활(공통)', 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
 const GORDER = [2, 4, 6, 9, 12];
@@ -39,6 +39,35 @@ function methodsForType(disability) {
   if (d.includes('주의') || d.toUpperCase().includes('ADHD')) return ['짧은 활동', '즉각 강화', '자기점검', '시각적 일정'];
   if (d.includes('지적')) return ['직접교수', '모델링', '과제분석', '반복연습', '즉각 강화'];
   return ['모델링', '직접교수', '과제분석', '즉각 강화'];
+}
+// 과제 분석 — 교수 순서(연쇄)·촉진 체계 라벨 및 서술 도우미.
+const CHAIN_LABEL = { forward: '전진형', backward: '후진형', total: '전체과제 제시형' };
+const PROMPT_LABEL = { mtl: '최대-최소촉진', slp: '최소촉진체계', td: '시간지연', sim: '동시촉진' };
+// 과제 분석 시 교육방법 기본값에 결합 EBP(증거기반실제)를 더한다.
+function methodsForTask(disability, promptSystem) {
+  const add = ['과제분석', '비디오 모델링', '그림 촉진'];
+  if (promptSystem === 'td') add.push('시간지연');
+  if (promptSystem === 'slp') add.push('최소촉진체계');
+  if (promptSystem === 'sim') add.push('동시촉진');
+  return [...new Set([...methodsForType(disability), ...add])];
+}
+// 교수 순서(연쇄)에 따라 "이번 달 독립 수행 단계" 서술.
+function chainDesc(chainType, totalSteps, indep) {
+  if (indep <= 0) return `전 단계 교사 촉진(${CHAIN_LABEL[chainType] || '전진형'}: 한 단계씩 독립화 시작)`;
+  if (chainType === 'backward') {
+    const from = Math.max(1, totalSteps - indep + 1);
+    return `마지막 ${indep}단계(${from}~${totalSteps}단계)를 독립 수행, 앞 단계는 교사 촉진`;
+  }
+  if (chainType === 'total') return `매 회기 전체 ${totalSteps}단계를 순서대로 수행하며 독립 수행 단계를 ${indep}개로 확대`;
+  return `1~${indep}단계를 독립 수행, 이후 단계는 교사 촉진`;
+}
+// 촉진 체계에 따라 "이번 달 촉진 방식" 서술. i/n로 점증.
+function promptDesc(promptSystem, i, n, supFn) {
+  const frac = n > 1 ? i / (n - 1) : 1;
+  if (promptSystem === 'slp') return `최소촉진체계 — 독립 시도 후 못 하면 약한 촉진(언어→시범→신체) 순으로 제공`;
+  if (promptSystem === 'td') { const sec = [0, 2, 3, 4, 5][Math.min(4, Math.round(frac * 4))]; return `시간지연 — 촉진 전 ${sec}초 대기로 독립 반응 기회 확대`; }
+  if (promptSystem === 'sim') return `동시촉진 — 교수 회기엔 촉진과 동시 수행, 매일 점검(probe)으로 독립 수준 평가`;
+  return `최대-최소촉진 — ${supFn(i).trim()} 수준에서 촉진을 점차 줄여 독립으로`;
 }
 const monthsOf = (sem) => (String(sem) === '2' ? [9, 10, 11, 12, 1] : [3, 4, 5, 6, 7]);
 const baseOf = (goal) => goal.replace(/^스스로\s*/, '').replace(/\s*\.?$/, '');
@@ -179,6 +208,10 @@ export default function IepPage() {
   const [pyeongBusy, setPyeongBusy] = useState(false);
   const [cStart, setCStart] = useState(30);
   const [cEnd, setCEnd] = useState(80);
+  const [taskSteps, setTaskSteps] = useState([]); // 과제 분석(critType='task')용 순차 단계 목록
+  const [taskBusy, setTaskBusy] = useState(false); // 단계 자동 분석 진행 상태
+  const [chainType, setChainType] = useState('forward'); // 교수 순서(연쇄): forward/backward/total
+  const [promptSystem, setPromptSystem] = useState('mtl'); // 촉진 체계: mtl/slp/td/sim
   const [monthly, setMonthly] = useState([]);
   const [semEval, setSemEval] = useState('');
 
@@ -268,6 +301,8 @@ export default function IepPage() {
     setSem(String(g.semester || 1)); setCritType(g.crit_type || 'rate');
     setSupportTier(g.support_tier || '');
     setCStart(g.crit_start ?? 30); setCEnd(g.crit_end ?? 80);
+    setTaskSteps(Array.isArray(g.task_steps) ? g.task_steps : []);
+    setChainType(g.chain_type || 'forward'); setPromptSystem(g.prompt_system || 'mtl');
     setMonthly(Array.isArray(g.monthly) ? g.monthly : []);
     setSemEval(g.semestral_eval || '');
     setEditingId(g.id);
@@ -280,13 +315,15 @@ export default function IepPage() {
 
   function newGoal() {
     setSel(null); setEditingId(null); setMonthly([]); setSemEval(''); setGoal('');
-    setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setSupportTier('');
+    setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setSupportTier(''); setTaskSteps([]);
+    setChainType('forward'); setPromptSystem('mtl');
   }
 
   // 전년도 목표 하나를 "기준"으로 삼아 올해 목표 작성을 시작.
   function startFromPrior(g) {
     const s = { subject: g.subject, gradeCode: g.grade_code, area: g.area, code: g.standard_code || 'PRIOR', text: g.semester_goal || g.standard_text || '', verb: '', intent: '', descriptor: '' };
-    setSel(s); setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]);
+    setSel(s); setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setTaskSteps([]);
+    setChainType('forward'); setPromptSystem('mtl');
     setGoal(g.semester_goal || ('스스로 ' + (s.text || '').replace(/\s*\.?$/, '') + '.'));
     if (g.plop) setPlop(g.plop);
     setEditingId(null); setMonthly([]); setSemEval('');
@@ -304,16 +341,73 @@ export default function IepPage() {
   function editFocus(i, val) { setEvalFoci((prev) => prev.map((f, idx) => (idx === i ? val : f))); }
   function removeFocus(i) { setEvalFoci((prev) => prev.filter((_, idx) => idx !== i)); }
 
+  // 과제 분석(critType='task') 단계 목록 편집 + 자동 분해
+  function addStep() { setTaskSteps((prev) => [...prev, '']); }
+  function editStep(i, val) { setTaskSteps((prev) => prev.map((s, idx) => (idx === i ? val : s))); }
+  function removeStep(i) { setTaskSteps((prev) => prev.filter((_, idx) => idx !== i)); }
+  // 단계 수에 맞춰 목표 독립 단계를 동기화(목표=전체 단계, 시작은 범위 내로 클램프).
+  function syncTaskTargets(count) {
+    if (!count) return;
+    setCEnd(count);
+    setCStart((p) => Math.min(Number(p) || 0, count));
+  }
+  // AI 없이도 쓸 수 있는 기본 단계 골격(교사가 편집해 완성).
+  function ruleStepsNow() {
+    const base = baseOf(goal) || (sel?.text || '').replace(/\s*\.?$/, '') || '과제';
+    const arr = [
+      '준비물·상황 확인하기',
+      `${base} 시범 관찰하기`,
+      `${base} 첫 단계 따라 하기`,
+      `${base} 중간 단계 수행하기`,
+      `${base} 전체 순서대로 수행하기`,
+      '수행 결과 정리·점검하기',
+    ];
+    setTaskSteps(arr);
+    syncTaskTargets(arr.length);
+    toast('기본 단계 골격을 만들었어요. 학생 과제에 맞게 편집하세요.');
+  }
+  // 학기목표·성취기준을 순차 단계(과제분석)로 분해 — LLM 사용, 실패 시 기본 골격.
+  async function aiStepsNow() {
+    if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
+    if (!aiOn) { ruleStepsNow(); return; }
+    setTaskBusy(true);
+    try {
+      const prompt =
+        '다음 특수교육 학기목표(또는 성취기준)를 학생이 순서대로 수행할 "과제분석 단계"로 분해하라.\n' +
+        '각 단계는 관찰 가능한 하나의 행동으로, 4~8개. 군더더기 없이 행동만 적는다.\n' +
+        `학기목표: ${goal || sel.text}\n` +
+        (sel?.text ? `성취기준: ${sel.text}\n` : '') +
+        '아래 JSON만 출력: {"steps":["손 씻기","자리에 앉기"]}';
+      const j = await llmJSON('과제분석 단계 분해', prompt, { tier: 'fast', temperature: 0.3 });
+      const steps = Array.isArray(j.steps) ? j.steps.map((s) => String(s).trim()).filter(Boolean) : [];
+      if (!steps.length) throw new Error('단계를 추출하지 못했어요.');
+      setTaskSteps(steps);
+      syncTaskTargets(steps.length);
+      toast(`과제를 ${steps.length}개 단계로 분해했어요. 필요하면 편집하세요.`);
+    } catch (e) {
+      toast('단계 분해 실패: ' + e.message + ' — 기본 골격으로 대체합니다.');
+      ruleStepsNow();
+    } finally {
+      setTaskBusy(false);
+    }
+  }
+
   function generate() {
     if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
     const ms = monthsOf(sem), n = ms.length;
     const base = baseOf(goal);
     const s = +cStart, e = +cEnd;
     const isQual = critType === 'qual';
-    const methods = methodsForType(curStu?.disability);
+    const isTask = critType === 'task';
+    const methods = isTask ? methodsForTask(curStu?.disability, promptSystem) : methodsForType(curStu?.disability);
     const foci = (evalFoci || []).map((f) => f.trim()).filter(Boolean);
+    const steps = (taskSteps || []).map((t) => t.trim()).filter(Boolean);
+    const totalSteps = steps.length || Math.max(+e || 0, 4); // 단계 미입력 시 목표 단계 수로 대체
+    const stepChain = steps.length ? steps.map((t, k) => `${k + 1}) ${t}`).join(' → ') : '단계 목록 참조';
+    const stepCount = (i) => Math.max(0, Math.min(totalSteps, Math.round(s + (e - s) * (i / (n - 1)))));
     const crit = (i) => {
       const v = Math.round(s + (e - s) * (i / (n - 1)));
+      if (isTask) return `${totalSteps}단계 중 ${stepCount(i)}단계 독립 수행`;
       return critType === 'rate' ? `독립 수행 ${v}%` : `10회 중 ${Math.max(1, Math.round(v / 10))}회 성공`;
     };
     const support = (i) => SUP[Math.min(SUP.length - 1, Math.round((i / (n - 1)) * (SUP.length - 1)))];
@@ -328,17 +422,30 @@ export default function IepPage() {
         isQual ? null : `- ${crit(i)} 수준으로 수행하기.`,
         intent ? `- ${intent} 태도를 유지하며 활동에 참여하기.` : null,
       ].filter(Boolean).join('\n');
-      const content = [
-        `- ${sel.area ? sel.area + ' ' : ''}${obj} ${phase(i)}`,
-        `- 교사 시범 후 ${stem ? stem + '하기를 ' : ''}단계별(과제분석)로 따라 하기`,
-        `- ${i < n - 1 ? '구조화된 학습 자료로' : '실제·모의 상황에서'} ${stem ? stem + '하기 ' : ''}반복·적용하기`,
-      ].join('\n');
+      const content = (isTask
+        ? [
+            `- 과제분석 ${totalSteps}단계를 순서대로 지도(${CHAIN_LABEL[chainType]}): ${stepChain}`,
+            `- 이번 달 중점(${phase(i)}): ${chainDesc(chainType, totalSteps, stepCount(i))}`,
+            `- 촉진: ${promptDesc(promptSystem, i, n, support)}`,
+            i === n - 1 ? `- 유지·일반화: 다양한 장소·사람·자료로 ${stem ? stem + '하기 ' : ''}반복하고, 그림 촉진·비디오 모델링으로 자기주도 수행 지원` : null,
+          ].filter(Boolean)
+        : [
+            `- ${sel.area ? sel.area + ' ' : ''}${obj} ${phase(i)}`,
+            `- 교사 시범 후 ${stem ? stem + '하기를 ' : ''}단계별(과제분석)로 따라 하기`,
+            `- ${i < n - 1 ? '구조화된 학습 자료로' : '실제·모의 상황에서'} ${stem ? stem + '하기 ' : ''}반복·적용하기`,
+          ]).join('\n');
       const fThis = fociFor(i);
       const evalText = isQual
         ? [
             fThis.length ? `- 평가초점: ${fThis.join(' / ')}` : (foci.length ? `- 평가초점: ${foci.join(' / ')}` : `- 평가초점을 중심으로 수행 양상을 질적으로 기록`),
             `- 수업 맥락(교사 중재·학생 반응·또래/환경 상호작용)을 포함해 학습 과정과 결과를 서술 평가`,
             `- 초기 ${i === 0 ? '촉진 필요' : '부분 수행'} → 반복 후 ${i < n - 1 ? '독립성 증가' : '대부분 독립 수행'} 등 변곡점을 내러티브로 기록`,
+          ].join('\n')
+        : isTask
+        ? [
+            `- ${totalSteps}단계 중 ${stepCount(i)}단계 독립 수행을 단계별 체크리스트로 확인 (${CHAIN_LABEL[chainType]})`,
+            `- 촉진 수준 변화 기록(${PROMPT_LABEL[promptSystem]}): ${promptDesc(promptSystem, i, n, support)}`,
+            steps.length ? `- 미습득 단계 분석 후 과제분석 세분화·추가 지도(다음 지도 단계: ${steps[Math.min(steps.length - 1, stepCount(i))] || steps[steps.length - 1]})` : `- 미습득 단계 분석 후 추가 지도 계획 반영`,
           ].join('\n')
         : [
             `- ${crit(i)} 기준 도달 여부 확인`,
@@ -349,6 +456,8 @@ export default function IepPage() {
     setMonthly(list);
     setSemEval(isQual
       ? `평가초점을 중심으로 한 학기 학습 과정과 결과를 내러티브(서술형)로 종합 평가 — 수치·등급이 아니라 학생의 성장·변화 양상과 변곡점을 질적으로 기술.`
+      : isTask
+      ? `학기말 ${totalSteps}단계 중 ${Math.max(0, Math.min(totalSteps, e))}단계 독립 수행 도달 여부와 함께, 단계별 촉진 수준의 감소 양상과 미습득 단계의 변화를 과제분석 체크리스트 기준으로 종합 평가. 유지·일반화(다양한 상황 적용)와 자기주도(그림 촉진·비디오 모델링) 수행 정도도 함께 기술.`
       : `학기말 ${e}${critType === 'rate' ? '%' : '회'} 기준 도달 여부와 함께, 평가초점 중심의 학습 과정 변화·일반화 정도를 질적으로 서술 평가.`);
   }
 
@@ -524,10 +633,17 @@ export default function IepPage() {
     const data = curStuData || (await ensureStudentData(curStuId)) || {};
     const ms = monthsOf(sem);
     const isQual = critType === 'qual';
-    const u = critType === 'rate' ? '%' : '회';
+    const isTask = critType === 'task';
+    const u = isTask ? '단계' : (critType === 'rate' ? '%' : '회');
     const summary = buildStudentSummary(data);
     const fociBlock = (evalFoci || []).filter((f) => f.trim()).length
       ? `[평가초점] (성취기준 분석→해석으로 개발, 평가의 기준점)\n${evalFoci.filter((f) => f.trim()).map((f) => '· ' + f.trim()).join('\n')}\n`
+      : '';
+    const stepsArr = (taskSteps || []).map((t) => t.trim()).filter(Boolean);
+    const stepsBlock = isTask
+      ? (stepsArr.length
+          ? `[과제 단계] (과제분석 — 학생이 순서대로 수행할 단계)\n${stepsArr.map((t, k) => `${k + 1}) ${t}`).join('\n')}\n`
+          : `[과제 단계] 아직 미입력 — 학기목표를 4~8개의 순차 단계로 분해해 task_steps로 제안할 것.\n`)
       : '';
     const priorGoals2 = savedGoals.filter((g) => g.school_year && g.school_year < schoolYear);
     const priorBlock = priorGoals2.length
@@ -535,6 +651,8 @@ export default function IepPage() {
       : '';
     const critLine = isQual
       ? `[평가 방식] 질적 평가 — 수치·등급이 아니라 위 평가초점을 중심으로 학습 과정과 결과를 내러티브(서술형)로 평가.\n`
+      : isTask
+      ? `[평가 방식] 과제 분석 — 전체 ${stepsArr.length || cEnd}단계. 교수 순서: ${CHAIN_LABEL[chainType]}, 촉진 체계: ${PROMPT_LABEL[promptSystem]}. (a) 독립 수행 단계 수를 ${cStart}→${cEnd}단계로 ${CHAIN_LABEL[chainType]} 방식으로 매월 점증, (b) 각 단계 촉진을 ${PROMPT_LABEL[promptSystem]}로 점차 약화. 단계별 체크리스트로 평가. 비디오 모델링·시간지연·그림 촉진 등 결합 EBP를 교육방법에 포함.\n`
       : `[평가 기준] ${critType === 'rate' ? '독립 수행 비율' : '기회 중 성공 횟수'} 기준을 ${cStart}${u}에서 ${cEnd}${u}로 매월 점증(양적). 평가초점 중심의 질적 서술을 병행.\n`;
     const tierLine = supportTier
       ? `[지원 수준] ${supportTier} — 이 학생에게 필요한 지원 강도. 교육방법·촉진 수준을 이 Tier에 맞춰 명시할 것.\n`
@@ -543,7 +661,7 @@ export default function IepPage() {
       `너는 특수교육 IEP 작성 전문가다. 아래 "학생 자료"와 "전년도 IEP"를 실제로 반영해, 선택한 성취기준에 대한 개별화교육계획을 작성하라.\n\n` +
       `[학생 자료]\n${summary}\n${priorBlock}\n` +
       `[성취기준] [${sel.code}] ${sel.text} (교과 ${sel.subject}${sel.area ? ' · ' + sel.area : ''})\n` +
-      fociBlock +
+      fociBlock + stepsBlock +
       `[학기목표(참고)] ${goal}\n` +
       `[대상 월] ${ms.join(', ')} (총 ${ms.length}개월)\n` +
       critLine + tierLine + `\n` +
@@ -551,11 +669,11 @@ export default function IepPage() {
       `1) 현행수준(plop)은 위 학생 자료(ABC·행동데이터·BIP·안정실 등)를 근거로 구체적으로 서술.\n` +
       `2) 월별로 지원 수준을 점차 줄이며(도움받아→부분→독립→적용) 목표를 점증시킬 것.\n` +
       `3) 교육목표·교육내용·교육방법·평가는 각 줄을 "- "로 시작하는 항목으로 2~3개씩 상세히.\n` +
-      `4) 평가(eval)는 ${isQual ? '평가초점을 중심으로, 수업 맥락·학생 반응·성장 변곡점을 담은 내러티브(서술형)로만 작성(수치 금지).' : '양적 기준 도달 여부와 함께 평가초점 중심의 질적 서술을 함께 포함.'}\n` +
+      `4) 평가(eval)는 ${isQual ? '평가초점을 중심으로, 수업 맥락·학생 반응·성장 변곡점을 담은 내러티브(서술형)로만 작성(수치 금지).' : isTask ? '전체 N단계 중 독립 수행 단계 수와 단계별 촉진 수준(전신→부분→시범→독립)의 변화를 함께 기록하는 과제분석 체크리스트형 서술로 작성.' : '양적 기준 도달 여부와 함께 평가초점 중심의 질적 서술을 함께 포함.'}\n` +
       `5) 학생 실명/식별정보는 절대 쓰지 말 것(익명 ID만).\n` +
       `6) 학기목표(semester_goal)도 성취기준과 학생 자료를 반영해 한 문장으로 작성.\n\n` +
       `반드시 아래 JSON만 출력(설명 금지):\n` +
-      `{"semester_goal":"...","plop":"...","monthly":[{"month":${ms[0]},"goal":"- ...\\n- ...","content":"- ...\\n- ...","methods":["...","..."],"eval":"- ...\\n- ..."}],"semestral_eval":"..."}`
+      `{"semester_goal":"...","plop":"...",${isTask ? '"task_steps":["1단계 행동","2단계 행동"],' : ''}"monthly":[{"month":${ms[0]},"goal":"- ...\\n- ...","content":"- ...\\n- ...","methods":["...","..."],"eval":"- ...\\n- ..."}],"semestral_eval":"..."}`
     );
   }
 
@@ -574,6 +692,7 @@ export default function IepPage() {
       })));
     }
     if (j.semestral_eval || j.semestralEval) setSemEval(String(j.semestral_eval || j.semestralEval));
+    if (Array.isArray(j.task_steps) && j.task_steps.length) setTaskSteps(j.task_steps.map((s) => String(s).trim()).filter(Boolean));
   }
 
   async function aiGenerateFromData() {
@@ -654,6 +773,8 @@ export default function IepPage() {
         crit_type: critType, crit_start: +cStart, crit_end: +cEnd,
         support_tier: supportTier,
         eval_foci: (evalFoci || []).map((f) => f.trim()).filter(Boolean),
+        task_steps: (taskSteps || []).map((t) => t.trim()).filter(Boolean),
+        chain_type: chainType, prompt_system: promptSystem,
         monthly, semestral_eval: semEval,
       };
       if (editingId) body.id = editingId;
@@ -696,6 +817,19 @@ export default function IepPage() {
       teacherName: user?.name || '',
       school: user?.school || '',
       goals,
+    });
+  }
+
+  // 과제분석 단계별 평가 기록지(데이터 수집 체크리스트) 인쇄용 Word 출력.
+  function downloadTaskSheetNow() {
+    const steps = (taskSteps || []).map((t) => t.trim()).filter(Boolean);
+    if (!steps.length) { toast('단계를 먼저 만들어 주세요.'); return; }
+    downloadTaskSheet({
+      student: { code: curStu.code, level: curStu.level, disability: curStu.disability },
+      teacherName: user?.name || '',
+      school: user?.school || '',
+      goalText: goal,
+      steps, chainType, promptSystem,
     });
   }
 
@@ -929,10 +1063,16 @@ export default function IepPage() {
             <div className="form-group"><label className="form-label">학기</label>
               <select className="form-input" value={sem} onChange={(e) => setSem(e.target.value)}><option value="1">1학기 (3~7월)</option><option value="2">2학기 (9~12월)</option></select></div>
             <div className="form-group"><label className="form-label">평가 방식</label>
-              <select className="form-input" value={critType} onChange={(e) => setCritType(e.target.value)}>
+              <select className="form-input" value={critType} onChange={(e) => {
+                const v = e.target.value;
+                if (v === 'task' && critType !== 'task') { const cnt = (taskSteps || []).filter((t) => t.trim()).length; setCStart(0); setCEnd(cnt || 5); }
+                else if (v !== 'task' && critType === 'task') { setCStart(30); setCEnd(80); }
+                setCritType(v);
+              }}>
                 <option value="rate">양적 · 독립 수행 비율(%)</option>
                 <option value="freq">양적 · 기회 중 성공 횟수(10회 중)</option>
                 <option value="qual">질적 · 평가초점 기반 서술(내러티브)</option>
+                <option value="task">과제 분석 · 단계별 점증(과제 분해)</option>
               </select></div>
             <div className="form-group"><label className="form-label">지원 수준 (모듈4)</label>
               <select className="form-input" value={supportTier} onChange={(e) => setSupportTier(e.target.value)}>
@@ -943,8 +1083,8 @@ export default function IepPage() {
               </select></div>
             {critType !== 'qual' ? (
               <>
-                <div className="form-group"><label className="form-label">시작 수준</label><input type="number" className="form-input" value={cStart} onChange={(e) => setCStart(e.target.value)} /></div>
-                <div className="form-group"><label className="form-label">학기말 목표</label><input type="number" className="form-input" value={cEnd} onChange={(e) => setCEnd(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">{critType === 'task' ? '시작 독립 단계' : '시작 수준'}</label><input type="number" className="form-input" value={cStart} onChange={(e) => setCStart(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">{critType === 'task' ? '목표 독립 단계' : '학기말 목표'}</label><input type="number" className="form-input" value={cEnd} onChange={(e) => setCEnd(e.target.value)} /></div>
               </>
             ) : (
               <div className="form-group" style={{ flex: '2 1 280px' }}><label className="form-label">질적 평가 안내</label>
@@ -952,6 +1092,66 @@ export default function IepPage() {
               </div>
             )}
           </div>
+          {critType === 'task' && (
+            <div style={{ marginTop: 10, padding: 12, border: '1px solid #c7b9f0', borderRadius: 8, background: '#f7f4ff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ fontWeight: 700, color: '#5b3fb0' }}>🧩 과제 분석 — 단계 목록 (순차 분해)</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="btn btn-ghost btn-sm" onClick={aiStepsNow} disabled={taskBusy}>{taskBusy ? '분석 중…' : (aiOn ? '↻ 단계 자동 분석(AI)' : '↻ 기본 단계 골격')}</button>
+                  <button className="btn btn-ghost btn-sm" onClick={addStep}>+ 단계 추가</button>
+                  <button className="btn btn-ghost btn-sm" onClick={downloadTaskSheetNow} title="단계×회기 기록지 Word">📋 기록지</button>
+                </div>
+              </div>
+              <div style={{ fontSize: '.8rem', color: '#5b3fb0', opacity: 0.85, marginTop: 4 }}>
+                복잡한 행동·기술을 학생이 순서대로 수행할 단계로 나눕니다(예: 손 씻기 → 자리 앉기 → …). 전체 {taskSteps.filter((t) => t.trim()).length || '–'}단계 · 독립 수행 단계가 매월 늘고, 단계별 촉진은 점차 약화됩니다.
+              </div>
+              <div className="form-row" style={{ marginTop: 8 }}>
+                <div className="form-group"><label className="form-label">교수 순서(연쇄)</label>
+                  <select className="form-input" value={chainType} onChange={(e) => setChainType(e.target.value)}>
+                    <option value="forward">전진형 — 1단계부터 독립 확대</option>
+                    <option value="backward">후진형 — 마지막 단계부터 역순</option>
+                    <option value="total">전체과제 제시형 — 매회 전체 수행</option>
+                  </select></div>
+                <div className="form-group"><label className="form-label">촉진 체계</label>
+                  <select className="form-input" value={promptSystem} onChange={(e) => setPromptSystem(e.target.value)}>
+                    <option value="mtl">최대-최소촉진 (전신→부분→시범→독립)</option>
+                    <option value="slp">최소촉진체계 (독립 시도→단계적 촉진)</option>
+                    <option value="td">시간지연 (촉진 전 대기 점증)</option>
+                    <option value="sim">동시촉진 (촉진 동시 후 점검)</option>
+                  </select></div>
+              </div>
+              {(() => {
+                const f = taskSteps.filter((t) => t.trim()).length;
+                if (!f) return null;
+                if (f < 4) return <div style={{ fontSize: '.78rem', color: '#9a3412', marginTop: 6 }}>⚠ 단계가 적어요(권장 4~8). 학습자 수준이 낮거나 과제가 어려우면 더 세분화하세요.</div>;
+                if (f > 10) return <div style={{ fontSize: '.78rem', color: '#9a3412', marginTop: 6 }}>⚠ 단계가 많아요({f}단계). 학습자 수준이 높으면 일부 단계를 통합해 보세요.</div>;
+                return <div style={{ fontSize: '.78rem', color: '#15803d', marginTop: 6 }}>✓ 적정 세밀도({f}단계). 가르치다 막히면 해당 단계를 더 잘게 나누세요.</div>;
+              })()}
+              {(() => {
+                const f = taskSteps.filter((t) => t.trim()).length;
+                const cs = Number(cStart) || 0, ce = Number(cEnd) || 0;
+                const msgs = [];
+                if (f && ce > f) msgs.push(`목표 독립 단계(${ce})가 전체 단계(${f})보다 큽니다.`);
+                if (cs > ce) msgs.push(`시작(${cs})이 목표(${ce})보다 큽니다.`);
+                if (!msgs.length) return null;
+                return (
+                  <div style={{ fontSize: '.78rem', color: '#b91c1c', marginTop: 4 }}>⚠ {msgs.join(' ')}{' '}
+                    <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={() => { const t = f || ce; setCEnd(t); setCStart(Math.min(cs, t)); }}>전체 단계에 맞춤</button>
+                  </div>
+                );
+              })()}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                {taskSteps.length === 0 && <div className="empty-state" style={{ padding: 12 }}>아직 단계가 없습니다. "단계 자동 분석" 또는 "+ 단계 추가"로 만드세요.</div>}
+                {taskSteps.map((t, i) => (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '24px 1fr auto', gap: 8, alignItems: 'center' }}>
+                    <div style={{ fontWeight: 700, color: '#6b7280', textAlign: 'center' }}>{i + 1}</div>
+                    <input className="form-input" value={t} onChange={(e) => editStep(i, e.target.value)} placeholder="예: 수저를 바르게 잡는다." />
+                    <button className="btn btn-ghost btn-sm" onClick={() => removeStep(i)} title="삭제" aria-label="단계 삭제">✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className="btn btn-pri" onClick={generate}>규칙 초안 (빠름, AI 없음)</button>
             {aiOn
