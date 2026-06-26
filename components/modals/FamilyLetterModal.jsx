@@ -6,6 +6,7 @@ import { useLLM } from '../../contexts/LLMContext';
 import { useToast } from '../../contexts/ToastContext';
 import { printFamilyLetter } from '../../lib/utils/printFamilyLetter';
 import { createLetter, deleteLetter } from '../../lib/api/students';
+import { buildFullStudentContext } from '../../lib/tierContext';
 import PromptResultBlock from './PromptResultBlock';
 import AIActionBar from '../ui/AIActionBar';
 
@@ -234,7 +235,7 @@ ${date} ${name}이/가 학교에서 다음과 같은 위기 상황을 경험했�
 };
 
 export default function FamilyLetterModal({ open, onClose }) {
-  const { curStu, curStuId, curStuData, updateStudentData } = useStudents();
+  const { curStu, curStuId, curStuData, updateStudentData, tier2Groups, curSemester } = useStudents();
   const { user } = useAuth();
   const { call, status } = useLLM();
   const toast = useToast();
@@ -245,8 +246,22 @@ export default function FamilyLetterModal({ open, onClose }) {
   const [aiOut, setAiOut] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  // 통신문이 실제 운영 중인 학급·소그룹 지원을 자연스럽게 반영하도록 Tier1/2 연동 맥락을 미리 로드.
+  const [tierLinkage, setTierLinkage] = useState('');
 
   const letters = curStuData?.letters || [];
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!open || !curStu) { setTierLinkage(''); return undefined; }
+    (async () => {
+      try {
+        const { linkage } = await buildFullStudentContext({ student: curStu, studentId: curStuId, data: curStuData, tier2Groups, semester: curSemester });
+        if (!cancelled) setTierLinkage(linkage || '');
+      } catch (_) { if (!cancelled) setTierLinkage(''); }
+    })();
+    return () => { cancelled = true; };
+  }, [open, curStu, curStuId, curStuData, tier2Groups, curSemester]);
 
   useEffect(() => {
     if (open) {
@@ -290,7 +305,11 @@ ${category}
   4) 가정에서 협력해 주실 부분
   5) 마무리 인사
 - 학생 실명·민감정보 금지 (익명 ID로만)
-- 800자 이내`;
+- 800자 이내${tierLinkage && tierLinkage.trim() ? `
+
+## 참고 — 이 학생에게 실제 운영 중인 다층 지원(학급 보편·소그룹)
+${tierLinkage}
+※ 위 지원 내용은 통신문에 전문용어(Tier·CICO 등)나 표 형태로 그대로 옮기지 말고, 학부모가 이해하기 쉬운 따뜻한 문장으로 자연스럽게 녹여서 반영하세요.` : ''}`;
   }
 
   async function runAI() {

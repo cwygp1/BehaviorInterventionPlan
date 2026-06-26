@@ -12,6 +12,7 @@ import {
   cleanText,
   parseLines,
 } from '../../lib/generators';
+import { buildFullStudentContext } from '../../lib/tierContext';
 
 const HISTORY_KEY = 'seai.gen.history';
 const REFINE_CHIPS = ['더 쉽게', '더 짧게', '더 자세히', '개수 늘려', '더 따뜻하게'];
@@ -31,7 +32,7 @@ function initValues(tool) {
 export default function GeneratorPage() {
   const toast = useToast();
   const { call, status: llmStatus } = useLLM();
-  const { curStu, curStuData, students, selectStudent } = useStudents();
+  const { curStu, curStuId, curStuData, students, selectStudent, tier2Groups, curSemester } = useStudents();
 
   const [toolId, setToolId] = useState(null);
   const [values, setValues] = useState({});
@@ -112,10 +113,23 @@ export default function GeneratorPage() {
     }
     setBusy(true); setResult(null);
     try {
-      const prompt = renderPrompt(tool, values, ctx);
+      const rendered = renderPrompt(tool, values, ctx);
+      const prompt = await enrichWithTierContext(rendered);
       await runPrompt(prompt);
     } catch (e) { toast('생성 실패: ' + e.message); }
     finally { setBusy(false); }
+  }
+
+  // 학생이 선택된 경우, 렌더된 프롬프트에 이 학생의 다층 지원·출발점 맥락을 덧붙인다.
+  async function enrichWithTierContext(renderedPrompt) {
+    if (!curStu) return renderedPrompt;
+    try {
+      const { text: tierText } = await buildFullStudentContext({ student: curStu, studentId: curStuId, data: curStuData, tier2Groups, semester: curSemester });
+      if (!tierText || !tierText.trim()) return renderedPrompt;
+      return renderedPrompt + '\n\n[참고 — 이 학생의 다층 지원·출발점 맥락]\n' + tierText;
+    } catch (_) {
+      return renderedPrompt;
+    }
   }
 
   async function onRefine(instruction) {
@@ -302,6 +316,7 @@ export default function GeneratorPage() {
         {showPrompt && (
           <pre style={{ marginTop: 10, padding: 10, background: '#0f172a', color: '#e2e8f0', borderRadius: 8, fontSize: '.78rem', whiteSpace: 'pre-wrap', maxHeight: 260, overflow: 'auto' }}>
             {renderPrompt(tool, values, ctx)}
+            {curStu ? '\n\n[참고 — 이 학생의 다층 지원·출발점 맥락이 생성 시 자동으로 덧붙습니다]' : ''}
           </pre>
         )}
       </div>

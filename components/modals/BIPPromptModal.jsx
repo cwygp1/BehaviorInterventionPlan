@@ -1,10 +1,23 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
 import PromptResultBlock from './PromptResultBlock';
 import { useStudents } from '../../contexts/StudentContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { useToast } from '../../contexts/ToastContext';
 import AIActionBar from '../ui/AIActionBar';
+import { buildFullStudentContext } from '../../lib/tierContext';
+import { ebpBlockForBehavior } from '../../lib/ebp';
+
+// QABF 5기능 합계에서 최대 기능 라벨(EBP 매핑용). 없으면 ''.
+function topQabfFunction(data) {
+  const qabfArr = data?.qabf || [];
+  const totals = { 관심: 0, 회피: 0, 자동감각: 0, 신체: 0, 강화물: 0 };
+  const FUNC_BY_INDEX = ['관심', '회피', '자동감각', '신체', '강화물'];
+  qabfArr.forEach((v, i) => { if (v >= 0) totals[FUNC_BY_INDEX[i % 5]] += v; });
+  const max = Math.max(...Object.values(totals));
+  if (max <= 0) return '';
+  return Object.keys(totals).find((k) => totals[k] === max) || '';
+}
 
 function buildPrompt(stu, data) {
   const abc = (data?.abc || []).slice(0, 8).map((r, i) =>
@@ -62,19 +75,37 @@ function parseResponse(text) {
 }
 
 export default function BIPPromptModal({ open, onClose, onApply }) {
-  const { curStu, curStuData } = useStudents();
+  const { curStu, curStuId, curStuData, tier2Groups, curSemester } = useStudents();
   const { call, status } = useLLM();
   const toast = useToast();
   const [output, setOutput] = useState('');
   const [busy, setBusy] = useState(false);
-  const prompt = curStu ? buildPrompt(curStu, curStuData) : '';
+  const basePrompt = curStu ? buildPrompt(curStu, curStuData) : '';
+  // 다층 지원 맥락(Tier1/2 + 출발점) + 행동중재 EBP 후보를 덧붙인 최종 프롬프트.
+  const [prompt, setPrompt] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!open || !curStu) { setPrompt(basePrompt); return undefined; }
+    (async () => {
+      let full = basePrompt;
+      try {
+        const { text: tierText } = await buildFullStudentContext({ student: curStu, studentId: curStuId, data: curStuData, tier2Groups, semester: curSemester });
+        if (tierText && tierText.trim()) full += '\n\n[참고 — 이 학생의 다층 지원·출발점 맥락 (Tier 2 CICO 등 운영 중인 지원을 반영할 것)]\n' + tierText;
+      } catch (_) { /* best-effort */ }
+      const ebp = ebpBlockForBehavior({ qabfFunction: topQabfFunction(curStuData), behaviorText: curStuData?.abc?.[0]?.b || '' });
+      if (ebp) full += '\n\n' + ebp;
+      if (!cancelled) setPrompt(full);
+    })();
+    return () => { cancelled = true; };
+  }, [open, curStu, curStuId, curStuData, tier2Groups, curSemester, basePrompt]);
 
   async function runAI() {
     if (!curStu) { toast('학생을 먼저 선택해주세요.'); return; }
     if (status !== 'on') { toast('AI 연결을 먼저 설정해주세요. (우상단 AI 버튼)'); return; }
     setBusy(true); setOutput('');
     try {
-      const reply = await call(prompt);
+      const reply = await call(prompt || basePrompt);
       setOutput(reply);
     } catch (e) {
       toast('AI 호출 실패: ' + e.message);

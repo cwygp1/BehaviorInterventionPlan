@@ -115,6 +115,11 @@ export default function Tier3Page({ onNavigate }) {
         </div>
       </div>
 
+      {/* Tier 모델 프레이밍 안내 — 계단이 아니라 '층' */}
+      <div className="card" style={{ background: '#fffbeb', borderColor: '#fde68a', fontSize: '.85rem', color: '#92400e', lineHeight: 1.7 }}>
+        ℹ️ Tier는 거쳐 올라가는 '계단'이 아니라 강도가 중첩된 '층'입니다. Tier 3 학생도 Tier 1·2 지원을 함께 받으며, 데이터·요구에 따라 바로 Tier 3로 진입하거나 하위 Tier로 돌아갈 수 있습니다. IEP는 'Tier 3 완료'가 아니라 특수교육대상자 선정 절차에서 시작됩니다.
+      </div>
+
       {/* Tier 3 대상 학생 — Tier 2 소그룹 구성원 중 'Tier 3' 표시된 학생 */}
       <div className="card">
         <div className="card-title">🎯 Tier 3 대상 학생 <span className="badge badge-pri">{tier3Students.length}명</span></div>

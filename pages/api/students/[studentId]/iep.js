@@ -40,6 +40,8 @@ export default requireStudentAccess(async function handler(req, res) {
         // 과제 분석 교수 순서(연쇄)·촉진 체계 컬럼 자가 치유.
         await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS chain_type VARCHAR(20) NOT NULL DEFAULT 'forward'`;
         await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS prompt_system VARCHAR(20) NOT NULL DEFAULT 'mtl'`;
+        // P2: 실제 데이터로서의 Tier 연동 — 소속 Tier 2 소그룹 FK(소프트, nullable) 자가 치유.
+        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS tier2_group_id INTEGER`;
         if (b.id) {
           const r = await sql`
             UPDATE iep_goals SET
@@ -49,6 +51,7 @@ export default requireStudentAccess(async function handler(req, res) {
               semester = ${b.semester || 1}, semester_goal = ${b.semester_goal || ''}, plop = ${b.plop || ''},
               crit_type = ${b.crit_type || 'rate'}, crit_start = ${b.crit_start ?? 30}, crit_end = ${b.crit_end ?? 80},
               support_tier = ${b.support_tier || ''},
+              tier2_group_id = ${b.tier2_group_id ?? null},
               eval_foci = ${evalFoci}::jsonb,
               task_steps = ${taskSteps}::jsonb,
               chain_type = ${b.chain_type || 'forward'}, prompt_system = ${b.prompt_system || 'mtl'},
@@ -61,9 +64,9 @@ export default requireStudentAccess(async function handler(req, res) {
         }
         const r = await sql`
           INSERT INTO iep_goals
-            (student_id, school_year, subject, grade_code, area, standard_code, standard_text, semester, semester_goal, plop, crit_type, crit_start, crit_end, support_tier, eval_foci, task_steps, chain_type, prompt_system, monthly, semestral_eval, updated_at)
+            (student_id, school_year, subject, grade_code, area, standard_code, standard_text, semester, semester_goal, plop, crit_type, crit_start, crit_end, support_tier, tier2_group_id, eval_foci, task_steps, chain_type, prompt_system, monthly, semestral_eval, updated_at)
           VALUES
-            (${studentId}, ${b.school_year || 0}, ${b.subject || ''}, ${b.grade_code || 0}, ${b.area || ''}, ${b.standard_code || ''}, ${b.standard_text || ''}, ${b.semester || 1}, ${b.semester_goal || ''}, ${b.plop || ''}, ${b.crit_type || 'rate'}, ${b.crit_start ?? 30}, ${b.crit_end ?? 80}, ${b.support_tier || ''}, ${evalFoci}::jsonb, ${taskSteps}::jsonb, ${b.chain_type || 'forward'}, ${b.prompt_system || 'mtl'}, ${monthly}::jsonb, ${b.semestral_eval || ''}, NOW())
+            (${studentId}, ${b.school_year || 0}, ${b.subject || ''}, ${b.grade_code || 0}, ${b.area || ''}, ${b.standard_code || ''}, ${b.standard_text || ''}, ${b.semester || 1}, ${b.semester_goal || ''}, ${b.plop || ''}, ${b.crit_type || 'rate'}, ${b.crit_start ?? 30}, ${b.crit_end ?? 80}, ${b.support_tier || ''}, ${b.tier2_group_id ?? null}, ${evalFoci}::jsonb, ${taskSteps}::jsonb, ${b.chain_type || 'forward'}, ${b.prompt_system || 'mtl'}, ${monthly}::jsonb, ${b.semestral_eval || ''}, NOW())
           RETURNING *
         `;
         return res.status(200).json({ goal: fmtRow(r.rows[0]) });

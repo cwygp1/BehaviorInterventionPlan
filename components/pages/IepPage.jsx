@@ -8,6 +8,9 @@ import { useLLM } from '../../contexts/LLMContext';
 import { fetchIEP, saveIEPGoal, deleteIEPGoal, fetchStartpoint, fetchClassPBS } from '../../lib/api/students';
 import { buildPyeongPrompt, parsePyeongLines, PYEONG_LEVELS } from '../../lib/pyeong';
 import { downloadIepWord, downloadIepFormWord, downloadTaskSheet } from '../../lib/utils/printIep';
+import { buildStudentSummary as tcBuildStudentSummary, buildTierLinkage as tcBuildTierLinkage } from '../../lib/tierContext';
+import { ebpBlockForGoal } from '../../lib/ebp';
+import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
 
 const GRADE = { 0: '일상생활(공통)', 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
 const GORDER = [2, 4, 6, 9, 12];
@@ -446,6 +449,9 @@ export default function IepPage() {
     // 평가초점을 월에 고르게 배분(질적 평가 서술의 기준점)
     const fociFor = (i) => (foci.length ? foci.filter((_, k) => k % n === i || (foci.length <= n && k === i)) : []);
     const list = ms.map((m, i) => {
+      // 이 달에 배분된 평가초점 — 교육내용·평가가 평가초점에서 출발하도록 공유.
+      const fThis = fociFor(i);
+      const fLead = fThis.length ? fThis.join(' / ') : (foci.length ? foci[Math.min(i, foci.length - 1)] : '');
       const goal = [
         `- ${support(i)}${base}.`,
         isQual ? null : `- ${crit(i)} 수준으로 수행하기.`,
@@ -453,17 +459,18 @@ export default function IepPage() {
       ].filter(Boolean).join('\n');
       const content = (isTask
         ? [
+            fLead ? `- 평가초점 '${fLead}'에 도달하도록 아래 과제 단계 수행을 지도` : null,
             `- 과제분석 ${totalSteps}단계를 순서대로 지도(${CHAIN_LABEL[chainType]}): ${stepChain}`,
             `- 이번 달 중점(${phase(i)}): ${chainDesc(chainType, totalSteps, stepCount(i))}`,
             `- 촉진: ${promptDesc(promptSystem, i, n, support)}`,
             i === n - 1 ? `- 유지·일반화: 다양한 장소·사람·자료로 ${stem ? stem + '하기 ' : ''}반복하고, 그림 촉진·비디오 모델링으로 자기주도 수행 지원` : null,
           ].filter(Boolean)
         : [
+            fLead ? `- 평가초점 '${fLead}'에 도달하도록 ${sel.area ? sel.area + ' ' : ''}${obj} 학습내용을 지도` : null,
             `- ${sel.area ? sel.area + ' ' : ''}${obj} ${phase(i)}`,
             `- 교사 시범 후 ${stem ? stem + '하기를 ' : ''}단계별(과제분석)로 따라 하기`,
             `- ${i < n - 1 ? '구조화된 학습 자료로' : '실제·모의 상황에서'} ${stem ? stem + '하기 ' : ''}반복·적용하기`,
-          ]).join('\n');
-      const fThis = fociFor(i);
+          ].filter(Boolean)).join('\n');
       const evalText = isQual
         ? [
             fThis.length ? `- 평가초점: ${fThis.join(' / ')}` : (foci.length ? `- 평가초점: ${foci.join(' / ')}` : `- 평가초점을 중심으로 수행 양상을 질적으로 기록`),
@@ -483,6 +490,22 @@ export default function IepPage() {
       return { month: m, goal, content, methods: [...methods], eval: evalText };
     });
     setMonthly(list);
+    // P3: AI 없이도 규칙 초안이 모듈1 출발점·지원 수준(Tier)을 이어받게 한다(결정적, LLM 없음).
+    {
+      const tierNum = supportTier ? (supportTier.match(/[123]/) || [])[0] : '';
+      const tierNote = tierNum === '2'
+        ? ' 소그룹 표적 지원(체크인·체크아웃(CICO)·일일 행동점검표)을 함께 받으며,'
+        : tierNum === '1'
+        ? ' 학급 보편 지원(시각 일과표·학급 규칙·일관된 칭찬)을 바탕으로,'
+        : tierNum === '3'
+        ? ' 1:1 개별 집중 지원(맞춤 촉진·강화, 필요 시 행동중재계획(BIP) 연계)을 받으며,'
+        : '';
+      const needs = startpoint?.supportNeeds ? String(startpoint.supportNeeds).replace(/\n/g, ' / ').trim() : '';
+      if (tierNote || needs) {
+        const seed = `${needs ? `생활지원 요구(${needs})를 고려할 때,` : ''}${tierNote} ${base}와 관련해 교사의 촉진이 있을 때 부분적으로 수행하며 독립 수행은 어려움.`.replace(/\s+/g, ' ').trim();
+        setPlop(seed);
+      }
+    }
     setSemEval(isQual
       ? `평가초점을 중심으로 한 학기 학습 과정과 결과를 내러티브(서술형)로 종합 평가 — 수치·등급이 아니라 학생의 성장·변화 양상과 변곡점을 질적으로 기술.`
       : isTask
@@ -628,72 +651,26 @@ export default function IepPage() {
   }
 
   // 학생의 누적 데이터를 비식별 요약으로 묶는다 (AI 프롬프트용).
+  // 단일 출처(lib/tierContext.js)로 위임 — 기존 동작·출력 동일.
   function buildStudentSummary(data) {
-    const lines = [];
-    lines.push(`학생: ${curStu.code} (익명 ID) · ${curStu.level || ''} · ${curStu.disability || ''}`);
-    if (curStu.note) lines.push(`비식별 요약: ${curStu.note}`);
-    const abc = data?.abc || [];
-    if (abc.length) {
-      lines.push(`ABC 관찰 ${abc.length}건. 최근 사례:`);
-      abc.slice(-3).forEach((r) => lines.push(`  · 선행 "${r.antecedent || ''}" → 행동 "${r.behavior || ''}" → 후속 "${r.consequence || ''}"`));
-    }
-    const mon = data?.mon || [];
-    if (mon.length) lines.push(`행동 데이터 ${mon.length}건 누적(빈도/강도 기록).`);
-    const sz = data?.sz || [];
-    if (sz.length) lines.push(`심리안정실 이용 ${sz.length}회.`);
-    const bip = data?.bip || {};
-    if (bip.alt || bip.prev || bip.teach) {
-      lines.push(`BIP: 대체행동 "${bip.alt || ''}", 예방 "${bip.prev || ''}", 교수 "${bip.teach || ''}", 강화 "${bip.reinf || ''}".`);
-    }
-    const qabf = data?.qabf || [];
-    if (Array.isArray(qabf) && qabf.some((v) => v >= 0)) lines.push('QABF 기능평가 완료(행동 기능 분석 자료 있음).');
-    // 모듈1 출발점 산출물 — 이 IEP 목표의 출발점(행동=지원요구 신호).
-    const sp = startpoint || {};
-    if (sp.supportNeeds || sp.functions || sp.perfLevel) {
-      lines.push('[모듈1 출발점 — 학습자 분석 산출물]');
-      if (sp.supportNeeds) lines.push(`  · 생활지원 요구: ${String(sp.supportNeeds).replace(/\n/g, ' / ')}`);
-      if (sp.functions) lines.push(`  · 기능 목록화: ${String(sp.functions).replace(/\n/g, ' / ')}`);
-      if (sp.perfLevel) lines.push(`  · 수행 가능 수준: ${String(sp.perfLevel).replace(/\n/g, ' / ')}`);
-    }
-    return lines.join('\n');
+    return tcBuildStudentSummary({ student: curStu, data, startpoint });
   }
 
   // 이 학생에게 실제 운영 중인 다층 지원(Tier 1 학급 PBS · Tier 2 소그룹/CICO)을
   // 불러와 프롬프트에 풀어 넣는다. classPBS는 호출부에서 받아온다(반·학기 단위).
+  // 단일 출처(lib/tierContext.js)로 위임 — 기존 동작·출력 동일.
   function buildTierLinkage(data, classPBS) {
-    const lines = [];
+    return tcBuildTierLinkage({ studentId: curStuId, data, classPBS, tier2Groups });
+  }
 
-    // Tier 1 — 학급 보편 지원(반·학기 단위 class_pbs_state)
-    if (classPBS && (classPBS.goal || (classPBS.rewards || []).length)) {
-      const parts = [];
-      if (classPBS.goal) parts.push(`학급 공통 목표 "${classPBS.goal}"`);
-      if (classPBS.target_points != null) parts.push(`강화 체계 목표 ${classPBS.target_points}점${classPBS.current_points != null ? ` (현재 ${classPBS.current_points}점)` : ''}`);
-      const rw = (classPBS.rewards || []).map((r) => (typeof r === 'string' ? r : (r && (r.name || r.label || r.title)) || '')).filter(Boolean);
-      if (rw.length) parts.push(`보상: ${rw.join(', ')}`);
-      lines.push(`· Tier 1 (학급 보편 지원): ${parts.join(' · ')}. 학급 전체에 적용되는 보편적 환경·강화 지원.`);
-    }
-
-    // Tier 2 — 소그룹 표적 지원: 소속 그룹 + CICO(체크인·체크아웃) 운영 내용
-    const myGroup = (tier2Groups || []).find((g) => (g.members || []).some((m) => m.student_id === curStuId));
-    const cico = Array.isArray(data?.cico) ? data.cico : [];
-    const latest = cico[0]; // 최신순 정렬되어 있음
-    if (myGroup || latest) {
-      const parts = [];
-      if (myGroup) parts.push(`소속 소그룹 "${myGroup.name}"${myGroup.note ? ` (비고: ${myGroup.note})` : ''}`);
-      if (latest) {
-        const gs = (latest.goals || []).filter(Boolean);
-        if (gs.length) parts.push(`CICO 일일 행동목표 — ${gs.join(' / ')}`);
-        const pds = (latest.periods || []).filter(Boolean);
-        if (pds.length) parts.push(`일일 행동점검표(DPR) 구조: ${pds.join('·')}`);
-        if (latest.check_in_time || latest.check_out_time) parts.push(`체크인 ${latest.check_in_time || '-'} / 체크아웃 ${latest.check_out_time || '-'}`);
-        if (latest.total_score != null && latest.max_score) parts.push(`최근 수행 ${latest.total_score}/${latest.max_score}점`);
-        parts.push(`최근 점검일 ${latest.date || '-'}`);
-      }
-      lines.push(`· Tier 2 (소그룹 표적 지원): ${parts.join(' · ')}. 보편적 지원에 더해 운영 중인 표적 집단 중재.`);
-    }
-
-    if (!lines.length) return '';
-    return `[지원 체계 연동 — 이 학생에게 실제 운영 중인 다층 지원]\n${lines.join('\n')}\n`;
+  // QABF 추정 주요기능 라벨(예: '회피'). 응답 자료가 없거나 0점이면 ''.
+  function topQabfLabel(data) {
+    const resp = data?.qabf;
+    if (!Array.isArray(resp) || !resp.some((v) => v >= 0)) return '';
+    const { sev } = qabfScores(resp);
+    let top = 0;
+    for (let i = 1; i < 5; i += 1) if (sev[i] > sev[top]) top = i;
+    return sev[top] > 0 ? (QABF_SHORT_LABELS[top] || '') : '';
   }
 
   // 생성 프롬프트 문자열을 만든다(AI 호출/수동 복사 공용).
@@ -711,7 +688,7 @@ export default function IepPage() {
     }
     const tierLinkage = buildTierLinkage(data, classPBS);
     const fociBlock = (evalFoci || []).filter((f) => f.trim()).length
-      ? `[평가초점] (성취기준 분석→해석으로 개발, 평가의 기준점)\n${evalFoci.filter((f) => f.trim()).map((f) => '· ' + f.trim()).join('\n')}\n`
+      ? `[평가초점] (성취기준 분석→해석으로 개발 — 교육목표·교육내용·교육방법·평가를 하나로 잇는 축)\n${evalFoci.filter((f) => f.trim()).map((f) => '· ' + f.trim()).join('\n')}\n`
       : '';
     const stepsArr = (taskSteps || []).map((t) => t.trim()).filter(Boolean);
     const stepsBlock = isTask
@@ -737,6 +714,18 @@ export default function IepPage() {
     const tierLine = supportTier
       ? `[지원 수준] ${supportTier}\n  의미: ${TIER_DESC[tierNum] || ''}\n  → 교육방법·촉진 수준을 이 지원 강도에 맞춰 명시하되, 결과물에는 "Tier 1/2/3" 같은 단계 라벨만 적지 말고${tierLinkage ? ' 위 [지원 체계 연동]에 적힌 이 학생의 실제 운영 내용(학급 PBS·소그룹·CICO 등)을 우선 반영해' : ' 위 의미를 풀어서'} 구체적인 지원 내용으로 서술할 것(Word 제출본만 단독으로 읽어도 무슨 지원인지 이해되도록).\n`
       : '';
+    // P7: 증거기반실제(EBP) 근거연결 — 목표유형·목표텍스트로 후보를 골라 교육방법이 "근거 있는"
+    //     방법을 우선 쓰도록 프롬프트에 주입(규칙기반, 결정적).
+    //     ※ QABF 행동기능은 '행동·사회·정서' 목표일 때만 반영한다. 순수 교과·학습 목표에
+    //       차별강화·FCT·소거 같은 행동감소 EBP가 끌려와 행동중재로 쏠리는 것을 막기 위함.
+    const behaviorRelated = /행동|사회|정서|또래|감정|자기\s*조절|문제\s*행동|의사소통|상호작용|적응/.test(
+      `${sel?.subject || ''} ${sel?.area || ''} ${sel?.text || ''} ${goal || ''}`
+    );
+    const ebpBlock = ebpBlockForGoal({
+      goalType: critType,
+      goalText: goal || sel?.text || '',
+      qabfFunction: behaviorRelated ? topQabfLabel(data) : '',
+    });
     return (
       `너는 특수교육 IEP 작성 전문가다. 아래 "학생 자료"와 "전년도 IEP"를 실제로 반영해, 선택한 성취기준에 대한 개별화교육계획을 작성하라.\n\n` +
       `[학생 자료]\n${summary}\n${priorBlock}\n` +
@@ -745,24 +734,35 @@ export default function IepPage() {
       fociBlock + stepsBlock +
       `[학기목표(참고)] ${goal}\n` +
       `[대상 월] ${ms.join(', ')} (총 ${ms.length}개월)\n` +
-      critLine + tierLine + `\n` +
+      critLine + tierLine + ebpBlock + `\n` +
       `요구사항:\n` +
-      `1) 현행수준(plop)은 위 학생 자료(ABC·행동데이터·BIP·안정실 등)를 근거로 구체적으로 서술.\n` +
+      `1) 현행수준(plop)은 이 성취기준·평가초점에 대한 학생의 현재 수행 수준(무엇을 어디까지 하는지)을 중심으로 쓰고, 행동·지원 정보(ABC·BIP·안정실 등)는 학습에 영향을 주는 범위에서만 보조적으로 덧붙인다.\n` +
       `2) 월별로 지원 수준을 점차 줄이며(도움받아→부분→독립→적용) 목표를 점증시킬 것.\n` +
-      `3) 교육목표·교육내용·교육방법·평가는 각 줄을 "- "로 시작하는 항목으로 2~3개씩 상세히.\n` +
+      `3) [평가초점 연결 — 핵심] 평가초점이 교육목표·교육내용·교육방법·평가를 하나로 꿰는 축이다. 교육목표는 평가초점이 가리키는 능력에 도달하도록 진술하고, 교육내용은 그 평가초점을 배우는 구체적 학습내용·활동으로, 교육방법은 그 내용을 가르치는 방법으로, 평가는 평가초점을 기준으로 작성한다(평가초점이 비어 있으면 성취기준을 먼저 분석해 세운다). 교육목표·교육내용·교육방법·평가는 각각 "- "로 시작하는 항목 2~3개로 상세히 쓴다.\n` +
       `4) 평가(eval)는 ${isQual ? '평가초점을 중심으로, 수업 맥락·학생 반응·성장 변곡점을 담은 내러티브(서술형)로만 작성(수치 금지).' : isTask ? '전체 N단계 중 독립 수행 단계 수와 단계별 촉진 수준(전신→부분→시범→독립)의 변화를 함께 기록하는 과제분석 체크리스트형 서술로 작성.' : '양적 기준 도달 여부와 함께 평가초점 중심의 질적 서술을 함께 포함.'}\n` +
       `5) 학생 실명/식별정보는 절대 쓰지 말 것(익명 ID만).\n` +
       `6) 학기목표(semester_goal)도 성취기준과 학생 자료를 반영해 한 문장으로 작성.\n` +
       `7) "Tier 1/2/3" 같은 단계 라벨을 결과 텍스트에 그대로 쓰지 말 것. 지원 단계를 언급해야 하면 그 단계가 실제로 어떤 지원인지(예: 소그룹 CICO·일일 행동점검표 등)를 구체적으로 풀어서 서술해, 제출본만 읽어도 이해되게 할 것.\n` +
-      `8) 표현은 일상에서 자주 쓰는 쉬운 우리말로 쓸 것. 영어 단어(모니터링·피드백·케이스 등)와 어려운 한자어(제고·함양·도모 등)는 쓰지 말고 쉬운 말로 바꿀 것. 동사도 잘 안 쓰는 표현 대신 교사·보호자가 바로 이해하는 익숙한 말을 쓸 것.\n\n` +
+      `8) 표현은 일상에서 자주 쓰는 쉬운 우리말로 쓸 것. 영어 단어(모니터링·피드백·케이스 등)와 어려운 한자어(제고·함양·도모 등)는 쓰지 말고 쉬운 말로 바꿀 것. 동사도 잘 안 쓰는 표현 대신 교사·보호자가 바로 이해하는 익숙한 말을 쓸 것.\n` +
+      `9) 이 IEP 목표는 성취기준 기반의 학습 목표다. 행동중재(BIP)·Tier 지원·기능평가(QABF) 정보는 '현행수준 파악'과 '지원 강도·교수 방법 선택'의 참고로만 쓰고, 교육목표·교육내용 자체가 문제행동 감소로 치우치지 않게 한다(배워야 할 학습 내용·기능적 기술 습득이 중심이며, 사회·정서 목표도 바람직한 대체기술 습득으로 긍정적으로 진술).\n\n` +
       `반드시 아래 JSON만 출력(설명 금지):\n` +
       `{"semester_goal":"...","plop":"...",${isTask ? '"task_steps":["1단계 행동","2단계 행동"],' : ''}"monthly":[{"month":${ms[0]},"goal":"- ...\\n- ...","content":"- ...\\n- ...","methods":["...","..."],"eval":"- ...\\n- ..."}],"semestral_eval":"..."}`
     );
   }
 
+  // P7: 성취기준 코드 화이트리스트 검증(방어용). 로드된 목록에 없으면 경고만(차단하지 않음).
+  function warnUnknownStandard(code) {
+    const c = String(code || '').trim();
+    if (!c || !rows.length) return;
+    if (!rows.some((r) => r.code === c)) {
+      toast(`성취기준 코드 ${c}가 2022 기본교육과정 목록에 없습니다 — 확인하세요`);
+    }
+  }
+
   // 파싱된 JSON을 화면에 적용(AI 응답/수동 붙여넣기 공용).
   function applyGen(j) {
     const ms = orderMonths(months, sem);
+    if (j && (j.standard_code || j.standardCode)) warnUnknownStandard(j.standard_code || j.standardCode);
     if (j.semester_goal || j.semesterGoal) setGoal(String(j.semester_goal || j.semesterGoal));
     if (j.plop) setPlop(String(j.plop));
     if (Array.isArray(j.monthly) && j.monthly.length) {
@@ -846,8 +846,12 @@ export default function IepPage() {
   async function save() {
     if (!curStuId || !sel) { toast('학생과 성취기준을 선택하세요.'); return; }
     if (!monthly.length) { toast('월별 목표를 먼저 생성하세요.'); return; }
+    // P7: 성취기준 코드 화이트리스트 검증(방어용, 차단하지 않음).
+    warnUnknownStandard(sel.code);
     setBusy(true);
     try {
+      // P2: 실제 데이터로서의 Tier 연동 — 이 학생의 현재 Tier 2 소그룹 id를 함께 저장.
+      const myTierGroups = (tier2Groups || []).filter((g) => (g.members || []).some((m) => m.student_id === curStuId));
       const body = {
         school_year: schoolYear,
         subject: sel.subject, grade_code: sel.gradeCode, area: sel.area,
@@ -855,6 +859,7 @@ export default function IepPage() {
         semester: +sem, semester_goal: goal, plop,
         crit_type: critType, crit_start: +cStart, crit_end: +cEnd,
         support_tier: supportTier,
+        tier2_group_id: myTierGroups[0]?.id ?? null,
         eval_foci: (evalFoci || []).map((f) => f.trim()).filter(Boolean),
         task_steps: (taskSteps || []).map((t) => t.trim()).filter(Boolean),
         chain_type: chainType, prompt_system: promptSystem,
@@ -958,7 +963,8 @@ export default function IepPage() {
         const cur = firstUndone === -1 ? steps.length - 1 : firstUndone;
         const go = (id) => { const el = typeof document !== 'undefined' && document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
         return (
-          <div className="stepnav-progress" role="navigation" aria-label="IEP 작성 순서" style={{ marginTop: 6 }}>
+          <div className="stepnav-progress" role="navigation" aria-label="IEP 작성 순서"
+            style={{ position: 'sticky', top: 0, zIndex: 30, marginTop: 6, padding: '8px 0', background: 'var(--bg, #fff)', boxShadow: '0 4px 8px -6px rgba(0,0,0,.25)' }}>
             {steps.map((s, i) => (
               <button key={i} type="button"
                 className={'stepnav-pill' + (i === cur ? ' cur' : '') + (s.done ? ' done' : '')}
@@ -1200,6 +1206,10 @@ export default function IepPage() {
                 <div className="form-input" style={{ background: 'var(--surface2)', color: 'var(--sub)', fontSize: '.82rem', display: 'flex', alignItems: 'center' }}>수치 기준 없이 ②의 평가초점을 중심으로 학습 과정·결과를 서술 평가합니다.</div>
               </div>
             )}
+          </div>
+          {/* IEP·Tier 관계 안내 — 'Tier 3 완료'가 IEP의 출발점이 아님을 명확히 한다 */}
+          <div style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 4, lineHeight: 1.6 }}>
+            ℹ️ IEP는 'Tier 3 완료'의 결과가 아니라 특수교육대상자 선정(진단·평가 → 특수교육운영위원회 → 배치 → 개별화교육지원팀)에서 시작됩니다. 여기서 'Tier'는 IEP 목표 달성을 위한 지원의 강도(보편/표적/집중)를 뜻하며, 행동지원(PBS·BIP)은 IEP에 포함되는 구성요소입니다.
           </div>
           {/* 학기에 포함할 월 선택 — 표준 학사일정이 기본, 학교 사정에 맞게 켜고 끈다 */}
           <div className="form-group" style={{ marginTop: 4 }}>

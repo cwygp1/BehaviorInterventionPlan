@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
 import PromptResultBlock from './PromptResultBlock';
 import { useStudents } from '../../contexts/StudentContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { useToast } from '../../contexts/ToastContext';
 import AIActionBar from '../ui/AIActionBar';
+import { buildFullStudentContext } from '../../lib/tierContext';
 
 function buildPrompt(stu, data) {
   const mon = (data?.mon || []).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
@@ -54,19 +55,35 @@ Phase A 마지막 3개 데이터 vs Phase B 첫 3개 데이터 비교. 중재 �
 }
 
 export default function EvalPromptModal({ open, onClose }) {
-  const { curStu, curStuData } = useStudents();
+  const { curStu, curStuId, curStuData, tier2Groups, curSemester } = useStudents();
   const { call, status } = useLLM();
   const toast = useToast();
   const [output, setOutput] = useState('');
   const [busy, setBusy] = useState(false);
-  const prompt = curStu ? buildPrompt(curStu, curStuData) : '';
+  const basePrompt = curStu ? buildPrompt(curStu, curStuData) : '';
+  // 평가가 Tier1/2 지원 맥락을 함께 고려하도록 다층 지원·출발점 맥락을 덧붙인다.
+  const [prompt, setPrompt] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!open || !curStu) { setPrompt(basePrompt); return undefined; }
+    (async () => {
+      let full = basePrompt;
+      try {
+        const { text: tierText } = await buildFullStudentContext({ student: curStu, studentId: curStuId, data: curStuData, tier2Groups, semester: curSemester });
+        if (tierText && tierText.trim()) full += '\n\n[참고 — 이 학생의 다층 지원·출발점 맥락 (Tier 1/2 지원을 함께 고려해 해석할 것)]\n' + tierText;
+      } catch (_) { /* best-effort */ }
+      if (!cancelled) setPrompt(full);
+    })();
+    return () => { cancelled = true; };
+  }, [open, curStu, curStuId, curStuData, tier2Groups, curSemester, basePrompt]);
 
   async function runAI() {
     if (!curStu) { toast('학생을 먼저 선택해주세요.'); return; }
     if (status !== 'on') { toast('AI 연결을 먼저 설정해주세요.'); return; }
     setBusy(true); setOutput('');
     try {
-      const reply = await call(prompt);
+      const reply = await call(prompt || basePrompt);
       setOutput(reply);
     } catch (e) { toast('AI 호출 실패: ' + e.message); }
     finally { setBusy(false); }
