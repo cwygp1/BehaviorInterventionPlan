@@ -41,6 +41,7 @@ export default function Layout({ children, activePage, onNavigate }) {
         onNavigate={tryNavigate}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        hasStudent={!!curStuId}
       />
       <main className="main">
         <SecurityBanner />

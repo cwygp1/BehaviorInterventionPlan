@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { fetchIEP, saveIEPGoal, deleteIEPGoal, fetchStartpoint } from '../../lib/api/students';
+import { buildPyeongPrompt, parsePyeongLines, PYEONG_LEVELS } from '../../lib/pyeong';
 import { downloadIepWord, downloadIepFormWord } from '../../lib/utils/printIep';
 
 const GRADE = { 0: '일상생활(공통)', 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
@@ -159,6 +160,9 @@ export default function IepPage() {
   const [critType, setCritType] = useState('rate');
   const [supportTier, setSupportTier] = useState(''); // 모듈4: 지원 수준(Tier 1/2/3)
   const [startpoint, setStartpoint] = useState(null); // 모듈1 출발점 산출물(연동용)
+  const [pyeongLines, setPyeongLines] = useState([]); // 교과 평어 생성 결과
+  const [pyeongLevel, setPyeongLevel] = useState('');
+  const [pyeongBusy, setPyeongBusy] = useState(false);
   const [cStart, setCStart] = useState(30);
   const [cEnd, setCEnd] = useState(80);
   const [monthly, setMonthly] = useState([]);
@@ -511,6 +515,36 @@ export default function IepPage() {
     }
   }
 
+  // 교과 평어(세부능력·특기사항) 생성 — 선택 성취기준 + 목표/현행수준/평가초점 반영.
+  async function aiPyeong() {
+    if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    setPyeongBusy(true); setPyeongLines([]);
+    try {
+      const perfParts = [];
+      if (goal) perfParts.push('학기목표: ' + goal);
+      if ((evalFoci || []).filter((f) => f.trim()).length) perfParts.push('평가초점: ' + evalFoci.filter((f) => f.trim()).join(' / '));
+      if (plop) perfParts.push('현행수준: ' + plop);
+      const prompt = buildPyeongPrompt({
+        standard: `[${sel.code}] ${sel.text}`,
+        performance: perfParts.join('\n') || '수업 활동 및 수행 전반',
+        level: pyeongLevel,
+        count: 12,
+        context: curStu?.note || '',
+      });
+      const r = await callDetailed(prompt, { temperature: 0.6 });
+      const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
+      const parsed = parsePyeongLines(out);
+      if (!parsed.length) { toast('평어를 추출하지 못했어요. 다시 시도해 주세요.'); }
+      setPyeongLines(parsed);
+    } catch (e) { toast('평어 생성 실패: ' + e.message); }
+    finally { setPyeongBusy(false); }
+  }
+  async function copyPyeongAll() {
+    try { await navigator.clipboard.writeText(pyeongLines.map((l) => '- ' + l).join('\n')); toast('평어 전체 복사했어요.'); }
+    catch (_) { toast('복사가 막혔어요. 직접 선택해 복사하세요.'); }
+  }
+
   // AI 미연결: 프롬프트를 만들어 복사 → 외부 AI 응답을 붙여넣어 파싱.
   async function openManualPrompt() {
     if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
@@ -813,6 +847,34 @@ export default function IepPage() {
               : <button className="btn btn-ok" onClick={openManualPrompt}>📋 AI 프롬프트 생성 (복사 → 외부 AI → 붙여넣기)</button>}
           </div>
           <div className="card-subtitle" style={{ marginTop: 8 }}>교육방법 기본값은 학생 장애유형({curStu.disability || '미지정'})에 맞춰 채워집니다: {methodsForType(curStu.disability).join(', ')}</div>
+
+          {/* 교과 평어(세부능력·특기사항) 생성 */}
+          <div style={{ marginTop: 14, padding: 12, border: '1px solid #fdba74', borderRadius: 8, background: '#fff7ed' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ fontWeight: 700, color: '#9a3412' }}>✍ 교과 평어 생성 (세부능력·특기사항)</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <select className="form-input" style={{ width: 'auto', padding: '4px 8px' }} value={pyeongLevel} onChange={(e) => setPyeongLevel(e.target.value)}>
+                  {PYEONG_LEVELS.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
+                </select>
+                <button className="btn btn-sm" style={{ background: '#ea580c', color: '#fff' }} onClick={aiPyeong} disabled={pyeongBusy}>
+                  {pyeongBusy ? '⏳ 생성 중…' : '평어 생성'}
+                </button>
+              </div>
+            </div>
+            <div style={{ fontSize: '.8rem', color: '#9a3412', opacity: 0.8, marginTop: 4 }}>선택한 성취기준 + 학기목표·평가초점·현행수준을 반영해 명사형 평어 문장을 생성합니다.</div>
+            {pyeongLines.length > 0 && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <button className="btn btn-ghost btn-sm" onClick={copyPyeongAll}>📋 전체 복사</button>
+                </div>
+                <ul style={{ listStyle: 'none', padding: 0, margin: '4px 0 0' }}>
+                  {pyeongLines.map((l, i) => (
+                    <li key={i} style={{ fontSize: '.86rem', lineHeight: 1.6, padding: '4px 0', borderBottom: '1px solid #fde4cc' }}>- {l}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
 
           {monthly.length > 0 && (
             <>

@@ -92,16 +92,30 @@ export default function HomePage({ onNavigate }) {
       </div>
 
       <div className="card">
-        <div className="card-title">⚡ 빠른 작업</div>
+        <div className="card-title">🧭 개별 중재 5단계 워크플로</div>
+        <div className="card-subtitle">학생을 선택한 뒤 1번부터 순서대로 진행하세요.</div>
+        <div className="flow-strip">
+          {[
+            { id: 'observe', n: 1, icon: '🔍', t: '학생 관찰 / ABC', d: '행동 관찰 기록' },
+            { id: 'qabf', n: 2, icon: '📊', t: '기능평가 (QABF)', d: '행동 기능 분석' },
+            { id: 'bip', n: 3, icon: '📝', t: '중재계획 (BIP)', d: '중재 전략 수립' },
+            { id: 'monitor', n: 4, icon: '📈', t: '행동 데이터', d: '일일 데이터 기록' },
+            { id: 'eval', n: 5, icon: '✅', t: '결과 평가', d: '차트로 효과 확인' },
+          ].map((s) => (
+            <div className="flow-step" key={s.id} onClick={() => onNavigate(s.id)}>
+              <div className="flow-num">{s.n}</div>
+              <div className="flow-body">
+                <div className="flow-t">{s.icon} {s.t}</div>
+                <div className="flow-d">{s.d}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title">⚡ 바로가기</div>
         <div className="quick-grid">
-          <div className="quick-card" onClick={() => onNavigate('observe')}>
-            <div className="quick-icon">🔍</div>
-            <div><div className="quick-title">ABC 기록</div><div className="quick-desc">오늘의 관찰 남기기</div></div>
-          </div>
-          <div className="quick-card" onClick={() => onNavigate('monitor')}>
-            <div className="quick-icon">📈</div>
-            <div><div className="quick-title">일일 데이터</div><div className="quick-desc">행동 빈도/강도 입력</div></div>
-          </div>
           <div className="quick-card" onClick={() => onNavigate('crisis')}>
             <div className="quick-icon">🚨</div>
             <div><div className="quick-title">위기 대처</div><div className="quick-desc">7단계 대응 & 그라운딩</div></div>
@@ -109,10 +123,6 @@ export default function HomePage({ onNavigate }) {
           <div className="quick-card" onClick={() => onNavigate('builder')}>
             <div className="quick-icon">🤖</div>
             <div><div className="quick-title">AI 어시스턴트</div><div className="quick-desc">AI로 수업자료 생성</div></div>
-          </div>
-          <div className="quick-card" onClick={() => onNavigate('eval')}>
-            <div className="quick-icon">📊</div>
-            <div><div className="quick-title">결과 평가</div><div className="quick-desc">차트로 한눈에 보기</div></div>
           </div>
           <div className="quick-card" onClick={() => onNavigate('support')}>
             <div className="quick-icon">📚</div>

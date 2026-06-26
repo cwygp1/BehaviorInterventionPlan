@@ -42,9 +42,20 @@ export default function MonitorPage() {
     return [...recentObjs, ...stdObjs].slice(0, 12);
   }, [recentBehs]);
 
+  // 오늘 날짜에 저장된 충실도를 체크박스에 복원 (어떤 항목을 체크했는지 items로 보관)
+  useEffect(() => {
+    const todays = (curStuData?.fid || []).find((r) => r.date === date);
+    const it = todays?.items || '';
+    setFidPrev(it[0] === '1');
+    setFidTeach(it[1] === '1');
+    setFidReinf(it[2] === '1');
+    setFidResp(it[3] === '1');
+  }, [curStuId, date, curStuData?.fid]);
+
   if (!curStu) return <><StuHero /><NoStudentHint /></>;
 
   const monRecords = curStuData?.mon || [];
+  const todayFid = (curStuData?.fid || []).find((r) => r.date === date);
 
   async function onSaveMon() {
     if (!beh.trim()) { toast('대상 행동을 입력해주세요.'); return; }
@@ -72,9 +83,15 @@ export default function MonitorPage() {
   async function onSaveFid() {
     setBusy(true);
     try {
-      const score = [fidPrev, fidTeach, fidReinf, fidResp].filter(Boolean).length;
-      const res = await createFidelity(curStuId, { date, score, total: 4 });
-      updateStudentData(curStuId, (cur) => ({ ...cur, fid: [res.record, ...cur.fid] }));
+      const flags = [fidPrev, fidTeach, fidReinf, fidResp];
+      const score = flags.filter(Boolean).length;
+      const items = flags.map((b) => (b ? '1' : '0')).join('');
+      const res = await createFidelity(curStuId, { date, score, total: 4, items });
+      // 같은 날짜 기록은 교체 (서버에서 upsert되므로 캐시도 중복 제거)
+      updateStudentData(curStuId, (cur) => ({
+        ...cur,
+        fid: [res.record, ...cur.fid.filter((r) => r.date !== res.record.date)],
+      }));
       toast(`충실도 ${score}/4 저장`);
     } catch (e) { toast('저장 실패: ' + e.message); }
     finally { setBusy(false); }
@@ -140,8 +157,14 @@ export default function MonitorPage() {
       </div>
 
       <div className="card">
-        <div className="card-title">📋 BIP 실행 충실도 (오늘)</div>
-        <div className="card-subtitle">오늘 BIP를 얼마나 충실하게 실행했는지 체크하세요.</div>
+        <div className="card-title">📋 BIP 실행 충실도 (오늘)
+          {todayFid && (
+            <span style={{ marginLeft: 8, fontSize: '.72rem', fontWeight: 700, color: 'var(--ok)', background: 'var(--ok-l)', padding: '2px 8px', borderRadius: 99 }}>
+              {date} 저장됨 · {todayFid.score}/{todayFid.total}
+            </span>
+          )}
+        </div>
+        <div className="card-subtitle">오늘 BIP를 얼마나 충실하게 실행했는지 체크하세요. 같은 날 다시 저장하면 기존 기록이 갱신됩니다.</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
             <input type="checkbox" checked={fidPrev} onChange={(e) => setFidPrev(e.target.checked)} /> 예방 전략 실행
@@ -157,7 +180,7 @@ export default function MonitorPage() {
           </label>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
-          <button className="btn btn-ok btn-sm" onClick={onSaveFid} disabled={busy}>충실도 저장</button>
+          <button className="btn btn-ok btn-sm" onClick={onSaveFid} disabled={busy}>{todayFid ? '충실도 업데이트' : '충실도 저장'}</button>
         </div>
       </div>
 

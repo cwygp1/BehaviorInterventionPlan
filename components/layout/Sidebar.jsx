@@ -4,7 +4,10 @@ const NAV = [
   { group: '시작', items: [{ id: 'home', label: '홈', icon: '🏠' }] },
   {
     group: 'Tier 1 · 보편적 지원',
-    items: [{ id: 'classpbs', label: '학급 차원 PBS', icon: '🏫' }],
+    items: [
+      { id: 'classpbs', label: '학급 차원 PBS', icon: '🏫' },
+      { id: 'pbssurvey', label: 'PBS 기초 설문조사', icon: '📋' },
+    ],
   },
   {
     group: 'Tier 2 · 소그룹 지원',
@@ -14,18 +17,18 @@ const NAV = [
     group: 'Tier 3 · 개별 맞춤형 중재',
     items: [
       { id: 'tier3', label: '개요 / 5단계 워크플로', icon: '🎯' },
-      { id: 'startpoint', label: '출발점 (모듈1)', icon: '🧭', requiresStudent: true },
-      { id: 'observe', label: '학생 관찰 / ABC', icon: '🔍', requiresStudent: true },
-      { id: 'qabf', label: '기능평가 (QABF)', icon: '📊', requiresStudent: true },
-      { id: 'bip', label: '중재계획 (BIP)', icon: '📝', requiresStudent: true },
-      { id: 'monitor', label: '행동 데이터', icon: '📈', requiresStudent: true },
-      { id: 'eval', label: '결과 평가', icon: '✅', requiresStudent: true },
+      { id: 'observe', label: '학생 관찰 / ABC', icon: '🔍', requiresStudent: true, step: 1 },
+      { id: 'qabf', label: '기능평가 (QABF)', icon: '📊', requiresStudent: true, step: 2 },
+      { id: 'bip', label: '중재계획 (BIP)', icon: '📝', requiresStudent: true, step: 3 },
+      { id: 'monitor', label: '행동 데이터', icon: '📈', requiresStudent: true, step: 4 },
+      { id: 'eval', label: '결과 평가', icon: '✅', requiresStudent: true, step: 5 },
     ],
   },
   {
     group: '개별화교육 (IEP)',
     items: [
       { id: 'priorIep', label: '전년도 IEP', icon: '🗓', requiresStudent: true },
+      { id: 'startpoint', label: '출발점 분석 (현행수준)', icon: '🧭', requiresStudent: true },
       { id: 'iep', label: 'IEP 목표 생성', icon: '📋', requiresStudent: true },
       { id: 'iepReport', label: 'IEP 계획서(완성·출력)', icon: '📄', requiresStudent: true },
     ],
@@ -35,6 +38,7 @@ const NAV = [
     items: [
       { id: 'builder', label: 'AI 어시스턴트', icon: '🤖' },
       { id: 'qa', label: 'PBS Q&A 전문가', icon: '💬' },
+      { id: 'pyeong', label: '평어 생성기', icon: '✍' },
     ],
   },
   {
@@ -49,7 +53,7 @@ const NAV = [
 
 export const PBS_PAGES = NAV.flatMap((g) => g.items).filter((i) => i.requiresStudent).map((i) => i.id);
 
-export default function Sidebar({ activePage, onNavigate, open, onClose }) {
+export default function Sidebar({ activePage, onNavigate, open, onClose, hasStudent }) {
   const { user, logout } = useAuth();
 
   return (
@@ -68,16 +72,21 @@ export default function Sidebar({ activePage, onNavigate, open, onClose }) {
         {NAV.map((section) => (
           <div className="nav-section" key={section.group}>
             <div className="nav-label">{section.group}</div>
-            {section.items.map((item) => (
-              <button
-                key={item.id}
-                className={'nav-item' + (activePage === item.id ? ' active' : '')}
-                onClick={() => onNavigate(item.id)}
-              >
-                <span className="icon">{item.icon}</span>
-                {item.label}
-              </button>
-            ))}
+            {section.items.map((item) => {
+              const locked = item.requiresStudent && !hasStudent;
+              return (
+                <button
+                  key={item.id}
+                  className={'nav-item' + (activePage === item.id ? ' active' : '') + (locked ? ' locked' : '')}
+                  onClick={() => onNavigate(item.id)}
+                  title={locked ? '학생을 먼저 선택하세요' : undefined}
+                >
+                  {item.step ? <span className="nav-step">{item.step}</span> : <span className="icon">{item.icon}</span>}
+                  <span className="nav-text">{item.label}</span>
+                  {locked && <span className="nav-lock" aria-hidden="true">🔒</span>}
+                </button>
+              );
+            })}
           </div>
         ))}
         <div className="sidebar-foot">
