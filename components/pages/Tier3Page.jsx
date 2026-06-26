@@ -6,6 +6,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { fetchIEP } from '../../lib/api/students';
 import { QABF_QUESTIONS, QABF_FUNCTION_LABELS } from '../../lib/qabf';
 import { downloadTier3Doc } from '../../lib/utils/printTier3';
+import { buildFullStudentContext } from '../../lib/tierContext';
 
 // QABF 응답(0~3, 25문항)에서 심각도 합이 가장 큰 기능(들)을 행동의 기능 문구로.
 function qabfFunctionText(responses) {
@@ -50,7 +51,7 @@ const STEPS = [
 ];
 
 export default function Tier3Page({ onNavigate }) {
-  const { curStu, curStuData, curClassId, students, tier3Ids, curStuId, selectStudent, ensureStudentData } = useStudents();
+  const { curStu, curStuData, curClassId, students, tier3Ids, curStuId, selectStudent, ensureStudentData, tier2Groups, curSemester } = useStudents();
   const { user } = useAuth();
   const toast = useToast();
   const [exporting, setExporting] = useState(false);
@@ -63,6 +64,8 @@ export default function Tier3Page({ onNavigate }) {
       const data = curStuData || (await ensureStudentData(curStuId));
       let goals = [];
       try { const d = await fetchIEP(curStuId); goals = d.goals || []; } catch (_) { /* IEP 미작성 가능 */ }
+      // Tier 1(학급 보편)·Tier 2(소그룹/CICO) 연동 맥락을 문서에 함께 내보낸다.
+      const { linkage } = await buildFullStudentContext({ student: curStu, studentId: curStuId, data, tier2Groups, semester: curSemester });
       downloadTier3Doc({
         student: { code: curStu.code, level: curStu.level, disability: curStu.disability, note: curStu.note },
         teacherName: user?.name || '',
@@ -71,6 +74,7 @@ export default function Tier3Page({ onNavigate }) {
         bip: data?.bip || {},
         problemBehavior: data?.abc?.[0]?.b || '',
         functionText: qabfFunctionText(data?.qabf),
+        tierLinkage: linkage,
       });
       toast('Tier 3 통합 문서(Word)를 생성했어요.', 'success');
     } catch (e) {

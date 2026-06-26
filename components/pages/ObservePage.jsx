@@ -308,15 +308,20 @@ export default function ObservePage() {
             </tr>
           </thead>
           <tbody>
-            <tr><td style={{ padding: 8, fontWeight: 700 }}>A</td><td style={{ padding: 8 }}>기분이 안 좋아 보일 때</td><td style={{ padding: 8 }}>수학 익힘책 15쪽을 풀라고 지시했을 때</td></tr>
-            <tr><td style={{ padding: 8, fontWeight: 700 }}>B</td><td style={{ padding: 8 }}>반항적으로 행동했다</td><td style={{ padding: 8 }}>"싫어!"라고 소리치며 책을 바닥에 던졌다</td></tr>
-            <tr><td style={{ padding: 8, fontWeight: 700 }}>C</td><td style={{ padding: 8 }}>혼냈다</td><td style={{ padding: 8 }}>교사가 다가가 "책을 주우세요"라고 지시했으나 거부함</td></tr>
+            <tr><td style={{ padding: 8, fontWeight: 700 }}>A</td><td style={{ padding: 8 }}>기분이 안 좋아 보일 때</td><td style={{ padding: 8 }}>수학 익힘책 15쪽을 풀라고 했을 때</td></tr>
+            <tr><td style={{ padding: 8, fontWeight: 700 }}>B<br /><span style={{ fontSize: '.72rem', fontWeight: 400, color: 'var(--muted)' }}>행동 정의</span></td><td style={{ padding: 8 }}>반항적으로 굴었다</td><td style={{ padding: 8 }}>"싫어!"라고 소리치며 책을 바닥에 던졌다</td></tr>
+            <tr style={{ background: 'var(--surface2)' }}>
+              <td style={{ padding: 8, fontWeight: 700, color: 'var(--pri-d)' }} colSpan={3}>
+                ☝ B(행동)는 이렇게 정의하세요 — 죽은 사람 검사
+                <div style={{ fontSize: '.82rem', fontWeight: 400, color: 'var(--sub)', marginTop: 4 }}>
+                  "죽은 사람도 할 수 있으면 행동이 아닙니다." 그래서 행동(B)을 적을 때는 눈으로 보고 셀 수 있는 움직임으로 적어야 해요.<br />
+                  ❌ "수업을 방해하지 않는다"(가만히 있는 것 → 죽은 사람도 함) → ✅ "수업 시간에 자리에 앉아 과제를 한다"
+                </div>
+              </td>
+            </tr>
+            <tr><td style={{ padding: 8, fontWeight: 700 }}>C</td><td style={{ padding: 8 }}>혼냈다</td><td style={{ padding: 8 }}>교사가 다가가 "책을 주우세요"라고 했으나 거부함</td></tr>
           </tbody>
         </table>
-        <p style={{ fontSize: '.85rem', color: 'var(--sub)', marginTop: 10 }}>
-          <strong>Dead Man's Test:</strong> "죽은 사람도 할 수 있으면 행동이 아니다"<br />
-          ❌ "수업을 방해하지 않는다" → ✅ "수업 시간에 자리에 앉아 과제를 수행한다"
-        </p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
           <button className="btn btn-pri" onClick={() => setExOpen(false)}>확인</button>
         </div>

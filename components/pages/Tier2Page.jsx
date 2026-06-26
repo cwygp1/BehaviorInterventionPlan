@@ -3,9 +3,12 @@ import StuHero from '../student/StuHero';
 import Tier2GroupPanel from '../student/Tier2GroupPanel';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useLLM } from '../../contexts/LLMContext';
 import { saveCICO, deleteCICO } from '../../lib/api/students';
 import { printDPRCard } from '../../lib/utils/printDPR';
 import { EditableChipGroup } from '../ui/QChip';
+import AIActionBar from '../ui/AIActionBar';
+import PromptResultBlock from '../modals/PromptResultBlock';
 
 const PRESETS = {
   '초등 (7교시 + 종례)': ['1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '종례'],
@@ -41,6 +44,11 @@ function readPeriodData(scores, periodName) {
 export default function Tier2Page({ onNavigate }) {
   const { curStu, curStuId, curStuData, updateStudentData, curClassId, tier2Groups } = useStudents();
   const toast = useToast();
+  const { call, status: llmStatus } = useLLM();
+
+  // AI 진전 요약 (선택된 학생의 최근 CICO 기준)
+  const [aiOutput, setAiOutput] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [goalsInput, setGoalsInput] = useState('');
@@ -58,6 +66,9 @@ export default function Tier2Page({ onNavigate }) {
   useEffect(() => {
     if (groupId && !tier2Groups.some((g) => g.id === groupId)) setGroupId(null);
   }, [tier2Groups, groupId]);
+
+  // 학생을 바꾸면 이전 학생의 AI 요약이 남지 않도록 초기화.
+  useEffect(() => { setAiOutput(''); setAiBusy(false); }, [curStuId]);
 
   const cicoRecords = curStuData?.cico || [];
   const todayRecord = cicoRecords.find((r) => r.date === date);
@@ -197,6 +208,46 @@ export default function Tier2Page({ onNavigate }) {
 
   function onPrintDPR() {
     printDPRCard({ studentId: curStu.code, date, periods: periodList, goals, level: curStu.level });
+  }
+
+  // 최근 CICO 기록을 비식별 텍스트로 정리해 소그룹/학생 진전 요약 프롬프트를 만든다.
+  // 학생 이름 등 PII는 절대 포함하지 않고 학생 코드만 사용한다.
+  function buildProgressPrompt() {
+    const recent = cicoRecords.slice(0, 10); // 최근 10일 (cicoRecords는 최신순)
+    const ordered = [...recent].sort((a, b) => (a.date || '').localeCompare(b.date || '')); // 오래된→최근
+    const lines = ordered.map((r) => {
+      const pct = r.max_score ? Math.round((r.total_score / r.max_score) * 100) : 0;
+      return `  - ${r.date}: ${r.total_score}/${r.max_score}점 (${pct}%)${r.comment ? ` · 코멘트: ${r.comment}` : ''}`;
+    }).join('\n');
+    const goalsText = (cicoRecords[0]?.goals || goals || []);
+    return `당신은 Tier 2(소그룹) CICO/DPR 진전을 점검하는 PBS(긍정적 행동지원) 컨설턴트입니다.
+
+## 대상 (비식별)
+- 학생 코드: ${curStu?.code || '미상'}
+- 목표 행동: ${goalsText.length ? goalsText.join(', ') : '(미설정)'}
+
+## 최근 CICO 기록 (최근 ${ordered.length}일, 오래된→최근)
+${lines || '  (기록 없음)'}
+
+## 요약 요구
+- 최근 며칠간의 CICO 진전을 간결하게 요약 (점수 추세·목표 달성 정도)
+- CICO 일반 기준(75% 이상=효과 있음, 50% 미만=Tier 3 개별 중재 고려)에 비추어 현재 수준 평가
+- 이 학생이 Tier 3(개별 중재) 검토가 필요한지 여부를 명확히 표시(필요/관찰 지속/효과 양호)
+- 한국어로, 특수교사가 바로 참고할 수 있게 작성`;
+  }
+
+  async function runProgress() {
+    if (llmStatus !== 'on') { toast('AI 연결을 먼저 설정해주세요.'); return; }
+    if (!cicoRecords.length) { toast('요약할 CICO 기록이 없습니다.'); return; }
+    setAiBusy(true); setAiOutput('');
+    try {
+      const reply = await call(buildProgressPrompt(), { tier: 'fast', label: 'Tier2 진전 요약' });
+      setAiOutput(reply);
+    } catch (e) {
+      toast('AI 호출 실패: ' + e.message, 'error');
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   const last7 = cicoRecords.slice(0, 7);
@@ -470,6 +521,14 @@ export default function Tier2Page({ onNavigate }) {
             (최근 14일만 표시. 총 {cicoRecords.length}건)
           </div>
         )}
+      </div>
+
+      {/* AI 진전 요약 (선택된 학생) */}
+      <div className="card">
+        <div className="card-title">✨ AI 진전 요약</div>
+        <div className="card-subtitle">선택된 학생({curStu.code})의 최근 CICO 기록을 요약하고 Tier 3 개별 중재 검토가 필요한지 표시합니다. (학생 코드만 사용 · 비식별)</div>
+        <AIActionBar prompt={buildProgressPrompt()} onCallAI={runProgress} busy={aiBusy} callLabel="✨ AI 진전 요약" />
+        {(aiOutput || aiBusy) && <PromptResultBlock prompt={buildProgressPrompt()} output={aiOutput} busy={aiBusy} onChange={setAiOutput} />}
       </div>
       </>
       )}

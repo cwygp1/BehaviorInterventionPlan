@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useLLM } from '../../contexts/LLMContext';
 import { saveQABF as apiSaveQABF } from '../../lib/api/students';
 import QabfFnChart from '../ui/QabfFnChart';
+import AIActionBar from '../ui/AIActionBar';
+import PromptResultBlock from '../modals/PromptResultBlock';
 import { downloadQabfExcel } from '../../lib/utils/exportQabf';
 import {
   QABF_QUESTIONS as QUESTIONS,
@@ -11,13 +14,20 @@ import {
   QABF_FUNCTION_COLORS as FUNCTION_COLORS,
   QABF_SCALE as SCALE,
   QABF_SCALE_LABELS as SCALE_LABELS,
+  QABF_SHORT_LABELS,
+  qabfScores,
 } from '../../lib/qabf';
 
 export default function QabfPage() {
   const { curStu, curStuId, curStuData, updateStudentData } = useStudents();
   const toast = useToast();
+  const { call, status: llmStatus } = useLLM();
   const [responses, setResponses] = useState(new Array(25).fill(-1));
   const [busy, setBusy] = useState(false);
+
+  // AI 기능 해석
+  const [aiOutput, setAiOutput] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
 
   // 작성 중 응답 자동 임시저장(학생별, 브라우저 세션). 저장 전에 페이지를 떠나도 복원된다.
   const qabfDraftKey = curStuId ? `qabfDraft:${curStuId}` : null;
@@ -83,6 +93,44 @@ export default function QabfPage() {
 
   const completed = responses.filter((v) => v >= 0).length;
 
+  // QABF 기능/심각도 프로필을 비식별 텍스트로 정리해 AI 해석 프롬프트를 만든다.
+  // (학생 이름 등 PII는 절대 포함하지 않고, 학생 코드만 사용한다.)
+  function buildInterpretPrompt() {
+    const { func, sev } = qabfScores(responses);
+    const profile = QABF_SHORT_LABELS
+      .map((label, i) => `- ${label}: 기능 ${func[i]}/5, 심각도 ${sev[i]}/15`)
+      .join('\n');
+    return `당신은 QABF(행동기능설문지)를 해석하는 PBS(긍정적 행동지원) 컨설턴트입니다.
+
+## 대상 (비식별)
+- 학생 코드: ${curStu?.code || '미상'}
+- QABF 진행: ${completed}/25 문항 응답
+
+## QABF 기능 프로필 (5개 기능)
+기능 = 0점 초과 응답 문항 수(0~5), 심각도 = 점수 합(0~15)
+${profile}
+
+## 해석 요구
+- 위 프로필을 근거로 가장 가능성이 높은 행동의 기능(관심/회피/감각·자동/신체적/강화물 획득)을 1~2개 제시하고 그 근거를 설명
+- 기능별 점수가 시사하는 바를 교사가 이해하기 쉽게 풀이
+- 해당 기능에 부합하는 PBS 기반 중재 방향 2~3가지 (예방·교수·강화·후속결과 차원)
+- 한국어로, 특수교사가 현장에서 바로 참고할 수 있게 작성`;
+  }
+
+  async function runInterpret() {
+    if (llmStatus !== 'on') { toast('AI 연결을 먼저 설정해주세요.'); return; }
+    if (completed === 0) { toast('먼저 QABF 문항에 응답해주세요.'); return; }
+    setAiBusy(true); setAiOutput('');
+    try {
+      const reply = await call(buildInterpretPrompt(), { tier: 'quality', label: 'QABF 기능 해석' });
+      setAiOutput(reply);
+    } catch (e) {
+      toast('AI 호출 실패: ' + e.message, 'error');
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
   return (
     <>
       <StuHero />
@@ -109,6 +157,13 @@ export default function QabfPage() {
             <span style={{ color: 'var(--muted)' }}>(점수가 가장 높은 기능)</span>
           </div>
         )}
+      </div>
+
+      <div className="card">
+        <div className="card-title">✨ AI 기능 해석</div>
+        <div className="card-subtitle">현재 입력된 QABF 기능·심각도 프로필을 바탕으로 추정 기능과 PBS 중재 방향을 제안합니다. (학생 코드만 사용 · 비식별)</div>
+        <AIActionBar prompt={buildInterpretPrompt()} onCallAI={runInterpret} busy={aiBusy} callLabel="✨ AI 기능 해석" />
+        {(aiOutput || aiBusy) && <PromptResultBlock prompt={buildInterpretPrompt()} output={aiOutput} busy={aiBusy} onChange={setAiOutput} />}
       </div>
 
       <div className="card">

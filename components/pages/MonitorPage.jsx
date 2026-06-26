@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useLLM } from '../../contexts/LLMContext';
 import { EditableChipGroup } from '../ui/QChip';
+import AIActionBar from '../ui/AIActionBar';
+import PromptResultBlock from '../modals/PromptResultBlock';
 import { createMonitor, deleteMonitor as apiDelMon, createFidelity } from '../../lib/api/students';
 import ObservationPeriodModal from '../modals/ObservationPeriodModal';
 
@@ -11,6 +14,11 @@ const STD_BEHS = ['자리 이탈', '소리 지르기', '자해', '공격 행동'
 export default function MonitorPage() {
   const { curStu, curStuId, curStuData, updateStudentData } = useStudents();
   const toast = useToast();
+  const { call, status: llmStatus } = useLLM();
+
+  // AI 추세 분석
+  const [aiOutput, setAiOutput] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [beh, setBeh] = useState('');
@@ -90,6 +98,49 @@ export default function MonitorPage() {
       updateStudentData(curStuId, (cur) => ({ ...cur, mon: cur.mon.filter((r) => r.id !== id) }));
       toast('삭제됨');
     } catch (e) { toast('삭제 실패: ' + e.message); }
+  }
+
+  // A(기초선) vs B(중재) 데이터를 비식별 텍스트로 정리해 추세 분석 프롬프트를 만든다.
+  // 학생 이름 등 PII는 절대 포함하지 않고 학생 코드만 사용한다.
+  function buildTrendPrompt() {
+    const recs = (curStuData?.mon || []);
+    const fmt = (r) => `  - ${r.date} [${r.beh || '대상행동'}] 빈도 ${r.freq}회 · 지속 ${r.dur}분 · 강도 ${r.int}/5 · 대체행동수행 ${r.alt} · 지연 ${r.lat}분 · DBR ${r.dbr}/10`;
+    // 오래된→최근 순으로 정렬해 추세를 읽기 쉽게.
+    const ordered = [...recs].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const phaseA = ordered.filter((r) => (r.phase || 'B') === 'A');
+    const phaseB = ordered.filter((r) => (r.phase || 'B') === 'B');
+    const aText = phaseA.length ? phaseA.map(fmt).join('\n') : '  (기초선 데이터 없음)';
+    const bText = phaseB.length ? phaseB.map(fmt).join('\n') : '  (중재 데이터 없음)';
+    return `당신은 단일대상연구 데이터를 해석하는 PBS(긍정적 행동지원) 컨설턴트입니다.
+
+## 대상 (비식별)
+- 학생 코드: ${curStu?.code || '미상'}
+
+## A · 기초선 (중재 전) — ${phaseA.length}건
+${aText}
+
+## B · 중재 (전략 적용 후) — ${phaseB.length}건
+${bText}
+
+## 분석 요구
+- A(기초선) 대비 B(중재) 단계의 추세를 요약 (빈도·지속·강도·대체행동·DBR 변화 중심)
+- 문제행동이 개선되고 있는지(감소/유지/악화) 데이터 근거로 판단
+- 구체적인 다음 단계 제안 — 현 중재를 (1) 그대로 지속, (2) 조정, (3) 강화/집중 중 무엇이 적절한지와 이유
+- 한국어로, 특수교사가 바로 참고할 수 있게 작성`;
+  }
+
+  async function runTrend() {
+    if (llmStatus !== 'on') { toast('AI 연결을 먼저 설정해주세요.'); return; }
+    if (!(curStuData?.mon || []).length) { toast('분석할 행동 데이터가 없습니다.'); return; }
+    setAiBusy(true); setAiOutput('');
+    try {
+      const reply = await call(buildTrendPrompt(), { tier: 'quality', label: '행동 추세 분석' });
+      setAiOutput(reply);
+    } catch (e) {
+      toast('AI 호출 실패: ' + e.message, 'error');
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   async function onSaveFid() {
@@ -206,6 +257,13 @@ export default function MonitorPage() {
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
           <button className="btn btn-ok btn-sm" onClick={onSaveFid} disabled={busy}>{todayFid ? '충실도 업데이트' : '충실도 저장'}</button>
         </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title">✨ AI 추세 분석</div>
+        <div className="card-subtitle">기초선(A)과 중재(B) 데이터를 비교해 행동 추세와 다음 단계(지속·조정·강화)를 제안합니다. (학생 코드만 사용 · 비식별)</div>
+        <AIActionBar prompt={buildTrendPrompt()} onCallAI={runTrend} busy={aiBusy} callLabel="✨ AI 추세 분석" />
+        {(aiOutput || aiBusy) && <PromptResultBlock prompt={buildTrendPrompt()} output={aiOutput} busy={aiBusy} onChange={setAiOutput} />}
       </div>
 
       <div className="card">

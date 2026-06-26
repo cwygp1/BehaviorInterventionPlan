@@ -70,6 +70,13 @@ function promptDesc(promptSystem, i, n, supFn) {
   return `최대-최소촉진 — ${supFn(i).trim()} 수준에서 촉진을 점차 줄여 독립으로`;
 }
 const monthsOf = (sem) => (String(sem) === '2' ? [9, 10, 11, 12, 1] : [3, 4, 5, 6, 7]);
+// 학기에 넣을 수 있는 월 후보(학사일정 순서). 교사가 이 중에서 실제 운영 월을 고른다.
+const MONTH_POOL = (sem) => (String(sem) === '2' ? [9, 10, 11, 12, 1, 2] : [3, 4, 5, 6, 7, 8]);
+// 선택한 월들을 학사일정 순서로 정렬(2학기 1·2월이 뒤로 가도록).
+const orderMonths = (arr, sem) => {
+  const pool = MONTH_POOL(sem);
+  return [...new Set(arr)].filter((m) => pool.includes(m)).sort((a, b) => pool.indexOf(a) - pool.indexOf(b));
+};
 const baseOf = (goal) => goal.replace(/^스스로\s*/, '').replace(/\s*\.?$/, '');
 
 // 받침 유무로 을/를 조사 선택
@@ -187,6 +194,8 @@ export default function IepPage() {
   // 기본 학년도·학기는 상단 전역 선택값을 따른다(반·학기 일관성).
   const [schoolYear, setSchoolYear] = useState(curYear || new Date().getFullYear());
   const [sem, setSem] = useState(String(curSemester || 1));
+  // 학기에 포함할 월(교사가 직접 선택). 기본값은 표준 학사일정(1학기 3~7월 / 2학기 9~12·1월).
+  const [months, setMonths] = useState(() => monthsOf(String(curSemester || 1)));
   const [critType, setCritType] = useState('rate');
   const [supportTier, setSupportTier] = useState(''); // 모듈4: 지원 수준(Tier 1/2/3)
   const [startpoint, setStartpoint] = useState(null); // 모듈1 출발점 산출물(연동용)
@@ -290,6 +299,11 @@ export default function IepPage() {
     setCStart(g.crit_start ?? 30); setCEnd(g.crit_end ?? 80);
     setTaskSteps(Array.isArray(g.task_steps) ? g.task_steps : []);
     setChainType(g.chain_type || 'forward'); setPromptSystem(g.prompt_system || 'mtl');
+    // 저장된 월별 계획에서 실제 운영 월을 복원(없으면 표준 학사일정).
+    {
+      const savedMonths = (Array.isArray(g.monthly) ? g.monthly : []).map((m) => Number(m.month)).filter(Boolean);
+      setMonths(savedMonths.length ? orderMonths(savedMonths, g.semester || 1) : monthsOf(g.semester || 1));
+    }
     setMonthly(Array.isArray(g.monthly) ? g.monthly : []);
     setSemEval(g.semestral_eval || '');
     setEditingId(g.id);
@@ -303,7 +317,7 @@ export default function IepPage() {
   function newGoal() {
     setSel(null); setEditingId(null); setMonthly([]); setSemEval(''); setGoal('');
     setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setSupportTier(''); setTaskSteps([]);
-    setChainType('forward'); setPromptSystem('mtl');
+    setChainType('forward'); setPromptSystem('mtl'); setMonths(monthsOf(sem));
   }
 
   // 전년도 목표 하나를 "기준"으로 삼아 올해 목표 작성을 시작.
@@ -332,6 +346,18 @@ export default function IepPage() {
   function addStep() { setTaskSteps((prev) => [...prev, '']); }
   function editStep(i, val) { setTaskSteps((prev) => prev.map((s, idx) => (idx === i ? val : s))); }
   function removeStep(i) { setTaskSteps((prev) => prev.filter((_, idx) => idx !== i)); }
+  // 특정 단계를 더 잘게 쪼갠다. 한 단계 글에 구분기호(→ / · ; ,)가 있으면 그 기준으로 나누고,
+  // 없으면 같은 내용의 빈 하위 단계 1개를 뒤에 붙여(2개로 나눠) 교사가 채우게 한다.
+  function splitStep(i) {
+    setTaskSteps((prev) => {
+      const cur = String(prev[i] || '').trim();
+      const parts = cur.split(/\s*(?:→|·|;|\/|,)\s*/).map((p) => p.trim()).filter(Boolean);
+      const pieces = parts.length >= 2 ? parts : [cur, ''];
+      const next = [...prev];
+      next.splice(i, 1, ...pieces);
+      return next;
+    });
+  }
   // 단계 수에 맞춰 목표 독립 단계를 동기화(목표=전체 단계, 시작은 범위 내로 클램프).
   function syncTaskTargets(count) {
     if (!count) return;
@@ -373,6 +399,7 @@ export default function IepPage() {
         `2) 모든 단계는 "${target}"을(를) 실제로 완성하기 위한 하위 행동이어야 한다. 마지막 단계는 목표 행동(위 핵심 동사) 자체를 직접 수행한다.\n` +
         '3) "손 씻기", "자리에 앉기" 같은 일반적 준비 행동이나 목표와 무관한 행동은 절대 넣지 말 것.\n' +
         '4) 아래 맥락(동사·대상·평가초점)을 반드시 반영할 것.\n' +
+        '5) 단계 설명은 영어 단어·어려운 한자어 없이, 일상에서 자주 쓰는 쉬운 우리말로 쓸 것.\n' +
         `학기목표: ${target}\n` +
         (sel?.text ? `성취기준: ${sel.text}\n` : '') +
         (ctx.length ? `맥락:\n- ${ctx.join('\n- ')}\n` : '') +
@@ -394,7 +421,8 @@ export default function IepPage() {
 
   function generate() {
     if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
-    const ms = monthsOf(sem), n = ms.length;
+    const ms = orderMonths(months, sem), n = ms.length;
+    if (!n) { toast('포함할 월을 한 개 이상 선택하세요.'); return; }
     const base = baseOf(goal);
     const s = +cStart, e = +cEnd;
     const isQual = critType === 'qual';
@@ -404,13 +432,14 @@ export default function IepPage() {
     const steps = (taskSteps || []).map((t) => t.trim()).filter(Boolean);
     const totalSteps = steps.length || Math.max(+e || 0, 4); // 단계 미입력 시 목표 단계 수로 대체
     const stepChain = steps.length ? steps.map((t, k) => `${k + 1}) ${t}`).join(' → ') : '단계 목록 참조';
-    const stepCount = (i) => Math.max(0, Math.min(totalSteps, Math.round(s + (e - s) * (i / (n - 1)))));
+    const frac = (i) => (n > 1 ? i / (n - 1) : 1); // 월이 1개면 마지막(목표) 수준으로 처리(0 나눗셈 방지)
+    const stepCount = (i) => Math.max(0, Math.min(totalSteps, Math.round(s + (e - s) * frac(i))));
     const crit = (i) => {
-      const v = Math.round(s + (e - s) * (i / (n - 1)));
+      const v = Math.round(s + (e - s) * frac(i));
       if (isTask) return `${totalSteps}단계 중 ${stepCount(i)}단계 독립 수행`;
       return critType === 'rate' ? `독립 수행 ${v}%` : `10회 중 ${Math.max(1, Math.round(v / 10))}회 성공`;
     };
-    const support = (i) => SUP[Math.min(SUP.length - 1, Math.round((i / (n - 1)) * (SUP.length - 1)))];
+    const support = (i) => SUP[Math.min(SUP.length - 1, Math.round(frac(i) * (SUP.length - 1)))];
     const stem = (verb || sel.verb || '').replace(/하기$|기$/, '');
     const obj = (descriptor || base).trim();
     const phase = (i) => CONTENT_SUFFIX[Math.min(CONTENT_SUFFIX.length - 1, Math.floor(i / (n / CONTENT_SUFFIX.length)))];
@@ -443,7 +472,7 @@ export default function IepPage() {
           ].join('\n')
         : isTask
         ? [
-            `- ${totalSteps}단계 중 ${stepCount(i)}단계 독립 수행을 단계별 체크리스트로 확인 (${CHAIN_LABEL[chainType]})`,
+            `- ${totalSteps}단계 중 ${stepCount(i)}단계 독립 수행을 단계별 점검표로 확인 (${CHAIN_LABEL[chainType]})`,
             `- 촉진 수준 변화 기록(${PROMPT_LABEL[promptSystem]}): ${promptDesc(promptSystem, i, n, support)}`,
             steps.length ? `- 미습득 단계 분석 후 과제분석 세분화·추가 지도(다음 지도 단계: ${steps[Math.min(steps.length - 1, stepCount(i))] || steps[steps.length - 1]})` : `- 미습득 단계 분석 후 추가 지도 계획 반영`,
           ].join('\n')
@@ -457,7 +486,7 @@ export default function IepPage() {
     setSemEval(isQual
       ? `평가초점을 중심으로 한 학기 학습 과정과 결과를 내러티브(서술형)로 종합 평가 — 수치·등급이 아니라 학생의 성장·변화 양상과 변곡점을 질적으로 기술.`
       : isTask
-      ? `학기말 ${totalSteps}단계 중 ${Math.max(0, Math.min(totalSteps, e))}단계 독립 수행 도달 여부와 함께, 단계별 촉진 수준의 감소 양상과 미습득 단계의 변화를 과제분석 체크리스트 기준으로 종합 평가. 유지·일반화(다양한 상황 적용)와 자기주도(그림 촉진·비디오 모델링) 수행 정도도 함께 기술.`
+      ? `학기말 ${totalSteps}단계 중 ${Math.max(0, Math.min(totalSteps, e))}단계 독립 수행 도달 여부와 함께, 단계별 촉진 수준의 감소 양상과 미습득 단계의 변화를 과제분석 점검표 기준으로 종합 평가. 유지·일반화(다양한 상황에 적용)와 스스로 하기(그림 촉진·동영상 따라하기) 수행 정도도 함께 기술.`
       : `학기말 ${e}${critType === 'rate' ? '%' : '회'} 기준 도달 여부와 함께, 평가초점 중심의 학습 과정 변화·일반화 정도를 질적으로 서술 평가.`);
   }
 
@@ -513,6 +542,7 @@ export default function IepPage() {
       '- 출력 foci의 개수 = 동사 목록의 개수, 순서도 동일.\n' +
       '- 각 문장은 해당 동사를 평서형(~한다)으로 끝내고, 대상에 맞는 조사·목적어를 자연스럽게 붙일 것(억지 조합 금지).\n' +
       '- 같은 의미를 서로 다른 구체 행동으로 표현. "지원 수준(도움받아/부분/독립)"으로 나누지 말 것.\n' +
+      '- 영어 단어·어려운 한자어 없이 일상에서 자주 쓰는 쉬운 우리말로 쓸 것.\n' +
       (useIntent ? `- 행위지향 "${useIntent}"의 취지를 자연스럽게 반영(모든 문장에 억지로 넣지는 말 것).\n` : '') +
       `성취기준: [${sel.code}] ${sel.text}\n` +
       `서술자(대상): ${useDesc || sel.text}\n` +
@@ -669,7 +699,7 @@ export default function IepPage() {
   // 생성 프롬프트 문자열을 만든다(AI 호출/수동 복사 공용).
   async function buildGenPrompt() {
     const data = curStuData || (await ensureStudentData(curStuId)) || {};
-    const ms = monthsOf(sem);
+    const ms = orderMonths(months, sem);
     const isQual = critType === 'qual';
     const isTask = critType === 'task';
     const u = isTask ? '단계' : (critType === 'rate' ? '%' : '회');
@@ -723,7 +753,8 @@ export default function IepPage() {
       `4) 평가(eval)는 ${isQual ? '평가초점을 중심으로, 수업 맥락·학생 반응·성장 변곡점을 담은 내러티브(서술형)로만 작성(수치 금지).' : isTask ? '전체 N단계 중 독립 수행 단계 수와 단계별 촉진 수준(전신→부분→시범→독립)의 변화를 함께 기록하는 과제분석 체크리스트형 서술로 작성.' : '양적 기준 도달 여부와 함께 평가초점 중심의 질적 서술을 함께 포함.'}\n` +
       `5) 학생 실명/식별정보는 절대 쓰지 말 것(익명 ID만).\n` +
       `6) 학기목표(semester_goal)도 성취기준과 학생 자료를 반영해 한 문장으로 작성.\n` +
-      `7) "Tier 1/2/3" 같은 단계 라벨을 결과 텍스트에 그대로 쓰지 말 것. 지원 단계를 언급해야 하면 그 단계가 실제로 어떤 지원인지(예: 소그룹 CICO·일일 행동점검표 등)를 구체적으로 풀어서 서술해, 제출본만 읽어도 이해되게 할 것.\n\n` +
+      `7) "Tier 1/2/3" 같은 단계 라벨을 결과 텍스트에 그대로 쓰지 말 것. 지원 단계를 언급해야 하면 그 단계가 실제로 어떤 지원인지(예: 소그룹 CICO·일일 행동점검표 등)를 구체적으로 풀어서 서술해, 제출본만 읽어도 이해되게 할 것.\n` +
+      `8) 표현은 일상에서 자주 쓰는 쉬운 우리말로 쓸 것. 영어 단어(모니터링·피드백·케이스 등)와 어려운 한자어(제고·함양·도모 등)는 쓰지 말고 쉬운 말로 바꿀 것. 동사도 잘 안 쓰는 표현 대신 교사·보호자가 바로 이해하는 익숙한 말을 쓸 것.\n\n` +
       `반드시 아래 JSON만 출력(설명 금지):\n` +
       `{"semester_goal":"...","plop":"...",${isTask ? '"task_steps":["1단계 행동","2단계 행동"],' : ''}"monthly":[{"month":${ms[0]},"goal":"- ...\\n- ...","content":"- ...\\n- ...","methods":["...","..."],"eval":"- ...\\n- ..."}],"semestral_eval":"..."}`
     );
@@ -731,7 +762,7 @@ export default function IepPage() {
 
   // 파싱된 JSON을 화면에 적용(AI 응답/수동 붙여넣기 공용).
   function applyGen(j) {
-    const ms = monthsOf(sem);
+    const ms = orderMonths(months, sem);
     if (j.semester_goal || j.semesterGoal) setGoal(String(j.semester_goal || j.semesterGoal));
     if (j.plop) setPlop(String(j.plop));
     if (Array.isArray(j.monthly) && j.monthly.length) {
@@ -914,9 +945,35 @@ export default function IepPage() {
         <span style={{ color: 'var(--muted)' }}>· IEP 목표는 Tier 1(학급)·Tier 2(소그룹)·Tier 3(개별) 자료를 조합해 작성합니다.</span>
       </div>
 
+      {/* 작성 순서 진행바(스텝퍼) — 성취기준 → 평가초점 → 목표 생성 → 저장 → 계획서 */}
+      {(() => {
+        const steps = [
+          { label: '성취기준 선택', done: !!sel, id: 'iep-std' },
+          { label: '평가초점', done: (evalFoci || []).some((f) => String(f).trim()), id: 'iep-foci' },
+          { label: '월별 목표 생성', done: monthly.length > 0, id: 'iep-editor' },
+          { label: '저장', done: !!editingId, id: 'iep-editor' },
+          { label: '계획서 Word', done: false, id: 'iep-saved' },
+        ];
+        const firstUndone = steps.findIndex((s) => !s.done);
+        const cur = firstUndone === -1 ? steps.length - 1 : firstUndone;
+        const go = (id) => { const el = typeof document !== 'undefined' && document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+        return (
+          <div className="stepnav-progress" role="navigation" aria-label="IEP 작성 순서" style={{ marginTop: 6 }}>
+            {steps.map((s, i) => (
+              <button key={i} type="button"
+                className={'stepnav-pill' + (i === cur ? ' cur' : '') + (s.done ? ' done' : '')}
+                onClick={() => go(s.id)} title={`${i + 1}. ${s.label}`} aria-current={i === cur ? 'step' : undefined}>
+                <span className="pnum" aria-hidden="true">{s.done ? '✓' : i + 1}</span>
+                <span className="plabel">{s.label}</span>
+              </button>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* 저장된 목표 — 수정 진입점(맨 위) */}
       {(goalsLoading || savedGoals.length > 0) && (
-        <div className="card">
+        <div className="card" id="iep-saved">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>🗂 저장된 IEP 목표 ({savedGoals.length}) <span style={{ fontWeight: 400, fontSize: 12, color: '#6b7280' }}>— 수정하려면 [✏ 수정], 새로 만들려면 아래에서 성취기준 선택</span></div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -967,7 +1024,7 @@ export default function IepPage() {
       )}
 
       {/* ① 성취기준 선택 */}
-      <div className="card">
+      <div className="card" id="iep-std">
         <div className="card-title">📋 ① 성취기준 선택</div>
         <div className="card-subtitle">2022 개정 기본교육과정 성취기준 {rows.length || ''}개에서 교과·학년군·영역으로 좁혀 선택합니다.</div>
         <div className="form-row">
@@ -1021,7 +1078,7 @@ export default function IepPage() {
 
       {/* ② 평가초점 개발 (성취기준 분석 → 해석 → 평가초점) */}
       {sel && (
-        <div className="card">
+        <div className="card" id="iep-foci">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div>
               <div className="card-title" style={{ marginBottom: 0 }}>🔍 ② 평가초점 개발 (성취기준 분석 → 해석 → 평가초점)</div>
@@ -1113,7 +1170,7 @@ export default function IepPage() {
             <div className="form-group"><label className="form-label">학년도</label>
               <input type="number" className="form-input" value={schoolYear} onChange={(e) => setSchoolYear(Number(e.target.value))} /></div>
             <div className="form-group"><label className="form-label">학기</label>
-              <select className="form-input" value={sem} onChange={(e) => setSem(e.target.value)}><option value="1">1학기 (3~7월)</option><option value="2">2학기 (9~12월)</option></select></div>
+              <select className="form-input" value={sem} onChange={(e) => { setSem(e.target.value); setMonths(monthsOf(e.target.value)); }}><option value="1">1학기 (3~7월)</option><option value="2">2학기 (9~12월)</option></select></div>
             <div className="form-group"><label className="form-label">평가 방식</label>
               <select className="form-input" value={critType} onChange={(e) => {
                 const v = e.target.value;
@@ -1143,6 +1200,28 @@ export default function IepPage() {
                 <div className="form-input" style={{ background: 'var(--surface2)', color: 'var(--sub)', fontSize: '.82rem', display: 'flex', alignItems: 'center' }}>수치 기준 없이 ②의 평가초점을 중심으로 학습 과정·결과를 서술 평가합니다.</div>
               </div>
             )}
+          </div>
+          {/* 학기에 포함할 월 선택 — 표준 학사일정이 기본, 학교 사정에 맞게 켜고 끈다 */}
+          <div className="form-group" style={{ marginTop: 4 }}>
+            <label className="form-label">월별 계획에 넣을 월 ({orderMonths(months, sem).length}개월)</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              {MONTH_POOL(sem).map((m) => {
+                const on = months.includes(m);
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    className={'btn btn-sm ' + (on ? 'btn-pri' : 'btn-ghost')}
+                    aria-pressed={on}
+                    onClick={() => setMonths((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : orderMonths([...prev, m], sem)))}
+                  >
+                    {on ? '✓ ' : ''}{m}월
+                  </button>
+                );
+              })}
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMonths(monthsOf(sem))} title="표준 학사일정으로 되돌리기">↺ 기본</button>
+            </div>
+            <div style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 4 }}>실제 수업하는 월만 켜 두면 그 개월 수만큼 월별 목표가 만들어집니다(예: 4개월만 운영하면 4칸).</div>
           </div>
           {critType === 'task' && (
             <div style={{ marginTop: 10, padding: 12, border: '1px solid #c7b9f0', borderRadius: 8, background: '#f7f4ff' }}>
@@ -1175,9 +1254,9 @@ export default function IepPage() {
               {(() => {
                 const f = taskSteps.filter((t) => t.trim()).length;
                 if (!f) return null;
-                if (f < 4) return <div style={{ fontSize: '.78rem', color: '#9a3412', marginTop: 6 }}>⚠ 단계가 적어요(권장 4~8). 학습자 수준이 낮거나 과제가 어려우면 더 세분화하세요.</div>;
-                if (f > 10) return <div style={{ fontSize: '.78rem', color: '#9a3412', marginTop: 6 }}>⚠ 단계가 많아요({f}단계). 학습자 수준이 높으면 일부 단계를 통합해 보세요.</div>;
-                return <div style={{ fontSize: '.78rem', color: '#15803d', marginTop: 6 }}>✓ 적정 세밀도({f}단계). 가르치다 막히면 해당 단계를 더 잘게 나누세요.</div>;
+                if (f < 4) return <div style={{ fontSize: '.78rem', color: '#9a3412', marginTop: 6 }}>⚠ 단계가 적어요(권장 4~8). 학습자 수준이 낮거나 과제가 어려우면 "⊟ 쪼개기"로 더 잘게 나누세요.</div>;
+                if (f > 8) return <div style={{ fontSize: '.78rem', color: '#9a3412', marginTop: 6 }}>⚠ 단계가 많아요({f}단계, 권장 4~8). 학습자 수준이 높으면 일부 단계를 합쳐 보세요.</div>;
+                return <div style={{ fontSize: '.78rem', color: '#15803d', marginTop: 6 }}>✓ 알맞은 단계 수({f}단계, 권장 4~8). 가르치다 막히는 단계는 "⊟ 쪼개기"로 더 잘게 나누세요.</div>;
               })()}
               {(() => {
                 const f = taskSteps.filter((t) => t.trim()).length;
@@ -1195,9 +1274,10 @@ export default function IepPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                 {taskSteps.length === 0 && <div className="empty-state" style={{ padding: 12 }}>아직 단계가 없습니다. "단계 자동 분석" 또는 "+ 단계 추가"로 만드세요.</div>}
                 {taskSteps.map((t, i) => (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '24px 1fr auto', gap: 8, alignItems: 'center' }}>
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '24px 1fr auto auto', gap: 8, alignItems: 'center' }}>
                     <div style={{ fontWeight: 700, color: '#6b7280', textAlign: 'center' }}>{i + 1}</div>
                     <input className="form-input" value={t} onChange={(e) => editStep(i, e.target.value)} placeholder="예: 수저를 바르게 잡는다." />
+                    <button className="btn btn-ghost btn-sm" onClick={() => splitStep(i)} title="이 단계를 더 잘게 나누기" aria-label="단계 쪼개기">⊟ 쪼개기</button>
                     <button className="btn btn-ghost btn-sm" onClick={() => removeStep(i)} title="삭제" aria-label="단계 삭제">✕</button>
                   </div>
                 ))}
