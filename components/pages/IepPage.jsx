@@ -185,6 +185,7 @@ export default function IepPage() {
   const [savedGoals, setSavedGoals] = useState([]);
   const [busy, setBusy] = useState(false);
   const [aiDecBusy, setAiDecBusy] = useState(false);
+  const [verbBusy, setVerbBusy] = useState(false); // 같은 의미 동사 펼치기 진행 상태
   const [aiGenBusy, setAiGenBusy] = useState(false);
   const [editingId, setEditingId] = useState(null); // 수정 중인 저장 목표 id
   const [goalsLoading, setGoalsLoading] = useState(false);
@@ -395,33 +396,91 @@ export default function IepPage() {
     try { localStorage.setItem('iep_colw', JSON.stringify(d)); } catch (_) {}
   }
 
+  // 같은 의미 동사 목록(vs)을 받아, 각 동사를 쓰는 자연스러운 평가초점 1문장씩 생성해 배열로 반환.
+  // 동사를 한 문장씩 분리해 시키므로(작은 로컬 모델도) 동사가 실제로 다양해진다.
+  async function requestFociFromVerbs(vs, useIntent, useDesc) {
+    const prompt =
+      '아래 성취기준의 "평가초점"을 작성합니다. 주어진 동사 목록의 각 동사마다, 그 동사를 사용하는 자연스러운 평가초점 문장을 정확히 1개씩 만드세요.\n' +
+      '- 출력 foci의 개수 = 동사 목록의 개수, 순서도 동일.\n' +
+      '- 각 문장은 해당 동사를 평서형(~한다)으로 끝내고, 대상에 맞는 조사·목적어를 자연스럽게 붙일 것(억지 조합 금지).\n' +
+      '- 같은 의미를 서로 다른 구체 행동으로 표현. "지원 수준(도움받아/부분/독립)"으로 나누지 말 것.\n' +
+      (useIntent ? `- 행위지향 "${useIntent}"의 취지를 자연스럽게 반영(모든 문장에 억지로 넣지는 말 것).\n` : '') +
+      `성취기준: [${sel.code}] ${sel.text}\n` +
+      `서술자(대상): ${useDesc || sel.text}\n` +
+      `동사 목록: ${vs.join(', ')}\n` +
+      '반드시 JSON 객체 하나만 출력. 예: {"foci":["생활 주변의 물체를 형태에 따라 나눈다.","생활 주변의 물체를 종류에 따라 구분한다.","비슷한 물체끼리 묶는다.","기준에 맞는 물체를 가려낸다."]}';
+    const j = await llmJSON('평가초점 생성', prompt, { tier: 'fast', temperature: 0.45 });
+    return Array.isArray(j.foci) ? j.foci.map(String).map((s) => s.trim()).filter(Boolean) : [];
+  }
+
+  // 동사 칸의 대표 동사를 "같은 의미의 측정 가능한 동사" 목록으로 펼친다(좁은 단일 과제 → 로컬 모델도 안정적).
+  async function aiExpandVerbs() {
+    const base = (verb || (sel && sel.verb) || '').trim();
+    if (!base) { toast('먼저 측정 가능한 동사를 입력하거나 ✨ AI 분석을 실행하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    setVerbBusy(true);
+    try {
+      const prompt =
+        '특수교육 평가초점 작성을 돕습니다. 아래 "대표 동사"와 같은 의미·같은 성취 의도로 바꿔 쓸 수 있는 측정 가능한 동사(구체 행동 표현)를 6~8개 제시하세요.\n' +
+        '- 모두 명사형(~하기/~기). 대표 동사 자신도 포함. 서로 다른 구체 행동이되 의미는 동일.\n' +
+        '예: "분류하기" → {"verbs":["분류하기","나누기","구분하기","묶기","가려내기","골라내기","모으기"]}\n' +
+        '예: "시도하기" → {"verbs":["시도하기","말 걸기","대답하기","표현하기","반응하기"]}\n' +
+        '반드시 JSON 객체 하나만 출력.\n\n' +
+        `대표 동사: ${base}` + (sel ? `\n맥락(성취기준): [${sel.code}] ${sel.text}` : '');
+      const j = await llmJSON('동사 펼치기', prompt, { tier: 'fast', temperature: 0.4 });
+      let alts = Array.isArray(j.verbs) ? j.verbs.map(String).map((s) => s.trim()).filter(Boolean) : [];
+      if (base && !alts.includes(base)) alts = [base, ...alts];
+      alts = [...new Set(alts)];
+      if (!alts.length) { toast('같은 의미 동사를 받지 못했어요.'); return; }
+      setVerbAlts(alts);
+      // 성취기준이 선택돼 있으면 곧바로 동사별 평가초점까지 자연스럽게 생성.
+      if (sel) {
+        try { const foci = await requestFociFromVerbs(alts, intent, descriptor); if (foci.length) setEvalFoci(foci); } catch (_) {}
+      }
+      toast(`같은 의미 동사 ${alts.length}개로 펼쳤어요.`);
+    } catch (e) {
+      toast('동사 펼치기 실패: ' + e.message);
+    } finally {
+      setVerbBusy(false);
+    }
+  }
+
   async function aiDecompose() {
     if (!sel) return;
     if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
     setAiDecBusy(true);
     try {
-      const prompt =
-        '다음 2022 개정 특수교육 기본교육과정 성취기준을 "평가초점 개발" 방법론에 따라 분석·해석하세요.\n' +
-        '1) 성취기준 분석(명시적 요소):\n' +
-        '   - verb: 측정 가능한 대표 동사(과정·기능). 명사형(예: 탐색하기, 비교하기).\n' +
-        '   - verbs: 위 verb와 "같은 의미·같은 성취 의도"로 쓸 수 있는 측정 가능한 동사·행동 표현 배열(3~6개). 같은 목표를 서로 다른 구체 행동으로 표현하며 명사형(~하기/~기). 예: verb가 "시도하기"면 ["시도하기","말 걸기","대답하기","표현하기","반응하기"].\n' +
-        '   - intent: 행위의 지향(가치·태도). 부사/태도 표현. 없으면 빈 문자열.\n' +
-        '   - descriptor: 서술자(지식·이해·대상). 핵심 대상/내용.\n' +
-        '2) 성취기준 해석(서술자·동사 스펙트럼 확장) 후 평가초점을 개발:\n' +
-        '   - foci: 평가초점 문장 배열(3~6개). 각 문장은 "행위지향 + 서술자(대상) + 동사(평서형 ~한다)" 형태의 완결된 한 문장.\n' +
-        '   - ★ 각 평가초점은 verbs의 "서로 다른 동사"를 사용해 같은 의미를 다양한 행동으로 펼칠 것. 모든 초점에 똑같은 동사를 반복하지 말 것.\n' +
-        '   - 평가초점은 "지원 수준(도움받아/부분/독립)"으로 나누지 말 것. 서술자(대상·내용)와 동사의 다양성으로 펼칠 것.\n' +
-        '반드시 JSON 객체 하나만 출력. 예: {"verb":"시도하기","verbs":["시도하기","말 걸기","대답하기","표현하기"],"intent":"스스로","descriptor":"의사소통","foci":["스스로 친구에게 말을 건다.","친구가 묻는 말에 대답한다.","필요한 것을 몸짓이나 말로 표현한다.","대화를 이어가려고 시도한다."]}\n\n' +
+      // 1단계: 성취기준 분석 — 대표 동사 + "같은 의미 동사" 목록 + 행위지향 + 서술자만 추출(평가초점 문장은 다음 단계에서).
+      const aPrompt =
+        '다음 2022 개정 특수교육 기본교육과정 성취기준을 분석하세요. 평가초점 문장은 만들지 말고 "요소"만 추출합니다.\n' +
+        '- verb: 측정 가능한 대표 동사. 명사형(예: 분류하기, 탐색하기).\n' +
+        '- verbs: 위 verb와 "같은 의미·같은 성취 의도"로 바꿔 쓸 수 있는 측정 가능한 동사 6~8개. 모두 명사형(~하기/~기), 대표 동사 자신도 포함. 서로 다른 구체 행동이되 의미는 동일.\n' +
+        '   예: "분류하기" → ["분류하기","나누기","구분하기","묶기","가려내기","골라내기"]\n' +
+        '   예: "시도하기" → ["시도하기","말 걸기","대답하기","표현하기","반응하기"]\n' +
+        '- intent: 행위지향(가치·태도, 부사). 없으면 "".\n' +
+        '- descriptor: 서술자(핵심 대상·내용).\n' +
+        '반드시 JSON 객체 하나만 출력. 예: {"verb":"분류하기","verbs":["분류하기","나누기","구분하기","묶기","가려내기"],"intent":"형태나 종류에 따라","descriptor":"생활 주변의 물체"}\n\n' +
         `성취기준: [${sel.code}] ${sel.text}`;
-      const j = await llmJSON('AI 분석', prompt, { temperature: 0.2 });
-      if (j.verb != null) setVerb(String(j.verb));
-      const alts = Array.isArray(j.verbs) ? j.verbs.map(String).map((s) => s.trim()).filter(Boolean) : [];
+      const a = await llmJSON('AI 분석', aPrompt, { tier: 'fast', temperature: 0.2 });
+      const aVerb = a.verb != null ? String(a.verb).trim() : verb;
+      let alts = Array.isArray(a.verbs) ? a.verbs.map(String).map((s) => s.trim()).filter(Boolean) : [];
+      if (aVerb && !alts.includes(aVerb)) alts = [aVerb, ...alts];
+      alts = [...new Set(alts)];
+      const aIntent = a.intent != null ? String(a.intent) : intent;
+      const aDesc = a.descriptor != null ? String(a.descriptor) : descriptor;
+      if (a.verb != null) setVerb(aVerb);
       setVerbAlts(alts);
-      if (j.intent != null) setIntent(String(j.intent));
-      if (j.descriptor != null) setDescriptor(String(j.descriptor));
-      if (Array.isArray(j.foci) && j.foci.length) setEvalFoci(j.foci.map(String).map((s) => s.trim()).filter(Boolean));
-      else setEvalFoci(buildEvalFoci(j.verb || verb, j.intent != null ? j.intent : intent, j.descriptor || descriptor, sel.text, alts.length ? alts : verbAlts));
-      toast('AI가 성취기준을 분석하고 평가초점을 개발했어요.');
+      if (a.intent != null) setIntent(aIntent);
+      if (a.descriptor != null) setDescriptor(aDesc);
+
+      // 2단계: 같은 의미 동사마다 자연스러운 평가초점 1문장 — 동사가 실제로 다양해지도록 분리 호출.
+      let foci = [];
+      if (alts.length >= 2) {
+        try { foci = await requestFociFromVerbs(alts, aIntent, aDesc); } catch (_) {}
+      }
+      if (foci.length) setEvalFoci(foci);
+      else setEvalFoci(buildEvalFoci(aVerb, aIntent, aDesc, sel.text, alts));
+      toast(`성취기준을 분석하고 같은 의미 동사 ${alts.length}개로 평가초점을 펼쳤어요.`);
     } catch (e) {
       toast('AI 분석 실패: ' + e.message);
     } finally {
@@ -806,14 +865,18 @@ export default function IepPage() {
           </details>
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">측정 가능한 동사 (과정·기능) — 쉼표로 같은 의미의 여러 동사 입력 가능</label>
-              <input className="form-input" value={verb} onChange={(e) => setVerb(e.target.value)} placeholder="예: 시도하기 (또는 시도하기, 말 걸기, 대답하기)" />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                <label className="form-label" style={{ margin: 0 }}>측정 가능한 동사 (과정·기능) — 쉼표로 같은 의미의 여러 동사 입력 가능</label>
+                {aiOn && <button className="btn btn-ghost btn-sm" onClick={aiExpandVerbs} disabled={verbBusy} title="대표 동사를 같은 의미의 여러 동사로 펼칩니다">{verbBusy ? '펼치는 중…' : '✨ 같은 의미 동사 펼치기'}</button>}
+              </div>
+              <input className="form-input" style={{ marginTop: 6 }} value={verb} onChange={(e) => setVerb(e.target.value)} placeholder="예: 분류하기" />
               {verbAlts.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6, alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: '#6b7280' }}>같은 의미 동사:</span>
                   {verbAlts.map((v, i) => (
                     <span key={i} style={{ fontSize: 12, background: 'var(--surface2)', color: 'var(--sub)', borderRadius: 6, padding: '1px 6px' }}>{v}</span>
                   ))}
+                  <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={() => setVerbAlts([])} title="같은 의미 동사 비우기">✕</button>
                 </div>
               )}
             </div>
