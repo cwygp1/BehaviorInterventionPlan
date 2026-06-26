@@ -7,7 +7,7 @@ import { useToast } from '../../contexts/ToastContext';
 const STATUS_LABEL = { on: '✅ 연결됨', off: '⚪ 미설정', err: '❌ 끊김', loading: '⏳ 확인 중' };
 
 export default function AISettingsModal({ open, onClose }) {
-  const { config, status, saveConfig, clearConfig } = useLLM();
+  const { config, status, saveConfig, clearConfig, aiLog, clearLog } = useLLM();
   const toast = useToast();
   const [endpoint, setEndpoint] = useState(LLM_DEFAULT_ENDPOINT);
   const [model, setModel] = useState('');
@@ -243,6 +243,39 @@ export default function AISettingsModal({ open, onClose }) {
           </div>
         </>
       )}
+
+      {/* AI 통신 로그 — 모든 화면(목표 생성 등)의 AI 요청·응답이 여기에 모인다. */}
+      <details style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+        <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '.9rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+          🧪 AI 통신 로그 ({aiLog.length})
+        </summary>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '8px 0' }}>
+          {aiLog.length > 0 && (
+            <button className="btn btn-ghost btn-sm" onClick={clearLog}>로그 지우기</button>
+          )}
+        </div>
+        {aiLog.length === 0 && (
+          <div className="form-hint" style={{ margin: 0 }}>
+            AI 버튼을 누르면 요청·응답 상태(성공/실패·finish_reason·길이)와 응답 원문이 여기에 기록됩니다.
+          </div>
+        )}
+        <div style={{ maxHeight: 320, overflow: 'auto' }}>
+          {aiLog.map((e, i) => (
+            <div key={i} style={{ borderTop: '1px solid var(--border)', padding: '6px 0', fontSize: 12.5 }}>
+              <span style={{ color: 'var(--sub)' }}>{e.t}</span>{' '}
+              <span style={{ fontWeight: 700, color: e.status === 'ok' ? '#15a36e' : e.status === 'error' ? '#c0392b' : '#3b6ef5' }}>
+                [{e.status === 'ok' ? '성공' : e.status === 'error' ? '실패' : '요청'}]</span>{' '}
+              <b>{e.label}</b> — {e.detail}
+              {e.raw && (
+                <details style={{ marginTop: 4 }}>
+                  <summary style={{ cursor: 'pointer', color: '#3b6ef5' }}>응답 원문 보기</summary>
+                  <pre style={{ whiteSpace: 'pre-wrap', background: 'var(--surface-2, #f7f8fa)', padding: 8, borderRadius: 6, maxHeight: 260, overflow: 'auto', fontSize: 11.5, marginTop: 4 }}>{e.raw}</pre>
+                </details>
+              )}
+            </div>
+          ))}
+        </div>
+      </details>
     </Modal>
   );
 }

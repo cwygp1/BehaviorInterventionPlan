@@ -15,6 +15,10 @@ import { useAuth } from './AuthContext';
 const LLMContext = createContext({
   config: null,
   status: 'off', // 'off' | 'on' | 'err' | 'loading'
+  busy: false, // AI 호출이 하나라도 진행 중인지(페이지 이동 가드용)
+  aiLog: [], // 전역 AI 통신 로그(AI 연결 모달에서 표시)
+  pushLog: () => {},
+  clearLog: () => {},
   saveConfig: async () => {},
   clearConfig: async () => {},
   call: async () => '',
@@ -30,6 +34,60 @@ export function LLMProvider({ children }) {
   const [config, setConfig] = useState(null);
   const [status, setStatus] = useState('off');
   const lastLoadedUserId = useRef(null);
+
+  // --- 진행 상태(busy) 추적 -------------------------------------------------
+  // 동시 호출을 고려해 카운터로 관리한다. 0보다 크면 어딘가에서 AI 생성 중.
+  const busyCount = useRef(0);
+  const [busy, setBusy] = useState(false);
+  const incBusy = useCallback(() => {
+    busyCount.current += 1;
+    setBusy(true);
+  }, []);
+  const decBusy = useCallback(() => {
+    busyCount.current = Math.max(0, busyCount.current - 1);
+    if (busyCount.current === 0) setBusy(false);
+  }, []);
+
+  // --- 전역 AI 통신 로그 ----------------------------------------------------
+  const [aiLog, setAiLog] = useState([]);
+  const pushLog = useCallback((logStatus, label, detail, raw) => {
+    setAiLog((prev) => [
+      {
+        t: new Date().toLocaleTimeString(),
+        status: logStatus,
+        label: label || 'AI',
+        detail: detail || '',
+        raw: raw ? String(raw).slice(0, 6000) : '',
+      },
+      ...prev,
+    ].slice(0, 40));
+  }, []);
+  const clearLog = useCallback(() => setAiLog([]), []);
+
+  // 모든 LLM 호출을 감싸 busy/로그를 자동 기록한다. label은 opts.label로 전달.
+  const trackCall = useCallback(
+    async (label, fn) => {
+      incBusy();
+      pushLog('start', label, '요청 전송…');
+      try {
+        const r = await fn();
+        const out = r && r.content && r.content.trim() ? r.content : (r?.reasoning || '');
+        const meta =
+          `finish=${r?.finish_reason ?? '-'} · content ${(r?.content || '').length}자` +
+          ((r?.reasoning || '').length ? ` · reasoning ${(r.reasoning || '').length}자` : '');
+        pushLog('ok', label, '성공 · ' + meta, out);
+        setStatus('on');
+        return r;
+      } catch (e) {
+        pushLog('error', label, '호출/네트워크 오류: ' + (e?.message || ''));
+        setStatus('err');
+        throw e;
+      } finally {
+        decBusy();
+      }
+    },
+    [incBusy, decBusy, pushLog]
+  );
 
   // Load the right config for the current auth state.
   //   • Logged in  → seed from per-user localStorage cache (instant), then
@@ -115,49 +173,26 @@ export function LLMProvider({ children }) {
   // `callDetailed` instead.
   const call = useCallback(
     async (prompt, opts) => {
-      try {
-        const r = await callLLM(prompt, opts, config);
-        setStatus('on');
-        return r.content;
-      } catch (e) {
-        setStatus('err');
-        throw e;
-      }
+      const r = await trackCall(opts?.label || 'AI 생성', () => callLLM(prompt, opts, config));
+      return r.content;
     },
-    [config]
+    [config, trackCall]
   );
 
   const callDetailed = useCallback(
-    async (prompt, opts) => {
-      try {
-        const r = await callLLM(prompt, opts, config);
-        setStatus('on');
-        return r;
-      } catch (e) {
-        setStatus('err');
-        throw e;
-      }
-    },
-    [config]
+    (prompt, opts) => trackCall(opts?.label || 'AI 생성', () => callLLM(prompt, opts, config)),
+    [config, trackCall]
   );
 
   // 이미지(비전) 입력 호출 — { content, reasoning, finish_reason, usage } 반환.
   const callVisionDetailed = useCallback(
-    async (prompt, images, opts) => {
-      try {
-        const r = await callLLMVision(prompt, images, opts, config);
-        setStatus('on');
-        return r;
-      } catch (e) {
-        setStatus('err');
-        throw e;
-      }
-    },
-    [config]
+    (prompt, images, opts) =>
+      trackCall(opts?.label || 'AI 비전 분석', () => callLLMVision(prompt, images, opts, config)),
+    [config, trackCall]
   );
 
   return (
-    <LLMContext.Provider value={{ config, status, saveConfig, clearConfig, call, callDetailed, callVisionDetailed, setStatus }}>
+    <LLMContext.Provider value={{ config, status, busy, aiLog, pushLog, clearLog, saveConfig, clearConfig, call, callDetailed, callVisionDetailed, setStatus }}>
       {children}
     </LLMContext.Provider>
   );

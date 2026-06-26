@@ -5,7 +5,7 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
-import { fetchIEP, saveIEPGoal, deleteIEPGoal, fetchStartpoint } from '../../lib/api/students';
+import { fetchIEP, saveIEPGoal, deleteIEPGoal, fetchStartpoint, fetchClassPBS } from '../../lib/api/students';
 import { buildPyeongPrompt, parsePyeongLines, PYEONG_LEVELS } from '../../lib/pyeong';
 import { downloadIepWord, downloadIepFormWord, downloadTaskSheet } from '../../lib/utils/printIep';
 
@@ -142,41 +142,28 @@ export default function IepPage() {
   const { curStu, curStuId, curStuData, ensureStudentData, curYear, curSemester, studentTier, tier2Groups } = useStudents();
   const { user } = useAuth();
   const toast = useToast();
-  const { callDetailed, config, status: llmStatus } = useLLM();
+  const { callDetailed, config, status: llmStatus, pushLog } = useLLM();
   const aiOn = llmStatus !== 'off';
-  const [aiLog, setAiLog] = useState([]);
   const [manualOpen, setManualOpen] = useState(false);
   const [promptText, setPromptText] = useState('');
   const [pasteText, setPasteText] = useState('');
 
-  function logAI(status, label, detail, raw) {
-    setAiLog((prev) => [{ t: new Date().toLocaleTimeString(), status, label, detail, raw: raw ? String(raw).slice(0, 6000) : '' }, ...prev].slice(0, 40));
-  }
-
-  // reasoning 모델(Qwen3 등) 대응 + 통신 로그 기록.
+  // reasoning 모델(Qwen3 등) 대응. 요청/응답 로그는 LLMContext가 자동 기록하며
+  // (상단 AI 연결 모달에서 확인), 여기서는 JSON 추출 단계 실패만 추가로 남긴다.
   async function llmJSON(label, prompt, opts) {
-    const effTok = opts?.max_tokens ?? config?.max_tokens ?? 8000;
-    logAI('start', label, `요청 전송 (max_tokens=${effTok}${opts?.max_tokens ? '' : ' · AI 설정값 적용'})`);
-    let r;
-    try {
-      r = await callDetailed('/no_think\n' + prompt, opts);
-    } catch (e) {
-      logAI('error', label, '호출/네트워크 오류: ' + e.message);
-      throw e;
-    }
+    const r = await callDetailed('/no_think\n' + prompt, { ...opts, label });
     const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
     const meta = `finish=${r.finish_reason} · content ${(r.content || '').length}자 · reasoning ${(r.reasoning || '').length}자`;
     const m = (out || '').match(/\{[\s\S]*\}/);
     if (!m) {
-      logAI('error', label, 'JSON 없음 · ' + meta, out);
+      pushLog('error', label, 'JSON 없음 · ' + meta, out);
       throw new Error(r.finish_reason === 'length' ? 'AI 응답이 토큰 한도로 잘렸어요. AI 설정에서 max_tokens를 늘려보세요.' : 'AI 응답에서 JSON을 찾지 못했어요.');
     }
     try {
       const j = parseLooseJSON(m[0]);
-      logAI('ok', label, '성공 · ' + meta, m[0]);
       return j;
     } catch (e) {
-      logAI('error', label, 'JSON 파싱 실패 · ' + meta, m[0]);
+      pushLog('error', label, 'JSON 파싱 실패 · ' + meta, m[0]);
       throw new Error('JSON 파싱 실패: ' + e.message);
     }
   }
@@ -641,6 +628,44 @@ export default function IepPage() {
     return lines.join('\n');
   }
 
+  // 이 학생에게 실제 운영 중인 다층 지원(Tier 1 학급 PBS · Tier 2 소그룹/CICO)을
+  // 불러와 프롬프트에 풀어 넣는다. classPBS는 호출부에서 받아온다(반·학기 단위).
+  function buildTierLinkage(data, classPBS) {
+    const lines = [];
+
+    // Tier 1 — 학급 보편 지원(반·학기 단위 class_pbs_state)
+    if (classPBS && (classPBS.goal || (classPBS.rewards || []).length)) {
+      const parts = [];
+      if (classPBS.goal) parts.push(`학급 공통 목표 "${classPBS.goal}"`);
+      if (classPBS.target_points != null) parts.push(`강화 체계 목표 ${classPBS.target_points}점${classPBS.current_points != null ? ` (현재 ${classPBS.current_points}점)` : ''}`);
+      const rw = (classPBS.rewards || []).map((r) => (typeof r === 'string' ? r : (r && (r.name || r.label || r.title)) || '')).filter(Boolean);
+      if (rw.length) parts.push(`보상: ${rw.join(', ')}`);
+      lines.push(`· Tier 1 (학급 보편 지원): ${parts.join(' · ')}. 학급 전체에 적용되는 보편적 환경·강화 지원.`);
+    }
+
+    // Tier 2 — 소그룹 표적 지원: 소속 그룹 + CICO(체크인·체크아웃) 운영 내용
+    const myGroup = (tier2Groups || []).find((g) => (g.members || []).some((m) => m.student_id === curStuId));
+    const cico = Array.isArray(data?.cico) ? data.cico : [];
+    const latest = cico[0]; // 최신순 정렬되어 있음
+    if (myGroup || latest) {
+      const parts = [];
+      if (myGroup) parts.push(`소속 소그룹 "${myGroup.name}"${myGroup.note ? ` (비고: ${myGroup.note})` : ''}`);
+      if (latest) {
+        const gs = (latest.goals || []).filter(Boolean);
+        if (gs.length) parts.push(`CICO 일일 행동목표 — ${gs.join(' / ')}`);
+        const pds = (latest.periods || []).filter(Boolean);
+        if (pds.length) parts.push(`일일 행동점검표(DPR) 구조: ${pds.join('·')}`);
+        if (latest.check_in_time || latest.check_out_time) parts.push(`체크인 ${latest.check_in_time || '-'} / 체크아웃 ${latest.check_out_time || '-'}`);
+        if (latest.total_score != null && latest.max_score) parts.push(`최근 수행 ${latest.total_score}/${latest.max_score}점`);
+        parts.push(`최근 점검일 ${latest.date || '-'}`);
+      }
+      lines.push(`· Tier 2 (소그룹 표적 지원): ${parts.join(' · ')}. 보편적 지원에 더해 운영 중인 표적 집단 중재.`);
+    }
+
+    if (!lines.length) return '';
+    return `[지원 체계 연동 — 이 학생에게 실제 운영 중인 다층 지원]\n${lines.join('\n')}\n`;
+  }
+
   // 생성 프롬프트 문자열을 만든다(AI 호출/수동 복사 공용).
   async function buildGenPrompt() {
     const data = curStuData || (await ensureStudentData(curStuId)) || {};
@@ -649,6 +674,12 @@ export default function IepPage() {
     const isTask = critType === 'task';
     const u = isTask ? '단계' : (critType === 'rate' ? '%' : '회');
     const summary = buildStudentSummary(data);
+    // Tier 1/2 실제 운영 내용 연동 — 반·학기 단위 학급 PBS를 불러온다(실패해도 진행).
+    let classPBS = null;
+    if (curStu?.class_id) {
+      try { classPBS = (await fetchClassPBS(curStu.class_id, sem))?.data || null; } catch (_e) { /* best-effort */ }
+    }
+    const tierLinkage = buildTierLinkage(data, classPBS);
     const fociBlock = (evalFoci || []).filter((f) => f.trim()).length
       ? `[평가초점] (성취기준 분석→해석으로 개발, 평가의 기준점)\n${evalFoci.filter((f) => f.trim()).map((f) => '· ' + f.trim()).join('\n')}\n`
       : '';
@@ -667,12 +698,19 @@ export default function IepPage() {
       : isTask
       ? `[평가 방식] 과제 분석 — 전체 ${stepsArr.length || cEnd}단계. 교수 순서: ${CHAIN_LABEL[chainType]}, 촉진 체계: ${PROMPT_LABEL[promptSystem]}. (a) 독립 수행 단계 수를 ${cStart}→${cEnd}단계로 ${CHAIN_LABEL[chainType]} 방식으로 매월 점증, (b) 각 단계 촉진을 ${PROMPT_LABEL[promptSystem]}로 점차 약화. 단계별 체크리스트로 평가. 비디오 모델링·시간지연·그림 촉진 등 결합 EBP를 교육방법에 포함.\n`
       : `[평가 기준] ${critType === 'rate' ? '독립 수행 비율' : '기회 중 성공 횟수'} 기준을 ${cStart}${u}에서 ${cEnd}${u}로 매월 점증(양적). 평가초점 중심의 질적 서술을 병행.\n`;
+    const TIER_DESC = {
+      1: '학급 전체에 적용하는 보편적 지원 — 시각 일과표·명확한 학급 규칙·일관된 칭찬과 강화 등 학급 차원 PBS. 또래와 같은 환경·자료에서 최소한의 조정으로 학습.',
+      2: '소그룹 단위의 표적 지원 — 체크인·체크아웃(CICO), 소그룹 사회성/학습 지도, 일일 행동점검표(DPR), 주 단위 진전 점검 등. 보편적 지원에 더해 집단 중재를 병행.',
+      3: '개별 집중 지원 — 1:1 또는 고강도 개별 중재, 학생 맞춤 촉진·강화 체계, 기능평가 기반 행동중재계획(BIP) 연계. 가장 높은 강도의 개별화 지원.',
+    };
+    const tierNum = supportTier ? (supportTier.match(/[123]/) || [])[0] : '';
     const tierLine = supportTier
-      ? `[지원 수준] ${supportTier} — 이 학생에게 필요한 지원 강도. 교육방법·촉진 수준을 이 Tier에 맞춰 명시할 것.\n`
+      ? `[지원 수준] ${supportTier}\n  의미: ${TIER_DESC[tierNum] || ''}\n  → 교육방법·촉진 수준을 이 지원 강도에 맞춰 명시하되, 결과물에는 "Tier 1/2/3" 같은 단계 라벨만 적지 말고${tierLinkage ? ' 위 [지원 체계 연동]에 적힌 이 학생의 실제 운영 내용(학급 PBS·소그룹·CICO 등)을 우선 반영해' : ' 위 의미를 풀어서'} 구체적인 지원 내용으로 서술할 것(Word 제출본만 단독으로 읽어도 무슨 지원인지 이해되도록).\n`
       : '';
     return (
       `너는 특수교육 IEP 작성 전문가다. 아래 "학생 자료"와 "전년도 IEP"를 실제로 반영해, 선택한 성취기준에 대한 개별화교육계획을 작성하라.\n\n` +
       `[학생 자료]\n${summary}\n${priorBlock}\n` +
+      tierLinkage +
       `[성취기준] [${sel.code}] ${sel.text} (교과 ${sel.subject}${sel.area ? ' · ' + sel.area : ''})\n` +
       fociBlock + stepsBlock +
       `[학기목표(참고)] ${goal}\n` +
@@ -684,7 +722,8 @@ export default function IepPage() {
       `3) 교육목표·교육내용·교육방법·평가는 각 줄을 "- "로 시작하는 항목으로 2~3개씩 상세히.\n` +
       `4) 평가(eval)는 ${isQual ? '평가초점을 중심으로, 수업 맥락·학생 반응·성장 변곡점을 담은 내러티브(서술형)로만 작성(수치 금지).' : isTask ? '전체 N단계 중 독립 수행 단계 수와 단계별 촉진 수준(전신→부분→시범→독립)의 변화를 함께 기록하는 과제분석 체크리스트형 서술로 작성.' : '양적 기준 도달 여부와 함께 평가초점 중심의 질적 서술을 함께 포함.'}\n` +
       `5) 학생 실명/식별정보는 절대 쓰지 말 것(익명 ID만).\n` +
-      `6) 학기목표(semester_goal)도 성취기준과 학생 자료를 반영해 한 문장으로 작성.\n\n` +
+      `6) 학기목표(semester_goal)도 성취기준과 학생 자료를 반영해 한 문장으로 작성.\n` +
+      `7) "Tier 1/2/3" 같은 단계 라벨을 결과 텍스트에 그대로 쓰지 말 것. 지원 단계를 언급해야 하면 그 단계가 실제로 어떤 지원인지(예: 소그룹 CICO·일일 행동점검표 등)를 구체적으로 풀어서 서술해, 제출본만 읽어도 이해되게 할 것.\n\n` +
       `반드시 아래 JSON만 출력(설명 금지):\n` +
       `{"semester_goal":"...","plop":"...",${isTask ? '"task_steps":["1단계 행동","2단계 행동"],' : ''}"monthly":[{"month":${ms[0]},"goal":"- ...\\n- ...","content":"- ...\\n- ...","methods":["...","..."],"eval":"- ...\\n- ..."}],"semestral_eval":"..."}`
     );
@@ -741,7 +780,7 @@ export default function IepPage() {
         count: 12,
         context: curStu?.note || '',
       });
-      const r = await callDetailed(prompt, { temperature: 0.6 });
+      const r = await callDetailed(prompt, { temperature: 0.6, label: '교과 평어 생성' });
       const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
       const parsed = parsePyeongLines(out);
       if (!parsed.length) { toast('평어를 추출하지 못했어요. 다시 시도해 주세요.'); }
@@ -1243,28 +1282,6 @@ export default function IepPage() {
         </div>
       )}
 
-      {/* AI 통신 로그 */}
-      <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <div className="card-title" style={{ marginBottom: 0 }}>🧪 AI 통신 로그 ({aiLog.length})</div>
-          {aiLog.length > 0 && <button className="btn btn-ghost btn-sm" onClick={() => setAiLog([])}>로그 지우기</button>}
-        </div>
-        {aiLog.length === 0 && <div className="card-subtitle">AI 버튼을 누르면 요청·응답 상태(성공/실패·finish_reason·길이)와 응답 원문이 여기에 기록됩니다.</div>}
-        {aiLog.map((e, i) => (
-          <div key={i} style={{ borderTop: '1px solid #eee', padding: '6px 0', fontSize: 12.5 }}>
-            <span style={{ color: '#6b7280' }}>{e.t}</span>{' '}
-            <span style={{ fontWeight: 700, color: e.status === 'ok' ? '#15a36e' : e.status === 'error' ? '#c0392b' : '#3b6ef5' }}>
-              [{e.status === 'ok' ? '성공' : e.status === 'error' ? '실패' : '요청'}]</span>{' '}
-            <b>{e.label}</b> — {e.detail}
-            {e.raw && (
-              <details style={{ marginTop: 4 }}>
-                <summary style={{ cursor: 'pointer', color: '#3b6ef5' }}>응답 원문 보기</summary>
-                <pre style={{ whiteSpace: 'pre-wrap', background: '#f7f8fa', padding: 8, borderRadius: 6, maxHeight: 260, overflow: 'auto', fontSize: 11.5, marginTop: 4 }}>{e.raw}</pre>
-              </details>
-            )}
-          </div>
-        ))}
-      </div>
       <Modal open={manualOpen} onClose={() => setManualOpen(false)} maxWidth={700}>
         <h3>📋 AI 프롬프트 (연결된 AI 없이 사용)</h3>
         <p style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.6, marginTop: 4 }}>

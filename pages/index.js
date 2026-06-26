@@ -1,6 +1,7 @@
 import Head from 'next/head';
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLLM } from '../contexts/LLMContext';
 import { StudentProvider } from '../contexts/StudentContext';
 import AuthScreen from '../components/auth/AuthScreen';
 import Layout from '../components/layout/Layout';
@@ -30,7 +31,34 @@ import StepNav from '../components/ui/StepNav';
 
 export default function Home() {
   const { user, status } = useAuth();
+  const { busy } = useLLM();
   const [activePage, setActivePage] = useState('home');
+
+  // AI 생성 중 페이지 이동 가드. 이동하면 진행 중인 결과가 사라지므로 한 번 확인한다.
+  const navigate = useCallback(
+    (page) => {
+      if (busy) {
+        const go = window.confirm(
+          'AI가 생성 중입니다. 지금 다른 메뉴로 이동하면 생성 중인 결과가 사라질 수 있어요.\n그래도 이동할까요?'
+        );
+        if (!go) return;
+      }
+      setActivePage(page);
+    },
+    [busy]
+  );
+
+  // 실제 새로고침·탭 닫기로 인한 결과 유실도 막는다(생성 중일 때만).
+  useEffect(() => {
+    if (!busy) return undefined;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [busy]);
 
   if (status === 'loading') {
     return (
@@ -54,8 +82,8 @@ export default function Home() {
     <>
       <Head><title>특수교육 AI 통합 플랫폼</title></Head>
       <StudentProvider>
-        <Layout activePage={activePage} onNavigate={setActivePage}>
-          <PageRouter activePage={activePage} onNavigate={setActivePage} />
+        <Layout activePage={activePage} onNavigate={navigate}>
+          <PageRouter activePage={activePage} onNavigate={navigate} />
         </Layout>
       </StudentProvider>
     </>
