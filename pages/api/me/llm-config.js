@@ -2,17 +2,18 @@ import { sql } from '../../../lib/db';
 import { requireAuth } from '../../../lib/auth';
 import { ensureLlmConfigCached } from '../../../lib/ensureSchema';
 
-// Per-user LLM (LM Studio) settings.
-//   GET    /api/me/llm-config          → { config } | { config: null }
-//   PUT    /api/me/llm-config          → upsert { endpoint, model, max_tokens }
-//   DELETE /api/me/llm-config          → remove this user's config
+// 전체 공용 LLM (LM Studio) 설정 — 모든 선생님이 같은 연결을 공유한다.
+// 단일 행(app_llm_config.id = 1)만 사용한다.
+//   GET    /api/me/llm-config   → { config } | { config: null }   (로그인만 필요)
+//   PUT    /api/me/llm-config   → upsert { endpoint, model, model_fast, max_tokens } + password
+//   DELETE /api/me/llm-config   → 공용 설정 초기화 + password
 //
-// We store config server-side so settings follow the user across devices and
-// don't leak between accounts on a shared browser.
-export default requireAuth(async function handler(req, res) {
-  const userId = req.userId;
+// 조회는 누구나(로그인 사용자) 가능하지만, 수정/삭제는 비밀번호가 필요하다.
+// 비밀번호는 현재 'tomtom'으로 하드코딩되어 있다(추후 환경변수로 이전 가능).
+const EDIT_PASSWORD = 'tomtom';
 
-  // `/api/migrate`가 아직 안 돌았어도 model_fast 컬럼이 보장되도록 자가치유.
+export default requireAuth(async function handler(req, res) {
+  // `/api/migrate`가 아직 안 돌았어도 공용 설정 테이블이 보장되도록 자가치유.
   try {
     await ensureLlmConfigCached();
   } catch (e) {
@@ -22,10 +23,10 @@ export default requireAuth(async function handler(req, res) {
   if (req.method === 'GET') {
     const r = await sql`
       SELECT endpoint, model, model_fast, max_tokens
-        FROM user_llm_configs
-       WHERE user_id = ${userId}
+        FROM app_llm_config
+       WHERE id = 1
     `;
-    if (r.rows.length === 0) {
+    if (r.rows.length === 0 || !r.rows[0].endpoint) {
       return res.status(200).json({ config: null });
     }
     const row = r.rows[0];
@@ -40,7 +41,10 @@ export default requireAuth(async function handler(req, res) {
   }
 
   if (req.method === 'PUT') {
-    const { endpoint, model, model_fast, max_tokens } = req.body || {};
+    const { endpoint, model, model_fast, max_tokens, password } = req.body || {};
+    if (password !== EDIT_PASSWORD) {
+      return res.status(403).json({ error: '비밀번호가 올바르지 않습니다.' });
+    }
     if (typeof endpoint !== 'string' || !endpoint.trim()) {
       return res.status(400).json({ error: 'endpoint는 필수입니다.' });
     }
@@ -52,9 +56,9 @@ export default requireAuth(async function handler(req, res) {
     const md = (typeof model === 'string' ? model.trim() : '') || '';
     const mf = (typeof model_fast === 'string' ? model_fast.trim() : '') || '';
     await sql`
-      INSERT INTO user_llm_configs (user_id, endpoint, model, model_fast, max_tokens, updated_at)
-      VALUES (${userId}, ${ep}, ${md}, ${mf}, ${mt}, NOW())
-      ON CONFLICT (user_id)
+      INSERT INTO app_llm_config (id, endpoint, model, model_fast, max_tokens, updated_at)
+      VALUES (1, ${ep}, ${md}, ${mf}, ${mt}, NOW())
+      ON CONFLICT (id)
       DO UPDATE SET
         endpoint   = EXCLUDED.endpoint,
         model      = EXCLUDED.model,
@@ -68,7 +72,11 @@ export default requireAuth(async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    await sql`DELETE FROM user_llm_configs WHERE user_id = ${userId}`;
+    const { password } = req.body || {};
+    if (password !== EDIT_PASSWORD) {
+      return res.status(403).json({ error: '비밀번호가 올바르지 않습니다.' });
+    }
+    await sql`DELETE FROM app_llm_config WHERE id = 1`;
     return res.status(200).json({ ok: true });
   }
 

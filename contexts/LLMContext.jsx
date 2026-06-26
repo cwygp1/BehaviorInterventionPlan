@@ -76,29 +76,7 @@ export function LLMProvider({ children }) {
           return;
         }
 
-        // No server config. One-time migration: if there's a legacy localStorage
-        // entry from before per-user storage existed, push it to the server.
-        const legacy = getLLMConfig(null); // null → legacy key
-        if (legacy && legacy.endpoint) {
-          try {
-            const saved = await saveServerLLMConfig({
-              endpoint: legacy.endpoint,
-              model: legacy.model || '',
-              max_tokens: legacy.max_tokens || 8000,
-            });
-            if (lastLoadedUserId.current !== userId) return;
-            const finalCfg = saved || legacy;
-            setConfig(finalCfg);
-            setLLMConfig(finalCfg, userId);
-            setStatus('on');
-            // Drop legacy key now that it's safely on the server.
-            try { window.localStorage.removeItem('seai.llm.config'); } catch (_) {}
-            return;
-          } catch (_) {
-            // Migration failed — fall through to "no config" state.
-          }
-        }
-
+        // 공용 설정이 서버에 아직 없음. (설정은 전체 공용이므로 계정별 마이그레이션은 하지 않는다.)
         if (cached) {
           // Server has nothing and no legacy — clear stale per-user cache.
           clearLLMConfig(userId);
@@ -111,10 +89,10 @@ export function LLMProvider({ children }) {
     })();
   }, [authStatus, userId]);
 
-  /** Persist config to server + per-user cache. */
+  /** Persist shared config to server + local cache. 비밀번호 필요. */
   const saveConfig = useCallback(
-    async (cfg) => {
-      const saved = await saveServerLLMConfig(cfg); // throws on validation/auth errors
+    async (cfg, password) => {
+      const saved = await saveServerLLMConfig(cfg, password); // throws on validation/auth/password errors
       const finalCfg = saved || cfg;
       setLLMConfig(finalCfg, userId);
       setConfig(finalCfg);
@@ -124,13 +102,9 @@ export function LLMProvider({ children }) {
     [userId]
   );
 
-  /** Remove config from server + per-user cache. */
-  const clearConfig = useCallback(async () => {
-    try {
-      await deleteServerLLMConfig();
-    } catch (_e) {
-      // best effort — clear locally anyway
-    }
+  /** Reset shared config on server + local cache. 비밀번호 필요. */
+  const clearConfig = useCallback(async (password) => {
+    await deleteServerLLMConfig(password); // throws on password error
     clearLLMConfig(userId);
     setConfig(null);
     setStatus('off');
