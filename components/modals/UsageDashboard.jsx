@@ -20,6 +20,25 @@ const PERIOD_OPTS = [7, 14, 30, 60, 90];
 const SCALE_OPTS = [1, 5, 30, 100];
 const WINDOW_OPTS = [30, 60, 90, 365];
 
+// 제공자 표시 라벨(셀렉트/표에서 친숙하게).
+const PROVIDER_LABEL = {
+  Google: 'Google (Gemini)',
+  Anthropic: 'Anthropic (Claude)',
+  OpenAI: 'OpenAI (GPT)',
+  Alibaba: 'Alibaba (Qwen)',
+  Zhipu: 'Zhipu (GLM)',
+  DeepSeek: 'DeepSeek',
+};
+
+// 첫 로드 시 기본으로 비교표에 올릴 대표 모델(존재하는 것만).
+const DEFAULT_COMPARE = [
+  'Anthropic::Claude Sonnet 4.6',
+  'OpenAI::GPT-5.4',
+  'Google::Gemini 3.5 Flash',
+  'Zhipu::GLM-5.2',
+  'Alibaba::Qwen3.7-Max',
+];
+
 const round2 = (n) => Math.round(n * 100) / 100;
 const fmtInt = (n) => Math.round(n || 0).toLocaleString('ko-KR');
 const fmtUSD = (n) => {
@@ -48,6 +67,11 @@ export default function UsageDashboard() {
   // 비용 시뮬레이션 선택
   const [scaleUsers, setScaleUsers] = useState(30);
   const [windowDays, setWindowDays] = useState(30);
+
+  // 모델 비교 — 제공자→모델 선택 후 비교표에 추가
+  const [selProvider, setSelProvider] = useState('');
+  const [selModel, setSelModel] = useState('');
+  const [compareKeys, setCompareKeys] = useState([]); // 'provider::model'
 
   // 단가·환율 편집
   const [editRows, setEditRows] = useState([]);
@@ -113,19 +137,61 @@ export default function UsageDashboard() {
 
   const fx = data?.fx || editFx || 1380;
   const pricing = data?.pricing || [];
+  const keyOf = (p) => p.provider + '::' + p.model;
 
-  // 선택된 (사용자 수 × 기간)에 대한 모델별 비용
-  const costRows = useMemo(() => {
+  // 제공자 목록 + 선택 제공자의 모델 목록
+  const providers = useMemo(() => [...new Set(pricing.map((p) => p.provider))], [pricing]);
+  const modelsForProvider = useMemo(
+    () => pricing.filter((p) => p.provider === selProvider),
+    [pricing, selProvider]
+  );
+
+  // pricing 로드/변경 시: 제공자 기본선택 + 비교표 기본 시드/정리
+  useEffect(() => {
+    if (!pricing.length) return;
+    setSelProvider((prev) => (prev && providers.includes(prev) ? prev : providers[0] || ''));
+    setCompareKeys((prev) => {
+      if (prev.length) return prev.filter((k) => pricing.some((p) => keyOf(p) === k));
+      const seeded = DEFAULT_COMPARE.filter((k) => pricing.some((p) => keyOf(p) === k));
+      return seeded.length ? seeded : pricing.slice(0, 4).map(keyOf);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pricing]);
+
+  // 제공자 바뀌면 모델 선택을 그 제공자 첫 모델로
+  useEffect(() => {
+    const first = pricing.find((p) => p.provider === selProvider);
+    setSelModel(first ? first.model : '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selProvider, pricing]);
+
+  // 비교 테이블: 선택된 모델들의 (사용자 수 × 기간) 예상 비용, 저렴한 순
+  const compareRows = useMemo(() => {
     const { inTok, outTok } = project(scaleUsers, windowDays);
-    return pricing
+    return compareKeys
+      .map((k) => pricing.find((p) => keyOf(p) === k))
+      .filter(Boolean)
       .map((p) => {
         const usd = (inTok / 1e6) * p.input_per_mtok + (outTok / 1e6) * p.output_per_mtok;
-        return { ...p, usd, krw: usd * fx };
+        return { ...p, key: keyOf(p), usd, krw: usd * fx };
       })
       .sort((a, b) => a.usd - b.usd);
-  }, [pricing, project, scaleUsers, windowDays, fx]);
+  }, [compareKeys, pricing, project, scaleUsers, windowDays, fx]);
 
-  const maxCost = costRows.length ? costRows[costRows.length - 1].usd : 0;
+  const maxCost = compareRows.length ? Math.max(...compareRows.map((r) => r.usd)) : 0;
+
+  function addCompare() {
+    if (!selProvider || !selModel) return;
+    const k = selProvider + '::' + selModel;
+    setCompareKeys((prev) => (prev.includes(k) ? prev : [...prev, k]));
+  }
+  function removeCompare(k) {
+    setCompareKeys((prev) => prev.filter((x) => x !== k));
+  }
+  function addAllProvider() {
+    const keys = pricing.filter((p) => p.provider === selProvider).map(keyOf);
+    setCompareKeys((prev) => [...new Set([...prev, ...keys])]);
+  }
 
   async function savePricing() {
     setSaving(true);
@@ -293,8 +359,10 @@ export default function UsageDashboard() {
             </table>
           </div>
 
-          {/* 4) 모델별 클라우드 전환 예상 비용 */}
+          {/* 4) 모델별 클라우드 전환 예상 비용 — 제공자→모델 선택해 비교표에 추가 */}
           <div style={secTitle}>💵 모델별 클라우드 전환 예상 비용</div>
+
+          {/* 투사 기준: 사용자 수 × 기간 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
             <label style={{ color: 'var(--sub)' }}>
               사용자{' '}
@@ -310,10 +378,36 @@ export default function UsageDashboard() {
                 {WINDOW_OPTS.map((d) => <option key={d} value={d}>{d}일{d === 365 ? '(1년)' : ''}</option>)}
               </select>
             </label>
-            <span className="form-hint" style={{ margin: 0 }}>
-              환율 1 USD = {fmtInt(fx)}원
-            </span>
+            <span className="form-hint" style={{ margin: 0 }}>환율 1 USD = {fmtInt(fx)}원</span>
           </div>
+
+          {/* 제공자 → 모델 선택 후 비교표에 추가 */}
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+            <label style={{ color: 'var(--sub)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: '.78rem', fontWeight: 700 }}>제공자</span>
+              <select className="form-input" style={{ width: 180 }}
+                value={selProvider} onChange={(e) => setSelProvider(e.target.value)}>
+                {providers.map((pv) => <option key={pv} value={pv}>{PROVIDER_LABEL[pv] || pv}</option>)}
+              </select>
+            </label>
+            <label style={{ color: 'var(--sub)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: '.78rem', fontWeight: 700 }}>모델</span>
+              <select className="form-input" style={{ width: 240 }}
+                value={selModel} onChange={(e) => setSelModel(e.target.value)}>
+                {modelsForProvider.map((m) => (
+                  <option key={m.model} value={m.model}>
+                    {m.model} — ${m.input_per_mtok}/{m.output_per_mtok}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button className="btn btn-pri btn-sm" onClick={addCompare}>＋ 비교에 추가</button>
+            <button className="btn btn-ghost btn-sm" onClick={addAllProvider}>이 제공자 전체</button>
+            {compareKeys.length > 0 && (
+              <button className="btn btn-ghost btn-sm" style={{ color: 'var(--err)' }} onClick={() => setCompareKeys([])}>비교 초기화</button>
+            )}
+          </div>
+
           <div style={{ ...card, overflowX: 'auto' }}>
             <div className="form-hint" style={{ margin: '0 0 8px' }}>
               {scaleUsers}명 × {windowDays}일 = 입력 {fmtInt(project(scaleUsers, windowDays).inTok)} · 출력 {fmtInt(project(scaleUsers, windowDays).outTok)} 토큰 기준
@@ -326,15 +420,16 @@ export default function UsageDashboard() {
                   <th style={{ ...th, textAlign: 'right' }}>출력 $/1M</th>
                   <th style={{ ...th, textAlign: 'right' }}>예상(USD)</th>
                   <th style={{ ...th, textAlign: 'right' }}>예상(KRW)</th>
+                  <th style={th}></th>
                 </tr>
               </thead>
               <tbody>
-                {costRows.map((p, i) => (
-                  <tr key={i}>
+                {compareRows.map((p) => (
+                  <tr key={p.key}>
                     <td style={td}>
                       <div style={{ fontWeight: 700 }}>{p.model}</div>
                       <div style={{ color: 'var(--muted)', fontSize: '.76rem' }}>
-                        {p.provider}{p.note ? ' · ' + p.note : ''}
+                        {PROVIDER_LABEL[p.provider] || p.provider}{p.note ? ' · ' + p.note : ''}
                       </div>
                       <div style={{ height: 4, marginTop: 4, background: 'var(--border)', borderRadius: 2 }}>
                         <div style={{ height: '100%', width: (maxCost > 0 ? (p.usd / maxCost) * 100 : 0) + '%', background: 'var(--pri)', borderRadius: 2 }} />
@@ -344,16 +439,19 @@ export default function UsageDashboard() {
                     <td style={tdR}>{p.output_per_mtok}</td>
                     <td style={{ ...tdR, fontWeight: 700 }}>{fmtUSD(p.usd)}</td>
                     <td style={tdR}>{fmtKRW(p.krw)}</td>
+                    <td style={td}>
+                      <button className="btn btn-ghost btn-sm" style={{ color: 'var(--err)' }} onClick={() => removeCompare(p.key)}>제거</button>
+                    </td>
                   </tr>
                 ))}
-                {costRows.length === 0 && (
-                  <tr><td style={td} colSpan={5}>등록된 단가가 없습니다. 아래에서 추가하세요.</td></tr>
+                {compareRows.length === 0 && (
+                  <tr><td style={td} colSpan={6}>위에서 제공자·모델을 골라 “비교에 추가”를 누르면 여기에 쌓여 비교됩니다.</td></tr>
                 )}
               </tbody>
             </table>
             <div className="form-hint" style={{ margin: '8px 0 0' }}>
               ※ 실제 API 비용은 로컬 LM Studio라 <b>현재 0원</b>입니다. 위 값은 “클라우드로 바꾸면 얼마?”의 추정치이며,
-              토큰 수는 로컬 모델 기준이라 실제 클라우드와 차이가 날 수 있습니다.
+              토큰 수는 로컬 모델 기준이라 실제 클라우드와 차이가 날 수 있습니다. 단가는 자주 바뀌니 아래 편집에서 갱신하세요.
             </div>
           </div>
 
