@@ -9,8 +9,8 @@ import { ensureLlmConfigCached } from '../../../lib/ensureSchema';
 //   DELETE /api/me/llm-config   → 공용 설정 초기화 + password
 //
 // 조회는 누구나(로그인 사용자) 가능하지만, 수정/삭제는 비밀번호가 필요하다.
-// 비밀번호는 현재 'tomtom'으로 하드코딩되어 있다(추후 환경변수로 이전 가능).
-const EDIT_PASSWORD = 'tomtom';
+// 비밀번호는 현재 'clsrnfkd'으로 하드코딩되어 있다(추후 환경변수로 이전 가능).
+const EDIT_PASSWORD = 'clsrnfkd';
 
 export default requireAuth(async function handler(req, res) {
   // `/api/migrate`가 아직 안 돌았어도 공용 설정 테이블이 보장되도록 자가치유.

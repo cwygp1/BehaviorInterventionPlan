@@ -3,9 +3,9 @@ import { requireAuth } from '../../../lib/auth';
 import { ensureUsageSchemaCached } from '../../../lib/ensureSchema';
 
 // 기간별 AI 사용량 집계 + 클라우드 단가 + 환율을 한 번에 반환한다.
-// 관리 비밀번호(tomtom) 게이트. 대시보드 조회 전용.
+// 관리 비밀번호(clsrnfkd) 게이트. 대시보드 조회 전용.
 //   POST /api/usage/stats { password, days }
-const EDIT_PASSWORD = 'tomtom';
+const EDIT_PASSWORD = 'clsrnfkd';
 const num = (v) => Number(v) || 0;
 
 export default requireAuth(async function handler(req, res) {
