@@ -7,9 +7,11 @@ import {
   deleteServerLLMConfig,
   fetchServerLLMConfig,
   getLLMConfig,
+  resolveModel,
   saveServerLLMConfig,
   setLLMConfig,
 } from '../lib/api/llm';
+import { apiPost } from '../lib/api/client';
 import { useAuth } from './AuthContext';
 
 const LLMContext = createContext({
@@ -64,19 +66,47 @@ export function LLMProvider({ children }) {
   }, []);
   const clearLog = useCallback(() => setAiLog([]), []);
 
+  // 요청별 토큰 사용량을 서버에 저장한다(파이어앤포겟). 실패해도 생성엔 영향 없음.
+  // 사용량 대시보드(기간·사용자·모델별 집계, 클라우드 전환 비용 시뮬레이션)의 원천 데이터.
+  const logUsage = useCallback((info) => {
+    const u = (info && info.usage) || {};
+    const pt = Number(u.prompt_tokens) || 0;
+    const ct = Number(u.completion_tokens) || 0;
+    const tt = Number(u.total_tokens) || pt + ct;
+    // 토큰 정보가 전혀 없으면(usage 미제공) 저장하지 않는다.
+    if (!pt && !ct && !tt) return;
+    apiPost('/api/usage/log', {
+      model: (info && info.model) || '',
+      tier: (info && info.tier) || '',
+      label: (info && info.label) || '',
+      prompt_tokens: pt,
+      completion_tokens: ct,
+      total_tokens: tt,
+    }).catch(() => {});
+  }, []);
+
   // 모든 LLM 호출을 감싸 busy/로그를 자동 기록한다. label은 opts.label로 전달.
+  // meta = { model, tier } — 사용량 로깅에 쓰인다(응답의 실제 model이 우선).
   const trackCall = useCallback(
-    async (label, fn) => {
+    async (label, fn, meta) => {
       incBusy();
       pushLog('start', label, '요청 전송…');
       try {
         const r = await fn();
         const out = r && r.content && r.content.trim() ? r.content : (r?.reasoning || '');
-        const meta =
+        const usageStr = r?.usage
+          ? ` · 토큰 ${r.usage.total_tokens ?? '?'}(in ${r.usage.prompt_tokens ?? '?'}/out ${r.usage.completion_tokens ?? '?'})`
+          : '';
+        const metaStr =
           `finish=${r?.finish_reason ?? '-'} · content ${(r?.content || '').length}자` +
-          ((r?.reasoning || '').length ? ` · reasoning ${(r.reasoning || '').length}자` : '');
-        pushLog('ok', label, '성공 · ' + meta, out);
+          ((r?.reasoning || '').length ? ` · reasoning ${(r.reasoning || '').length}자` : '') +
+          usageStr;
+        pushLog('ok', label, '성공 · ' + metaStr, out);
         setStatus('on');
+        // 사용량 로깅 — 응답의 실제 model을 우선 사용, 없으면 호출 시 계산한 model.
+        if (r?.usage) {
+          logUsage({ model: r.model || meta?.model || '', tier: meta?.tier || '', label, usage: r.usage });
+        }
         return r;
       } catch (e) {
         pushLog('error', label, '호출/네트워크 오류: ' + (e?.message || ''));
@@ -86,7 +116,7 @@ export function LLMProvider({ children }) {
         decBusy();
       }
     },
-    [incBusy, decBusy, pushLog]
+    [incBusy, decBusy, pushLog, logUsage]
   );
 
   // Load the right config for the current auth state.
@@ -173,21 +203,35 @@ export function LLMProvider({ children }) {
   // `callDetailed` instead.
   const call = useCallback(
     async (prompt, opts) => {
-      const r = await trackCall(opts?.label || 'AI 생성', () => callLLM(prompt, opts, config));
+      const r = await trackCall(
+        opts?.label || 'AI 생성',
+        () => callLLM(prompt, opts, config),
+        { model: resolveModel(config, opts?.tier), tier: opts?.tier || 'quality' }
+      );
       return r.content;
     },
     [config, trackCall]
   );
 
   const callDetailed = useCallback(
-    (prompt, opts) => trackCall(opts?.label || 'AI 생성', () => callLLM(prompt, opts, config)),
+    (prompt, opts) =>
+      trackCall(
+        opts?.label || 'AI 생성',
+        () => callLLM(prompt, opts, config),
+        { model: resolveModel(config, opts?.tier), tier: opts?.tier || 'quality' }
+      ),
     [config, trackCall]
   );
 
-  // 이미지(비전) 입력 호출 — { content, reasoning, finish_reason, usage } 반환.
+  // 이미지(비전) 입력 호출 — { content, reasoning, finish_reason, model, usage } 반환.
+  // 비전은 기본적으로 빠른(멀티모달) 모델을 쓰므로 tier 기본값을 'fast'로 맞춘다.
   const callVisionDetailed = useCallback(
     (prompt, images, opts) =>
-      trackCall(opts?.label || 'AI 비전 분석', () => callLLMVision(prompt, images, opts, config)),
+      trackCall(
+        opts?.label || 'AI 비전 분석',
+        () => callLLMVision(prompt, images, opts, config),
+        { model: resolveModel(config, opts?.tier || 'fast'), tier: opts?.tier || 'fast' }
+      ),
     [config, trackCall]
   );
 

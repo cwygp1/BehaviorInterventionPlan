@@ -3,6 +3,7 @@ import Modal from '../ui/Modal';
 import { AI_EDIT_PASSWORD, LLM_DEFAULT_ENDPOINT, llmRequest } from '../../lib/api/llm';
 import { useLLM } from '../../contexts/LLMContext';
 import { useToast } from '../../contexts/ToastContext';
+import UsageDashboard from './UsageDashboard';
 
 const STATUS_LABEL = { on: '✅ 연결됨', off: '⚪ 미설정', err: '❌ 끊김', loading: '⏳ 확인 중' };
 
@@ -135,7 +136,7 @@ export default function AISettingsModal({ open, onClose }) {
   const valStyle = { color: 'var(--ink)', fontWeight: 600, textAlign: 'right', wordBreak: 'break-all' };
 
   return (
-    <Modal open={open} onClose={onClose} maxWidth={540}>
+    <Modal open={open} onClose={onClose} maxWidth={unlocked ? 780 : 540}>
       <h3>🤖 AI 어시스턴트 연결 <span style={{ fontSize: '.7rem', fontWeight: 600, color: 'var(--pri-d)', background: 'var(--pri-soft)', borderRadius: 'var(--r-sm)', padding: '2px 8px', marginLeft: 6, verticalAlign: 'middle' }}>전체 공용</span></h3>
       <p style={{ fontSize: '.86rem', color: 'var(--sub)', margin: '6px 0 12px', lineHeight: 1.6 }}>
         이 연결 설정은 <strong>모든 선생님에게 동일하게 적용</strong>되는 공용 설정입니다.
@@ -242,6 +243,18 @@ export default function AISettingsModal({ open, onClose }) {
             </div>
           </div>
         </>
+      )}
+
+      {/* 사용량 · 비용 대시보드 — 잠금 해제(관리 비밀번호) 시에만 표시. */}
+      {unlocked && (
+        <details open style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '.9rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+            📊 사용량 · 비용 분석 (클라우드 전환 시 예상)
+          </summary>
+          <div style={{ marginTop: 12 }}>
+            <UsageDashboard />
+          </div>
+        </details>
       )}
 
       {/* AI 통신 로그 — 모든 화면(목표 생성 등)의 AI 요청·응답이 여기에 모인다. */}
