@@ -4,7 +4,36 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { EditableChipGroup, makeAppender } from '../ui/QChip';
 import CrisisPromptModal from '../modals/CrisisPromptModal';
+import ResourceDownloads from '../ui/ResourceDownloads';
 import { createSZ, deleteSZ as apiDelSz } from '../../lib/api/students';
+
+// 위기관리 예시 문서 (public/docs/crisis/) — 다운로드해 학교 상황에 맞게 수정 사용.
+const CRISIS_DOCS = [
+  {
+    name: '(예시) 위기관리계획 양식',
+    desc: '학생별 위기관리계획 수립 양식 — 단계별 대응·역할 분담 포함',
+    links: [
+      { label: 'HWPX', href: '/docs/crisis/위기관리계획_양식.hwpx' },
+      { label: 'PDF', href: '/docs/crisis/위기관리계획_양식.pdf' },
+    ],
+  },
+  {
+    name: '(예시) 위기행동 대처 사후보고서',
+    desc: '위기행동 발생 후 경과·대응·후속조치 기록 보고서',
+    links: [
+      { label: 'HWPX', href: '/docs/crisis/위기행동_대처_사후보고서.hwpx' },
+      { label: 'PDF', href: '/docs/crisis/위기행동_대처_사후보고서.pdf' },
+    ],
+  },
+  {
+    name: '(예시) 위기행동에 따른 대응전략',
+    desc: '위기행동 유형·단계별 대응전략 정리 자료',
+    links: [
+      { label: 'HWPX', href: '/docs/crisis/위기행동에_따른_대응전략.hwpx' },
+      { label: 'PDF', href: '/docs/crisis/위기행동에_따른_대응전략.pdf' },
+    ],
+  },
+];
 
 const STAGES = [
   { n: 1, name: '안정', en: 'Calm', color: '#12b886', detail: '예방 전략을 유지하며 바람직한 행동을 적극 칭찬·강화합니다. 4:1 긍정 비율을 유지하고, 학급 규칙을 시각적으로 안내합니다. 안정 상태를 최대한 오래 유지하는 것이 핵심입니다.' },
@@ -97,6 +126,12 @@ export default function CrisisPage() {
           ))}
         </div>
       </div>
+
+      <ResourceDownloads
+        title="📎 위기관리 자료실 (예시 문서)"
+        subtitle="위기관리계획·사후보고서·대응전략 예시를 내려받아 학교 상황에 맞게 수정해 사용하세요. HWPX는 한글(호환 프로그램)에서 편집할 수 있습니다."
+        files={CRISIS_DOCS}
+      />
 
       {/* C2 신체적 개입 5대 원칙 */}
       <div className="card" style={{ background: '#fff7e6', borderColor: '#fde7b8' }}>

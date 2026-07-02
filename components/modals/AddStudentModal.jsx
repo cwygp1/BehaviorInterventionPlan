@@ -3,6 +3,7 @@ import Modal from '../ui/Modal';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { EditableChipGroup, makeAppender } from '../ui/QChip';
+import { composeNote } from '../../lib/utils/splitNote';
 
 const LEVELS = ['초등', '중등', '고등'];
 const DISABILITIES = ['지적장애', '자폐스펙트럼(ASD)', '지체장애', '청각장애', '시각장애', '정서행동장애', '학습장애', 'ADHD', '발달지연', '중복중증'];
@@ -18,8 +19,13 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
   const [code, setCode] = useState('');
   const [level, setLevel] = useState(LEVELS[0]);
   const [dis, setDis] = useState(DISABILITIES[0]);
-  const [note, setNote] = useState('');
+  const [strengths, setStrengths] = useState('');
+  const [difficulties, setDifficulties] = useState('');
+  const [extra, setExtra] = useState('');
   const [busy, setBusy] = useState(false);
+
+  // 비식별 요약(AI 전송용) — 강점/어려움/추가 요약을 합쳐 자동 구성.
+  const note = composeNote(strengths, difficulties, extra);
 
   useEffect(() => { if (open) setStep(0); }, [open]);
 
@@ -35,9 +41,9 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
     if (!curClass) { toast('먼저 학급을 선택하거나 추가해주세요. (상단 ⚙ 학급 관리)'); return; }
     setBusy(true);
     try {
-      const created = await addStudent({ student_code: c, level, disability: dis, note });
+      const created = await addStudent({ student_code: c, level, disability: dis, note, strengths, difficulties });
       toast(c + ' 등록 완료');
-      setCode(''); setNote(''); setStep(0);
+      setCode(''); setStrengths(''); setDifficulties(''); setExtra(''); setStep(0);
       if (created?.id) await selectStudent(created.id);
       onCreated?.(created);
       onClose();
@@ -91,16 +97,21 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
       {step === 1 && (
         <>
           <div className="form-group">
-            <label className="form-label">강점 (칩을 눌러 추가)</label>
-            <EditableChipGroup storageKey="stu_strength" defaults={STRENGTH_CHIPS} onPick={makeAppender(note, setNote, false)} />
+            <label className="form-label">🌟 강점 (칩을 눌러 추가)</label>
+            <EditableChipGroup storageKey="stu_strength" defaults={STRENGTH_CHIPS} onPick={makeAppender(strengths, setStrengths, false)} />
+            <textarea className="form-textarea" rows={2} value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="예: 시각자료 이해 우수, 규칙 준수 양호" />
           </div>
           <div className="form-group">
-            <label className="form-label">어려움 (칩을 눌러 추가)</label>
-            <EditableChipGroup storageKey="stu_difficulty" defaults={DIFFICULTY_CHIPS} onPick={makeAppender(note, setNote, false)} />
+            <label className="form-label">⚠ 어려움 (칩을 눌러 추가)</label>
+            <EditableChipGroup storageKey="stu_difficulty" defaults={DIFFICULTY_CHIPS} onPick={makeAppender(difficulties, setDifficulties, false)} />
+            <textarea className="form-textarea" rows={2} value={difficulties} onChange={(e) => setDifficulties(e.target.value)} placeholder="예: 언어적 설명 이해 어려움, 주의집중 시간 짧음" />
           </div>
           <div className="form-group">
-            <label className="form-label">비식별 요약 / 현행수준 (이 내용만 AI에 전송)</label>
-            <textarea className="form-textarea" rows={5} value={note} onChange={(e) => setNote(e.target.value)} placeholder="이름·학년·민감정보 금지.&#10;예: 시각자료 이해 우수, 언어적 설명 이해 어려움, 수 개념 기초 단계." />
+            <label className="form-label">추가 요약 / 현행수준 (선택)</label>
+            <textarea className="form-textarea" rows={2} value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="이름·학년·민감정보 금지. 예: 수 개념 기초 단계." />
+            <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 4 }}>
+              ※ 강점은 출발점 분석의 '학생 강점'으로, 어려움은 '행동특성(교사관찰)'로 자동 연동됩니다. 비식별 요약(AI 전송용)은 위 내용으로 자동 구성됩니다.
+            </div>
           </div>
         </>
       )}
@@ -111,6 +122,8 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
           <Row k="익명 ID" v={code || '(미입력)'} />
           <Row k="학교급" v={level} />
           <Row k="주요 장애 영역" v={dis} />
+          <Row k="강점" v={strengths || '(없음)'} />
+          <Row k="어려움" v={difficulties || '(없음)'} />
           <Row k="비식별 요약" v={note || '(없음)'} />
           <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 8 }}>※ 등록 후 학생이 자동 선택되어 사이드바 기능(IEP·관찰·BIP 등)에서 바로 사용됩니다.</div>
         </div>

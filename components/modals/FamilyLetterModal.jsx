@@ -6,7 +6,7 @@ import { useLLM } from '../../contexts/LLMContext';
 import { useToast } from '../../contexts/ToastContext';
 import { printFamilyLetter } from '../../lib/utils/printFamilyLetter';
 import { createLetter, deleteLetter } from '../../lib/api/students';
-import { buildFullStudentContext } from '../../lib/tierContext';
+import { buildFullStudentContext, raisdLines } from '../../lib/tierContext';
 import PromptResultBlock from './PromptResultBlock';
 import AIActionBar from '../ui/AIActionBar';
 
@@ -284,6 +284,7 @@ export default function FamilyLetterModal({ open, onClose }) {
   function buildPrompt() {
     const bipSummary = curStuData?.bip ? `대체행동: ${curStuData.bip.alt || ''}, 성공기준: ${curStuData.bip.crit || ''}` : '(BIP 미작성)';
     const recentMon = (curStuData?.mon || []).slice(0, 5).map((r) => `${r.date} ${r.beh}(빈도 ${r.freq})`).join('; ');
+    const raisd = raisdLines(curStuData);
     return `당신은 특수교육 교사입니다. 학부모에게 보낼 가정 연계 통신문 본문을 한국어로 작성해주세요.
 
 ## 학생 (비식별)
@@ -291,7 +292,7 @@ export default function FamilyLetterModal({ open, onClose }) {
 - 학교급: ${curStu?.level}
 - 비식별 요약: ${curStu?.note || '(없음)'}
 - BIP 요지: ${bipSummary}
-- 최근 행동 모니터링: ${recentMon || '(없음)'}
+- 최근 행동 모니터링: ${recentMon || '(없음)'}${raisd.length ? '\n' + raisd.map((l) => `- ${l}`).join('\n') + '\n※ 가정에서 협력해 주실 부분을 제안할 때 위 선호/강화물을 활용하고, 사용 금지 항목은 절대 제안하지 마세요.' : ''}
 
 ## 통신문 카테고리
 ${category}

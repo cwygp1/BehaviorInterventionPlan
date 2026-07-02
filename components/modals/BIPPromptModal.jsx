@@ -5,7 +5,8 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { useToast } from '../../contexts/ToastContext';
 import AIActionBar from '../ui/AIActionBar';
-import { buildFullStudentContext } from '../../lib/tierContext';
+import { buildFullStudentContext, raisdLines } from '../../lib/tierContext';
+import { studentProfileParts } from '../../lib/utils/splitNote';
 import { ebpBlockForBehavior } from '../../lib/ebp';
 
 // QABF 5기능 합계에서 최대 기능 라벨(EBP 매핑용). 없으면 ''.
@@ -37,7 +38,8 @@ function buildPrompt(stu, data) {
 - ID: ${stu?.code}
 - 학교급: ${stu?.level}
 - 주요 장애: ${stu?.disability}
-- 비식별 요약: ${stu?.note || '(없음)'}
+- 강점: ${studentProfileParts(stu).strengths || '(미입력)'}
+- 어려움(지원 요구): ${studentProfileParts(stu).difficulties || '(미입력)'}${raisdLines(data).length ? '\n' + raisdLines(data).map((l) => `- ${l}`).join('\n') + '\n※ [REINF] 강화 전략은 위 선호/강화물을 우선 활용하고, 사용 금지 항목은 절대 포함하지 마세요.' : ''}
 
 ## ABC 관찰 누적 (최근 ${(data?.abc || []).slice(0, 8).length}건)
 ${abc || '(기록 없음)'}

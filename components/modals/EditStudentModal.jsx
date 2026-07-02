@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { splitNote, composeNote, decomposeNote } from '../../lib/utils/splitNote';
 
 const LEVELS = ['초등', '중등', '고등'];
 const DISABILITIES = ['지적장애', '자폐스펙트럼(ASD)', '지체장애', '청각장애', '시각장애', '정서행동장애', '학습장애', 'ADHD', '발달지연', '중복중증'];
@@ -11,24 +12,43 @@ export default function EditStudentModal({ open, onClose }) {
   const toast = useToast();
   const [level, setLevel] = useState('');
   const [dis, setDis] = useState('');
-  const [note, setNote] = useState('');
+  const [strengths, setStrengths] = useState('');
+  const [difficulties, setDifficulties] = useState('');
+  const [extra, setExtra] = useState('');
   const [classId, setClassId] = useState('');
   const [busy, setBusy] = useState(false);
+
+  // 비식별 요약(AI 전송용) — 강점/어려움/추가 요약에서 항상 자동 재구성 (어긋남 방지).
+  const note = composeNote(strengths, difficulties, extra);
 
   useEffect(() => {
     if (open && curStu) {
       setLevel(curStu.level || LEVELS[0]);
       setDis(curStu.disability || DISABILITIES[0]);
-      setNote(curStu.note || '');
+      // note를 [강점]/[어려움]/기타로 되돌려 각 칸에 채운다. 분리 컬럼이 있으면 우선.
+      const dec = decomposeNote(curStu.note || '');
+      setStrengths(curStu.strengths || dec.strengths || '');
+      setDifficulties(curStu.difficulties || dec.difficulties || '');
+      setExtra(dec.extra || '');
       setClassId(curStu.class_id || '');
     }
   }, [open, curStu]);
+
+  // 기존 학생: 추가 요약(구버전 note)에 강/약점이 섞여 있으면 규칙 기반으로 분리.
+  function autoSplit() {
+    if (!extra.trim()) { toast('분리할 추가 요약이 없어요.'); return; }
+    const r = splitNote(extra);
+    setStrengths((cur) => [cur, r.strengths].filter(Boolean).join(', '));
+    setDifficulties((cur) => [cur, r.difficulties].filter(Boolean).join(', '));
+    setExtra('');
+    toast('요약을 강점/어려움으로 분리했어요. 내용을 확인·수정해주세요.');
+  }
 
   async function onSubmit() {
     if (!curStu) return;
     setBusy(true);
     try {
-      await editStudent({ id: curStu.id, level, disability: dis, note, class_id: classId ? Number(classId) : undefined });
+      await editStudent({ id: curStu.id, level, disability: dis, note, strengths, difficulties, class_id: classId ? Number(classId) : undefined });
       toast('프로필 수정 완료');
       onClose();
     } catch (e) {
@@ -64,8 +84,19 @@ export default function EditStudentModal({ open, onClose }) {
         </select>
       </div>
       <div className="form-group">
-        <label className="form-label">비식별 요약</label>
-        <textarea className="form-textarea" value={note} onChange={(e) => setNote(e.target.value)} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <label className="form-label" style={{ marginBottom: 0 }}>🌟 강점 / ⚠ 어려움</label>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={autoSplit} title="추가 요약을 강점/어려움으로 자동 분리">🪄 요약에서 자동 분리</button>
+        </div>
+        <textarea className="form-textarea" rows={2} value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="강점 (출발점 분석 '학생 강점'으로 연동)" style={{ marginTop: 6 }} />
+        <textarea className="form-textarea" rows={2} value={difficulties} onChange={(e) => setDifficulties(e.target.value)} placeholder="어려움 (출발점 분석 '행동특성(교사관찰)'로 연동)" style={{ marginTop: 6 }} />
+      </div>
+      <div className="form-group">
+        <label className="form-label">추가 요약 / 현행수준 (선택)</label>
+        <textarea className="form-textarea" rows={2} value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="강점/어려움 외 참고사항 (이름·민감정보 금지)" />
+        <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 6, background: 'var(--surface2, #f6f7f9)', borderRadius: 8, padding: '7px 10px', whiteSpace: 'pre-wrap' }}>
+          <strong>비식별 요약 (AI 전송용 · 자동 구성)</strong>{'\n'}{note || '(없음)'}
+        </div>
       </div>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
         <button className="btn btn-ghost" onClick={onClose}>취소</button>

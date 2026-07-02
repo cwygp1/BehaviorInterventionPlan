@@ -1,5 +1,29 @@
 import { useStudents } from '../../contexts/StudentContext';
 import { stuColor } from '../../lib/utils/colors';
+import { studentProfileParts, decomposeNote } from '../../lib/utils/splitNote';
+
+// 강점(초록)/어려움(주황)을 나눠 보여주는 프로필 요약. 분리 정보가 없으면 note 원문.
+// StuHero와 관찰 페이지 프로필 카드에서 공용.
+export function ProfileSummary({ stu, style }) {
+  if (!stu) return null;
+  const { strengths, difficulties } = studentProfileParts(stu);
+  const extra = stu.note ? decomposeNote(stu.note).extra : '';
+  if (!strengths && !difficulties) {
+    return <div className="stu-hero-note" style={style}>{stu.note || '(비식별 요약 없음)'}</div>;
+  }
+  const chip = (bg, fg) => ({
+    display: 'inline-flex', alignItems: 'center', gap: 4, background: bg, color: fg,
+    borderRadius: 8, padding: '2px 8px', fontSize: '.78rem', fontWeight: 600,
+    marginRight: 6, marginTop: 4, lineHeight: 1.5,
+  });
+  return (
+    <div style={{ marginTop: 2, ...style }}>
+      {strengths && <span style={chip('#e7f7ee', '#0a7d4e')}>🌟 {strengths}</span>}
+      {difficulties && <span style={chip('#fff3e2', '#b45309')}>⚠ {difficulties}</span>}
+      {extra && <span style={{ display: 'block', fontSize: '.78rem', color: 'var(--muted)', marginTop: 4 }}>{extra}</span>}
+    </div>
+  );
+}
 
 export default function StuHero() {
   const { curStu, curStuData } = useStudents();
@@ -19,7 +43,7 @@ export default function StuHero() {
           <span className="badge badge-pri">{curStu.level}</span>
           <span className="badge badge-purple">{curStu.disability}</span>
         </div>
-        <div className="stu-hero-note">{curStu.note || '(비식별 요약 없음)'}</div>
+        <ProfileSummary stu={curStu} />
       </div>
       <div className="stu-hero-meta">
         <div className="m"><div className="v">{abc}</div><div className="l">ABC</div></div>

@@ -9,6 +9,7 @@ import { fetchIEP, saveIEPGoal, deleteIEPGoal, fetchStartpoint, fetchClassPBS } 
 import { buildPyeongPrompt, parsePyeongLines, PYEONG_LEVELS } from '../../lib/pyeong';
 import { downloadIepWord, downloadIepFormWord, downloadTaskSheet } from '../../lib/utils/printIep';
 import { buildStudentSummary as tcBuildStudentSummary, buildTierLinkage as tcBuildTierLinkage } from '../../lib/tierContext';
+import { profileNarrative } from '../../lib/utils/splitNote';
 import { ebpBlockForGoal } from '../../lib/ebp';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
 
@@ -244,10 +245,10 @@ export default function IepPage() {
     fetchStartpoint(curStuId).then((r) => setStartpoint(r?.data?.data || null)).catch(() => setStartpoint(null));
   }, [curStuId]);
 
-  // Default 현행수준 from the student's note when a student is chosen.
+  // Default 현행수준 — 강점/어려움을 서술형 문장으로 조합(라벨 텍스트 그대로 넣지 않음).
   useEffect(() => {
-    setPlop(curStu?.note || '교사의 신체적·언어적 촉진이 있을 때 부분적으로 수행하며, 독립 수행은 어려움.');
-  }, [curStuId, curStu?.note]);
+    setPlop(profileNarrative(curStu) || curStu?.note || '교사의 신체적·언어적 촉진이 있을 때 부분적으로 수행하며, 독립 수행은 어려움.');
+  }, [curStuId, curStu?.note, curStu?.strengths, curStu?.difficulties]);
 
   const subjects = useMemo(() => [...new Set(rows.map((r) => r.subject))], [rows]);
   const grades = useMemo(() => {
@@ -809,7 +810,7 @@ export default function IepPage() {
         performance: perfParts.join('\n') || '수업 활동 및 수행 전반',
         level: pyeongLevel,
         count: 12,
-        context: curStu?.note || '',
+        context: profileNarrative(curStu) || curStu?.note || '',
       });
       const r = await callDetailed(prompt, { temperature: 0.6, label: '교과 평어 생성' });
       const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');

@@ -1,10 +1,19 @@
 import { useEffect, useState } from 'react';
-import { fetchClassPBS, saveClassPBS } from '../../lib/api/students';
+import { fetchClassPBS, saveClassPBS, fetchClassChecklist } from '../../lib/api/students';
+import { CWPBS_ITEMS, SOLVE_ITEMS } from '../../lib/classChecklist';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import PromptResultBlock from '../modals/PromptResultBlock';
 import AIActionBar from '../ui/AIActionBar';
+import ResourceDownloads from '../ui/ResourceDownloads';
+
+// Tier 1 예시 문서 (public/docs/tier1/) — 다운로드해 학급 상황에 맞게 수정 사용.
+const TIER1_DOCS = [
+  { name: '(예시) 기대행동 매트릭스', desc: '기대행동 × 장소별 규칙 매트릭스 예시', links: [{ label: 'PDF', href: '/docs/tier1/기대행동_매트릭스.pdf' }] },
+  { name: '(예시) 월별 기대행동', desc: '월별 기대행동 운영 계획 예시', links: [{ label: 'PDF', href: '/docs/tier1/월별_기대행동.pdf' }] },
+  { name: '(예시) PBS 충실도 체크 (Tier 1)', desc: '학급 차원 PBS 실행 충실도 점검표 예시', links: [{ label: 'PDF', href: '/docs/tier1/PBS충실도체크_Tier1.pdf' }] },
+];
 
 const REWARD_ICONS = ['🎁', '🍿', '🎬', '🍕', '🎮', '🎨', '⚽', '📚', '🎵', '🌟'];
 
@@ -25,6 +34,8 @@ export default function ClassPBSPage() {
   const [question, setQuestion] = useState('우리 반은 30명인데 4:1 긍정 비율을 어떻게 실천할 수 있을까요?');
   const [coachOutput, setCoachOutput] = useState('');
   const [coachBusy, setCoachBusy] = useState(false);
+  // 학급관리 체크리스트 결과 — 코칭 프롬프트에 진단 근거로 주입 (best-effort).
+  const [checklist, setChecklist] = useState(null);
 
   // Load the PBS state for the currently selected 반 + 학기. Each (반, 학기)
   // keeps its own goal/points/rewards; defaults are restored when there is no
@@ -46,8 +57,34 @@ export default function ClassPBSPage() {
         setRewards([]);
       }
     }).catch(() => {});
+    fetchClassChecklist(curClassId, curSemester).then((d) => {
+      if (!cancelled) setChecklist(d?.data?.responses || null);
+    }).catch(() => {});
     return () => { cancelled = true; };
   }, [curClassId, curSemester]);
+
+  // 체크리스트 진단 요약(총점 + 낮은 문항) — 없으면 ''.
+  function checklistBlock() {
+    if (!checklist) return '';
+    const sum = (arr) => (arr || []).reduce((a, v) => a + (v >= 0 ? v : 0), 0);
+    const lowItems = (items, arr, th) => items
+      .map((q, i) => ({ q, v: (arr || [])[i] }))
+      .filter((x) => x.v >= 0 && x.v <= th)
+      .slice(0, 5)
+      .map((x) => `  - (${x.v}점) ${x.q}`).join('\n');
+    const cw = checklist.cwpbs || [];
+    const sv = checklist.solve || [];
+    if (!cw.some((v) => v >= 0) && !sv.some((v) => v >= 0)) return '';
+    const parts = ['\n## 학급관리 체크리스트 자가진단 (참고 근거)'];
+    if (cw.some((v) => v >= 0)) {
+      parts.push(`- 학급관리실행(CWPBS): ${sum(cw)}/${CWPBS_ITEMS.length * 3}점`);
+      const low = lowItems(CWPBS_ITEMS, cw, 1);
+      if (low) parts.push(`- 실행이 낮은 항목:\n${low}`);
+    }
+    if (sv.some((v) => v >= 0)) parts.push(`- 행동문제해결력: ${sum(sv)}/${SOLVE_ITEMS.length * 4}점`);
+    parts.push('※ 위 진단에서 낮게 나온 항목을 우선 보완하는 방향으로 코칭하세요.');
+    return parts.join('\n');
+  }
 
   async function onSave() {
     if (!curClassId) { toast('먼저 학급을 선택해주세요.'); return; }
@@ -84,6 +121,7 @@ export default function ClassPBSPage() {
 - 학급 목표: ${goal}
 - 누적 포인트: ${current} / ${target}
 - 보상 항목: ${rewards.map(r => `${r.name}(${r.points}p)`).join(', ') || '(없음)'}
+${checklistBlock()}
 
 ## 교사 질문
 ${question}
@@ -314,6 +352,12 @@ ${question}
           <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 학급 PBS 저장</button>
         </div>
       </div>
+
+      <ResourceDownloads
+        title="📎 Tier 1 자료실 (예시 문서)"
+        subtitle="기대행동 매트릭스·월별 기대행동·충실도 체크 예시를 내려받아 활용하세요."
+        files={TIER1_DOCS}
+      />
 
       <div className="card" style={{ background: '#e8eefb', borderColor: '#c4d3f1' }}>
         <div className="card-title">💡 4:1 긍정 비율 — 핵심 원칙</div>

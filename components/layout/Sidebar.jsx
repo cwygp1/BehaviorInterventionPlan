@@ -7,6 +7,7 @@ const NAV = [
     items: [
       { id: 'classpbs', label: '학급 차원 PBS', icon: '🏫' },
       { id: 'pbssurvey', label: 'PBS 기초 설문조사', icon: '📋' },
+      { id: 'classcheck', label: '학급관리 체크리스트', icon: '✅' },
     ],
   },
   {

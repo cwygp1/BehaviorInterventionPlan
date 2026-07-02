@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import StuHero, { NoStudentHint } from '../student/StuHero';
+import StuHero, { NoStudentHint, ProfileSummary } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
@@ -196,7 +196,7 @@ export default function ObservePage() {
           <span><strong>학교급:</strong> {curStu.level}</span>
           <span><strong>장애:</strong> {curStu.disability}</span>
         </div>
-        <p style={{ fontSize: '.85rem', color: 'var(--muted)', marginTop: 8 }}>{curStu.note || '(비식별 요약 없음)'}</p>
+        <ProfileSummary stu={curStu} style={{ marginTop: 8 }} />
         <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
           <button className="btn btn-ghost btn-sm" onClick={() => setEditOpen(true)}>프로필 수정</button>
           <button className="btn btn-ghost btn-sm" onClick={() => setRaisdOpen(true)}>💡 선호/강화물 (RAISD)</button>
