@@ -35,19 +35,19 @@ const NAV = [
     ],
   },
   {
-    group: 'AI 도구',
-    items: [
-      { id: 'generator', label: 'AI 생성기', icon: '✨' },
-      { id: 'builder', label: 'AI 어시스턴트', icon: '🤖' },
-      { id: 'qa', label: 'PBS Q&A 전문가', icon: '💬' },
-    ],
-  },
-  {
     group: '위기 대처 · 자료실',
     items: [
       { id: 'crisis', label: '위기행동 대처', icon: '🚨' },
       { id: 'support', label: '교사 지원', icon: '📚' },
       { id: 'videos', label: 'PBS 영상 강의', icon: '🎬' },
+    ],
+  },
+  {
+    group: 'AI 도구',
+    items: [
+      { id: 'generator', label: 'AI 생성기', icon: '✨' },
+      { id: 'builder', label: 'AI 어시스턴트', icon: '🤖' },
+      { id: 'qa', label: 'PBS Q&A 전문가', icon: '💬' },
     ],
   },
 ];
