@@ -133,6 +133,19 @@ export default function CrisisPage() {
         files={CRISIS_DOCS}
       />
 
+      {/* 공식 외부 자료 — 교육부·NISE (2026-07 확인) */}
+      <div className="card">
+        <div className="card-title">🏛 공식 매뉴얼 · 지원 체계 (외부)</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10, fontSize: '.88rem' }}>
+          <a href="https://www.jne.go.kr/spedu/na/ntt/selectNttInfo.do?mi=804&nttSn=5077791" target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--pri)' }}>↗ 장애학생 행동중재 가이드라인 (교육부, 2023.12)</a>
+          <a href="https://www.nise.go.kr/lifelong/boardCnts/view.do?boardID=459&boardSeq=704663&m=0101&s=lifelong" target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--pri)' }}>↗ 발달장애인의 도전적 행동 중재 매뉴얼 (국립특수교육원)</a>
+          <a href="https://www.nise.go.kr/hright/" target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--pri)' }}>↗ 장애학생 인권보호 지원센터 (신고·지원)</a>
+        </div>
+        <p style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 8 }}>
+          위기행동이 반복되면 소속 교육(지원)청 <strong>행동중재지원단·특수교육지원센터</strong>에 전문가 지원을 요청할 수 있습니다. 외부 URL은 변경될 수 있습니다.
+        </p>
+      </div>
+
       {/* C2 신체적 개입 5대 원칙 */}
       <div className="card" style={{ background: '#fff7e6', borderColor: '#fde7b8' }}>
         <div className="card-title" style={{ color: '#b45309' }}>⚠ 신체적 개입 5대 원칙 (가이드북 부록)</div>

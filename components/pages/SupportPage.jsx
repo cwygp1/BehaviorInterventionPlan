@@ -74,6 +74,34 @@ const EBP_GROUPS = [
 ];
 const EBP_TOTAL = EBP_GROUPS.reduce((s, g) => s + g.items.length, 0);
 
+// 공식 가이드라인·매뉴얼 외부 링크 (2026-07 확인 · 게시글 URL은 변경될 수 있음)
+const OFFICIAL_DOCS = [
+  {
+    n: '장애학생 행동중재 가이드라인 (교육부, 2023.12)',
+    d: '문제행동 중재 전략·계획 수립 절차와 방법 — 행동중재 지원계획·개별 행동중재 프로그램의 국가 기준',
+    link: 'https://www.jne.go.kr/spedu/na/ntt/selectNttInfo.do?mi=804&nttSn=5077791',
+    src: '전남교육청 게시글(PDF 첨부)',
+  },
+  {
+    n: '발달장애인의 도전적 행동 중재 매뉴얼 (국립특수교육원)',
+    d: '도전적 행동의 이해와 기관 차원의 행동지원 체계 구축 안내',
+    link: 'https://www.nise.go.kr/lifelong/boardCnts/view.do?boardID=459&boardSeq=704663&m=0101&s=lifelong',
+    src: 'NISE 평생교육 자료실',
+  },
+  {
+    n: '장애학생의 문제행동 사례별 중재 가이드북 (부산시교육청)',
+    d: '현장 사례 중심의 문제행동 유형별 중재 방법 안내',
+    link: 'https://www.rehab21.or.kr/bbs/board.php?bo_table=B16&wr_id=54',
+    src: '자료 게시글(PDF 첨부)',
+  },
+  {
+    n: '서울PBS 자료실 (서울시교육청)',
+    d: 'PBS 가이드북·양식·연수자료 다운로드',
+    link: 'https://seoulpbs.sen.go.kr/home/kor/board.do?menuPos=75',
+    src: 'seoulpbs.sen.go.kr',
+  },
+];
+
 export default function SupportPage() {
   return (
     <>
@@ -115,21 +143,59 @@ export default function SupportPage() {
           <div className="card" style={{ background: '#e7f7ee', borderColor: '#c4ecd2' }}>
             <strong>🎬 PBS 영상 강의실</strong>
             <p style={{ fontSize: '.85rem', color: 'var(--sub)', margin: '6px 0' }}>주제별 YouTube·Google·공식 자료 통합 검색</p>
-            <a href="https://seoulpbs.sen.go.kr/" target="_blank" rel="noreferrer" style={{ fontSize: '.85rem', fontWeight: 700, color: 'var(--pri)', display: 'block', marginBottom: 4 }}>↗ 서울시교육청 PBS 포털</a>
-            <a href="https://www.nise.go.kr/" target="_blank" rel="noreferrer" style={{ fontSize: '.85rem', fontWeight: 700, color: 'var(--pri)' }}>↗ 국립특수교육원</a>
+            <a href="https://seoulpbs.sen.go.kr/" target="_blank" rel="noreferrer" style={{ fontSize: '.85rem', fontWeight: 700, color: 'var(--pri)', display: 'block', marginBottom: 4 }}>↗ 서울PBS 포털</a>
+            <a href="https://www.nise.go.kr/" target="_blank" rel="noreferrer" style={{ fontSize: '.85rem', fontWeight: 700, color: 'var(--pri)', display: 'block', marginBottom: 4 }}>↗ 국립특수교육원</a>
+            <a href="https://www.nise.go.kr/main.do?s=eduable" target="_blank" rel="noreferrer" style={{ fontSize: '.85rem', fontWeight: 700, color: 'var(--pri)' }}>↗ 에듀에이블 (교수·학습자료)</a>
           </div>
           <div className="card" style={{ background: '#fff7e6', borderColor: '#fde7b8' }}>
-            <strong>🛡 위기행동관리팀</strong>
-            <p style={{ fontSize: '.85rem', color: 'var(--sub)', margin: '6px 0' }}>학교 내 관리자·전문가·교사로 구성된 협력 체계</p>
+            <strong>🛡 행동중재 지원 체계</strong>
+            <p style={{ fontSize: '.85rem', color: 'var(--sub)', margin: '6px 0' }}>
+              학교 위기행동관리팀 + 교육(지원)청 행동중재지원단·행동중재전문관.
+              교육부 가이드라인(2023.12)에 따라 행동중재 지원계획 수립·전담 인력 배치가 확대되고 있습니다. 소속 교육청 특수교육지원센터에 지원을 요청하세요.
+            </p>
+            <a href="https://www.jne.go.kr/spedu/na/ntt/selectNttInfo.do?mi=804&nttSn=5077791" target="_blank" rel="noreferrer" style={{ fontSize: '.85rem', fontWeight: 700, color: '#b45309' }}>↗ 장애학생 행동중재 가이드라인 (교육부)</a>
           </div>
           <div className="card" style={{ background: '#e8eefb', borderColor: '#c4d3f1' }}>
-            <strong>⚖ 교권 보호</strong>
-            <p style={{ fontSize: '.85rem', color: 'var(--sub)', margin: '6px 0' }}>정당한 교육활동 법적 보호, 교육활동보호센터 지원</p>
+            <strong>⚖ 교권 보호 · 인권 보호</strong>
+            <p style={{ fontSize: '.85rem', color: 'var(--sub)', margin: '6px 0' }}>정당한 교육활동 법적 보호(소속 교육청 교육활동보호센터), 장애학생 인권침해 신고·지원</p>
+            <a href="https://www.nise.go.kr/hright/" target="_blank" rel="noreferrer" style={{ fontSize: '.85rem', fontWeight: 700, color: 'var(--pri)' }}>↗ 장애학생 인권보호 지원센터</a>
           </div>
           <div className="card" style={{ background: '#fde7e8', borderColor: '#f3a0a1' }}>
-            <strong>💚 회복 지원</strong>
-            <p style={{ fontSize: '.85rem', color: 'var(--sub)', margin: '6px 0' }}>상해·심리적 어려움 발생 시 공제회·교육활동보호센터 지원</p>
+            <strong>💚 회복 지원 · 가정 연계</strong>
+            <p style={{ fontSize: '.85rem', color: 'var(--sub)', margin: '6px 0' }}>상해·심리적 어려움 발생 시 학교안전공제회·교육활동보호센터 지원. 보호자 안내에는 온맘(부모 지원 종합시스템)을 활용하세요.</p>
+            <a href="https://www.nise.go.kr/onmam/" target="_blank" rel="noreferrer" style={{ fontSize: '.85rem', fontWeight: 700, color: 'var(--pri)' }}>↗ 온맘 — 장애자녀 부모지원</a>
           </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title">📥 공식 가이드라인 · 매뉴얼</div>
+        <div className="card-subtitle">교육부·국립특수교육원·시도교육청이 배포한 행동중재 공식 문서입니다. (2026-07 확인)</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+          {OFFICIAL_DOCS.map((d) => (
+            <a
+              key={d.link}
+              href={d.link}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+                background: 'var(--surface2)', border: '1px solid var(--border)',
+                borderRadius: 10, textDecoration: 'none', color: 'inherit',
+              }}
+            >
+              <span style={{ fontSize: '1.3rem' }}>📄</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: '.9rem' }}>{d.n}</div>
+                <div style={{ fontSize: '.78rem', color: 'var(--sub)', marginTop: 2 }}>{d.d}</div>
+                <div style={{ fontSize: '.72rem', color: 'var(--muted)', marginTop: 2 }}>{d.src}</div>
+              </div>
+              <span style={{ color: 'var(--muted)' }}>↗</span>
+            </a>
+          ))}
+        </div>
+        <div style={{ marginTop: 10, padding: 10, background: 'var(--warn-l)', borderRadius: 6, fontSize: '.78rem', color: '#92400e' }}>
+          ⚠ 외부 게시글 URL은 변경될 수 있습니다. 링크가 동작하지 않으면 문서명으로 검색하세요.
         </div>
       </div>
 

@@ -176,7 +176,7 @@ export default function HomePage({ onNavigate }) {
           </div>
           <div className="quick-card" onClick={() => onNavigate('support')}>
             <div className="quick-icon">📚</div>
-            <div><div className="quick-title">교사 지원</div><div className="quick-desc">EBP 11종 & 자료실</div></div>
+            <div><div className="quick-title">교사 지원</div><div className="quick-desc">EBP 27종 & 자료실</div></div>
           </div>
         </div>
       </div>

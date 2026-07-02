@@ -62,35 +62,49 @@ const TOPICS = [
   },
 ];
 
-// Reliable Korean PBS resource portals.
+// Reliable Korean PBS resource portals. (2026-07 확인)
 const RESOURCE_PORTALS = [
   {
-    name: '서울특별시교육청 PBS 포털',
+    name: '서울PBS 포털 (서울시교육청)',
     url: 'https://seoulpbs.sen.go.kr/',
-    desc: '공식 PBS 가이드북·자료실',
+    desc: '학교차원 긍정적행동지원(SWPBS) 공식 포털 — 보편적·표적집단·개별 지원 안내',
     icon: '🏛',
     color: '#4f6bed',
   },
   {
-    name: '국립특수교육원',
+    name: '서울PBS 자료실',
+    url: 'https://seoulpbs.sen.go.kr/home/kor/board.do?menuPos=75',
+    desc: 'PBS 가이드북·양식·연수자료 다운로드',
+    icon: '📥',
+    color: '#1098ad',
+  },
+  {
+    name: '국립특수교육원 (NISE)',
     url: 'https://www.nise.go.kr/',
-    desc: '특수교육 국가 표준 자료·연수',
+    desc: '특수교육 국가 표준 자료·연구보고서·연수',
     icon: '🏫',
     color: '#0a7d4e',
   },
   {
-    name: 'EBS 특수교육',
-    url: 'https://www.ebs.co.kr/',
-    desc: 'EBS 교육 영상 (검색: "특수교육 PBS")',
-    icon: '📺',
+    name: '에듀에이블 (NISE)',
+    url: 'https://www.nise.go.kr/main.do?s=eduable',
+    desc: '특수교육 교수·학습자료, 진로직업·장애이해 자료, 에듀테크',
+    icon: '🎓',
+    color: '#9c36b5',
+  },
+  {
+    name: '장애학생 인권보호 지원센터',
+    url: 'https://www.nise.go.kr/hright/',
+    desc: '인권침해 신고·인권보호 지원 (NISE 운영)',
+    icon: '🛡',
     color: '#ef476f',
   },
   {
-    name: '에듀넷 특수교육',
-    url: 'https://www.edunet.net/',
-    desc: '교육부 교사 연수 자료실',
-    icon: '🎓',
-    color: '#9c36b5',
+    name: '온맘 — 장애자녀 부모지원 (NISE)',
+    url: 'https://www.nise.go.kr/onmam/',
+    desc: '장애자녀 부모 지원 종합시스템 — 가정 연계 안내에 활용',
+    icon: '👨‍👩‍👧',
+    color: '#a76200',
   },
 ];
 
@@ -295,7 +309,7 @@ export default function VideoLecturesPage({ onNavigate }) {
           <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('tier3')}>🎯 Tier 3 개요</button>
           <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('qa')}>💬 PBS Q&A 전문가</button>
           <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('crisis')}>🚨 위기행동 대처</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('support')}>📚 EBP 11종 가이드</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('support')}>📚 EBP 27종 가이드</button>
         </div>
       </div>
     </>
