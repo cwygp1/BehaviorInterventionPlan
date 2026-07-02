@@ -65,16 +65,16 @@ const TOPICS = [
 // Reliable Korean PBS resource portals. (2026-07 확인)
 const RESOURCE_PORTALS = [
   {
-    name: '서울PBS 포털 (서울시교육청)',
-    url: 'https://seoulpbs.sen.go.kr/',
-    desc: '학교차원 긍정적행동지원(SWPBS) 공식 포털 — 보편적·표적집단·개별 지원 안내',
+    name: '서울긍정적행동지원(서울PBS)',
+    url: 'https://www.sen.go.kr/www/eduinfo/seoulpbs/seoulpbs_1.jsp',
+    desc: '서울시교육청 학교차원 긍정적행동지원(SWPBS) — 보편적·표적집단·개별 지원 안내',
     icon: '🏛',
     color: '#4f6bed',
   },
   {
-    name: '서울PBS 자료실',
-    url: 'https://seoulpbs.sen.go.kr/home/kor/board.do?menuPos=75',
-    desc: 'PBS 가이드북·양식·연수자료 다운로드',
+    name: '발달장애인의 도전적 행동 중재 매뉴얼',
+    url: 'https://jbp.or.kr/customer03/?bmode=view&idx=8852600',
+    desc: 'NISE 국가장애인평생교육진흥센터 발행 — PDF 전문 다운로드',
     icon: '📥',
     color: '#1098ad',
   },

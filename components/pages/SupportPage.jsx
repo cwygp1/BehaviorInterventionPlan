@@ -84,9 +84,9 @@ const OFFICIAL_DOCS = [
   },
   {
     n: '발달장애인의 도전적 행동 중재 매뉴얼 (국립특수교육원)',
-    d: '도전적 행동의 이해와 기관 차원의 행동지원 체계 구축 안내',
-    link: 'https://www.nise.go.kr/lifelong/boardCnts/view.do?boardID=459&boardSeq=704663&m=0101&s=lifelong',
-    src: 'NISE 평생교육 자료실',
+    d: '도전적 행동의 이해와 행동지원 체계 구축 안내 — NISE 국가장애인평생교육진흥센터 발행',
+    link: 'https://jbp.or.kr/customer03/?bmode=view&idx=8852600',
+    src: '전남동부권발달장애인평생교육지원센터 자료실(PDF 첨부)',
   },
   {
     n: '장애학생의 문제행동 사례별 중재 가이드북 (부산시교육청)',
@@ -95,10 +95,10 @@ const OFFICIAL_DOCS = [
     src: '자료 게시글(PDF 첨부)',
   },
   {
-    n: '서울PBS 자료실 (서울시교육청)',
-    d: 'PBS 가이드북·양식·연수자료 다운로드',
-    link: 'https://seoulpbs.sen.go.kr/home/kor/board.do?menuPos=75',
-    src: 'seoulpbs.sen.go.kr',
+    n: '서울긍정적행동지원(서울PBS) 안내 (서울시교육청)',
+    d: '학교차원 긍정적행동지원(SWPBS) — 보편적·표적집단·개별 지원 안내',
+    link: 'https://www.sen.go.kr/www/eduinfo/seoulpbs/seoulpbs_1.jsp',
+    src: 'sen.go.kr 교육정보',
   },
 ];
 
@@ -143,7 +143,7 @@ export default function SupportPage() {
           <div className="card" style={{ background: '#e7f7ee', borderColor: '#c4ecd2' }}>
             <strong>🎬 PBS 영상 강의실</strong>
             <p style={{ fontSize: '.85rem', color: 'var(--sub)', margin: '6px 0' }}>주제별 YouTube·Google·공식 자료 통합 검색</p>
-            <a href="https://seoulpbs.sen.go.kr/" target="_blank" rel="noreferrer" style={{ fontSize: '.85rem', fontWeight: 700, color: 'var(--pri)', display: 'block', marginBottom: 4 }}>↗ 서울PBS 포털</a>
+            <a href="https://www.sen.go.kr/www/eduinfo/seoulpbs/seoulpbs_1.jsp" target="_blank" rel="noreferrer" style={{ fontSize: '.85rem', fontWeight: 700, color: 'var(--pri)', display: 'block', marginBottom: 4 }}>↗ 서울긍정적행동지원(서울PBS)</a>
             <a href="https://www.nise.go.kr/" target="_blank" rel="noreferrer" style={{ fontSize: '.85rem', fontWeight: 700, color: 'var(--pri)', display: 'block', marginBottom: 4 }}>↗ 국립특수교육원</a>
             <a href="https://www.nise.go.kr/main.do?s=eduable" target="_blank" rel="noreferrer" style={{ fontSize: '.85rem', fontWeight: 700, color: 'var(--pri)' }}>↗ 에듀에이블 (교수·학습자료)</a>
           </div>

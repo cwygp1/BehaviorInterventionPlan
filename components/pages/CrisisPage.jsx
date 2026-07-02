@@ -33,6 +33,21 @@ const CRISIS_DOCS = [
       { label: 'PDF', href: '/docs/crisis/위기행동에_따른_대응전략.pdf' },
     ],
   },
+  {
+    name: '장애학생 행동중재를 위한 가이드북 (일반학교용)',
+    desc: '통합학급·일반학교 상황의 행동중재 절차와 전략 안내',
+    links: [{ label: 'PDF', href: '/docs/crisis/장애학생_행동중재_가이드북_일반학교용.pdf' }],
+  },
+  {
+    name: '장애학생 행동중재를 위한 가이드북 (특수학교용)',
+    desc: '특수학교 상황의 행동중재 절차와 전략 안내',
+    links: [{ label: 'PDF', href: '/docs/crisis/장애학생_행동중재_가이드북_특수학교용.pdf' }],
+  },
+  {
+    name: '영유아를 위한 맞춤형 행동중재 매뉴얼',
+    desc: '영유아기 문제행동의 이해와 맞춤형 중재 방법',
+    links: [{ label: 'PDF', href: '/docs/crisis/영유아를_위한_맞춤형_행동중재_매뉴얼.pdf' }],
+  },
 ];
 
 const STAGES = [
@@ -97,9 +112,28 @@ export default function CrisisPage() {
   return (
     <>
       {curStu && <StuHero />}
-      <div style={{ marginBottom: 14 }}>
-        <button className="btn btn-pri" onClick={() => setAiOpen(true)}>🚨 위기 시나리오 AI 프롬프트</button>
-        <span style={{ fontSize: '.78rem', color: 'var(--muted)', marginLeft: 8 }}>학생 상황 묘사 → 7단계 대응 시나리오 자동 생성</span>
+
+      {/* 학생 미선택 안내 — 자료·7단계는 학생 없이 이용 가능, AI 시나리오·기록은 학생 필요 */}
+      {!curStu && (
+        <div style={{ fontSize: '.84rem', color: '#274690', background: '#eef4ff', border: '1px solid #b9cdf0', borderRadius: 8, padding: '9px 13px', marginBottom: 12 }}>
+          💡 <strong>7단계 대처·자료실·그라운딩은 학생 선택 없이</strong> 바로 볼 수 있어요.
+          <strong> 위기 시나리오 AI 생성</strong>과 <strong>심리안정실 기록</strong>은 우측 상단에서 학생을 선택하면 이용할 수 있습니다.
+        </div>
+      )}
+
+      <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          className="btn btn-pri"
+          onClick={() => {
+            if (!curStu) { toast('학생을 먼저 선택해주세요. (우측 상단 학생 선택)'); return; }
+            setAiOpen(true);
+          }}
+          disabled={!curStu}
+          title={!curStu ? '학생을 먼저 선택해야 이용할 수 있어요' : undefined}
+        >🚨 위기 시나리오 AI 프롬프트</button>
+        <span style={{ fontSize: '.78rem', color: 'var(--muted)' }}>
+          {curStu ? '학생 상황 묘사 → 7단계 대응 시나리오 자동 생성' : '🔒 학생 선택 후 이용 가능'}
+        </span>
       </div>
 
       <div className="card">
@@ -138,8 +172,9 @@ export default function CrisisPage() {
         <div className="card-title">🏛 공식 매뉴얼 · 지원 체계 (외부)</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10, fontSize: '.88rem' }}>
           <a href="https://www.jne.go.kr/spedu/na/ntt/selectNttInfo.do?mi=804&nttSn=5077791" target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--pri)' }}>↗ 장애학생 행동중재 가이드라인 (교육부, 2023.12)</a>
-          <a href="https://www.nise.go.kr/lifelong/boardCnts/view.do?boardID=459&boardSeq=704663&m=0101&s=lifelong" target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--pri)' }}>↗ 발달장애인의 도전적 행동 중재 매뉴얼 (국립특수교육원)</a>
+          <a href="https://jbp.or.kr/customer03/?bmode=view&idx=8852600" target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--pri)' }}>↗ 발달장애인의 도전적 행동 중재 매뉴얼 (국립특수교육원 발행)</a>
           <a href="https://www.nise.go.kr/hright/" target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--pri)' }}>↗ 장애학생 인권보호 지원센터 (신고·지원)</a>
+          <a href="https://sp.cbe.go.kr/home/sub.php?menukey=832" target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--pri)' }}>↗ 거점 행동중재 지원센터 운영 (충북특수교육원) — 행동중재·심리안정실·전문가 지원단 운영 사례</a>
         </div>
         <p style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 8 }}>
           위기행동이 반복되면 소속 교육(지원)청 <strong>행동중재지원단·특수교육지원센터</strong>에 전문가 지원을 요청할 수 있습니다. 외부 URL은 변경될 수 있습니다.
