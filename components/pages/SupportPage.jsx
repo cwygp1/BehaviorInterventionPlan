@@ -78,6 +78,38 @@ export default function SupportPage() {
   return (
     <>
       <div className="card">
+        <div className="card-title">🔬 발달장애 학습자 증거기반실제(EBP) {EBP_TOTAL}가지 가이드</div>
+        <div className="card-subtitle">개별화교육계획(IEP) 수립을 위한, 교육적 성과가 입증된 증거기반(Evidence-Based) 교육방법. 출처: 국립특수교육원·석이 선생님 특수교육 블로그</div>
+        {EBP_GROUPS.map((grp) => (
+          <div key={grp.cat} style={{ marginTop: 16 }}>
+            <div style={{ fontWeight: 700, color: 'var(--pri)', fontSize: '.92rem', marginBottom: 6 }}>{grp.cat} <span style={{ fontWeight: 400, color: 'var(--muted)' }}>({grp.items.length})</span></div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.84rem' }}>
+                <thead><tr style={{ background: 'var(--pri-l)' }}>
+                  <th style={{ padding: 9, textAlign: 'left', color: 'var(--pri)', whiteSpace: 'nowrap' }}>교육방법</th>
+                  <th style={{ padding: 9, textAlign: 'left', color: 'var(--pri)' }}>설명</th>
+                  <th style={{ padding: 9, textAlign: 'left', color: 'var(--pri)', whiteSpace: 'nowrap' }}>적용 영역</th>
+                  <th style={{ padding: 9, textAlign: 'left', color: 'var(--pri)', whiteSpace: 'nowrap' }}>주요 연령</th>
+                  <th style={{ padding: 9, textAlign: 'left', color: 'var(--pri)' }}>자료</th>
+                </tr></thead>
+                <tbody>
+                  {grp.items.map((e) => (
+                    <tr key={e.n}>
+                      <td style={{ padding: 9, borderBottom: '1px solid var(--border)', fontWeight: 600, whiteSpace: 'nowrap' }}>{e.n}</td>
+                      <td style={{ padding: 9, borderBottom: '1px solid var(--border)' }}>{e.d}</td>
+                      <td style={{ padding: 9, borderBottom: '1px solid var(--border)', fontSize: '.78rem', color: 'var(--sub)' }}>{e.area}</td>
+                      <td style={{ padding: 9, borderBottom: '1px solid var(--border)', fontSize: '.78rem', color: 'var(--sub)' }}>{e.age}</td>
+                      <td style={{ padding: 9, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}><a href={e.link} target="_blank" rel="noreferrer" style={{ color: 'var(--pri)', fontWeight: 600 }}>↗ 보기</a></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card">
         <div className="card-title">📚 교사 지원 자료</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 14 }}>
           <div className="card" style={{ background: '#e7f7ee', borderColor: '#c4ecd2' }}>
@@ -125,38 +157,6 @@ export default function SupportPage() {
             ))}
           </ol>
         </div>
-      </div>
-
-      <div className="card">
-        <div className="card-title">🔬 발달장애 학습자 증거기반실제(EBP) {EBP_TOTAL}가지 가이드</div>
-        <div className="card-subtitle">개별화교육계획(IEP) 수립을 위한, 교육적 성과가 입증된 증거기반(Evidence-Based) 교육방법. 출처: 국립특수교육원·석이 선생님 특수교육 블로그</div>
-        {EBP_GROUPS.map((grp) => (
-          <div key={grp.cat} style={{ marginTop: 16 }}>
-            <div style={{ fontWeight: 700, color: 'var(--pri)', fontSize: '.92rem', marginBottom: 6 }}>{grp.cat} <span style={{ fontWeight: 400, color: 'var(--muted)' }}>({grp.items.length})</span></div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.84rem' }}>
-                <thead><tr style={{ background: 'var(--pri-l)' }}>
-                  <th style={{ padding: 9, textAlign: 'left', color: 'var(--pri)', whiteSpace: 'nowrap' }}>교육방법</th>
-                  <th style={{ padding: 9, textAlign: 'left', color: 'var(--pri)' }}>설명</th>
-                  <th style={{ padding: 9, textAlign: 'left', color: 'var(--pri)', whiteSpace: 'nowrap' }}>적용 영역</th>
-                  <th style={{ padding: 9, textAlign: 'left', color: 'var(--pri)', whiteSpace: 'nowrap' }}>주요 연령</th>
-                  <th style={{ padding: 9, textAlign: 'left', color: 'var(--pri)' }}>자료</th>
-                </tr></thead>
-                <tbody>
-                  {grp.items.map((e) => (
-                    <tr key={e.n}>
-                      <td style={{ padding: 9, borderBottom: '1px solid var(--border)', fontWeight: 600, whiteSpace: 'nowrap' }}>{e.n}</td>
-                      <td style={{ padding: 9, borderBottom: '1px solid var(--border)' }}>{e.d}</td>
-                      <td style={{ padding: 9, borderBottom: '1px solid var(--border)', fontSize: '.78rem', color: 'var(--sub)' }}>{e.area}</td>
-                      <td style={{ padding: 9, borderBottom: '1px solid var(--border)', fontSize: '.78rem', color: 'var(--sub)' }}>{e.age}</td>
-                      <td style={{ padding: 9, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}><a href={e.link} target="_blank" rel="noreferrer" style={{ color: 'var(--pri)', fontWeight: 600 }}>↗ 보기</a></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
       </div>
 
       <div className="card" style={{ background: 'var(--warn-l)', borderColor: '#fde7b8' }}>
