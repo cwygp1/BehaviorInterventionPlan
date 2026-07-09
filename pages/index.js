@@ -8,6 +8,7 @@ import Layout from '../components/layout/Layout';
 import LoadingOverlay from '../components/ui/LoadingOverlay';
 
 import HomePage from '../components/pages/HomePage';
+import StudentsPage from '../components/pages/StudentsPage';
 import StartPointPage from '../components/pages/StartPointPage';
 import ObservePage from '../components/pages/ObservePage';
 import QabfPage from '../components/pages/QabfPage';
@@ -94,6 +95,7 @@ export default function Home() {
 function PageRouter({ activePage, onNavigate }) {
   switch (activePage) {
     case 'home': return <HomePage onNavigate={onNavigate} />;
+    case 'students': return <StudentsPage />;
     case 'startpoint': return <StartPointPage />;
     case 'observe': return <><ObservePage /><StepNav cur="observe" onNavigate={onNavigate} /></>;
     case 'qabf': return <><QabfPage /><StepNav cur="qabf" onNavigate={onNavigate} /></>;

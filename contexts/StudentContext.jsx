@@ -5,6 +5,7 @@ import {
   fetchAllStudentData,
   createStudent as apiCreateStudent,
   updateStudent as apiUpdateStudent,
+  deleteStudent as apiDeleteStudent,
 } from '../lib/api/students';
 import {
   fetchClasses,
@@ -337,6 +338,14 @@ export function StudentProvider({ children }) {
     return data.student;
   }, [reloadStudents]);
 
+  // 학생 삭제 — DB의 ON DELETE CASCADE로 관찰·BIP·IEP 등 관련 기록이 함께 삭제된다.
+  const removeStudent = useCallback(async (id) => {
+    await apiDeleteStudent(id);
+    if (curStuId === id) setCurStuId(null);
+    invalidateStudent(id);
+    await Promise.all([reloadStudents(), reloadClasses(), reloadHomeSummary(), reloadTier2Groups()]);
+  }, [curStuId, invalidateStudent, reloadStudents, reloadClasses, reloadHomeSummary, reloadTier2Groups]);
+
   const curStu = allStudents.find((s) => s.id === curStuId) || null;
   const curStuData = curStuId ? studentDataCache[curStuId] : null;
   const curClass = classes.find((c) => c.id === curClassId) || null;
@@ -403,6 +412,7 @@ export function StudentProvider({ children }) {
         selectStudent,
         addStudent,
         editStudent,
+        removeStudent,
         reloadStudents,
         reloadHomeSummary,
         ensureStudentData,

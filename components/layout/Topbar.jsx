@@ -3,6 +3,7 @@ import { useStudents } from '../../contexts/StudentContext';
 
 const TITLES = {
   home: '홈',
+  students: '학생 관리',
   observe: '학생 관찰 및 이해',
   qabf: '기능평가 (QABF)',
   bip: '행동중재계획 (BIP)',

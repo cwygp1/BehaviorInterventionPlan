@@ -1,7 +1,13 @@
 import { useAuth } from '../../contexts/AuthContext';
 
 const NAV = [
-  { group: '시작', items: [{ id: 'home', label: '홈', icon: '🏠' }] },
+  {
+    group: '시작',
+    items: [
+      { id: 'home', label: '홈', icon: '🏠' },
+      { id: 'students', label: '학생 관리', icon: '🧑‍🎓' },
+    ],
+  },
   {
     group: '학급 전체용 (Tier 1)',
     items: [

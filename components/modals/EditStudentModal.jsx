@@ -7,8 +7,10 @@ import { splitNote, composeNote, decomposeNote } from '../../lib/utils/splitNote
 const LEVELS = ['초등', '중등', '고등'];
 const DISABILITIES = ['지적장애', '자폐스펙트럼(ASD)', '지체장애', '청각장애', '시각장애', '정서행동장애', '학습장애', 'ADHD', '발달지연', '중복중증'];
 
-export default function EditStudentModal({ open, onClose }) {
+// student prop을 주면 그 학생을, 없으면 현재 선택된 학생(curStu)을 수정한다.
+export default function EditStudentModal({ open, onClose, student }) {
   const { curStu, editStudent, classes } = useStudents();
+  const target = student || curStu;
   const toast = useToast();
   const [level, setLevel] = useState('');
   const [dis, setDis] = useState('');
@@ -22,17 +24,17 @@ export default function EditStudentModal({ open, onClose }) {
   const note = composeNote(strengths, difficulties, extra);
 
   useEffect(() => {
-    if (open && curStu) {
-      setLevel(curStu.level || LEVELS[0]);
-      setDis(curStu.disability || DISABILITIES[0]);
+    if (open && target) {
+      setLevel(target.level || LEVELS[0]);
+      setDis(target.disability || DISABILITIES[0]);
       // note를 [강점]/[어려움]/기타로 되돌려 각 칸에 채운다. 분리 컬럼이 있으면 우선.
-      const dec = decomposeNote(curStu.note || '');
-      setStrengths(curStu.strengths || dec.strengths || '');
-      setDifficulties(curStu.difficulties || dec.difficulties || '');
+      const dec = decomposeNote(target.note || '');
+      setStrengths(target.strengths || dec.strengths || '');
+      setDifficulties(target.difficulties || dec.difficulties || '');
       setExtra(dec.extra || '');
-      setClassId(curStu.class_id || '');
+      setClassId(target.class_id || '');
     }
-  }, [open, curStu]);
+  }, [open, target]);
 
   // 기존 학생: 추가 요약(구버전 note)에 강/약점이 섞여 있으면 규칙 기반으로 분리.
   function autoSplit() {
@@ -45,10 +47,10 @@ export default function EditStudentModal({ open, onClose }) {
   }
 
   async function onSubmit() {
-    if (!curStu) return;
+    if (!target) return;
     setBusy(true);
     try {
-      await editStudent({ id: curStu.id, level, disability: dis, note, strengths, difficulties, class_id: classId ? Number(classId) : undefined });
+      await editStudent({ id: target.id, level, disability: dis, note, strengths, difficulties, class_id: classId ? Number(classId) : undefined });
       toast('프로필 수정 완료');
       onClose();
     } catch (e) {
@@ -60,7 +62,7 @@ export default function EditStudentModal({ open, onClose }) {
 
   return (
     <Modal open={open} onClose={onClose}>
-      <h3>✏ 프로필 수정</h3>
+      <h3>✏ 프로필 수정{target ? ` — ${target.code || target.student_code}` : ''}</h3>
       <div className="form-row">
         <div className="form-group">
           <label className="form-label">학교급</label>
