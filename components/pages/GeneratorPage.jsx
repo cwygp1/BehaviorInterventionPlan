@@ -13,6 +13,17 @@ import {
   parseLines,
 } from '../../lib/generators';
 import { buildFullStudentContext } from '../../lib/tierContext';
+import AacMakerTool from '../generator/AacMakerTool';
+
+// AI를 쓰지 않는 유틸 도구(별도 UI) — 갤러리에 함께 노출된다.
+const UTIL_TOOLS = [
+  {
+    id: 'aac',
+    icon: '🖼',
+    title: 'AAC 의사소통 카드',
+    desc: '이미지에 단어를 매칭해 인쇄용 AAC 그림카드(A4 배열)를 만듭니다. 크기·테두리·글자 위치 선택 후 인쇄하거나 PDF로 저장하세요.',
+  },
+];
 
 const HISTORY_KEY = 'seai.gen.history';
 const REFINE_CHIPS = ['더 쉽게', '더 짧게', '더 자세히', '개수 늘려', '더 따뜻하게'];
@@ -155,6 +166,11 @@ export default function GeneratorPage() {
   function removeResultLine(i) { setResult((prev) => (prev && prev.list ? { ...prev, list: prev.list.filter((_, idx) => idx !== i) } : prev)); }
   function addResultLine() { setResult((prev) => (prev ? { ...prev, list: [...(prev.list || []), ''] } : prev)); }
 
+  // ---- 유틸 도구 (AI 미사용, 별도 UI) --------------------------------------
+  if (toolId === 'aac') {
+    return <AacMakerTool onBack={backToGallery} />;
+  }
+
   // ---- 갤러리 -------------------------------------------------------------
   if (!tool) {
     return (
@@ -192,6 +208,25 @@ export default function GeneratorPage() {
             </button>
             );
           })}
+          {UTIL_TOOLS.map((t) => (
+            <button key={t.id} className="card" onClick={() => setToolId(t.id)}
+              style={{ textAlign: 'left', cursor: 'pointer', border: '1px solid #e5e7eb', transition: 'box-shadow .15s', display: 'block' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ fontSize: '1.6rem', lineHeight: 1 }}>{t.icon}</div>
+                <span
+                  title="AI를 사용하지 않는 인쇄 도구 — 이미지는 서버로 전송되지 않습니다"
+                  style={{
+                    flexShrink: 0, fontSize: '.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: 999,
+                    background: '#e0f2fe', color: '#075985', border: '1px solid #bae6fd', whiteSpace: 'nowrap',
+                  }}
+                >
+                  🖨 인쇄 도구
+                </span>
+              </div>
+              <div className="card-title" style={{ margin: '8px 0 4px' }}>{t.title}</div>
+              <div style={{ fontSize: '.82rem', color: '#64748b', lineHeight: 1.5 }}>{t.desc}</div>
+            </button>
+          ))}
         </div>
 
         {history.length > 0 && (

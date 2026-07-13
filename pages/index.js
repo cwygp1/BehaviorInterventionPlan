@@ -65,7 +65,7 @@ export default function Home() {
   if (status === 'loading') {
     return (
       <>
-        <Head><title>특수교육 AI 통합 플랫폼</title></Head>
+        <Head><title>꼬박꼬박 행동중재 통합 운영 시스템</title></Head>
         <LoadingOverlay show message="세션 확인 중..." />
       </>
     );
@@ -74,7 +74,7 @@ export default function Home() {
   if (status !== 'authed' || !user) {
     return (
       <>
-        <Head><title>로그인 · 특수교육 AI 통합 플랫폼</title></Head>
+        <Head><title>로그인 · 꼬박꼬박 행동중재 통합 운영 시스템</title></Head>
         <AuthScreen />
       </>
     );
@@ -82,7 +82,7 @@ export default function Home() {
 
   return (
     <>
-      <Head><title>특수교육 AI 통합 플랫폼</title></Head>
+      <Head><title>꼬박꼬박 행동중재 통합 운영 시스템</title></Head>
       <StudentProvider>
         <Layout activePage={activePage} onNavigate={navigate}>
           <PageRouter activePage={activePage} onNavigate={navigate} />

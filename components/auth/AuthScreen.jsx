@@ -71,8 +71,8 @@ export default function AuthScreen() {
       <div className="auth-screen show">
         <div className="auth-card">
           <div className="auth-brand">
-            <div className="auth-brand-icon">SE</div>
-            <h1>특수교육 AI 통합 플랫폼</h1>
+            <div className="auth-brand-icon"><img src="/icon.svg" alt="꼬박꼬박 로고" style={{ width: '100%', height: '100%', borderRadius: 'inherit', display: 'block' }} /></div>
+            <h1>꼬박꼬박 행동중재 통합 운영 시스템</h1>
             <p>학생 개별화 행동지원 · 수업 자료 · 위기 대처를 한 곳에서</p>
           </div>
 
