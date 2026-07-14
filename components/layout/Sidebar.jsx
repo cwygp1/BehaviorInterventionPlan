@@ -69,7 +69,7 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
       <aside className={'sidebar' + (open ? ' open' : '')}>
         <div className="sidebar-top">
           <div className="brand">
-            <div className="brand-icon"><img src="/icon.svg" alt="꼬박꼬박 로고" style={{ width: '100%', height: '100%', borderRadius: 'inherit', display: 'block' }} /></div>
+            <div className="brand-icon"><img src="/icon.png" alt="꼬박꼬박 로고" style={{ width: '100%', height: '100%', borderRadius: 'inherit', display: 'block' }} /></div>
             <div className="brand-text">
               <h2>꼬박꼬박</h2>
               <p>행동중재 통합 운영 시스템</p>

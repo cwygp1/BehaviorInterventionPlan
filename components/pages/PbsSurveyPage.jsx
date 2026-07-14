@@ -11,6 +11,104 @@ import {
 
 const rankInput = { width: 54, textAlign: 'center' };
 const qTitle = { fontWeight: 700, color: '#1f3a8a', marginBottom: 8, fontSize: '.98rem' };
+const qHint = { fontSize: '.82rem', color: '#64748b', marginTop: -4, marginBottom: 10, lineHeight: 1.55 };
+
+// 숫자 전용 입력: 숫자 외 문자는 입력 즉시 제거, max 초과 시 max로 보정.
+function NumInput({ value, onChange, max, style, className, placeholder, title }) {
+  return (
+    <input
+      className={className}
+      style={style}
+      inputMode="numeric"
+      placeholder={placeholder}
+      title={title}
+      value={value}
+      onChange={(e) => {
+        let v = e.target.value.replace(/[^0-9]/g, '');
+        if (v !== '' && max != null && Number(v) > max) v = String(max);
+        onChange(v);
+      }}
+    />
+  );
+}
+// 학생 수 등 숫자: − / + 버튼 스테퍼(직접 입력도 가능). 1에서 −를 누르면 빈칸(해당 없음).
+function Stepper({ value, onChange, max = 99, placeholder }) {
+  const n = value === '' || value == null ? 0 : Number(value);
+  const btn = { width: 28, height: 28, borderRadius: 6, border: '1px solid #cbd5e1', background: '#f8fafc', cursor: 'pointer', fontWeight: 700, fontSize: '1rem', lineHeight: 1, padding: 0 };
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <button type="button" style={btn} title="1 감소(1에서 누르면 지움)" onClick={() => onChange(n <= 1 ? '' : String(Math.min(n, max) - 1))}>−</button>
+      <NumInput style={{ ...rankInput, width: 44 }} className="form-input" max={max} placeholder={placeholder} value={value} onChange={onChange} />
+      <button type="button" style={btn} title="1 증가" onClick={() => onChange(String(Math.min(n + 1, max)))}>＋</button>
+    </div>
+  );
+}
+
+// 탭 순서 = 순위. 선택된 항목을 다시 탭하면 해제되고 뒤 순위가 앞으로 당겨짐.
+// list: 순위 문자열 배열('' = 미선택). 반환: 새 배열, 가득 찼으면 null.
+function toggleRank(list, idx, max) {
+  const next = list.slice();
+  if (next[idx]) {
+    const removed = Number(next[idx]);
+    next[idx] = '';
+    for (let j = 0; j < next.length; j++) {
+      if (next[j] && Number(next[j]) > removed) next[j] = String(Number(next[j]) - 1);
+    }
+  } else {
+    const used = next.filter(Boolean).length;
+    if (used >= max) return null;
+    next[idx] = String(used + 1);
+  }
+  return next;
+}
+
+// 순위별 색상: 1위(빨강) → 2위(주황) → 3위(초록) → 4위(파랑) → 5위(보라). 서로 뚜렷이 구분되는 색으로.
+const RANK_COLORS = {
+  1: { badge: '#dc2626', bg: '#fef2f2', border: '#dc2626', text: '#b91c1c' },
+  2: { badge: '#ea580c', bg: '#fff7ed', border: '#ea580c', text: '#c2410c' },
+  3: { badge: '#16a34a', bg: '#f0fdf4', border: '#16a34a', text: '#15803d' },
+  4: { badge: '#2563eb', bg: '#eff6ff', border: '#2563eb', text: '#1d4ed8' },
+  5: { badge: '#7c3aed', bg: '#f5f3ff', border: '#7c3aed', text: '#6d28d9' },
+};
+const rankColor = (rank) => RANK_COLORS[Number(rank)] || RANK_COLORS[5];
+
+// 클릭형 순위 칩: 탭하면 순위 배지가 붙고, 다시 탭하면 해제. 순위별로 색이 다름.
+function RankChip({ label, rank, onClick, style }) {
+  const on = !!rank;
+  const c = on ? rankColor(rank) : null;
+  return (
+    <button type="button" onClick={onClick} title="탭한 순서대로 순위가 매겨집니다. 다시 탭하면 해제됩니다."
+      style={{
+        padding: '6px 12px', borderRadius: 999, cursor: 'pointer', fontSize: '.85rem', textAlign: 'left',
+        display: 'inline-flex', alignItems: 'center', gap: 6, userSelect: 'none',
+        border: `1.5px solid ${on ? c.border : '#cbd5e1'}`, background: on ? c.bg : '#fff',
+        color: on ? c.text : '#334155', fontWeight: on ? 700 : 400, ...style,
+      }}>
+      {on && <span style={{ background: c.badge, color: '#fff', borderRadius: 999, padding: '1px 7px', fontSize: '.72rem', fontWeight: 700, flexShrink: 0 }}>{rank}위</span>}
+      {label}
+    </button>
+  );
+}
+
+// 마우스 오버 시 즉시 뜨는 커스텀 툴팁(브라우저 기본 title은 느리고 눈에 안 띔).
+function InfoTip({ text, children }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span style={{ position: 'relative', display: 'inline-block' }}
+      onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+      {children}
+      {show && (
+        <span style={{
+          position: 'absolute', left: 0, top: '100%', marginTop: 6, zIndex: 50,
+          background: '#1e293b', color: '#f1f5f9', padding: '8px 12px', borderRadius: 8,
+          fontSize: '.78rem', lineHeight: 1.55, width: 280, boxShadow: '0 4px 14px rgba(0,0,0,.22)',
+          pointerEvents: 'none', whiteSpace: 'normal',
+        }}>{text}</span>
+      )}
+    </span>
+  );
+}
+
 const tdC = { border: '1px solid #e2e8f0', padding: '6px 8px', verticalAlign: 'middle' };
 const thC = { border: '1px solid #cbd5e1', padding: '6px 8px', background: '#f1f5f9', fontWeight: 700, fontSize: '.82rem' };
 
@@ -39,6 +137,23 @@ export default function PbsSurveyPage() {
   const patchArr = (key, idx, value) => setR((cur) => {
     const next = cur[key].slice(); next[idx] = value; return { ...cur, [key]: next };
   });
+
+  // 배열형 순위 문항(q3·q8·q9·q10·q11) 탭 처리.
+  const tapRank = (key, idx, max) => {
+    const next = toggleRank(r[key], idx, max);
+    if (!next) { toast(`최대 ${max}개까지만 선택할 수 있어요. 다른 항목을 먼저 해제하세요.`); return; }
+    patch({ [key]: next });
+  };
+
+  // Q2 문제행동 순위 탭 처리(행동별 rank 필드).
+  const tapQ2Rank = (bkey) => {
+    const keys = PBS_BEHAVIORS.map((b) => b.key);
+    const next = toggleRank(keys.map((k) => r.q2[k].rank), keys.indexOf(bkey), 5);
+    if (!next) { toast('순위는 최대 5개까지만 매길 수 있어요. 다른 행동을 먼저 해제하세요.'); return; }
+    const q2 = { ...r.q2 };
+    keys.forEach((k, i) => { q2[k] = { ...q2[k], rank: next[i] }; });
+    patch({ q2 });
+  };
 
   async function onSave() {
     if (!curClassId) { toast('먼저 학급을 선택해주세요.'); return; }
@@ -103,53 +218,70 @@ export default function PbsSurveyPage() {
             <select className="form-input" value={r.q1.homeroom} onChange={(e) => patch({ q1: { ...r.q1, homeroom: e.target.value } })}>
               <option value="담임">담임</option><option value="비담임">비담임</option></select></div>
           <div className="form-group"><label className="form-label">학생 인원</label>
-            <input className="form-input" value={r.q1.count} onChange={(e) => patch({ q1: { ...r.q1, count: e.target.value } })} placeholder="명" /></div>
+            <Stepper value={r.q1.count} onChange={(v) => patch({ q1: { ...r.q1, count: v } })} max={99} placeholder="명" /></div>
         </div>
       </div>
 
       {/* Q2 */}
       <div className="card">
         <div style={qTitle}>2. 문제행동별 학생 수 + 순위(1~5)</div>
+        <p style={qHint}>각 행동을 보이는 <strong>학생 수(명)</strong>를 − / + 로 조절하고, 순위 칸을 <strong>심각한 행동부터 순서대로 탭</strong>하면 1~5위가 자동으로 매겨집니다. 다시 탭하면 해제됩니다.</p>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '.85rem' }}>
-            <thead><tr><th style={thC}>문제행동</th><th style={thC}>정의</th><th style={{ ...thC, width: 70 }}>학생수</th><th style={{ ...thC, width: 60 }}>순위</th></tr></thead>
+            <thead><tr><th style={thC}>문제행동</th><th style={thC}>정의</th><th style={{ ...thC, width: 120 }}>학생수</th><th style={{ ...thC, width: 70 }}>순위</th></tr></thead>
             <tbody>
               {PBS_BEHAVIORS.map((b) => (
                 <tr key={b.key}>
                   <td style={{ ...tdC, fontWeight: 600, whiteSpace: 'nowrap' }}>{b.label}</td>
                   <td style={{ ...tdC, color: '#64748b', fontSize: '.78rem' }}>{b.def}</td>
-                  <td style={tdC}><input style={{ ...rankInput, width: '100%' }} value={r.q2[b.key].n} onChange={(e) => patch({ q2: { ...r.q2, [b.key]: { ...r.q2[b.key], n: e.target.value } } })} /></td>
-                  <td style={tdC}><input style={{ ...rankInput, width: '100%' }} value={r.q2[b.key].rank} onChange={(e) => patch({ q2: { ...r.q2, [b.key]: { ...r.q2[b.key], rank: e.target.value } } })} /></td>
+                  <td style={{ ...tdC, whiteSpace: 'nowrap' }}><Stepper value={r.q2[b.key].n} onChange={(v) => patch({ q2: { ...r.q2, [b.key]: { ...r.q2[b.key], n: v } } })} max={99} placeholder="명" /></td>
+                  <td style={{ ...tdC, textAlign: 'center' }}>
+                    <button type="button" onClick={() => tapQ2Rank(b.key)} title="심각한 행동부터 순서대로 탭하면 1~5위가 매겨집니다. 다시 탭하면 해제."
+                      style={{
+                        width: 48, height: 30, borderRadius: 8, cursor: 'pointer', fontSize: '.8rem',
+                        border: `1.5px solid ${r.q2[b.key].rank ? rankColor(r.q2[b.key].rank).border : '#cbd5e1'}`,
+                        background: r.q2[b.key].rank ? rankColor(r.q2[b.key].rank).badge : '#fff',
+                        color: r.q2[b.key].rank ? '#fff' : '#94a3b8', fontWeight: 700,
+                      }}>
+                      {r.q2[b.key].rank ? `${r.q2[b.key].rank}위` : '＋'}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <div className="form-group" style={{ marginTop: 8 }}><label className="form-label">기타 문제행동(자유 기술)</label>
-          <textarea className="form-textarea" rows={2} value={r.q2etc} onChange={(e) => patch({ q2etc: e.target.value })} /></div>
+          <textarea className="form-textarea" rows={2} placeholder="위 목록에 없는 문제행동이 있으면 구체적으로 적어주세요. (예: 급식 시간에 음식을 뱉음)" value={r.q2etc} onChange={(e) => patch({ q2etc: e.target.value })} /></div>
       </div>
 
       {/* Q3 */}
       <div className="card">
         <div style={qTitle}>3. 문제행동 강도(순위)</div>
-        {PBS_INTENSITY.map((t, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <input style={rankInput} value={r.q3[i]} onChange={(e) => patchArr('q3', i, e.target.value)} />
-            <span style={{ fontSize: '.88rem' }}>{i + 1}. {t}</span>
-          </div>
-        ))}
+        <p style={qHint}>우리 반 문제행동에 <strong>가장 가까운 강도부터 순서대로 탭</strong>하면 1~4위가 자동으로 매겨집니다. 다시 탭하면 해제됩니다.</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
+          {PBS_INTENSITY.map((t, i) => (
+            <RankChip key={i} label={t} rank={r.q3[i]} onClick={() => tapRank('q3', i, 4)} />
+          ))}
+        </div>
       </div>
 
       {/* Q4 */}
       <div className="card">
         <div style={qTitle}>4. 사용 중재방법(사용여부 + 효과 1~5)</div>
+        <p style={qHint}>실제 사용해 본 중재에 <strong>체크</strong>하고, 효과 정도를 <strong>1(효과 없음)~5(매우 효과적)</strong> 중 선택하세요. 중재 이름에 <strong>마우스를 올리면 설명</strong>이 표시됩니다.</p>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '.85rem' }}>
             <thead><tr><th style={thC}>중재 내용</th><th style={{ ...thC, width: 60 }}>사용</th><th style={{ ...thC, width: 180 }}>효과(1 없음 ~ 5 매우)</th></tr></thead>
             <tbody>
               {PBS_INTERVENTIONS.map((m, i) => (
                 <tr key={i}>
-                  <td style={tdC}>{m}</td>
+                  <td style={{ ...tdC, cursor: 'help' }}>
+                    <InfoTip text={m.desc}>
+                      <span style={{ borderBottom: '1px dotted #94a3b8' }}>{m.label}</span>
+                      <span style={{ color: '#94a3b8', marginLeft: 4, fontSize: '.72rem' }}>ⓘ</span>
+                    </InfoTip>
+                  </td>
                   <td style={{ ...tdC, textAlign: 'center' }}><input type="checkbox" checked={r.q4[i].used} onChange={(e) => patchArr('q4', i, { ...r.q4[i], used: e.target.checked })} /></td>
                   <td style={{ ...tdC, textAlign: 'center' }}>
                     {[1, 2, 3, 4, 5].map((n) => (
@@ -203,6 +335,7 @@ export default function PbsSurveyPage() {
       {/* Q7 */}
       <div className="card">
         <div style={qTitle}>7. 지도에서 특히 어려운 점 + 지원 요구</div>
+        <p style={qHint}>해당하는 어려움에 <strong>체크</strong>하고, 그 어려움을 해결하는 데 필요한 지원을 오른쪽 칸에 적으세요.</p>
         {PBS_DIFFICULTIES.map((d, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <input type="checkbox" checked={r.q7[i].has} onChange={(e) => patchArr('q7', i, { ...r.q7[i], has: e.target.checked })} />
@@ -215,12 +348,10 @@ export default function PbsSurveyPage() {
       {/* Q8 */}
       <div className="card">
         <div style={qTitle}>8. 문제행동이 자주 발생하는 장소(순위 1~5)</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+        <p style={qHint}><strong>자주 발생하는 장소부터 순서대로 탭</strong>하면 1~5위가 자동으로 매겨집니다. 다시 탭하면 해제됩니다. (최대 5곳)</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {PBS_PLACES.map((p, i) => (
-            <div key={i} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '.8rem', marginBottom: 3 }}>{p}</div>
-              <input style={rankInput} value={r.q8[i]} onChange={(e) => patchArr('q8', i, e.target.value)} />
-            </div>
+            <RankChip key={i} label={p} rank={r.q8[i]} onClick={() => tapRank('q8', i, 5)} />
           ))}
         </div>
       </div>
@@ -228,12 +359,10 @@ export default function PbsSurveyPage() {
       {/* Q9 */}
       <div className="card">
         <div style={qTitle}>9. 문제행동이 자주 발생하는 시간대(순위 1~5)</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+        <p style={qHint}><strong>자주 발생하는 시간대부터 순서대로 탭</strong>하면 1~5위가 자동으로 매겨집니다. 다시 탭하면 해제됩니다. (최대 5개)</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {PBS_TIMES.map((t, i) => (
-            <div key={i} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '.8rem', marginBottom: 3 }}>{t}</div>
-              <input style={rankInput} value={r.q9[i]} onChange={(e) => patchArr('q9', i, e.target.value)} />
-            </div>
+            <RankChip key={i} label={t} rank={r.q9[i]} onClick={() => tapRank('q9', i, 5)} />
           ))}
         </div>
       </div>
@@ -241,12 +370,10 @@ export default function PbsSurveyPage() {
       {/* Q10 */}
       <div className="card">
         <div style={qTitle}>10. 학교 규칙(기대행동) 후보 — 꼭 필요한 5가지 순위</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
+        <p style={qHint}>16개 표현 중 <strong>꼭 필요한 것부터 순서대로 탭</strong>하면 1~5위가 자동으로 매겨집니다. 다시 탭하면 해제됩니다. (최대 5개)</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {PBS_EXPECTED.map((e, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input style={{ ...rankInput, width: 44 }} value={r.q10[i]} onChange={(ev) => patchArr('q10', i, ev.target.value)} />
-              <span style={{ fontSize: '.86rem' }}>{e}</span>
-            </div>
+            <RankChip key={i} label={e} rank={r.q10[i]} onClick={() => tapRank('q10', i, 5)} />
           ))}
         </div>
         <input className="form-input" style={{ marginTop: 8 }} placeholder="기타 더 좋은 표현(자유 기재)" value={r.q10custom} onChange={(e) => patch({ q10custom: e.target.value })} />
@@ -255,12 +382,10 @@ export default function PbsSurveyPage() {
       {/* Q11 */}
       <div className="card">
         <div style={qTitle}>11. 생활규칙 적용이 필요한 장소(순위 1~3)</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+        <p style={qHint}>생활규칙(기대행동)을 <strong>우선 적용할 장소부터 순서대로 탭</strong>하면 1~3위가 자동으로 매겨집니다. 다시 탭하면 해제됩니다. (최대 3곳)</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {PBS_PLACES.map((p, i) => (
-            <div key={i} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '.8rem', marginBottom: 3 }}>{p}</div>
-              <input style={rankInput} value={r.q11[i]} onChange={(e) => patchArr('q11', i, e.target.value)} />
-            </div>
+            <RankChip key={i} label={p} rank={r.q11[i]} onClick={() => tapRank('q11', i, 3)} />
           ))}
         </div>
       </div>
