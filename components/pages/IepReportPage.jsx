@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { fetchIEP, saveIEPGoal } from '../../lib/api/students';
-import { downloadIepReport } from '../../lib/utils/printIep';
+import { downloadNiceIepDocx } from '../../lib/utils/niceIepDocx';
 
 const GRADE = { 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
 
@@ -126,10 +126,10 @@ export default function IepReportPage() {
 
   function onWord() {
     if (!list.length) { toast('출력할 목표가 없습니다.'); return; }
-    downloadIepReport({
-      student: { code: curStu.code, level: curStu.level, disability: curStu.disability },
-      teacherName: teacher, school: user?.school || '', year: yearF || curYear, semester: sem, goals: list,
-    });
+    downloadNiceIepDocx({
+      student: { code: curStu.code, level: curStu.level },
+      teacherName: teacher, year: yearF || curYear, semester: sem, goals: list,
+    }).catch((e) => toast('Word 생성 실패: ' + e.message));
   }
 
   return (
@@ -150,7 +150,7 @@ export default function IepReportPage() {
             <select className="form-input" style={{ width: 'auto' }} value={sem} onChange={(e) => setSem(e.target.value)}>
               <option value="">전체 학기</option><option value="1">1학기</option><option value="2">2학기</option>
             </select>
-            <button className="btn btn-ok" onClick={onWord}>📄 Word(.doc) 다운로드</button>
+            <button className="btn btn-ok" onClick={onWord}>📄 나이스 양식 Word(.docx)</button>
           </div>
         </div>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12, fontSize: 13 }}>
@@ -196,7 +196,7 @@ export default function IepReportPage() {
             </div>
             <div style={{ overflowX: 'auto' }}>
             <table style={tbl}>
-              <thead><tr><th style={{ ...th, width: 48 }}>월</th><th style={th}>교육목표</th><th style={th}>교육내용</th><th style={{ ...th, width: 150 }}>교육방법</th><th style={{ ...th, width: '30%' }}>평가</th></tr></thead>
+              <thead><tr><th style={{ ...th, width: 48 }}>월</th><th style={th}>교육목표</th><th style={th}>교육내용</th><th style={{ ...th, width: 150 }}>교육방법</th><th style={{ ...th, width: '18%' }}>평가계획</th><th style={{ ...th, width: '22%' }}>평가</th></tr></thead>
               <tbody>
                 {(g.monthly || []).map((m, i) => (
                   <tr key={i}>
@@ -204,10 +204,11 @@ export default function IepReportPage() {
                     <td style={tdc}><textarea style={cell} value={m.goal || ''} onChange={(e) => updateMonth(g.id, i, 'goal', e.target.value)} /></td>
                     <td style={tdc}><textarea style={cell} value={m.content || ''} onChange={(e) => updateMonth(g.id, i, 'content', e.target.value)} /></td>
                     <td style={tdc}><textarea style={cell} value={(m.methods || []).map((x) => '- ' + x).join('\n')} onChange={(e) => updateMonth(g.id, i, 'methods', e.target.value)} /></td>
+                    <td style={tdc}><textarea style={cell} value={m.eval_plan || ''} onChange={(e) => updateMonth(g.id, i, 'eval_plan', e.target.value)} placeholder="- …는가?" /></td>
                     <td style={tdc}><textarea style={cell} value={m.eval || ''} onChange={(e) => updateMonth(g.id, i, 'eval', e.target.value)} /></td>
                   </tr>
                 ))}
-                {(!g.monthly || g.monthly.length === 0) && <tr><td colSpan={5} style={{ ...tdc, color: '#6b7280', textAlign: 'center' }}>월별 계획이 없습니다. "IEP 목표 생성"에서 월별을 만들면 여기서 수정할 수 있어요.</td></tr>}
+                {(!g.monthly || g.monthly.length === 0) && <tr><td colSpan={6} style={{ ...tdc, color: '#6b7280', textAlign: 'center' }}>월별 계획이 없습니다. "IEP 목표 생성"에서 월별을 만들면 여기서 수정할 수 있어요.</td></tr>}
               </tbody>
             </table>
             </div>

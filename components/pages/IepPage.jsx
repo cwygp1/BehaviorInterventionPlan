@@ -7,7 +7,8 @@ import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { fetchIEP, saveIEPGoal, deleteIEPGoal, fetchStartpoint, fetchClassPBS } from '../../lib/api/students';
 import { buildPyeongPrompt, parsePyeongLines, PYEONG_LEVELS } from '../../lib/pyeong';
-import { downloadIepWord, downloadIepFormWord, downloadTaskSheet } from '../../lib/utils/printIep';
+import { downloadIepFormWord, downloadTaskSheet } from '../../lib/utils/printIep';
+import { downloadNiceIepDocx } from '../../lib/utils/niceIepDocx';
 import { buildStudentSummary as tcBuildStudentSummary, buildTierLinkage as tcBuildTierLinkage } from '../../lib/tierContext';
 import { profileNarrative } from '../../lib/utils/splitNote';
 import { ebpBlockForGoal } from '../../lib/ebp';
@@ -82,6 +83,72 @@ const orderMonths = (arr, sem) => {
   return [...new Set(arr)].filter((m) => pool.includes(m)).sort((a, b) => pool.indexOf(a) - pool.indexOf(b));
 };
 const baseOf = (goal) => goal.replace(/^스스로\s*/, '').replace(/\s*\.?$/, '');
+
+// ── 월 묶기 (현장 관행: 3-4월/5월/6-7월처럼 묶어 계획·평가) ──────────────
+// "3-4/5/6-7" 같은 묶음 문자열을 선택된 월 기준의 그룹 배열로 푼다.
+// 비어 있으면 월마다 한 그룹. 표기에 없는 선택 월은 단독 그룹으로 붙인다.
+function parseMonthGroups(spec, selectedMonths, sem) {
+  const pool = MONTH_POOL(sem);
+  const ms = orderMonths(selectedMonths, sem);
+  const used = new Set();
+  const groups = [];
+  String(spec || '').split(/[/,]/).map((t) => t.trim()).filter(Boolean).forEach((tok) => {
+    const mm = tok.match(/^(\d{1,2})\s*[-~·]\s*(\d{1,2})$/);
+    let g = [];
+    if (mm) {
+      const a = pool.indexOf(+mm[1]); const b = pool.indexOf(+mm[2]);
+      if (a >= 0 && b >= 0 && a <= b) g = pool.slice(a, b + 1);
+    } else if (/^\d{1,2}$/.test(tok)) {
+      g = [+tok];
+    }
+    g = g.filter((m) => ms.includes(m) && !used.has(m));
+    if (g.length) { g.forEach((m) => used.add(m)); groups.push(g); }
+  });
+  ms.forEach((m) => { if (!used.has(m)) groups.push([m]); });
+  groups.sort((x, y) => pool.indexOf(x[0]) - pool.indexOf(y[0]));
+  return groups;
+}
+// 그룹 → 표기 라벨. 연속이면 "3-4", 아니면 "3·5", 단일이면 "5".
+function monthGroupLabel(g, sem) {
+  const pool = MONTH_POOL(sem);
+  if (g.length === 1) return String(g[0]);
+  const consecutive = g.every((m, i) => i === 0 || pool.indexOf(m) === pool.indexOf(g[i - 1]) + 1);
+  return consecutive ? `${g[0]}-${g[g.length - 1]}` : g.join('·');
+}
+// 저장된 월 라벨("3-4", "5", "3·5")을 실제 월 배열로 복원.
+function expandMonthLabel(label, sem) {
+  const pool = MONTH_POOL(sem);
+  const s = String(label == null ? '' : label).trim();
+  const mm = s.match(/^(\d{1,2})\s*-\s*(\d{1,2})$/);
+  if (mm) {
+    const a = pool.indexOf(+mm[1]); const b = pool.indexOf(+mm[2]);
+    if (a >= 0 && b >= 0 && a <= b) return pool.slice(a, b + 1);
+  }
+  return s.split(/[·,]/).map((x) => parseInt(x, 10)).filter((n) => pool.includes(n));
+}
+
+// 평서형 평가초점("…나눈다.")을 평가계획 질문("…나눌 수 있는가?")으로 변환.
+function toEvalQuestion(s) {
+  const t = String(s || '').trim().replace(/\.+$/, '');
+  if (!t) return '';
+  if (t.endsWith('한다')) return t.slice(0, -2) + '할 수 있는가?';
+  if (t.endsWith('는다')) {
+    const stem = t.slice(0, -2);
+    const c = stem.charCodeAt(stem.length - 1);
+    const inRange = c >= 0xAC00 && c <= 0xD7A3;
+    const jong = inRange ? (c - 0xAC00) % 28 : 0;
+    if (inRange && !jong) return stem.slice(0, -1) + String.fromCharCode(c + 8) + ' 수 있는가?'; // 받침 ㄹ 붙임
+    return stem + '을 수 있는가?';
+  }
+  if (t.endsWith('다')) {
+    const c = t.charCodeAt(t.length - 2);
+    if (c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 === 4) {
+      return t.slice(0, -2) + String.fromCharCode(c + 4) + ' 수 있는가?'; // 받침 ㄴ→ㄹ (나눈다→나눌)
+    }
+    return t.slice(0, -1) + '는가?';
+  }
+  return t + ' — 할 수 있는가?';
+}
 
 // 받침 유무로 을/를 조사 선택
 function josaEulReul(word) {
@@ -184,7 +251,6 @@ export default function IepPage() {
   const [fGrade, setFGrade] = useState('');
   const [fBigArea, setFBigArea] = useState(''); // 일상생활 활동 대영역
   const [fArea, setFArea] = useState('');
-  const [fSearch, setFSearch] = useState('');
   const [sel, setSel] = useState(null);
 
   const [verb, setVerb] = useState('');
@@ -200,8 +266,10 @@ export default function IepPage() {
   const [sem, setSem] = useState(String(curSemester || 1));
   // 학기에 포함할 월(교사가 직접 선택). 기본값은 표준 학사일정(1학기 3~7월 / 2학기 9~12·1월).
   const [months, setMonths] = useState(() => monthsOf(String(curSemester || 1)));
+  // 월 묶기 표기(예: "3-4/5/6-7"). 비워 두면 매월 한 행. — 현장 관행 반영(피드백4)
+  const [monthGroups, setMonthGroups] = useState('');
   const [critType, setCritType] = useState('rate');
-  const [supportTier, setSupportTier] = useState(''); // 모듈4: 지원 수준(Tier 1/2/3)
+  const [supportTier, setSupportTier] = useState(''); // 모듈4: 지원체계(Tier 1/2/3)
   const [startpoint, setStartpoint] = useState(null); // 모듈1 출발점 산출물(연동용)
   const [pyeongLines, setPyeongLines] = useState([]); // 교과 평어 생성 결과
   const [pyeongLevel, setPyeongLevel] = useState('');
@@ -222,7 +290,7 @@ export default function IepPage() {
   const [aiGenBusy, setAiGenBusy] = useState(false);
   const [editingId, setEditingId] = useState(null); // 수정 중인 저장 목표 id
   const [goalsLoading, setGoalsLoading] = useState(false);
-  const [colW, setColW] = useState([56, 240, 240, 160, 300]); // 월별 표 열 너비(px)
+  const [colW, setColW] = useState([50, 210, 210, 170, 190, 220]); // 월별 표 열 너비(px) — 월/목표/내용/방법/평가계획/평가
 
   // Load achievement standards (public/data) once.
   useEffect(() => {
@@ -270,15 +338,13 @@ export default function IepPage() {
     return list;
   }, [rows, fSubject, fGrade, isDaily, fBigArea]);
   const candidates = useMemo(() => {
-    const q = fSearch.trim();
     return rows.filter((r) =>
       (!fSubject || r.subject === fSubject) &&
       (!fGrade || r.gradeCode === +fGrade) &&
       (!isDaily || !fBigArea || DAILY_MID_TO_BIG[r.area] === fBigArea) &&
-      (!fArea || r.area === fArea) &&
-      (!q || r.text.includes(q) || r.code.includes(q))
+      (!fArea || r.area === fArea)
     );
-  }, [rows, fSubject, fGrade, isDaily, fBigArea, fArea, fSearch]);
+  }, [rows, fSubject, fGrade, isDaily, fBigArea, fArea]);
 
   function pickStandard(r) {
     setSel(r);
@@ -303,10 +369,13 @@ export default function IepPage() {
     setCStart(g.crit_start ?? 30); setCEnd(g.crit_end ?? 80);
     setTaskSteps(Array.isArray(g.task_steps) ? g.task_steps : []);
     setChainType(g.chain_type || 'forward'); setPromptSystem(g.prompt_system || 'mtl');
-    // 저장된 월별 계획에서 실제 운영 월을 복원(없으면 표준 학사일정).
+    // 저장된 월별 계획에서 실제 운영 월·월 묶기를 복원(없으면 표준 학사일정).
     {
-      const savedMonths = (Array.isArray(g.monthly) ? g.monthly : []).map((m) => Number(m.month)).filter(Boolean);
-      setMonths(savedMonths.length ? orderMonths(savedMonths, g.semester || 1) : monthsOf(g.semester || 1));
+      const gSem = g.semester || 1;
+      const labels = (Array.isArray(g.monthly) ? g.monthly : []).map((m) => String(m.month));
+      const savedMonths = labels.flatMap((l) => expandMonthLabel(l, gSem));
+      setMonths(savedMonths.length ? orderMonths(savedMonths, gSem) : monthsOf(gSem));
+      setMonthGroups(labels.some((l) => /[-·]/.test(l)) ? labels.join('/') : '');
     }
     setMonthly(Array.isArray(g.monthly) ? g.monthly : []);
     setSemEval(g.semestral_eval || '');
@@ -321,7 +390,7 @@ export default function IepPage() {
   function newGoal() {
     setSel(null); setEditingId(null); setMonthly([]); setSemEval(''); setGoal('');
     setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setSupportTier(''); setTaskSteps([]);
-    setChainType('forward'); setPromptSystem('mtl'); setMonths(monthsOf(sem));
+    setChainType('forward'); setPromptSystem('mtl'); setMonths(monthsOf(sem)); setMonthGroups('');
   }
 
   // 전년도 목표 하나를 "기준"으로 삼아 올해 목표 작성을 시작.
@@ -425,7 +494,7 @@ export default function IepPage() {
 
   function generate() {
     if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
-    const ms = orderMonths(months, sem), n = ms.length;
+    const groups = parseMonthGroups(monthGroups, months, sem), n = groups.length;
     if (!n) { toast('포함할 월을 한 개 이상 선택하세요.'); return; }
     const base = baseOf(goal);
     const s = +cStart, e = +cEnd;
@@ -447,9 +516,19 @@ export default function IepPage() {
     const stem = (verb || sel.verb || '').replace(/하기$|기$/, '');
     const obj = (descriptor || base).trim();
     const phase = (i) => CONTENT_SUFFIX[Math.min(CONTENT_SUFFIX.length - 1, Math.floor(i / (n / CONTENT_SUFFIX.length)))];
-    // 평가초점을 월에 고르게 배분(질적 평가 서술의 기준점)
+    // 평가초점을 구간에 고르게 배분(질적 평가 서술의 기준점)
     const fociFor = (i) => (foci.length ? foci.filter((_, k) => k % n === i || (foci.length <= n && k === i)) : []);
-    const list = ms.map((m, i) => {
+    // 교육방법 3구조(피드백1): 지도전략 · 지원수준(촉구·용암) · 강화 스케줄
+    const reinforceFor = (i) => (frac(i) < 0.5
+      ? '습득 단계 — 연속강화(CRF): 정반응마다 즉시 칭찬·선호 강화물 제공'
+      : '유지 단계 — 간헐강화(VR2~VR3): 2~3회에 한 번 불규칙하게 강화하며 자연적 칭찬·성취감으로 전환');
+    const methodsFor = (i) => [
+      `지도전략: ${methods.join(', ')}`,
+      `지원수준(촉구·용암): ${isTask ? promptDesc(promptSystem, i, n, support) : `${support(i).trim()} 수준에서 촉구를 점차 줄여(최대-최소 촉진→시간지연) 독립 수행으로`}`,
+      `강화 스케줄: ${reinforceFor(i)}`,
+    ];
+    const list = groups.map((grp, i) => {
+      const m = monthGroupLabel(grp, sem);
       // 이 달에 배분된 평가초점 — 교육내용·평가가 평가초점에서 출발하도록 공유.
       const fThis = fociFor(i);
       const fLead = fThis.length ? fThis.join(' / ') : (foci.length ? foci[Math.min(i, foci.length - 1)] : '');
@@ -488,7 +567,13 @@ export default function IepPage() {
             `- ${crit(i)} 기준 도달 여부 확인`,
             foci.length ? `- 평가초점(${fThis.length ? fThis.join(' / ') : foci[0]}) 중심의 질적 수행 기록 병행` : `- 수행 과정과 지원 수준의 변화를 서술 기록`,
           ].join('\n');
-      return { month: m, goal, content, methods: [...methods], eval: evalText };
+      // 평가계획(피드백1): 교육목표·교육내용(평가초점)에 근거한 "~는가?" 질문
+      const planQs = (fThis.length ? fThis : foci.slice(0, 2)).map(toEvalQuestion).filter(Boolean);
+      const evalPlan = [
+        ...(planQs.length ? planQs.map((q) => '- ' + q) : [`- ${obj}${josaEulReul(obj)} ${stem ? stem + '할' : '수행할'} 수 있는가?`]),
+        '- 활동에 관심을 보이고 참여하려는 모습을 보이는가?',
+      ].join('\n');
+      return { month: m, goal, content, methods: methodsFor(i), eval: evalText, eval_plan: evalPlan };
     });
     setMonthly(list);
     // P3: AI 없이도 규칙 초안이 모듈1 출발점·지원 수준(Tier)을 이어받게 한다(결정적, LLM 없음).
@@ -524,7 +609,7 @@ export default function IepPage() {
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem('iep_colw'));
-      if (Array.isArray(s) && s.length === 5) setColW(s);
+      if (Array.isArray(s) && s.length === 6) setColW(s);
     } catch (_) {}
   }, []);
   // 헤더 경계 드래그: idx 열과 오른쪽 이웃(idx+1) 열이 폭을 주고받아 전체 폭은 고정 유지.
@@ -553,7 +638,7 @@ export default function IepPage() {
     document.addEventListener('mouseup', up);
   }
   function resetColW() {
-    const d = [56, 240, 240, 160, 300];
+    const d = [50, 210, 210, 170, 190, 220];
     setColW(d);
     try { localStorage.setItem('iep_colw', JSON.stringify(d)); } catch (_) {}
   }
@@ -566,7 +651,7 @@ export default function IepPage() {
       '- 출력 foci의 개수 = 동사 목록의 개수, 순서도 동일.\n' +
       '- 각 문장은 해당 동사를 평서형(~한다)으로 끝내고, 대상에 맞는 조사·목적어를 자연스럽게 붙일 것(억지 조합 금지).\n' +
       '- 같은 의미를 서로 다른 구체 행동으로 표현. "지원 수준(도움받아/부분/독립)"으로 나누지 말 것.\n' +
-      '- 영어 단어·어려운 한자어 없이 일상에서 자주 쓰는 쉬운 우리말로 쓸 것.\n' +
+      '- 영어 단어·어려운 한자어 없이 일상에서 자주 쓰는 쉬운 우리말로, 맞춤법·문장 오류 없이 쓸 것.\n' +
       (useIntent ? `- 행위지향 "${useIntent}"의 취지를 자연스럽게 반영(모든 문장에 억지로 넣지는 말 것).\n` : '') +
       `성취기준: [${sel.code}] ${sel.text}\n` +
       `서술자(대상): ${useDesc || sel.text}\n` +
@@ -620,8 +705,10 @@ export default function IepPage() {
         '- verbs: 위 verb와 "같은 의미·같은 성취 의도"로 바꿔 쓸 수 있는 측정 가능한 동사 6~8개. 모두 명사형(~하기/~기), 대표 동사 자신도 포함. 서로 다른 구체 행동이되 의미는 동일.\n' +
         '   예: "분류하기" → ["분류하기","나누기","구분하기","묶기","가려내기","골라내기"]\n' +
         '   예: "시도하기" → ["시도하기","말 걸기","대답하기","표현하기","반응하기"]\n' +
-        '- intent: 행위지향(가치·태도, 부사). 없으면 "".\n' +
+        '- intent: 행위지향(가치·태도). 필수 — 성취기준에 명시된 부사어가 있으면 그대로, 없으면 성취기준의 취지에서 반드시 유추해 한 구절(부사구)로 쓸 것. 빈 문자열 금지.\n' +
+        '   예: "자신을 소개한다" → "자신 있게" / "물체를 분류한다" → "형태나 종류에 따라" / "규칙을 지키며 논다" → "규칙을 지키며"\n' +
         '- descriptor: 서술자(핵심 대상·내용).\n' +
+        '- 모든 값은 맞춤법·문장 오류 없이, 영어 단어 없이 쉬운 우리말로 쓸 것.\n' +
         '반드시 JSON 객체 하나만 출력. 예: {"verb":"분류하기","verbs":["분류하기","나누기","구분하기","묶기","가려내기"],"intent":"형태나 종류에 따라","descriptor":"생활 주변의 물체"}\n\n' +
         `성취기준: [${sel.code}] ${sel.text}`;
       const a = await llmJSON('AI 분석', aPrompt, { tier: 'fast', temperature: 0.2 });
@@ -629,11 +716,24 @@ export default function IepPage() {
       let alts = Array.isArray(a.verbs) ? a.verbs.map(String).map((s) => s.trim()).filter(Boolean) : [];
       if (aVerb && !alts.includes(aVerb)) alts = [aVerb, ...alts];
       alts = [...new Set(alts)];
-      const aIntent = a.intent != null ? String(a.intent) : intent;
+      // 행위지향(intent)은 첫 응답에서 자주 빠지는 필드 — 비어 오면 intent만 뽑는 재호출 1회.
+      let aIntent = a.intent != null ? String(a.intent).trim() : '';
+      if (!aIntent) {
+        try {
+          const ip = await llmJSON('행위지향 추출', (
+            '아래 성취기준의 "행위지향(가치·태도)"을 한 구절(부사구)로 반드시 추출하거나 취지에서 유추하세요. 빈 값 금지.\n' +
+            '예: "자신을 소개한다" → {"intent":"자신 있게"} / "물체를 분류한다" → {"intent":"형태나 종류에 따라"}\n' +
+            '반드시 JSON 객체 하나만 출력. {"intent":"..."}\n\n' +
+            `성취기준: [${sel.code}] ${sel.text}`
+          ), { tier: 'fast', temperature: 0.3 });
+          aIntent = ip.intent != null ? String(ip.intent).trim() : '';
+        } catch (_) { /* best-effort */ }
+      }
+      if (!aIntent) aIntent = intent; // 그래도 비면 기존 값 유지(빈 응답이 덮어쓰지 않게)
       const aDesc = a.descriptor != null ? String(a.descriptor) : descriptor;
       if (a.verb != null) setVerb(aVerb);
       setVerbAlts(alts);
-      if (a.intent != null) setIntent(aIntent);
+      if (aIntent) setIntent(aIntent);
       if (a.descriptor != null) setDescriptor(aDesc);
 
       // 2단계: 같은 의미 동사마다 자연스러운 평가초점 1문장 — 동사가 실제로 다양해지도록 분리 호출.
@@ -677,7 +777,8 @@ export default function IepPage() {
   // 생성 프롬프트 문자열을 만든다(AI 호출/수동 복사 공용).
   async function buildGenPrompt() {
     const data = curStuData || (await ensureStudentData(curStuId)) || {};
-    const ms = orderMonths(months, sem);
+    const mGroups = parseMonthGroups(monthGroups, months, sem);
+    const ms = mGroups.map((g) => monthGroupLabel(g, sem));
     const isQual = critType === 'qual';
     const isTask = critType === 'task';
     const u = isTask ? '단계' : (critType === 'rate' ? '%' : '회');
@@ -713,7 +814,7 @@ export default function IepPage() {
     };
     const tierNum = supportTier ? (supportTier.match(/[123]/) || [])[0] : '';
     const tierLine = supportTier
-      ? `[지원 수준] ${supportTier}\n  의미: ${TIER_DESC[tierNum] || ''}\n  → 교육방법·촉진 수준을 이 지원 강도에 맞춰 명시하되, 결과물에는 "Tier 1/2/3" 같은 단계 라벨만 적지 말고${tierLinkage ? ' 위 [지원 체계 연동]에 적힌 이 학생의 실제 운영 내용(학급 PBS·소그룹·CICO 등)을 우선 반영해' : ' 위 의미를 풀어서'} 구체적인 지원 내용으로 서술할 것(Word 제출본만 단독으로 읽어도 무슨 지원인지 이해되도록).\n`
+      ? `[지원체계] ${supportTier}\n  의미: ${TIER_DESC[tierNum] || ''}\n  → 교육방법·촉진 수준을 이 지원 강도에 맞춰 명시하되, 결과물에는 "Tier 1/2/3" 같은 단계 라벨만 적지 말고${tierLinkage ? ' 위 [지원 체계 연동]에 적힌 이 학생의 실제 운영 내용(학급 PBS·소그룹·CICO 등)을 우선 반영해' : ' 위 의미를 풀어서'} 구체적인 지원 내용으로 서술할 것(Word 제출본만 단독으로 읽어도 무슨 지원인지 이해되도록).\n`
       : '';
     // P7: 증거기반실제(EBP) 근거연결 — 목표유형·목표텍스트로 후보를 골라 교육방법이 "근거 있는"
     //     방법을 우선 쓰도록 프롬프트에 주입(규칙기반, 결정적).
@@ -734,20 +835,28 @@ export default function IepPage() {
       `[성취기준] [${sel.code}] ${sel.text} (교과 ${sel.subject}${sel.area ? ' · ' + sel.area : ''})\n` +
       fociBlock + stepsBlock +
       `[학기목표(참고)] ${goal}\n` +
-      `[대상 월] ${ms.join(', ')} (총 ${ms.length}개월)\n` +
+      `[대상 월(구간)] ${ms.map((x) => x + '월').join(', ')} (총 ${ms.length}구간 — 월을 묶은 구간은 한 행으로 작성)\n` +
       critLine + tierLine + ebpBlock + `\n` +
       `요구사항:\n` +
       `1) 현행수준(plop)은 이 성취기준·평가초점에 대한 학생의 현재 수행 수준(무엇을 어디까지 하는지)을 중심으로 쓰고, 행동·지원 정보(ABC·BIP·안정실 등)는 학습에 영향을 주는 범위에서만 보조적으로 덧붙인다.\n` +
-      `2) 월별로 지원 수준을 점차 줄이며(도움받아→부분→독립→적용) 목표를 점증시킬 것.\n` +
-      `3) [평가초점 연결 — 핵심] 평가초점이 교육목표·교육내용·교육방법·평가를 하나로 꿰는 축이다. 교육목표는 평가초점이 가리키는 능력에 도달하도록 진술하고, 교육내용은 그 평가초점을 배우는 구체적 학습내용·활동으로, 교육방법은 그 내용을 가르치는 방법으로, 평가는 평가초점을 기준으로 작성한다(평가초점이 비어 있으면 성취기준을 먼저 분석해 세운다). 교육목표·교육내용·교육방법·평가는 각각 "- "로 시작하는 항목 2~3개로 상세히 쓴다.\n` +
-      `4) 평가(eval)는 ${isQual ? '평가초점을 중심으로, 수업 맥락·학생 반응·성장 변곡점을 담은 내러티브(서술형)로만 작성(수치 금지).' : isTask ? '전체 N단계 중 독립 수행 단계 수와 단계별 촉진 수준(전신→부분→시범→독립)의 변화를 함께 기록하는 과제분석 체크리스트형 서술로 작성.' : '양적 기준 도달 여부와 함께 평가초점 중심의 질적 서술을 함께 포함.'}\n` +
-      `5) 학생 실명/식별정보는 절대 쓰지 말 것(익명 ID만).\n` +
-      `6) 학기목표(semester_goal)도 성취기준과 학생 자료를 반영해 한 문장으로 작성.\n` +
-      `7) "Tier 1/2/3" 같은 단계 라벨을 결과 텍스트에 그대로 쓰지 말 것. 지원 단계를 언급해야 하면 그 단계가 실제로 어떤 지원인지(예: 소그룹 CICO·일일 행동점검표 등)를 구체적으로 풀어서 서술해, 제출본만 읽어도 이해되게 할 것.\n` +
-      `8) 표현은 일상에서 자주 쓰는 쉬운 우리말로 쓸 것. 영어 단어(모니터링·피드백·케이스 등)와 어려운 한자어(제고·함양·도모 등)는 쓰지 말고 쉬운 말로 바꿀 것. 동사도 잘 안 쓰는 표현 대신 교사·보호자가 바로 이해하는 익숙한 말을 쓸 것.\n` +
-      `9) 이 IEP 목표는 성취기준 기반의 학습 목표다. 행동중재(BIP)·Tier 지원·기능평가(QABF) 정보는 '현행수준 파악'과 '지원 강도·교수 방법 선택'의 참고로만 쓰고, 교육목표·교육내용 자체가 문제행동 감소로 치우치지 않게 한다(배워야 할 학습 내용·기능적 기술 습득이 중심이며, 사회·정서 목표도 바람직한 대체기술 습득으로 긍정적으로 진술).\n\n` +
+      `2) 구간이 지날수록 지원 수준을 점차 줄이며(도움받아→부분→독립→적용) 목표를 점증시킬 것.\n` +
+      `3) [교육목표(goal) 진술 규칙 — 중요] 교육목표는 성취기준과 현행수준에 근거해 학생이 도달할 행동·능력만 진술한다. 교수전략·증거기반실제의 이름(개별시도교수·촉진·강화·시간지연·비디오 모델링 등)이나 지도 방법 서술은 교육목표에 절대 넣지 말 것 — 그런 내용은 전부 교육방법(methods)에만 쓴다.\n` +
+      `4) [교육내용(content) 진술 규칙] 교육내용은 개조식 명사형 활동 목록으로 쓴다(예: "- 내 얼굴 사진 찾기", "- 이름 노래 부르기"). "~할 수 있다", "~한다" 같은 목표·평가식 문장으로 쓰지 말 것. 항목 3~6개.\n` +
+      `5) [교육방법(methods) 3구조] methods 배열은 반드시 다음 세 항목으로 구성한다.\n` +
+      `   ① "지도전략: ..." — 이 내용을 가르칠 구체적 전략. 증거기반실제는 우리말 명칭과 약어를 함께 쓰고(예: 개별시도교수(DTT), 자연적 상황 교수(NET)), 어떤 활동에서 어떻게 쓰는지 지시어·상황 예시까지 서술.\n` +
+      `   ② "지원수준(촉구·용암): ..." — 촉구 체계(최대-최소 촉진, 시간지연 등)와 시기별 용암 계획(초기: 즉시 촉구 → 중기: 3~5초 시간지연 후 최소 힌트 → 후기: 독립)을 서술.\n` +
+      `   ③ "강화 스케줄: ..." — 습득 단계(연속강화 CRF: 정반응마다 즉시 강화)와 유지 단계(간헐강화 VR2~VR3: 정답률 80% 이상이면 2~3회에 한 번 불규칙 강화, 자연적 칭찬·성취감으로 전환)를 서술.\n` +
+      `6) [평가초점 연결 — 핵심] 평가초점이 교육목표·교육내용·교육방법·평가를 하나로 꿰는 축이다. 교육목표는 평가초점이 가리키는 능력에 도달하도록 진술하고, 교육내용은 그 평가초점을 배우는 구체적 학습내용·활동으로, 교육방법은 그 내용을 가르치는 방법으로, 평가는 평가초점을 기준으로 작성한다(평가초점이 비어 있으면 성취기준을 먼저 분석해 세운다). 교육목표·평가는 "- "로 시작하는 항목 2~3개로 쓴다.\n` +
+      `7) [평가계획(eval_plan)] 구간마다 교육목표·교육내용에 근거한 평가계획을 "~는가?" 질문형 항목 2~3개로 작성한다(예: "- 모형 흙을 적극적으로 탐색하는 태도를 보이는가?", "- 협동 놀이 활동에 관심을 보이고 참여하려는 모습을 보이는가?").\n` +
+      `8) 평가(eval)는 ${isQual ? '평가초점을 중심으로, 수업 맥락·학생 반응·성장 변곡점을 담은 내러티브(서술형)로만 작성(수치 금지).' : isTask ? '전체 N단계 중 독립 수행 단계 수와 단계별 촉진 수준(전신→부분→시범→독립)의 변화를 함께 기록하는 과제분석 체크리스트형 서술로 작성.' : '양적 기준 도달 여부와 함께 평가초점 중심의 질적 서술을 함께 포함.'}\n` +
+      `9) 학생 실명/식별정보는 절대 쓰지 말 것(익명 ID만).\n` +
+      `10) 학기목표(semester_goal)도 성취기준과 학생 자료를 반영해 한 문장으로 작성(교수전략 이름 금지).\n` +
+      `11) "Tier 1/2/3" 같은 단계 라벨을 결과 텍스트에 그대로 쓰지 말 것. 지원 단계를 언급해야 하면 그 단계가 실제로 어떤 지원인지(예: 소그룹 CICO·일일 행동점검표 등)를 구체적으로 풀어서 서술해, 제출본만 읽어도 이해되게 할 것.\n` +
+      `12) 표현은 일상에서 자주 쓰는 쉬운 우리말로 쓸 것. 영어 단어(모니터링·피드백·케이스 등)와 어려운 한자어(제고·함양·도모 등)는 쓰지 말고 쉬운 말로 바꿀 것(교육방법의 증거기반실제 명칭은 예외 — 우리말 명칭+약어 병기). 동사도 잘 안 쓰는 표현 대신 교사·보호자가 바로 이해하는 익숙한 말을 쓸 것.\n` +
+      `13) 이 IEP 목표는 성취기준 기반의 학습 목표다. 행동중재(BIP)·Tier 지원·기능평가(QABF) 정보는 '현행수준 파악'과 '지원 강도·교수 방법 선택'의 참고로만 쓰고, 교육목표·교육내용 자체가 문제행동 감소로 치우치지 않게 한다(배워야 할 학습 내용·기능적 기술 습득이 중심이며, 사회·정서 목표도 바람직한 대체기술 습득으로 긍정적으로 진술).\n` +
+      `14) 출력 전에 맞춤법·띄어쓰기·문장 오류를 스스로 점검해 바로잡을 것.\n\n` +
       `반드시 아래 JSON만 출력(설명 금지):\n` +
-      `{"semester_goal":"...","plop":"...",${isTask ? '"task_steps":["1단계 행동","2단계 행동"],' : ''}"monthly":[{"month":${ms[0]},"goal":"- ...\\n- ...","content":"- ...\\n- ...","methods":["...","..."],"eval":"- ...\\n- ..."}],"semestral_eval":"..."}`
+      `{"semester_goal":"...","plop":"...",${isTask ? '"task_steps":["1단계 행동","2단계 행동"],' : ''}"monthly":[{"month":"${ms[0]}","goal":"- ...\\n- ...","content":"- ...하기\\n- ...하기","methods":["지도전략: ...","지원수준(촉구·용암): ...","강화 스케줄: ..."],"eval":"- ...\\n- ...","eval_plan":"- ...는가?\\n- ...는가?"}],"semestral_eval":"..."}`
     );
   }
 
@@ -762,17 +871,18 @@ export default function IepPage() {
 
   // 파싱된 JSON을 화면에 적용(AI 응답/수동 붙여넣기 공용).
   function applyGen(j) {
-    const ms = orderMonths(months, sem);
+    const ms = parseMonthGroups(monthGroups, months, sem).map((g) => monthGroupLabel(g, sem));
     if (j && (j.standard_code || j.standardCode)) warnUnknownStandard(j.standard_code || j.standardCode);
     if (j.semester_goal || j.semesterGoal) setGoal(String(j.semester_goal || j.semesterGoal));
     if (j.plop) setPlop(String(j.plop));
     if (Array.isArray(j.monthly) && j.monthly.length) {
       setMonthly(j.monthly.map((x, i) => ({
-        month: x.month || ms[i] || ms[ms.length - 1],
+        month: String(x.month || ms[i] || ms[ms.length - 1]),
         goal: String(x.goal || ''),
         content: String(x.content || ''),
         methods: Array.isArray(x.methods) ? x.methods.map(String) : String(x.methods || '').split(/\n|,/).map((s) => s.replace(/^\s*[-•·]\s*/, '').trim()).filter(Boolean),
         eval: String(x.eval || x.evaluation || ''),
+        eval_plan: String(x.eval_plan || x.evalPlan || ''),
       })));
     }
     if (j.semestral_eval || j.semestralEval) setSemEval(String(j.semestral_eval || j.semestralEval));
@@ -888,14 +998,15 @@ export default function IepPage() {
     } catch (e) { toast('삭제 실패: ' + e.message); }
   }
 
-  function exportWord(goals) {
+  // 나이스 양식(학기별/월별/평가계획) 진짜 .docx 내보내기 — 깨짐 없이 열린다.
+  function exportNiceWord(goals) {
     if (!goals.length) { toast('저장된 IEP 목표가 없습니다. 먼저 저장하세요.'); return; }
-    downloadIepWord({
-      student: { code: curStu.code, level: curStu.level, disability: curStu.disability },
+    downloadNiceIepDocx({
+      student: { code: curStu.code, level: curStu.level },
       teacherName: user?.name || '',
-      school: user?.school || '',
+      year: schoolYear,
       goals,
-    });
+    }).catch((e) => toast('Word 생성 실패: ' + e.message));
   }
 
   // 평가초점 연수자료 양식(생활지원/교과 중심)대로 Word 내보내기
@@ -984,8 +1095,8 @@ export default function IepPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>🗂 저장된 IEP 목표 ({savedGoals.length}) <span style={{ fontWeight: 400, fontSize: 12, color: '#6b7280' }}>— 수정하려면 [✏ 수정], 새로 만들려면 아래에서 성취기준 선택</span></div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              <button className="btn btn-ok btn-sm" onClick={() => exportFormWord(savedGoals)} disabled={goalsLoading}>📄 양식 Word (생활지원/교과 중심)</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => exportWord(savedGoals)} disabled={goalsLoading}>📄 표 Word (월별 점증)</button>
+              <button className="btn btn-ok btn-sm" onClick={() => exportNiceWord(savedGoals)} disabled={goalsLoading}>📄 나이스 양식 Word(.docx)</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => exportFormWord(savedGoals)} disabled={goalsLoading}>📄 양식 Word (생활지원/교과 중심)</button>
             </div>
           </div>
           {goalsLoading && (
@@ -1003,8 +1114,8 @@ export default function IepPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                   <button className="btn btn-pri btn-sm" onClick={() => loadGoal(g)}>{editingId === g.id ? '수정 중' : '✏ 수정'}</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => exportNiceWord([g])}>나이스 Word</button>
                   <button className="btn btn-ghost btn-sm" onClick={() => exportFormWord([g])}>양식 Word</button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => exportWord([g])}>표 Word</button>
                   <button className="btn btn-ghost btn-sm" onClick={() => removeGoal(g.id)}>삭제</button>
                 </div>
               </div>
@@ -1064,10 +1175,6 @@ export default function IepPage() {
               <option value="">{isDaily ? '전체 중영역' : '전체 영역'}</option>
               {areas.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">검색어</label>
-            <input className="form-input" value={fSearch} onChange={(e) => setFSearch(e.target.value)} placeholder="예: 화폐, 덧셈, 높임말" />
           </div>
         </div>
         <div className="form-label" style={{ marginTop: 4 }}>후보 {candidates.length}개{candidates.length > 200 ? ' (상위 200개 표시)' : ''}</div>
@@ -1190,7 +1297,7 @@ export default function IepPage() {
                 <option value="qual">질적 · 평가초점 기반 서술(내러티브)</option>
                 <option value="task">과제 분석 · 단계별 점증(과제 분해)</option>
               </select></div>
-            <div className="form-group"><label className="form-label">지원 수준 (모듈4)</label>
+            <div className="form-group"><label className="form-label">지원체계 (모듈4)</label>
               <select className="form-input" value={supportTier} onChange={(e) => setSupportTier(e.target.value)}>
                 <option value="">미지정</option>
                 <option value="Tier 1 (보편적 지원)">Tier 1 · 보편적 지원</option>
@@ -1233,6 +1340,16 @@ export default function IepPage() {
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMonths(monthsOf(sem))} title="표준 학사일정으로 되돌리기">↺ 기본</button>
             </div>
             <div style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 4 }}>실제 수업하는 월만 켜 두면 그 개월 수만큼 월별 목표가 만들어집니다(예: 4개월만 운영하면 4칸).</div>
+            {/* 월 묶기 — 현장 관행(3-4월/5월/6-7월)대로 여러 월을 한 행으로 */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginTop: 8 }}>
+              <label className="form-label" style={{ margin: 0 }}>월 묶기 (선택)</label>
+              <input className="form-input" style={{ maxWidth: 200 }} value={monthGroups} onChange={(e) => setMonthGroups(e.target.value)}
+                placeholder={String(sem) === '2' ? '예: 9-10/11/12-1' : '예: 3-4/5/6-7'} />
+              <button type="button" className="btn btn-ghost btn-sm"
+                onClick={() => setMonthGroups(String(sem) === '2' ? '9-10/11/12-1' : '3-4/5/6-7')}>{String(sem) === '2' ? '9-10/11/12-1' : '3-4/5/6-7'}</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMonthGroups('')} title="묶지 않고 매월 한 행">매월</button>
+            </div>
+            <div style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 4 }}>묶은 구간마다 한 행이 만들어집니다(예: 3-4/5/6-7 → 3행). 비워 두면 매월 한 행.</div>
           </div>
           {critType === 'task' && (
             <div style={{ marginTop: 10, padding: 12, border: '1px solid #c7b9f0', borderRadius: 8, background: '#f7f4ff' }}>
@@ -1344,9 +1461,9 @@ export default function IepPage() {
                 <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, tableLayout: 'fixed' }}>
                   <colgroup>{(() => { const t = colW.reduce((a, b) => a + b, 0); return colW.map((w, i) => <col key={i} style={{ width: (w / t * 100) + '%' }} />); })()}</colgroup>
                   <thead><tr>
-                    {['월', '교육목표', '교육내용', '교육방법', '평가(서술형)'].map((h, i) => (
+                    {['월', '교육목표', '교육내용', '교육방법', '평가계획', '평가(서술형)'].map((h, i) => (
                       <th key={i} style={{ ...thS(), position: 'relative', whiteSpace: 'nowrap' }}>{h}
-                        {i < 4 && <span onMouseDown={(e) => startResize(i, e)} title="드래그하여 너비 조절"
+                        {i < 5 && <span onMouseDown={(e) => startResize(i, e)} title="드래그하여 너비 조절"
                           style={{ position: 'absolute', top: 0, right: -3, width: 8, height: '100%', cursor: 'col-resize', userSelect: 'none' }} />}
                       </th>
                     ))}
@@ -1358,6 +1475,7 @@ export default function IepPage() {
                         <td style={tdS}><textarea style={cellInput} value={m.goal} onChange={(e) => editMonth(i, 'goal', e.target.value)} /></td>
                         <td style={tdS}><textarea style={cellInput} value={m.content} onChange={(e) => editMonth(i, 'content', e.target.value)} /></td>
                         <td style={tdS}><textarea style={cellInput} value={(m.methods || []).map((x) => '- ' + x).join('\n')} onChange={(e) => editMonth(i, 'methods', e.target.value)} /></td>
+                        <td style={tdS}><textarea style={cellInput} value={m.eval_plan || ''} onChange={(e) => editMonth(i, 'eval_plan', e.target.value)} placeholder={'- …는가?'} /></td>
                         <td style={tdS}><textarea style={cellInput} value={m.eval} onChange={(e) => editMonth(i, 'eval', e.target.value)} /></td>
                       </tr>
                     ))}
