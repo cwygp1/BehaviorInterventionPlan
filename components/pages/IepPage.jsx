@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Modal from '../ui/Modal';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
@@ -283,6 +283,12 @@ export default function IepPage() {
   const [promptSystem, setPromptSystem] = useState('mtl'); // 촉진 체계: mtl/slp/td/sim
   const [monthly, setMonthly] = useState([]);
   const [semEval, setSemEval] = useState('');
+  // 초안 보관함(피드백: AI 1차·2차 결과가 매번 달라지는데 비교할 수 없고, 규칙 초안을
+  // 누르면 AI 내용이 사라짐). 생성할 때마다 초안이 차수별로 보관되어 전환하며 비교한다.
+  // 규칙 초안은 결정적이라 1칸, AI 생성은 'AI 1차, 2차…'로 최근 4개까지 쌓인다.
+  const [drafts, setDrafts] = useState([]); // [{ kind: 'rule'|'ai', label, data }]
+  const [curDraft, setCurDraft] = useState(-1); // 지금 화면에 펼쳐진 초안의 index
+  const aiSeq = useRef(0); // AI 초안 차수 카운터
 
   const [savedGoals, setSavedGoals] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -355,6 +361,7 @@ export default function IepPage() {
     setGoal('스스로 ' + r.text.replace(/\s*\.?$/, '') + '.');
     setMonthly([]); setSemEval('');
     setEditingId(null);
+    resetDrafts();
   }
 
   // 저장된 목표를 편집기로 불러오기 (수정 모드).
@@ -368,7 +375,13 @@ export default function IepPage() {
     setSchoolYear(g.school_year || new Date().getFullYear());
     setSem(String(g.semester || 1)); setCritType(g.crit_type || 'rate');
     setSupportTier(g.support_tier || '');
-    setCStart(g.crit_start ?? 30); setCEnd(g.crit_end ?? 80);
+    if ((g.crit_type || 'rate') === 'freq' && ((g.crit_start ?? 0) > 10 || (g.crit_end ?? 0) > 10)) {
+      // 예전 데이터 자가 치유: %처럼 저장된 값(30/80)을 10회 기회 중 성공 횟수(3/8)로 환산
+      setCStart(Math.min(10, Math.round((g.crit_start ?? 30) / 10)));
+      setCEnd(Math.min(10, Math.round((g.crit_end ?? 80) / 10)));
+    } else {
+      setCStart(g.crit_start ?? 30); setCEnd(g.crit_end ?? 80);
+    }
     setTaskSteps(Array.isArray(g.task_steps) ? g.task_steps : []);
     setChainType(g.chain_type || 'forward'); setPromptSystem(g.prompt_system || 'mtl');
     // 저장된 월별 계획에서 실제 운영 월·월 묶기를 복원(없으면 표준 학사일정).
@@ -382,6 +395,7 @@ export default function IepPage() {
     setMonthly(Array.isArray(g.monthly) ? g.monthly : []);
     setSemEval(g.semestral_eval || '');
     setEditingId(g.id);
+    resetDrafts();
     toast('불러왔어요. 수정 후 저장하면 이 목표가 갱신됩니다.');
     setTimeout(() => {
       const el = typeof document !== 'undefined' && document.getElementById('iep-editor');
@@ -393,6 +407,7 @@ export default function IepPage() {
     setSel(null); setEditingId(null); setMonthly([]); setSemEval(''); setGoal('');
     setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setSupportTier(''); setTaskSteps([]);
     setChainType('forward'); setPromptSystem('mtl'); setMonths(monthsOf(sem)); setMonthGroups('');
+    resetDrafts();
   }
 
   // 전년도 목표 하나를 "기준"으로 삼아 올해 목표 작성을 시작.
@@ -498,6 +513,7 @@ export default function IepPage() {
     if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
     const groups = parseMonthGroups(monthGroups, months, sem), n = groups.length;
     if (!n) { toast('포함할 월을 한 개 이상 선택하세요.'); return; }
+    beginDraft('rule'); // 보고 있던 초안(예: AI n차)을 보관하고 규칙 초안 칸을 활성화
     const base = baseOf(goal);
     const s = +cStart, e = +cEnd;
     const isQual = critType === 'qual';
@@ -507,12 +523,12 @@ export default function IepPage() {
     const steps = (taskSteps || []).map((t) => t.trim()).filter(Boolean);
     const totalSteps = steps.length || Math.max(+e || 0, 4); // 단계 미입력 시 목표 단계 수로 대체
     const stepChain = steps.length ? steps.map((t, k) => `${k + 1}) ${t}`).join(' → ') : '단계 목록 참조';
-    const frac = (i) => (n > 1 ? i / (n - 1) : 1); // 월이 1개면 마지막(목표) 수준으로 처리(0 나눗셈 방지)
+    const frac = (i) => (i + 1) / n; // 첫 구간부터 시작수준보다 한 걸음 위로 점증(피드백: 첫 달 목표 = 시작수준은 오류)
     const stepCount = (i) => Math.max(0, Math.min(totalSteps, Math.round(s + (e - s) * frac(i))));
     const crit = (i) => {
       const v = Math.round(s + (e - s) * frac(i));
       if (isTask) return `${totalSteps}단계 중 ${stepCount(i)}단계 독립 수행`;
-      return critType === 'rate' ? `독립 수행 ${v}%` : `10회 중 ${Math.max(1, Math.round(v / 10))}회 성공`;
+      return critType === 'rate' ? `독립 수행 ${v}%` : `10회 중 ${Math.max(1, Math.min(10, v))}회 성공`;
     };
     const support = (i) => SUP[Math.min(SUP.length - 1, Math.round(frac(i) * (SUP.length - 1)))];
     const stem = (verb || sel.verb || '').replace(/하기$|기$/, '');
@@ -604,8 +620,44 @@ export default function IepPage() {
       ? `평가초점을 중심으로 한 학기 학습 과정과 결과를 내러티브(서술형)로 종합 평가 — 수치·등급이 아니라 학생의 성장·변화 양상과 변곡점을 질적으로 기술.`
       : isTask
       ? `학기말 ${totalSteps}단계 중 ${Math.max(0, Math.min(totalSteps, e))}단계 독립 수행 도달 여부와 함께, 단계별 촉진 수준의 감소 양상과 미습득 단계의 변화를 과제분석 점검표 기준으로 종합 평가. 유지·일반화(다양한 상황에 적용)와 스스로 하기(그림 촉진·동영상 따라하기) 수행 정도도 함께 기술.`
-      : `학기말 ${e}${critType === 'rate' ? '%' : '회'} 기준 도달 여부와 함께, 평가초점 중심의 학습 과정 변화·일반화 정도를 질적으로 서술 평가.`);
+      : `학기말 ${critType === 'rate' ? `${e}%` : `10회 중 ${e}회`} 기준 도달 여부와 함께, 평가초점 중심의 학습 과정 변화·일반화 정도를 질적으로 서술 평가.`);
   }
+
+  // ── 초안 보관·전환 (규칙 초안 · AI 1차 · AI 2차… 비교) ─────────────
+  function draftSnapshot() {
+    return { goal, plop, monthly, semEval, taskSteps };
+  }
+  // 새 초안 생성 직전에 호출: 보고 있던 초안을 제자리에 보관하고, 새 초안 칸을 만들어 활성화.
+  // (활성 초안의 내용은 화면(작업 영역)에 있으므로 data는 전환 시점에 채워진다.)
+  function beginDraft(kind) {
+    const snap = monthly.length ? draftSnapshot() : null;
+    let next = drafts.map((d, i) => (i === curDraft && snap ? { ...d, data: snap } : d));
+    let idx;
+    if (kind === 'rule') {
+      idx = next.findIndex((d) => d.kind === 'rule');
+      if (idx < 0) { next = [{ kind: 'rule', label: '규칙 초안', data: null }, ...next]; idx = 0; }
+      else next[idx] = { ...next[idx], data: null };
+    } else {
+      const aiIdxs = next.map((d, i) => (d.kind === 'ai' ? i : -1)).filter((i) => i >= 0);
+      if (aiIdxs.length >= 4) next = next.filter((_, i) => i !== aiIdxs[0]); // 최근 4차까지만 보관
+      aiSeq.current += 1;
+      next = [...next, { kind: 'ai', label: `AI ${aiSeq.current}차`, data: null }];
+      idx = next.length - 1;
+    }
+    setDrafts(next);
+    setCurDraft(idx);
+  }
+  function switchDraft(i) {
+    if (i === curDraft || !drafts[i]) return;
+    const d = drafts[i];
+    if (!d.data) { toast('이 초안은 아직 비어 있어요.'); return; }
+    const snap = draftSnapshot();
+    setDrafts(drafts.map((x, k) => (k === curDraft ? { ...x, data: snap } : x)));
+    setGoal(d.data.goal); setPlop(d.data.plop); setMonthly(d.data.monthly); setSemEval(d.data.semEval);
+    if (Array.isArray(d.data.taskSteps) && d.data.taskSteps.length) setTaskSteps(d.data.taskSteps);
+    setCurDraft(i);
+  }
+  function resetDrafts() { setDrafts([]); setCurDraft(-1); aiSeq.current = 0; }
 
   function editMonth(i, key, val) {
     setMonthly((prev) => prev.map((row, idx) => (idx === i
@@ -814,7 +866,7 @@ export default function IepPage() {
       ? `[평가 방식] 질적 평가 — 수치·등급이 아니라 위 평가초점을 중심으로 학습 과정과 결과를 내러티브(서술형)로 평가.\n`
       : isTask
       ? `[평가 방식] 과제 분석 — 전체 ${stepsArr.length || cEnd}단계. 교수 순서: ${CHAIN_LABEL[chainType]}, 촉진 체계: ${PROMPT_LABEL[promptSystem]}. (a) 독립 수행 단계 수를 ${cStart}→${cEnd}단계로 ${CHAIN_LABEL[chainType]} 방식으로 매월 점증, (b) 각 단계 촉진을 ${PROMPT_LABEL[promptSystem]}로 점차 약화. 단계별 체크리스트로 평가. 비디오 모델링·시간지연·그림 촉진 등 결합 EBP를 교육방법에 포함.\n`
-      : `[평가 기준] ${critType === 'rate' ? '독립 수행 비율' : '기회 중 성공 횟수'} 기준을 ${cStart}${u}에서 ${cEnd}${u}로 매월 점증(양적). 평가초점 중심의 질적 서술을 병행.\n`;
+      : `[평가 기준] ${critType === 'rate' ? '독립 수행 비율' : '10회 기회 중 성공 횟수'} 기준을 ${cStart}${u}에서 ${cEnd}${u}로 구간마다 점증(양적, 첫 구간부터 시작 수준보다 높게). 평가초점 중심의 질적 서술을 병행.\n`;
     const TIER_DESC = {
       1: '학급 전체에 적용하는 보편적 지원 — 시각 일과표·명확한 학급 규칙·일관된 칭찬과 강화 등 학급 차원 PBS. 또래와 같은 환경·자료에서 최소한의 조정으로 학습.',
       2: '소그룹 단위의 표적 지원 — 체크인·체크아웃(CICO), 소그룹 사회성/학습 지도, 일일 행동점검표(DPR), 주 단위 진전 점검 등. 보편적 지원에 더해 집단 중재를 병행.',
@@ -920,6 +972,7 @@ export default function IepPage() {
           if (e2.length < echoes.length) { j = j2; echoes = e2; }
         } catch (_) { /* 재작성 실패 시 초안 유지 */ }
       }
+      beginDraft('ai'); // 보고 있던 초안을 보관하고 새 'AI n차' 칸을 활성화
       applyGen(j);
       if (echoes.length) toast(`생성했어요. 다만 예시 자료와 겹치는 표현이 ${echoes.length}곳 남아 있어요 — 해당 칸을 다듬어 주세요.`);
       else toast('학생 데이터를 반영해 생성했어요.');
@@ -976,6 +1029,7 @@ export default function IepPage() {
   function applyPasted() {
     try {
       const j = parseLooseJSON(pasteText);
+      beginDraft('ai');
       applyGen(j);
       const echoes = findExampleEchoes(j);
       if (echoes.length) toast(`적용했어요. 예시 자료와 겹치는 표현이 ${echoes.length}곳 있어요(예: "${echoes[0]}") — 다른 표현으로 다듬어 주세요.`);
@@ -1321,8 +1375,11 @@ export default function IepPage() {
             <div className="form-group"><label className="form-label">평가 방식</label>
               <select className="form-input" value={critType} onChange={(e) => {
                 const v = e.target.value;
-                if (v === 'task' && critType !== 'task') { const cnt = (taskSteps || []).filter((t) => t.trim()).length; setCStart(0); setCEnd(cnt || 5); }
-                else if (v !== 'task' && critType === 'task') { setCStart(30); setCEnd(80); }
+                if (v !== critType) {
+                  if (v === 'task') { const cnt = (taskSteps || []).filter((t) => t.trim()).length; setCStart(0); setCEnd(cnt || 5); }
+                  else if (v === 'freq') { setCStart(3); setCEnd(8); } // 10회 기회 중 성공 횟수(0~10)
+                  else if (v === 'rate') { setCStart(30); setCEnd(80); } // 독립 수행 비율(%)
+                }
                 setCritType(v);
               }}>
                 <option value="rate">양적 · 독립 수행 비율(%)</option>
@@ -1339,8 +1396,8 @@ export default function IepPage() {
               </select></div>
             {critType !== 'qual' ? (
               <>
-                <div className="form-group"><label className="form-label">{critType === 'task' ? '시작 독립 단계' : '시작 수준'}</label><input type="number" className="form-input" value={cStart} onChange={(e) => setCStart(e.target.value)} /></div>
-                <div className="form-group"><label className="form-label">{critType === 'task' ? '목표 독립 단계' : '학기말 목표'}</label><input type="number" className="form-input" value={cEnd} onChange={(e) => setCEnd(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">{critType === 'task' ? '시작 독립 단계' : critType === 'freq' ? '시작 수준 (10회 중 성공 횟수)' : '시작 수준 (%)'}</label><input type="number" className="form-input" min={0} max={critType === 'freq' ? 10 : undefined} value={cStart} onChange={(e) => setCStart(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">{critType === 'task' ? '목표 독립 단계' : critType === 'freq' ? '학기말 목표 (10회 중 성공 횟수)' : '학기말 목표 (%)'}</label><input type="number" className="form-input" min={0} max={critType === 'freq' ? 10 : undefined} value={cEnd} onChange={(e) => setCEnd(e.target.value)} /></div>
               </>
             ) : (
               <div className="form-group" style={{ flex: '2 1 280px' }}><label className="form-label">질적 평가 안내</label>
@@ -1451,7 +1508,11 @@ export default function IepPage() {
               ? <button className="btn btn-ok" onClick={aiGenerateFromData} disabled={aiGenBusy}>{aiGenBusy ? 'AI 생성 중…' : '✨ AI 생성 (학생 데이터 반영)'}</button>
               : <button className="btn btn-ok" onClick={openManualPrompt}>📋 AI 프롬프트 생성 (복사 → 외부 AI → 붙여넣기)</button>}
           </div>
-          <div className="card-subtitle" style={{ marginTop: 8 }}>교육방법 기본값은 학생 장애유형({curStu.disability || '미지정'})에 맞춰 채워집니다: {methodsForType(curStu.disability).join(', ')}</div>
+          <div className="card-subtitle" style={{ marginTop: 8 }}>
+            <strong>규칙 초안</strong>은 AI 없이 고정된 틀로 즉시 만드는 기본형이고, <strong>✨ AI 생성</strong>은 학생 자료·평가초점을 반영해 문장을 새로 쓰는 방식이에요(AI 특성상 누를 때마다 표현이 조금씩 달라집니다).
+            생성할 때마다 초안이 따로 보관되어(규칙 초안 · AI 1차 · AI 2차…) 아래 표 위의 <strong>초안 전환</strong> 버튼으로 오가며 비교할 수 있고, 마음에 드는 초안을 보이게 한 상태에서 저장하면 됩니다.
+          </div>
+          <div className="card-subtitle" style={{ marginTop: 4 }}>교육방법 기본값은 학생 장애유형({curStu.disability || '미지정'})에 맞춰 채워집니다: {methodsForType(curStu.disability).join(', ')}</div>
 
           {/* 교과 평어(세부능력·특기사항) 생성 */}
           <div style={{ marginTop: 14, padding: 12, border: '1px solid #fdba74', borderRadius: 8, background: '#fff7ed' }}>
@@ -1486,7 +1547,19 @@ export default function IepPage() {
 
           {monthly.length > 0 && (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 }}>
+              {drafts.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
+                  <span className="form-label" style={{ margin: 0 }}>초안 전환:</span>
+                  {drafts.map((d, i) => (
+                    <button key={i} className={'btn btn-sm ' + (curDraft === i ? 'btn-pri' : 'btn-ghost')}
+                      onClick={() => switchDraft(i)}>
+                      {curDraft === i ? '✓ ' : ''}{d.label}
+                    </button>
+                  ))}
+                  <span style={{ fontSize: '.76rem', color: 'var(--muted)' }}>AI를 다시 생성해도 이전 차수가 지워지지 않아요(최근 4차 보관). 저장은 지금 보이는 초안 기준.</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
                 <div className="form-label" style={{ margin: 0 }}>월별 개별화교육계획/평가 (모든 칸 수정 가능 · 헤더 경계를 끌어 열 너비 조절)</div>
                 <button className="btn btn-ghost btn-sm" onClick={resetColW}>열 너비 초기화</button>
               </div>

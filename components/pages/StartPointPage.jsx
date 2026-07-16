@@ -11,6 +11,17 @@ import { splitNote } from '../../lib/utils/splitNote';
 // 입력 5블록 / 산출물 3블록 빠른입력 칩
 const GUARDIAN_CHIPS = ['자립생활 향상 희망', '의사소통 향상 희망', '친구 관계 개선 희망', '가정 내 일상 자립 희망', '여가활동 참여 희망', '건강·안전 관리 요청', '진로·직업 준비 희망'];
 const OBSERVE_CHIPS = ['수업 참여도', '또래 상호작용', '지시 따르기', '활동 전환(전이)', '주의집중 시간', '감각 반응', '자조기술 수준'];
+// 행동특성 칩 → 설명 문장 템플릿(피드백: 칩만 들어가면 특성이 설명되지 않음).
+// 삽입 후 교사가 학생에 맞게 수치·내용을 고쳐 쓴다.
+const OBSERVE_TMPL = {
+  '수업 참여도': '수업 참여도: 좋아하는 활동에는 참여하나, 그 외 활동은 교사 촉진이 있어야 참여함',
+  '또래 상호작용': '또래 상호작용: 또래에게 먼저 다가가기 어려워하며, 교사 중재가 있으면 짧게 상호작용함',
+  '지시 따르기': '지시 따르기: 한 단계 지시는 수행하나, 두 단계 이상 연속 지시는 어려움',
+  '활동 전환(전이)': '활동 전환(전이): 활동을 마치고 다음 활동으로 넘어갈 때 거부·지연이 나타남',
+  '주의집중 시간': '주의집중 시간: 약 5분 내외로 짧고, 주변 소리·움직임에 쉽게 흐트러짐',
+  '감각 반응': '감각 반응: 특정 소리·촉감에 민감하게 반응하며 회피 행동이 나타남',
+  '자조기술 수준': '자조기술 수준: 식사·용변·옷 입고 벗기 중 일부에 부분 도움이 필요함',
+};
 const STRENGTH_CHIPS = ['시각자료 이해 우수', '규칙적 루틴 선호', '특정 주제 몰입', '모방 능력', '음악·리듬 반응', '기기 조작 능숙', '친사회적 시도'];
 const ECO_CHIPS = ['가정 맥락', '교실 물리 환경', '지역사회 참여', '통학 환경', '또래 관계망', '지원 인력(보조)', '접근성·이동'];
 const NEED_CHIPS = ['의사소통 지원', '자립생활 지원', '생활적응 지원', '여가활동 지원', '신체활동 지원', '안전·위기 지원', '사회성 지원'];
@@ -198,7 +209,8 @@ export default function StartPointPage() {
         </div>
         <div className="form-group">
           <label className="form-label">🔍 행동특성(교사관찰)</label>
-          <EditableChipGroup storageKey="sp_observe" defaults={OBSERVE_CHIPS} onPick={makeAppender(f.observation, set('observation'), false)} />
+          <EditableChipGroup storageKey="sp_observe" defaults={OBSERVE_CHIPS} onPick={(t) => makeAppender(f.observation, set('observation'), false)(OBSERVE_TMPL[t] || t)} />
+          <div style={{ fontSize: '.76rem', color: 'var(--muted)', margin: '2px 0 4px' }}>칩을 누르면 특성 설명 문장이 들어가요 — 이 학생에 맞게 수치·내용을 고쳐 쓰세요.</div>
           <textarea className="form-textarea" rows={2} value={f.observation} onChange={(e) => set('observation')(e.target.value)} placeholder="학생의 어려움·행동특성, 수업·일과 장면에서 관찰된 사실 (프로필 '어려움'·ABC 관찰 연동)" />
         </div>
         <div className="form-group">

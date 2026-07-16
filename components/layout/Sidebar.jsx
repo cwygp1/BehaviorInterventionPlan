@@ -10,6 +10,7 @@ const NAV = [
   },
   {
     group: '학급 전체용 (Tier 1)',
+    accent: '#15803d', // Tier 1 = 초록 (보편적 지원)
     items: [
       { id: 'classpbs', label: '학급 차원 PBS', icon: '🏫' },
       { id: 'pbssurvey', label: 'PBS 기초 설문조사', icon: '📋' },
@@ -18,10 +19,12 @@ const NAV = [
   },
   {
     group: '소그룹용 (Tier 2)',
+    accent: '#b45309', // Tier 2 = 노랑·주황 (표적 지원)
     items: [{ id: 'tier2', label: 'CICO / DPR', icon: '👥' }],
   },
   {
     group: '한 학생 집중 지원 (Tier 3)',
+    accent: '#dc2626', // Tier 3 = 빨강 (개별 집중 지원)
     items: [
       { id: 'tier3', label: '개요 / 5단계 워크플로', icon: '🎯' },
       { id: 'observe', label: '학생 관찰 / ABC', icon: '🔍', requiresStudent: true, step: 1 },
@@ -78,7 +81,18 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
         </div>
         {NAV.map((section) => (
           <div className="nav-section" key={section.group}>
-            <div className="nav-label">{section.group}</div>
+            <div
+              className="nav-label"
+              style={section.accent ? {
+                color: section.accent,
+                background: section.accent + '1a',
+                borderLeft: `3px solid ${section.accent}`,
+                borderRadius: 6,
+                fontSize: '.8rem',
+                padding: '7px 10px',
+                margin: '8px 6px 5px',
+              } : undefined}
+            >{section.group}</div>
             {section.items.map((item) => {
               const locked = item.requiresStudent && !hasStudent;
               return (
