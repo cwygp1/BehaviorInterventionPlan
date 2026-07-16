@@ -12,6 +12,7 @@ import { downloadNiceIepDocx } from '../../lib/utils/niceIepDocx';
 import { buildStudentSummary as tcBuildStudentSummary, buildTierLinkage as tcBuildTierLinkage } from '../../lib/tierContext';
 import { profileNarrative } from '../../lib/utils/splitNote';
 import { ebpBlockForGoal } from '../../lib/ebp';
+import { FORMAT_EX_MATH, FORMAT_EX_MOTOR, findExampleEchoes } from '../../lib/exampleGuard';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
 
 const GRADE = { 0: '일상생활(공통)', 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
@@ -290,6 +291,7 @@ export default function IepPage() {
   const [aiGenBusy, setAiGenBusy] = useState(false);
   const [editingId, setEditingId] = useState(null); // 수정 중인 저장 목표 id
   const [goalsLoading, setGoalsLoading] = useState(false);
+  const [wordDone, setWordDone] = useState(false); // 이번 세션에서 계획서 Word를 출력했는지(진행바 마지막 단계)
   const [colW, setColW] = useState([50, 210, 210, 170, 190, 220]); // 월별 표 열 너비(px) — 월/목표/내용/방법/평가계획/평가
 
   // Load achievement standards (public/data) once.
@@ -842,7 +844,10 @@ export default function IepPage() {
       fociBlock + stepsBlock +
       `[학기목표(참고)] ${goal}\n` +
       `[대상 월(구간)] ${ms.map((x) => x + '월').join(', ')} (총 ${ms.length}구간 — 월을 묶은 구간은 한 행으로 작성)\n` +
-      critLine + tierLine + ebpBlock + `\n` +
+      critLine + tierLine + ebpBlock +
+      `\n[형식 본보기 — 일부러 고른 "다른 교과"의 한 구간 예시]\n` +
+      `아래 예시는 지금 작성하는 교과(${sel.subject})와 무관하다. 구조(개조식 content, methods 3구조, 질문형 eval_plan의 측면 구성)와 어미만 본보기로 삼을 것. 예시의 소재·활동·문장은 이 교과와 맞지 않으므로 가져다 쓰지 말 것.\n` +
+      `${/수학|과학/.test(sel.subject || '') ? FORMAT_EX_MOTOR : FORMAT_EX_MATH}\n\n` +
       `요구사항:\n` +
       `1) 현행수준(plop)은 이 성취기준·평가초점에 대한 학생의 현재 수행 수준(무엇을 어디까지 하는지)을 중심으로 쓰고, 행동·지원 정보(ABC·BIP·안정실 등)는 학습에 영향을 주는 범위에서만 보조적으로 덧붙인다.\n` +
       `2) 구간이 지날수록 지원 수준을 점차 줄이며(도움받아→부분→독립→적용) 목표를 점증시킬 것.\n` +
@@ -902,9 +907,22 @@ export default function IepPage() {
     setAiGenBusy(true);
     try {
       const prompt = await buildGenPrompt();
-      const j = await llmJSON('학생 데이터 반영 생성', prompt, { temperature: 0.4 });
+      let j = await llmJSON('학생 데이터 반영 생성', prompt, { temperature: 0.4 });
+      // 예시 베끼기 가드: 예시 자료 문장과 그대로 겹치면 그 구절을 금지어로 붙여 1회 재작성.
+      let echoes = findExampleEchoes(j);
+      if (echoes.length) {
+        try {
+          const fixPrompt = prompt +
+            '\n\n[재작성 지시] 직전 초안에 예시 자료의 문장이 그대로 들어갔다. 아래 구절은 절대 쓰지 말고, 해당 부분을 이 학생·이 교육내용에 맞는 새로운 표현으로 바꿔 전체 JSON을 다시 출력하라:\n' +
+            echoes.map((e) => `- "${e}"`).join('\n');
+          const j2 = await llmJSON('예시 겹침 재작성', fixPrompt, { temperature: 0.55 });
+          const e2 = findExampleEchoes(j2);
+          if (e2.length < echoes.length) { j = j2; echoes = e2; }
+        } catch (_) { /* 재작성 실패 시 초안 유지 */ }
+      }
       applyGen(j);
-      toast('학생 데이터를 반영해 생성했어요.');
+      if (echoes.length) toast(`생성했어요. 다만 예시 자료와 겹치는 표현이 ${echoes.length}곳 남아 있어요 — 해당 칸을 다듬어 주세요.`);
+      else toast('학생 데이터를 반영해 생성했어요.');
     } catch (e) {
       toast('AI 생성 실패: ' + e.message);
     } finally {
@@ -956,7 +974,14 @@ export default function IepPage() {
     catch (_) { toast('자동 복사가 막혔어요. 텍스트를 직접 선택해 복사하세요.'); }
   }
   function applyPasted() {
-    try { applyGen(parseLooseJSON(pasteText)); toast('응답을 파싱해 적용했어요.'); setManualOpen(false); }
+    try {
+      const j = parseLooseJSON(pasteText);
+      applyGen(j);
+      const echoes = findExampleEchoes(j);
+      if (echoes.length) toast(`적용했어요. 예시 자료와 겹치는 표현이 ${echoes.length}곳 있어요(예: "${echoes[0]}") — 다른 표현으로 다듬어 주세요.`);
+      else toast('응답을 파싱해 적용했어요.');
+      setManualOpen(false);
+    }
     catch (e) { toast('JSON 파싱 실패: ' + e.message); }
   }
 
@@ -1013,7 +1038,7 @@ export default function IepPage() {
       teacherName: user?.name || '',
       year: schoolYear,
       goals,
-    }).catch((e) => toast('Word 생성 실패: ' + e.message));
+    }).then(() => setWordDone(true)).catch((e) => toast('Word 생성 실패: ' + e.message));
   }
 
   // 평가초점 연수자료 양식(생활지원/교과 중심)대로 Word 내보내기
@@ -1025,6 +1050,7 @@ export default function IepPage() {
       school: user?.school || '',
       goals,
     });
+    setWordDone(true);
   }
 
   // 과제분석 단계별 평가 기록지(데이터 수집 체크리스트) 인쇄용 Word 출력.
@@ -1076,7 +1102,7 @@ export default function IepPage() {
           { label: '평가초점', done: (evalFoci || []).some((f) => String(f).trim()), id: 'iep-foci' },
           { label: '월별 목표 생성', done: monthly.length > 0, id: 'iep-editor' },
           { label: '저장', done: !!editingId, id: 'iep-editor' },
-          { label: '계획서 Word', done: false, id: 'iep-saved' },
+          { label: '계획서 Word', done: wordDone, id: 'iep-saved' },
         ];
         const firstUndone = steps.findIndex((s) => !s.done);
         const cur = firstUndone === -1 ? steps.length - 1 : firstUndone;

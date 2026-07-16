@@ -34,6 +34,7 @@ export default function IepReportPage() {
   const [sem, setSem] = useState('');
   const [savingId, setSavingId] = useState(null);
   const [synthId, setSynthId] = useState(null);
+  const [planId, setPlanId] = useState(null); // 평가계획 채우기 진행 중인 목표 id
   const teacher = user?.name || '';
 
   // 수동 프롬프트 모달 (AI 미연결)
@@ -112,6 +113,42 @@ export default function IepReportPage() {
     } catch (e) { toast('AI 종합 실패: ' + e.message + ' — "프롬프트 복사"로 외부 AI에서 시도해 보세요.'); openManual(g); } finally { setSynthId(null); }
   }
 
+  // 평가계획(eval_plan)이 비어 있는 구간만 골라 AI로 채운다.
+  // 평가계획 기능 이전에 저장된 목표를 위해 — 기존 목표·내용·평가는 건드리지 않는다.
+  async function aiFillEvalPlans(g) {
+    if (!aiOn) { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    const targets = (g.monthly || []).filter((m) => !(m.eval_plan || '').trim());
+    if (!targets.length) { toast('모든 구간에 평가계획이 이미 있어요.'); return; }
+    setPlanId(g.id);
+    try {
+      const rows = targets.map((m) => `${m.month}월) 교육목표: ${(m.goal || '').replace(/\n/g, ' ')} / 교육내용: ${(m.content || '').replace(/\n/g, ' ')}`).join('\n');
+      const prompt =
+        '아래는 특수교육 IEP 한 목표의 구간별 교육목표·교육내용이다. 각 구간의 "평가계획"을 작성하라.\n' +
+        '- 구간마다 "~는가?"로 끝나는 질문형 항목 2~3개.\n' +
+        '- 서로 다른 측면을 다각적으로: (a) 수행·도달, (b) 참여 태도, (c) 지속성(시간·횟수), (d) 독립·모방 수준, (e) 일반화(다른 상황·자료·사람) 중 2~3개 측면을 골라 한 측면당 1개 질문. 같은 측면 반복 금지.\n' +
+        '- 질문에는 그 구간의 교육목표·교육내용에 나온 실제 활동·재료를 담아 구체적으로 쓸 것.\n' +
+        '- 영어 단어·어려운 한자어 없이 쉬운 우리말로, 맞춤법·문장 오류 없이.\n\n' +
+        `[영역] ${g.subject}${g.area ? ' · ' + g.area : ''} (${g.semester}학기)\n[구간]\n${rows}\n\n` +
+        '반드시 JSON만 출력: {"plans":[{"month":"3","eval_plan":"- ...는가?\\n- ...는가?"}]}';
+      const r = await callDetailed('/no_think\n' + prompt, { temperature: 0.4 });
+      const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
+      const m = (out || '').match(/\{[\s\S]*\}/);
+      if (!m) { toast(r.finish_reason === 'length' ? '응답이 잘렸어요. AI max_tokens를 늘려보세요.' : 'AI 응답 해석 실패'); return; }
+      const j = parseLooseJSON(m[0]);
+      const plans = Array.isArray(j.plans) ? j.plans : [];
+      if (!plans.length) { toast('평가계획을 받지 못했어요.'); return; }
+      const byMonth = {};
+      plans.forEach((p) => { if (p && p.month != null) byMonth[String(p.month)] = String(p.eval_plan || '').trim(); });
+      setGoals((prev) => prev.map((x) => {
+        if (x.id !== g.id) return x;
+        const monthly = (x.monthly || []).map((mm) => ((mm.eval_plan || '').trim() ? mm : { ...mm, eval_plan: byMonth[String(mm.month)] || mm.eval_plan || '' }));
+        return { ...x, monthly };
+      }));
+      toast(`빈 평가계획 ${Object.keys(byMonth).length}개 구간을 채웠어요. 확인 후 저장하세요.`, 'success');
+    } catch (e) { toast('평가계획 생성 실패: ' + e.message); }
+    finally { setPlanId(null); }
+  }
+
   async function openManual(g) {
     setManualGoalId(g.id); setPasteText(''); setPromptText('프롬프트 생성 중…');
     try { setPromptText(await buildSynthPrompt(g)); } catch (e) { setPromptText('생성 실패: ' + e.message); }
@@ -169,6 +206,7 @@ export default function IepReportPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>📘 {g.subject}{g.area ? ' · ' + g.area : ''} <span style={{ fontWeight: 400, fontSize: 12, color: '#6b7280' }}>· {g.school_year || '-'}학년도 {g.semester}학기 · {GRADE[g.grade_code] || ''}</span></div>
             <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => aiFillEvalPlans(g)} disabled={planId === g.id}>{planId === g.id ? '평가계획 생성 중…' : '✨ 평가계획 채우기'}</button>
               <button className="btn btn-ghost btn-sm" onClick={() => aiSynth(g)} disabled={synthId === g.id}>{synthId === g.id ? 'AI 종합 중…' : (aiOn ? '✨ AI 종합 (월별→학기)' : '📋 AI 프롬프트')}</button>
               <button className="btn btn-pri btn-sm" onClick={() => saveGoal(g)} disabled={savingId === g.id}>{savingId === g.id ? '저장 중…' : '💾 저장'}</button>
             </div>
