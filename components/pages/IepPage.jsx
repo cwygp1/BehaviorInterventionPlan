@@ -1806,7 +1806,7 @@ export default function IepPage() {
             </div>
           </div>
           <div className="card-subtitle" style={{ marginTop: 2 }}>
-            평가초점은 <strong>확정한 학기목표를</strong> 대상(무엇을)·장소(어디서)·상황(언제·누구와) 등으로 쪼개어 개발합니다. <strong>지원 수준으로 나누는 것이 아닙니다.</strong> AI 없이 만들 때는 아래 "🔧 고급 — 성취기준 분석 도구"를 펼쳐 쓰세요.
+            평가초점은 <strong>확정한 학기목표를</strong> 대상(무엇을)·장소(어디서)·상황(언제·누구와) 등으로 쪼개어 개발합니다. <strong>지원 수준으로 나누는 것이 아닙니다.</strong> AI 없이 만들 때는 아래 "🔧 성취기준 분석 도구"를 쓰세요.
           </div>
           <details style={{ margin: '6px 0 12px', background: 'var(--pri-soft)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '10px 12px' }}>
             <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '.86rem', color: 'var(--pri-d)' }}>❓ 평가초점이 무엇인가요? (예시 보기)</summary>
@@ -1825,9 +1825,9 @@ export default function IepPage() {
               팁: 아래 <strong>서술자</strong> 칸에 대상(예: 나의 신상, 나의 선호…)을 쉼표로 나열하면 초점이 자동으로 여러 개 만들어져요.
             </div>
           </details>
-          {/* 0720: 성취기준 분석 도구(동사·행위지향·서술자)는 고급 영역으로 접음 — 기본 화면의 AI 버튼은 위 1개만. */}
-          <details style={{ margin: '6px 0 10px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '8px 12px' }}>
-            <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '.84rem', color: 'var(--sub)' }}>🔧 고급 — 성취기준 분석 도구 (AI 없이 평가초점을 만들 때 사용)</summary>
+          {/* 0720: 접힌 <details>로 뒀더니 도구가 안 보인다는 요청 → 항상 펼쳐진 블록으로 변경. */}
+          <div style={{ margin: '6px 0 10px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '8px 12px' }}>
+            <div style={{ fontWeight: 700, fontSize: '.84rem', color: 'var(--sub)' }}>🔧 성취기준 분석 도구 (AI 없이 평가초점을 만들 때 사용)</div>
             <div style={{ marginTop: 8 }}>
               <div className="form-row">
                 <div className="form-group">
@@ -1864,7 +1864,7 @@ export default function IepPage() {
               <div className="form-group"><label className="form-label">서술자 (지식·이해·대상) — 쉼표·줄바꿈으로 여러 대상 나열 시 평가초점이 여러 개 생성됩니다</label><textarea className="form-textarea" value={descriptor} onChange={(e) => setDescriptor(e.target.value)} placeholder="예: 나의 신상, 나의 몸, 나의 선호, 나의 흥미" /></div>
               <button className="btn btn-ghost btn-sm" onClick={genFociNow} title="AI 없이, 위 동사·서술자 분석으로 평가초점을 만듭니다">↻ 분석·해석으로 생성 (AI 없음)</button>
             </div>
-          </details>
+          </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
             <label className="form-label" style={{ margin: 0 }}>평가초점 목록 — 사전에 수립해 질적 평가의 기준점으로 사용</label>
