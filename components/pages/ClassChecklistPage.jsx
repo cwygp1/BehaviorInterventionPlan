@@ -5,6 +5,7 @@ import { useLLM } from '../../contexts/LLMContext';
 import { fetchClassChecklist, saveClassChecklist } from '../../lib/api/students';
 import PromptResultBlock from '../modals/PromptResultBlock';
 import AIActionBar from '../ui/AIActionBar';
+import useFormLoad, { FormLoading } from '../../lib/hooks/useFormLoad';
 import {
   CWPBS_ITEMS, CWPBS_SCALE, SOLVE_ITEMS, SOLVE_SCALE, SOLVE_SECTIONS,
   CORE_ELEMENTS, emptyClassChecklist,
@@ -67,22 +68,26 @@ export default function ClassChecklistPage() {
   const [aiBusy, setAiBusy] = useState(false);
   const [aiOut, setAiOut] = useState('');
   const [refOpen, setRefOpen] = useState(false);
+  // 저장값 로드 전에는 체크 UI를 띄우지 않는다 — 로드 중 찍은 응답 유실 방지.
+  const { loaded, applyLoaded } = useFormLoad([curClassId, curSemester]);
 
   useEffect(() => {
     if (!curClassId) return;
     let cancelled = false;
     fetchClassChecklist(curClassId, curSemester).then((d) => {
       if (cancelled) return;
-      const saved = d?.data?.responses || {};
-      const empty = emptyClassChecklist();
-      setR({
-        cwpbs: Array.isArray(saved.cwpbs) ? [...saved.cwpbs, ...empty.cwpbs].slice(0, CWPBS_ITEMS.length) : empty.cwpbs,
-        solve: Array.isArray(saved.solve) ? [...saved.solve, ...empty.solve].slice(0, SOLVE_ITEMS.length) : empty.solve,
+      applyLoaded(() => {
+        const saved = d?.data?.responses || {};
+        const empty = emptyClassChecklist();
+        setR({
+          cwpbs: Array.isArray(saved.cwpbs) ? [...saved.cwpbs, ...empty.cwpbs].slice(0, CWPBS_ITEMS.length) : empty.cwpbs,
+          solve: Array.isArray(saved.solve) ? [...saved.solve, ...empty.solve].slice(0, SOLVE_ITEMS.length) : empty.solve,
+        });
+        setAiOut('');
       });
-      setAiOut('');
-    }).catch(() => {});
+    }).catch(() => { if (!cancelled) applyLoaded(); });
     return () => { cancelled = true; };
-  }, [curClassId, curSemester]);
+  }, [curClassId, curSemester, applyLoaded]);
 
   const setAns = (key) => (idx, v) => setR((cur) => {
     const next = cur[key].slice(); next[idx] = v; return { ...cur, [key]: next };
@@ -159,6 +164,8 @@ ${low(SOLVE_ITEMS, r.solve, 4)}
       </div>
     );
   }
+
+  if (!loaded) return <FormLoading label="체크리스트를 불러오는 중…" />;
 
   const pct = (s) => (s.max > 0 ? Math.round((s.score / s.max) * 100) : 0);
 

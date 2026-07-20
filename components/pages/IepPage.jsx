@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Modal from '../ui/Modal';
+import ExternalAIModal from '../ui/ExternalAIModal';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -11,6 +12,7 @@ import { downloadIepFormWord, downloadTaskSheet } from '../../lib/utils/printIep
 import { downloadNiceIepDocx } from '../../lib/utils/niceIepDocx';
 import { buildStudentSummary as tcBuildStudentSummary, buildTierLinkage as tcBuildTierLinkage } from '../../lib/tierContext';
 import { profileNarrative } from '../../lib/utils/splitNote';
+import { findHanja } from '../../lib/utils/aiText';
 import { ebpBlockForGoal } from '../../lib/ebp';
 import { FORMAT_EX_MATH, FORMAT_EX_MOTOR, findExampleEchoes } from '../../lib/exampleGuard';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
@@ -226,6 +228,18 @@ export default function IepPage() {
   const [manualOpen, setManualOpen] = useState(false);
   const [promptText, setPromptText] = useState('');
   const [pasteText, setPasteText] = useState('');
+  // 🌐 외부AI 연동(로컬 AI와 비교용): ''|'analyze'|'verbs'|'steps'|'pyeong'
+  // ※ 0719 요청으로 외부AI 버튼은 전부 주석 처리됨(모달·설정 코드는 복원 대비 유지).
+  const [extKind, setExtKind] = useState('');
+  // 학기목표 작성 경로(0719 피드백 — 학기목표 선행이 원칙, 두 경로 중 선택):
+  //   'std'  = A. 성취기준 선택 → 학기목표 작성 (연수자료 21~26p, 교과 중심)
+  //   'goal' = B. 학기목표 작성 → 성취기준 연결 (연수자료 48~54p, 필요 기술 중심)
+  const [flowMode, setFlowMode] = useState('std');
+  const [goalAiBusy, setGoalAiBusy] = useState(false); // 학기목표 AI 생성·다듬기
+  const [stdRecBusy, setStdRecBusy] = useState(false); // 학기목표 → 성취기준 추천
+  const [stdRecs, setStdRecs] = useState([]); // 추천 성취기준 목록
+  const [fociGoalBusy, setFociGoalBusy] = useState(false); // 학기목표 쪼개기(평가초점)
+  const [fociCount, setFociCount] = useState(5); // 0720: 만들 평가초점 개수(2~10, 교사 선택)
 
   // reasoning 모델(Qwen3 등) 대응. 요청/응답 로그는 LLMContext가 자동 기록하며
   // (상단 AI 연결 모달에서 확인), 여기서는 JSON 추출 단계 실패만 추가로 남긴다.
@@ -252,7 +266,11 @@ export default function IepPage() {
   const [fGrade, setFGrade] = useState('');
   const [fBigArea, setFBigArea] = useState(''); // 일상생활 활동 대영역
   const [fArea, setFArea] = useState('');
+  // 0720: 성취기준 여러 개 선택(연수자료 22~26p "관련성취기준" 목록). 화면상 '대표' 개념은 없음.
+  // sel = 첫 번째 선택(내부용 — DB·문서의 과목/영역/성취기준 단일 칸과 분석 도구가 이걸 쓴다),
+  // selExtra = 나머지 선택 목록. 저장·프롬프트에는 [sel, ...selExtra] 전체가 반영된다.
   const [sel, setSel] = useState(null);
+  const [selExtra, setSelExtra] = useState([]);
 
   const [verb, setVerb] = useState('');
   const [verbAlts, setVerbAlts] = useState([]); // 대표 동사와 같은 의미의 측정 가능한 동사 목록
@@ -275,6 +293,8 @@ export default function IepPage() {
   const [pyeongLines, setPyeongLines] = useState([]); // 교과 평어 생성 결과
   const [pyeongLevel, setPyeongLevel] = useState('');
   const [pyeongBusy, setPyeongBusy] = useState(false);
+  // P10(0720): 평어는 공개 문서 — 행동·정서 지원 언급은 기본 제외, 교사가 켜야 포함.
+  const [pyeongBehavior, setPyeongBehavior] = useState(false);
   const [cStart, setCStart] = useState(30);
   const [cEnd, setCEnd] = useState(80);
   const [taskSteps, setTaskSteps] = useState([]); // 과제 분석(critType='task')용 순차 단계 목록
@@ -307,6 +327,18 @@ export default function IepPage() {
       .then((d) => setRows((d.rows || []).map((a) => ({ subject: a[0], gradeCode: a[1], area: a[2], code: a[3], text: a[4], verb: a[5], intent: a[6], descriptor: a[7] }))))
       .catch(() => toast('성취기준 데이터를 불러오지 못했습니다.'));
   }, [toast]);
+
+  // P6(0720): 학생을 고르면 학년군 필터를 학생 학교급에 맞춰 미리 맞춘다.
+  // (중등 학생인데 목록이 초등 3~4학년부터 보이던 문제)
+  // 학생이 바뀔 때 한 번만 적용 — 이후 교사가 바꾼 필터는 그대로 존중한다.
+  const gradePresetFor = useRef(null);
+  useEffect(() => {
+    if (!curStuId || gradePresetFor.current === curStuId) return;
+    gradePresetFor.current = curStuId;
+    const lv = String(curStu?.level || '');
+    const preset = lv.includes('중') ? '9' : lv.includes('고') ? '12' : '';
+    if (preset) { setFGrade(preset); setFArea(''); }
+  }, [curStuId, curStu?.level]);
 
   // Load saved IEP goals when the selected student changes.
   useEffect(() => {
@@ -354,11 +386,42 @@ export default function IepPage() {
     );
   }, [rows, fSubject, fGrade, isDaily, fBigArea, fArea]);
 
+  // 0720: 성취기준 다중 선택 — 단순 토글(누르면 담고, 다시 누르면 뺌).
+  // '대표'는 화면 개념에서 제거. 다만 DB·문서 양식의 과목/영역/성취기준 단일 칸이 있어서
+  // 내부적으로는 "첫 번째 선택(sel)"이 조용히 그 칸을 채운다(첫 항목을 빼면 다음 항목이 이어받음).
   function pickStandard(r) {
+    if (sel && sel.code === r.code) {
+      const [next, ...rest] = selExtra;
+      if (next) {
+        setSel(next);
+        setVerb(next.verb || ''); setIntent(next.intent || ''); setDescriptor(next.descriptor || '');
+        setSelExtra(rest);
+      } else {
+        setSel(null); setVerb(''); setIntent(''); setDescriptor('');
+      }
+      return;
+    }
+    if (selExtra.some((x) => x.code === r.code)) {
+      setSelExtra((prev) => prev.filter((x) => x.code !== r.code));
+      return;
+    }
+    if (sel) {
+      if (selExtra.length >= 7) { toast('성취기준은 8개까지 선택할 수 있어요.'); return; }
+      setSelExtra((prev) => [...prev, r]);
+      return;
+    }
+    // 첫 선택 — 내부적으로 과목·영역·분석 도구의 기준이 된다(화면에는 표시하지 않음).
     setSel(r);
+    setSelExtra([]);
     setVerb(r.verb || ''); setIntent(r.intent || ''); setDescriptor(r.descriptor || '');
-    setEvalFoci(buildEvalFoci(r.verb || '', r.intent || '', r.descriptor || '', r.text));
-    setGoal('스스로 ' + r.text.replace(/\s*\.?$/, '') + '.');
+    if (flowMode === 'std') {
+      // 경로A: 성취기준 → 학기목표. 성취기준 문장을 학기목표 초안 시드로 넣는다.
+      // 평가초점은 여기서 만들지 않는다 — 학기목표 확정 후 "학기목표 쪼개기"로 개발(0719 피드백:
+      // 성취기준을 바로 평가초점으로 나누던 방식 교정).
+      setGoal('스스로 ' + r.text.replace(/\s*\.?$/, '') + '.');
+      setEvalFoci([]);
+    }
+    // 경로B(학기목표 먼저): 교사가 쓴 학기목표·평가초점을 유지한 채 성취기준만 연결한다.
     setMonthly([]); setSemEval('');
     setEditingId(null);
     resetDrafts();
@@ -369,6 +432,11 @@ export default function IepPage() {
     const std = rows.find((r) => r.code === g.standard_code) ||
       { subject: g.subject, gradeCode: g.grade_code, area: g.area, code: g.standard_code, text: g.standard_text, verb: '', intent: '', descriptor: '' };
     setSel(std);
+    // 관련 성취기준(다중 선택) 복원
+    setSelExtra(Array.isArray(g.related_stds)
+      ? g.related_stds.map((x) => rows.find((r) => r.code === x.code) ||
+          { subject: x.subject || '', gradeCode: x.grade_code ?? x.gradeCode ?? 0, area: x.area || '', code: x.code, text: x.text || '', verb: '', intent: '', descriptor: '' })
+      : []);
     setVerb(std.verb || ''); setIntent(std.intent || ''); setDescriptor(std.descriptor || '');
     setEvalFoci(Array.isArray(g.eval_foci) ? g.eval_foci : []);
     setGoal(g.semester_goal || ''); setPlop(g.plop || '');
@@ -404,7 +472,7 @@ export default function IepPage() {
   }
 
   function newGoal() {
-    setSel(null); setEditingId(null); setMonthly([]); setSemEval(''); setGoal('');
+    setSel(null); setSelExtra([]); setEditingId(null); setMonthly([]); setSemEval(''); setGoal('');
     setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setSupportTier(''); setTaskSteps([]);
     setChainType('forward'); setPromptSystem('mtl'); setMonths(monthsOf(sem)); setMonthGroups('');
     resetDrafts();
@@ -413,7 +481,7 @@ export default function IepPage() {
   // 전년도 목표 하나를 "기준"으로 삼아 올해 목표 작성을 시작.
   function startFromPrior(g) {
     const s = { subject: g.subject, gradeCode: g.grade_code, area: g.area, code: g.standard_code || 'PRIOR', text: g.semester_goal || g.standard_text || '', verb: '', intent: '', descriptor: '' };
-    setSel(s); setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setTaskSteps([]);
+    setSel(s); setSelExtra([]); setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setTaskSteps([]);
     setChainType('forward'); setPromptSystem('mtl');
     setGoal(g.semester_goal || ('스스로 ' + (s.text || '').replace(/\s*\.?$/, '') + '.'));
     if (g.plop) setPlop(g.plop);
@@ -469,33 +537,38 @@ export default function IepPage() {
     syncTaskTargets(arr.length);
     toast('기본 단계 골격을 만들었어요. 학생 과제에 맞게 편집하세요.');
   }
+  // 과제분석 단계 분해 프롬프트 — 로컬 AI 호출·외부AI 복사 공용.
+  function buildStepsPrompt() {
+    const target = (goal || sel?.text || '').trim();
+    const ctx = [];
+    if (verb) ctx.push(`핵심 수행 동사: ${verb}`);
+    if (descriptor) ctx.push(`대상·내용(서술자): ${descriptor}`);
+    if (intent) ctx.push(`행위지향(태도): ${intent}`);
+    const fociList = (evalFoci || []).map((f) => f.trim()).filter(Boolean);
+    if (fociList.length) ctx.push(`평가초점: ${fociList.join(' / ')}`);
+    return (
+      '다음 특수교육 학기목표를 학생이 순서대로 수행할 "과제분석 단계"로 분해하라.\n' +
+      '규칙:\n' +
+      '1) 각 단계는 관찰 가능한 하나의 행동, 4~8개.\n' +
+      `2) 모든 단계는 "${target}"을(를) 실제로 완성하기 위한 하위 행동이어야 한다. 마지막 단계는 목표 행동(위 핵심 동사) 자체를 직접 수행한다.\n` +
+      '3) "손 씻기", "자리에 앉기" 같은 일반적 준비 행동이나 목표와 무관한 행동은 절대 넣지 말 것.\n' +
+      '4) 아래 맥락(동사·대상·평가초점)을 반드시 반영할 것.\n' +
+      '5) 단계 설명은 영어 단어·어려운 한자어 없이, 일상에서 자주 쓰는 쉬운 우리말로 쓸 것.\n' +
+      `학기목표: ${target}\n` +
+      (sel?.text ? `성취기준: ${sel.text}\n` : '') +
+      (ctx.length ? `맥락:\n- ${ctx.join('\n- ')}\n` : '') +
+      '출력은 JSON만. 아래 형식에서 < > 안을 실제 단계 행동으로 채우되, 형식 예시 문구를 그대로 복사하지 말 것:\n' +
+      '{"steps":["<1단계 행동>","<2단계 행동>","<3단계 행동>"]}'
+    );
+  }
+
   // 학기목표·성취기준을 순차 단계(과제분석)로 분해 — LLM 사용, 실패 시 기본 골격.
   async function aiStepsNow() {
     if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
     if (!aiOn) { ruleStepsNow(); return; }
     setTaskBusy(true);
     try {
-      const target = (goal || sel.text || '').trim();
-      const ctx = [];
-      if (verb) ctx.push(`핵심 수행 동사: ${verb}`);
-      if (descriptor) ctx.push(`대상·내용(서술자): ${descriptor}`);
-      if (intent) ctx.push(`행위지향(태도): ${intent}`);
-      const fociList = (evalFoci || []).map((f) => f.trim()).filter(Boolean);
-      if (fociList.length) ctx.push(`평가초점: ${fociList.join(' / ')}`);
-      const prompt =
-        '다음 특수교육 학기목표를 학생이 순서대로 수행할 "과제분석 단계"로 분해하라.\n' +
-        '규칙:\n' +
-        '1) 각 단계는 관찰 가능한 하나의 행동, 4~8개.\n' +
-        `2) 모든 단계는 "${target}"을(를) 실제로 완성하기 위한 하위 행동이어야 한다. 마지막 단계는 목표 행동(위 핵심 동사) 자체를 직접 수행한다.\n` +
-        '3) "손 씻기", "자리에 앉기" 같은 일반적 준비 행동이나 목표와 무관한 행동은 절대 넣지 말 것.\n' +
-        '4) 아래 맥락(동사·대상·평가초점)을 반드시 반영할 것.\n' +
-        '5) 단계 설명은 영어 단어·어려운 한자어 없이, 일상에서 자주 쓰는 쉬운 우리말로 쓸 것.\n' +
-        `학기목표: ${target}\n` +
-        (sel?.text ? `성취기준: ${sel.text}\n` : '') +
-        (ctx.length ? `맥락:\n- ${ctx.join('\n- ')}\n` : '') +
-        '출력은 JSON만. 아래 형식에서 < > 안을 실제 단계 행동으로 채우되, 형식 예시 문구를 그대로 복사하지 말 것:\n' +
-        '{"steps":["<1단계 행동>","<2단계 행동>","<3단계 행동>"]}';
-      const j = await llmJSON('과제분석 단계 분해', prompt, { temperature: 0.3 });
+      const j = await llmJSON('과제분석 단계 분해', buildStepsPrompt(), { temperature: 0.3 });
       const steps = Array.isArray(j.steps) ? j.steps.map((s) => String(s).trim()).filter(Boolean) : [];
       if (!steps.length) throw new Error('단계를 추출하지 못했어요.');
       setTaskSteps(steps);
@@ -513,6 +586,7 @@ export default function IepPage() {
     if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
     const groups = parseMonthGroups(monthGroups, months, sem), n = groups.length;
     if (!n) { toast('포함할 월을 한 개 이상 선택하세요.'); return; }
+    if (!supportTier) toast('참고: 지원체계(모듈4)가 미지정이에요 — 지정하면 현행수준·교육방법에 지원 강도가 반영됩니다.');
     beginDraft('rule'); // 보고 있던 초안(예: AI n차)을 보관하고 규칙 초안 칸을 활성화
     const base = baseOf(goal);
     const s = +cStart, e = +cEnd;
@@ -564,7 +638,9 @@ export default function IepPage() {
             i === n - 1 ? `- 유지·일반화: 다양한 장소·사람·자료로 ${stem ? stem + '하기 ' : ''}반복하고, 그림 촉진·비디오 모델링으로 자기주도 수행 지원` : null,
           ].filter(Boolean)
         : [
-            fLead ? `- 평가초점 '${fLead}'에 도달하도록 ${sel.area ? sel.area + ' ' : ''}${obj} 학습내용을 지도` : null,
+            // 0720: "${obj} 학습내용을 지도"가 "주요 내용 학습내용을 지도" 같은 비문을 만들고,
+            // 평가초점이 월마다 바뀌는데 지도 문구는 고정되던 문제 → 평가초점 자체를 지도 대상으로 서술.
+            fLead ? `- 평가초점 '${fLead}'에 도달하기 위한 학습내용을 지도` : null,
             `- ${sel.area ? sel.area + ' ' : ''}${obj} ${phase(i)}`,
             `- 교사 시범 후 ${stem ? stem + '하기를 ' : ''}단계별(과제분석)로 따라 하기`,
             `- ${i < n - 1 ? '구조화된 학습 자료로' : '실제·모의 상황에서'} ${stem ? stem + '하기 ' : ''}반복·적용하기`,
@@ -601,18 +677,27 @@ export default function IepPage() {
     });
     setMonthly(list);
     // P3: AI 없이도 규칙 초안이 모듈1 출발점·지원 수준(Tier)을 이어받게 한다(결정적, LLM 없음).
+    // 0720 사용성 테스트: 요구 전체를 괄호에 밀어넣고 학기목표 전문을 인용해 조합하던 방식이
+    // "…보일 수 있다와 관련해…" 같은 비문을 만들었음 → 항목별 불릿("- " 여러 줄)로 재작성.
     {
       const tierNum = supportTier ? (supportTier.match(/[123]/) || [])[0] : '';
-      const tierNote = tierNum === '2'
-        ? ' 소그룹 표적 지원(체크인·체크아웃(CICO)·일일 행동점검표)을 함께 받으며,'
+      const tierLine = tierNum === '2'
+        ? '소그룹 표적 지원(체크인·체크아웃(CICO)·일일 행동점검표)을 함께 받고 있음.'
         : tierNum === '1'
-        ? ' 학급 보편 지원(시각 일과표·학급 규칙·일관된 칭찬)을 바탕으로,'
+        ? '학급 보편 지원(시각 일과표·학급 규칙·일관된 칭찬)을 받고 있음.'
         : tierNum === '3'
-        ? ' 1:1 개별 집중 지원(맞춤 촉진·강화, 필요 시 행동중재계획(BIP) 연계)을 받으며,'
+        ? '1:1 개별 집중 지원(맞춤 촉진·강화, 필요 시 행동중재계획(BIP) 연계)을 받고 있음.'
         : '';
-      const needs = startpoint?.supportNeeds ? String(startpoint.supportNeeds).replace(/\n/g, ' / ').trim() : '';
-      if (tierNote || needs) {
-        const seed = `${needs ? `생활지원 요구(${needs})를 고려할 때,` : ''}${tierNote} ${base}와 관련해 교사의 촉진이 있을 때 부분적으로 수행하며 독립 수행은 어려움.`.replace(/\s+/g, ' ').trim();
+      const needsLines = String(startpoint?.supportNeeds || '')
+        .split(/\n/)
+        .map((s) => s.replace(/^\s*[-•·]\s*/, '').trim())
+        .filter(Boolean);
+      if (tierLine || needsLines.length) {
+        const seed = [
+          ...needsLines.map((l) => `- ${l}`),
+          tierLine ? `- ${tierLine}` : null,
+          `- 위 지원 요구를 고려할 때, 이 학기목표 관련 과제는 교사의 촉진이 있을 때 부분적으로 수행하며 독립 수행은 어려움.`,
+        ].filter(Boolean).join('\n');
         setPlop(seed);
       }
     }
@@ -834,6 +919,192 @@ export default function IepPage() {
     return sev[top] > 0 ? (QABF_SHORT_LABELS[top] || '') : '';
   }
 
+  // ── 학기목표 2경로 (0719 피드백) ────────────────────────────────
+  // 경로A: 선택한 성취기준 + 학생 자료 → 학기목표 초안 AI 생성.
+  async function aiGoalFromStd() {
+    if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    setGoalAiBusy(true);
+    try {
+      const data = curStuData || (await ensureStudentData(curStuId)) || {};
+      const summary = buildStudentSummary(data);
+      const priors = savedGoals.filter((g) => g.school_year && g.school_year < schoolYear).slice(0, 8);
+      const priorBlock = priors.length
+        ? '\n[전년도 목표 참고]\n' + priors.map((g) => `· (${g.school_year}) ${g.subject}: ${g.semester_goal}`).join('\n')
+        : '';
+      const prompt =
+        '너는 특수교육 IEP 작성 전문가다. 아래 성취기준과 학생 자료를 근거로, 한 학기 동안 도달할 "학기목표"를 1문장으로 작성하라.\n' +
+        '- [가장 중요] 목표의 소재는 반드시 위 성취기준에서 나와야 한다. 학생 자료의 행동중재 내용(대체행동·의사소통 카드·안정실 등)을 목표의 소재로 삼지 말 것 — 그 정보는 지원 강도·난이도 조정 참고로만 쓴다.\n' +
+        '- 성취기준을 학생의 현행수준에 맞게 재구성하되, 관찰·측정 가능한 행동으로 진술할 것.\n' +
+        '- [단일 행동 원칙] 목표의 핵심 행동(동사)은 1개만 쓸 것. "~하거나 ~하며" 같은 선택형·병렬형으로 여러 행동을 묶으면 달성 판정이 불가능해진다. 도달 기준(예: 5회 중 4회)도 그 행동 1개에만 걸 것.\n' +
+        '- 교수전략·지도방법 이름은 넣지 말 것. 영어 단어·어려운 한자어 없이 쉬운 우리말로 쓸 것.\n' +
+        `[성취기준] ${[sel, ...selExtra].map((x) => `[${x.code}] ${x.text}`).join(' / ')} (교과 ${sel.subject}${sel.area ? ' · ' + sel.area : ''})\n` +
+        (selExtra.length ? `  → 성취기준이 여러 개다. 각각을 나열해 잇지 말고, 공통되는 상위 행동 1개로 통합해 진술할 것(통합이 어려우면 첫 번째 성취기준을 중심으로 쓰고 나머지는 조건·맥락으로만 반영).\n` : '') +
+        `[학생 자료]\n${summary}\n` +
+        (plop ? `[현행수준] ${plop}\n` : '') + priorBlock + '\n' +
+        '반드시 JSON만 출력: {"semester_goal":"..."}';
+      const j = await llmJSON('학기목표 생성(성취기준 기반)', prompt, { temperature: 0.4 });
+      const g = String(j.semester_goal || '').trim();
+      if (!g) throw new Error('학기목표를 받지 못했어요.');
+      // 주제 이탈 가드: 성취기준(대표+관련)의 핵심 단어와 하나도 안 겹치면 적용하지 않음.
+      if (!topicOverlap([sel.text, ...selExtra.map((x) => x.text)].join(' '), g)) {
+        toast('AI가 성취기준과 무관한 목표를 만들어 적용하지 않았어요. 다시 시도해 주세요.');
+        return;
+      }
+      setGoal(g);
+      const hanja = findHanja(g);
+      if (hanja.length) toast(`⚠ 학기목표에 한자 혼입(${hanja.join(', ')})이 있어요 — 수정해 주세요.`);
+      toast('성취기준·학생 자료를 반영한 학기목표 초안을 만들었어요. 문장을 다듬어 확정하세요.');
+    } catch (e) { toast('학기목표 생성 실패: ' + e.message); }
+    finally { setGoalAiBusy(false); }
+  }
+
+  // 결과가 원문(초안·성취기준)의 소재를 유지했는지 검사 — 핵심 단어가 하나도 안 겹치면 이탈.
+  // (로컬 소형 모델이 학생 자료의 행동중재 내용으로 끌려가는 사고 방지)
+  function topicOverlap(source, out) {
+    const tokens = String(source || '').replace(/[^가-힣a-zA-Z0-9\s]/g, ' ').split(/\s+/)
+      .map((t) => t.trim()).filter((t) => t.length >= 2)
+      .filter((t) => !['필요한', '스스로', '있는', '있다', '한다', '수행', '학생'].includes(t));
+    if (!tokens.length) return true;
+    const o = String(out || '');
+    // 조사 변형 대응: 앞 2글자 겹침도 인정 (화폐로→화폐, 물건을→물건)
+    return tokens.some((t) => o.includes(t) || (t.length >= 2 && o.includes(t.slice(0, 2))));
+  }
+
+  // 경로B: 교사가 쓴 학기목표 초안을 관찰·측정 가능한 문장으로 AI 다듬기.
+  // ※ 문장 정련 작업이므로 학생 자료(BIP·안정실 등)는 프롬프트에 넣지 않는다 —
+  //    소형 모델이 행동중재 내용으로 주제를 바꿔버리는 문제(0720 보고)의 원인이었음.
+  async function aiRefineGoal() {
+    const draft = String(goal || '').trim();
+    if (!draft) { toast('학기목표 초안을 먼저 적어주세요.'); return; }
+    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    setGoalAiBusy(true);
+    try {
+      const basePrompt = (strict) =>
+        '너는 특수교육 IEP 작성 전문가다. 교사가 쓴 학기목표 초안을 다듬어라.\n' +
+        '규칙:\n' +
+        '1) [가장 중요] 초안의 소재·활동을 그대로 유지한다. 초안에 없는 행동·장소·물건(예: 의사소통 카드, 안정실, 대체행동 등)을 절대 새로 만들지 않는다.\n' +
+        '2) 의미는 그대로 두고, 조건(어디서/무엇으로) + 행동(무엇을 한다) + 기준(얼마나)이 드러나는 한 문장으로만 정련한다.\n' +
+        '3) 교수전략 이름 금지. 영어 단어 없이 쉬운 우리말. 초안이 이미 좋으면 표현만 자연스럽게 손본다.\n' +
+        '예) 초안 "점심 먹기 전에 손을 씻는다." → "급식 전과 화장실 이용 후, 비누를 사용해 손 씻기 6단계를 10회 기회 중 8회 이상 스스로 수행한다."\n' +
+        (strict ? '※ 직전 답변이 초안과 무관한 내용이었다. 이번에는 반드시 초안의 소재(단어)를 그대로 사용해 다듬기만 하라.\n' : '') +
+        (curStu?.disability ? `(참고 — 장애유형 ${curStu.disability}: 문장 난이도 조정에만 사용, 소재 변경 금지)\n` : '') +
+        `[교사 초안] ${draft}\n` +
+        '반드시 JSON만 출력: {"semester_goal":"..."}';
+      // 0720: 문장 품질이 관건 — 큰(품질) 모델로 라우팅.
+      let j = await llmJSON('학기목표 다듬기', basePrompt(false), { tier: 'quality', temperature: 0.2 });
+      let g = String(j.semester_goal || '').trim();
+      // 주제 이탈 가드: 초안의 핵심 단어가 하나도 없으면 1회 재시도 → 그래도 이탈이면 초안 유지.
+      if (g && !topicOverlap(draft, g)) {
+        try {
+          j = await llmJSON('학기목표 다듬기(재시도)', basePrompt(true), { tier: 'quality', temperature: 0.1 });
+          g = String(j.semester_goal || '').trim();
+        } catch (_) { g = ''; }
+      }
+      if (!g) throw new Error('다듬은 문장을 받지 못했어요.');
+      if (!topicOverlap(draft, g)) {
+        toast('AI가 초안과 다른 내용을 만들어 적용하지 않았어요. 초안을 그대로 두었습니다 — 다시 시도하거나 직접 다듬어 주세요.');
+        return;
+      }
+      setGoal(g);
+      toast('학기목표 문장을 다듬었어요.');
+    } catch (e) { toast('학기목표 다듬기 실패: ' + e.message); }
+    finally { setGoalAiBusy(false); }
+  }
+
+  // 경로B: 학기목표 문장으로 관련 성취기준 후보를 찾는다(키워드 점수 선별).
+  function keywordStdCandidates(text, limit) {
+    const tokens = [...new Set(String(text).replace(/[^가-힣a-zA-Z0-9\s]/g, ' ').split(/\s+/)
+      .map((t) => t.trim()).filter((t) => t.length >= 2)
+      .flatMap((t) => (t.length >= 3 ? [t, t.slice(0, 2), t.slice(0, 3)] : [t])))]; // 조사 붙은 어절 대응
+    const scored = rows.map((r) => {
+      const hay = `${r.subject} ${r.area} ${r.text}`;
+      let s = 0;
+      tokens.forEach((t) => { if (hay.includes(t)) s += t.length; });
+      return { r, s };
+    }).filter((x) => x.s > 0).sort((a, b) => b.s - a.s);
+    return scored.slice(0, limit).map((x) => x.r);
+  }
+  // 키워드 후보 → (AI 연결 시) AI 재정렬로 상위 추천. AI 없이도 키워드 순으로 동작.
+  async function aiRecommendStandards() {
+    const g = String(goal || '').trim();
+    if (!g) { toast('학기목표를 먼저 적어주세요.'); return; }
+    if (!rows.length) { toast('성취기준 데이터가 아직 로드되지 않았어요.'); return; }
+    setStdRecBusy(true);
+    try {
+      const cands = keywordStdCandidates(g, 30);
+      if (!cands.length) { setStdRecs([]); toast('학기목표와 닿는 성취기준을 찾지 못했어요. 아래 목록에서 직접 선택하세요.'); return; }
+      let picked = cands.slice(0, 8);
+      if (aiOn) {
+        try {
+          const prompt =
+            '아래 학기목표와 가장 관련 있는 성취기준을 후보 중에서 5개 고르라(관련이 큰 순).\n' +
+            `[학기목표] ${g}\n[후보]\n` +
+            cands.map((r) => `${r.code} | ${r.subject}${r.area ? '·' + r.area : ''} | ${r.text}`).join('\n') +
+            '\n반드시 JSON만 출력: {"codes":["코드1","코드2","코드3","코드4","코드5"]}';
+          const j = await llmJSON('성취기준 추천', prompt, { tier: 'fast', temperature: 0.2 });
+          const codes = Array.isArray(j.codes) ? j.codes.map((c) => String(c).trim()) : [];
+          const byCode = codes.map((c) => cands.find((r) => r.code === c)).filter(Boolean);
+          if (byCode.length) picked = [...new Set([...byCode, ...picked])].slice(0, 8);
+        } catch (_) { /* AI 실패 시 키워드 순 유지 */ }
+      }
+      setStdRecs(picked);
+      toast(`학기목표와 관련된 성취기준 ${picked.length}개를 추천했어요. 눌러서 연결하세요.`);
+    } finally { setStdRecBusy(false); }
+  }
+
+  // 평가초점 개발(0719 피드백): 확정한 학기목표를 쪼갠다.
+  // 0720 품질 교정: "쪼개기"를 하위 수행으로 엄밀히 정의하고(자세·또래 협동 같은 새 활동 금지),
+  // 좋은/나쁜 예시 + 자기 검증 지시 + 이탈 항목 필터·재시도를 넣었다.
+  async function aiFociFromGoal() {
+    const g = String(goal || '').trim();
+    if (!g) { toast('학기목표를 먼저 확정하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    setFociGoalBusy(true);
+    const n = Math.max(2, Math.min(10, parseInt(fociCount, 10) || 5)); // 교사가 고른 개수
+    try {
+      // 0720 재교정: 예시 소재가 실제 목표와 겹쳐 그대로 베끼던 문제 → 다른 소재의 예시로 교체.
+      // "핵심 동사 그대로" 규칙이 장소만 바꾼 반복문을 만들던 문제 → 구성 동작(하위 기술) 분해 허용.
+      const verbHints = (verbAlts || []).map((v) => String(v).trim()).filter(Boolean);
+      const basePrompt = (strict) =>
+        '특수교육 개별화교육계획의 "평가초점" 목록을 만든다.\n' +
+        '평가초점이란: 학기목표에 도달했는지 확인하기 위해, 학기목표의 수행을 구성하는 "하위 수행"으로 나눈 것이다.\n' +
+        '규칙:\n' +
+        '1) 모든 평가초점은 학기목표 수행의 한 부분(구성 동작)이거나 수행 범위를 좁힌·넓힌 것이어야 하며, 학기목표의 소재(대상 단어)를 담아야 한다.\n' +
+        '   학기목표에 없는 새로운 활동은 금지 — 자세(바르게 앉기 등), 준비·관찰 행동, 또래 협동(친구와 함께 등), 태도(소중히 여긴다 등).\n' +
+        '2) [중요] 문장들이 서로 뚜렷이 달라야 한다. 같은 문장에서 장소·수식어만 바꾼 반복 금지. 아래를 섞어서 만들 것:\n' +
+        '   ① 수행을 이루는 구성 동작(과제분석적 하위 기술 — 동사가 목표와 달라져도 됨)\n' +
+        '   ② 대상·범위를 좁힌 것 → 넓힌 것\n' +
+        '   ③ 상황·자료 확장(모의 → 실제 등)은 많아야 1~2개만.\n' +
+        (verbHints.length ? `   ④ 필요하면 이 동사 후보를 활용해 표현을 다양하게: ${verbHints.join(', ')}\n` : '') +
+        `3) 정확히 ${n}개 만들 것(규칙을 어긴 문장을 빼느라 줄어드는 것은 허용). 평서형("~한다.")으로 끝낼 것. 지원 수준(도움받아/독립)으로 나누지 말 것. 쉬운 우리말.\n` +
+        '예) 학기목표 "급식 시간에 수저로 밥을 먹는다." — 이 예시는 소재가 다르므로 문장을 절대 베끼지 말 것.\n' +
+        '  좋은 평가초점: "수저를 바르게 잡는다." / "숟가락으로 밥을 떠서 먹는다." / "젓가락으로 반찬을 집어 먹는다." / "흘리지 않고 밥을 먹는다." / "급식 시간 동안 수저로 스스로 밥을 먹는다."\n' +
+        '  나쁜 평가초점: "식탁에 바르게 앉는다."(목표에 없는 행동) / "교실에서 수저로 밥을 먹는다."와 "식당에서 수저로 밥을 먹는다."(장소만 바꾼 반복)\n' +
+        (strict ? '※ 직전 답변이 서로 비슷한 문장의 반복이었거나 무관한 활동이 섞여 있었다. 이번에는 구성 동작으로 뚜렷이 나눠 다시 작성하라.\n' : '') +
+        `[학기목표] ${g}\n` +
+        (sel ? `[관련 성취기준(참고)] [${sel.code}] ${sel.text}${selExtra.length ? ' / ' + selExtra.map((x) => `[${x.code}] ${x.text}`).join(' / ') : ''}\n` : '') +
+        '출력 전에 스스로 검증하라: 각 문장이 규칙 1·2를 지키는가? 장소·수식어만 다른 중복 문장은 하나로 합쳐라.\n' +
+        '반드시 JSON만 출력: {"foci":["...","..."]}';
+      const parse = (j) => (Array.isArray(j.foci) ? j.foci.map((s) => String(s).trim()).filter(Boolean) : []);
+      // 명백히 이탈한 항목(학기목표 핵심 단어가 전혀 없는 문장) 제거.
+      const keepOnTopic = (arr) => arr.filter((f) => topicOverlap(g, f));
+      // 0720: 품질이 관건이라 큰(품질) 모델로 라우팅 — 느려도 정확하게 (사용자 요청).
+      let foci = keepOnTopic(parse(await llmJSON('평가초점 개발(학기목표 쪼개기)', basePrompt(false), { tier: 'quality', temperature: 0.3 })));
+      if (foci.length < Math.min(3, n)) {
+        // 대부분 이탈 → 더 엄격한 지시로 1회 재시도.
+        try {
+          const retry = keepOnTopic(parse(await llmJSON('평가초점 개발(재시도)', basePrompt(true), { tier: 'quality', temperature: 0.2 })));
+          if (retry.length > foci.length) foci = retry;
+        } catch (_) { /* 첫 결과 유지 */ }
+      }
+      if (!foci.length) throw new Error('학기목표에 맞는 평가초점을 받지 못했어요. 다시 시도해 주세요.');
+      setEvalFoci(foci);
+      toast(`학기목표를 쪼개 평가초점 ${foci.length}개를 만들었어요. 목표의 하위 수행이 맞는지 확인해 주세요.`);
+    } catch (e) { toast('평가초점 생성 실패: ' + e.message); }
+    finally { setFociGoalBusy(false); }
+  }
+
   // 생성 프롬프트 문자열을 만든다(AI 호출/수동 복사 공용).
   async function buildGenPrompt() {
     const data = curStuData || (await ensureStudentData(curStuId)) || {};
@@ -892,9 +1163,13 @@ export default function IepPage() {
       `너는 특수교육 IEP 작성 전문가다. 아래 "학생 자료"와 "전년도 IEP"를 실제로 반영해, 선택한 성취기준에 대한 개별화교육계획을 작성하라.\n\n` +
       `[학생 자료]\n${summary}\n${priorBlock}\n` +
       tierLinkage +
-      `[성취기준] [${sel.code}] ${sel.text} (교과 ${sel.subject}${sel.area ? ' · ' + sel.area : ''})\n` +
+      `[성취기준] ${[sel, ...selExtra].map((x) => `[${x.code}] ${x.text}`).join(' / ')} (교과 ${sel.subject}${sel.area ? ' · ' + sel.area : ''})\n` +
+      (selExtra.length
+        ? `  → 성취기준이 여러 개다. 학기목표와 월별 교육내용이 선택된 성취기준들을 통합적으로 다루도록 반영할 것.\n`
+        : '') +
       fociBlock + stepsBlock +
-      `[학기목표(참고)] ${goal}\n` +
+      `[학기목표(확정)] ${goal}\n` +
+      `  → 이 학기목표가 월별 계획 전체의 축이다(학기목표 선 확정 → 월별 후 작성). 각 구간(월)의 교육목표·교육내용은 이 학기목표에 도달하기 위한 중간 단계로 설계하고, 마지막 구간은 학기목표 수준에 도달하게 할 것.\n` +
       `[대상 월(구간)] ${ms.map((x) => x + '월').join(', ')} (총 ${ms.length}구간 — 월을 묶은 구간은 한 행으로 작성)\n` +
       critLine + tierLine + ebpBlock +
       `\n[형식 본보기 — 일부러 고른 "다른 교과"의 한 구간 예시]\n` +
@@ -914,11 +1189,12 @@ export default function IepPage() {
       `7) [평가계획(eval_plan)] 구간마다 교육목표·교육내용에 근거한 "~는가?" 질문형 항목 2~4개. 반드시 서로 다른 측면을 다각적으로 다룰 것 — (a) 수행·도달, (b) 참여 태도, (c) 지속성(시간·횟수), (d) 독립·모방 수준, (e) 일반화(다른 상황·자료·사람) 중 2~4개 측면을 골라 한 측면당 1개 질문. 같은 측면 반복 금지. 질문은 이 구간의 교육내용에 나온 실제 활동·재료를 담아 구체적으로 쓸 것.\n` +
       `8) 평가(eval)는 ${isQual ? '평가초점을 중심으로, 수업 맥락·학생 반응·성장 변곡점을 담은 내러티브(서술형)로만 작성(수치 금지).' : isTask ? '전체 N단계 중 독립 수행 단계 수와 단계별 촉진 수준(전신→부분→시범→독립)의 변화를 함께 기록하는 과제분석 체크리스트형 서술로 작성.' : '양적 기준 도달 여부와 함께 평가초점 중심의 질적 서술을 함께 포함.'}\n` +
       `9) 학생 실명/식별정보는 절대 쓰지 말 것(익명 ID만).\n` +
-      `10) 학기목표(semester_goal)도 성취기준과 학생 자료를 반영해 한 문장으로 작성(교수전략 이름 금지).\n` +
+      `10) semester_goal에는 위 [학기목표(확정)] 문장을 그대로 출력할 것(새로 쓰거나 바꾸지 말 것).\n` +
       `11) "Tier 1/2/3" 같은 단계 라벨을 결과 텍스트에 그대로 쓰지 말 것. 지원 단계를 언급해야 하면 그 단계가 실제로 어떤 지원인지(예: 소그룹 CICO·일일 행동점검표 등)를 구체적으로 풀어서 서술해, 제출본만 읽어도 이해되게 할 것.\n` +
       `12) 표현은 일상에서 자주 쓰는 쉬운 우리말로 쓸 것. 영어 단어(모니터링·피드백·케이스 등)와 어려운 한자어(제고·함양·도모 등)는 쓰지 말고 쉬운 말로 바꿀 것(교육방법의 증거기반실제 명칭은 예외 — 우리말 명칭+약어 병기). 동사도 잘 안 쓰는 표현 대신 교사·보호자가 바로 이해하는 익숙한 말을 쓸 것.\n` +
       `13) 이 IEP 목표는 성취기준 기반의 학습 목표다. 행동중재(BIP)·Tier 지원·기능평가(QABF) 정보는 '현행수준 파악'과 '지원 강도·교수 방법 선택'의 참고로만 쓰고, 교육목표·교육내용 자체가 문제행동 감소로 치우치지 않게 한다(배워야 할 학습 내용·기능적 기술 습득이 중심이며, 사회·정서 목표도 바람직한 대체기술 습득으로 긍정적으로 진술).\n` +
-      `14) 출력 전에 맞춤법·띄어쓰기·문장 오류를 스스로 점검해 바로잡을 것.\n\n` +
+      `14) 출력 전에 맞춤법·띄어쓰기·문장 오류를 스스로 점검해 바로잡을 것.\n` +
+      `15) monthly의 goal·content·eval·eval_plan 문자열에서 항목 구분은 반드시 줄바꿈(\\n)으로 할 것 — 항목들을 쉼표로 이어 붙이지 말 것.\n\n` +
       `반드시 아래 JSON만 출력(설명 금지):\n` +
       `{"semester_goal":"...","plop":"...",${isTask ? '"task_steps":["1단계 행동","2단계 행동"],' : ''}"monthly":[{"month":"${ms[0]}","goal":"- ...\\n- ...","content":"- ...하기\\n- ...하기","methods":["지도전략: ...","지원수준(촉구·용암): ...","강화 스케줄: ..."],"eval":"- ...\\n- ...","eval_plan":"- ...는가?\\n- ...는가?"}],"semestral_eval":"..."}`
     );
@@ -934,6 +1210,11 @@ export default function IepPage() {
   }
 
   // 파싱된 JSON을 화면에 적용(AI 응답/수동 붙여넣기 공용).
+  // 0720: 모델이 항목을 줄바꿈(\n) 대신 쉼표로 이어 붙이는 경우("- a,- b") 표에서 읽기 어려움 →
+  //       쉼표+"- " 패턴을 줄바꿈으로 정규화한다.
+  function normItemList(s) {
+    return String(s || '').replace(/\s*,\s*(?=-\s)/g, '\n');
+  }
   function applyGen(j) {
     const ms = parseMonthGroups(monthGroups, months, sem).map((g) => monthGroupLabel(g, sem));
     if (j && (j.standard_code || j.standardCode)) warnUnknownStandard(j.standard_code || j.standardCode);
@@ -942,11 +1223,11 @@ export default function IepPage() {
     if (Array.isArray(j.monthly) && j.monthly.length) {
       setMonthly(j.monthly.map((x, i) => ({
         month: String(x.month || ms[i] || ms[ms.length - 1]),
-        goal: String(x.goal || ''),
-        content: String(x.content || ''),
+        goal: normItemList(x.goal),
+        content: normItemList(x.content),
         methods: Array.isArray(x.methods) ? x.methods.map(String) : String(x.methods || '').split(/\n|,/).map((s) => s.replace(/^\s*[-•·]\s*/, '').trim()).filter(Boolean),
-        eval: String(x.eval || x.evaluation || ''),
-        eval_plan: String(x.eval_plan || x.evalPlan || ''),
+        eval: normItemList(x.eval || x.evaluation),
+        eval_plan: normItemList(x.eval_plan || x.evalPlan),
       })));
     }
     if (j.semestral_eval || j.semestralEval) setSemEval(String(j.semestral_eval || j.semestralEval));
@@ -956,7 +1237,10 @@ export default function IepPage() {
   async function aiGenerateFromData() {
     if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
     if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (!supportTier) toast('참고: 지원체계(모듈4)가 미지정이에요 — 지정하면 교육방법에 지원 강도가 반영됩니다.');
     setAiGenBusy(true);
+    // P1(0720): 4~5분 걸리는 작업임을 시작 시점에 예고 — 실패·멈춤과 구분되도록.
+    toast('월별 계획 AI 생성을 시작했어요 — 품질 모델로 보통 3~5분 걸립니다. 이 화면에 머물러 주세요.');
     try {
       const prompt = await buildGenPrompt();
       let j = await llmJSON('학생 데이터 반영 생성', prompt, { temperature: 0.4 });
@@ -974,10 +1258,14 @@ export default function IepPage() {
       }
       beginDraft('ai'); // 보고 있던 초안을 보관하고 새 'AI n차' 칸을 활성화
       applyGen(j);
+      // P11(0720): 치환표에 없는 한자(중국어 혼입 의심)가 남았으면 교사에게 경고.
+      const hanja = findHanja(JSON.stringify(j));
+      if (hanja.length) toast(`⚠ 생성문에 한자 혼입 ${hanja.length}곳(${hanja.slice(0, 3).join(', ')}…)이 있어요 — 해당 칸을 확인·수정해 주세요.`);
       if (echoes.length) toast(`생성했어요. 다만 예시 자료와 겹치는 표현이 ${echoes.length}곳 남아 있어요 — 해당 칸을 다듬어 주세요.`);
       else toast('학생 데이터를 반영해 생성했어요.');
     } catch (e) {
-      toast('AI 생성 실패: ' + e.message);
+      // P1(0720): 실패를 조용히 넘기지 않는다 — 원인·다음 행동을 함께 안내.
+      toast('AI 생성 실패: ' + e.message + ' — 우측 상단 AI 연결 상태를 확인한 뒤 다시 시도하세요. 이전 초안은 "초안 전환"에 그대로 남아 있어요.');
     } finally {
       setAiGenBusy(false);
     }
@@ -999,11 +1287,15 @@ export default function IepPage() {
         level: pyeongLevel,
         count: 12,
         context: profileNarrative(curStu) || curStu?.note || '',
+        includeBehaviorSupport: pyeongBehavior,
       });
       const r = await callDetailed(prompt, { temperature: 0.6, label: '교과 평어 생성' });
       const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
       const parsed = parsePyeongLines(out);
       if (!parsed.length) { toast('평어를 추출하지 못했어요. 다시 시도해 주세요.'); }
+      // P11: 한자 혼입 경고.
+      const hanja = findHanja(parsed.join('\n'));
+      if (hanja.length) toast(`⚠ 평어에 한자 혼입 ${hanja.length}곳(${hanja.slice(0, 3).join(', ')}…)이 있어요 — 확인·수정해 주세요.`);
       setPyeongLines(parsed);
     } catch (e) { toast('평어 생성 실패: ' + e.message); }
     finally { setPyeongBusy(false); }
@@ -1053,6 +1345,8 @@ export default function IepPage() {
         school_year: schoolYear,
         subject: sel.subject, grade_code: sel.gradeCode, area: sel.area,
         standard_code: sel.code, standard_text: sel.text,
+        // 0720: 관련 성취기준(다중 선택) — 연수자료 양식의 "관련성취기준" 목록.
+        related_stds: selExtra.map((x) => ({ code: x.code, text: x.text, subject: x.subject, area: x.area, grade_code: x.gradeCode })),
         semester: +sem, semester_goal: goal, plop,
         crit_type: critType, crit_start: +cStart, crit_end: +cEnd,
         support_tier: supportTier,
@@ -1120,6 +1414,104 @@ export default function IepPage() {
     });
   }
 
+  // ── 🌐 외부AI 연동 설정 — 각 AI 기능의 프롬프트 생성·응답 적용(로컬 AI와 비교용) ──
+  const EXT_CONFIGS = {
+    analyze: {
+      title: '🌐 외부 AI — 성취기준 분석 (동사·행위지향·평가초점)',
+      buildPrompt: async () => (
+        '다음 2022 개정 특수교육 기본교육과정 성취기준을 분석해 "평가초점"까지 한 번에 작성하세요.\n' +
+        '- verb: 측정 가능한 대표 동사(명사형, 예: 분류하기)\n' +
+        '- verbs: 같은 의미·같은 성취 의도로 바꿔 쓸 수 있는 측정 가능한 동사 6~8개(모두 명사형, 대표 동사 포함)\n' +
+        '- intent: 행위지향(가치·태도). 명시된 부사어가 없으면 성취기준의 취지에서 반드시 유추해 한 구절로(빈 값 금지)\n' +
+        '- descriptor: 서술자(핵심 대상·내용)\n' +
+        '- foci: verbs의 각 동사를 하나씩 사용한 자연스러운 평가초점 문장 목록(평서형 "~한다."로 끝냄, 지원 수준으로 나누지 말 것)\n' +
+        '- 모두 영어 단어·어려운 한자어 없이 쉬운 우리말로, 맞춤법·문장 오류 없이.\n' +
+        '반드시 JSON 객체 하나만 출력: {"verb":"...","verbs":["...","..."],"intent":"...","descriptor":"...","foci":["...","..."]}\n\n' +
+        `성취기준: [${sel?.code}] ${sel?.text}`
+      ),
+      apply: (raw) => {
+        const j = parseLooseJSON(raw);
+        const aVerb = j.verb != null ? String(j.verb).trim() : '';
+        let alts = Array.isArray(j.verbs) ? j.verbs.map(String).map((s) => s.trim()).filter(Boolean) : [];
+        if (aVerb && !alts.includes(aVerb)) alts = [aVerb, ...alts];
+        if (aVerb) setVerb(aVerb);
+        if (alts.length) setVerbAlts([...new Set(alts)]);
+        if (j.intent != null && String(j.intent).trim()) setIntent(String(j.intent).trim());
+        if (j.descriptor != null && String(j.descriptor).trim()) setDescriptor(String(j.descriptor));
+        const foci = Array.isArray(j.foci) ? j.foci.map(String).map((s) => s.trim()).filter(Boolean) : [];
+        if (foci.length) setEvalFoci(foci);
+        toast('외부 AI 분석 결과를 적용했어요.');
+        return true;
+      },
+    },
+    verbs: {
+      title: '🌐 외부 AI — 같은 의미 동사 펼치기',
+      buildPrompt: async () => (
+        '특수교육 평가초점 작성을 돕습니다. 아래 "대표 동사"와 같은 의미·같은 성취 의도로 바꿔 쓸 수 있는 측정 가능한 동사(구체 행동 표현)를 6~8개 제시하고, 각 동사를 사용한 자연스러운 평가초점 문장을 1개씩 만드세요.\n' +
+        '- 동사는 모두 명사형(~하기/~기), 대표 동사 자신도 포함.\n' +
+        '- 평가초점 문장은 평서형("~한다.")으로 끝내고, 지원 수준(도움받아/독립)으로 나누지 말 것.\n' +
+        '- 쉬운 우리말로, 맞춤법 오류 없이.\n' +
+        '반드시 JSON 객체 하나만 출력: {"verbs":["...","..."],"foci":["...","..."]}\n\n' +
+        `대표 동사: ${(verb || sel?.verb || '').trim()}` + (sel ? `\n맥락(성취기준): [${sel.code}] ${sel.text}` : '') +
+        (descriptor ? `\n서술자(대상): ${descriptor}` : '') + (intent ? `\n행위지향: ${intent}` : '')
+      ),
+      apply: (raw) => {
+        const j = parseLooseJSON(raw);
+        const alts = Array.isArray(j.verbs) ? [...new Set(j.verbs.map(String).map((s) => s.trim()).filter(Boolean))] : [];
+        if (alts.length) setVerbAlts(alts);
+        const foci = Array.isArray(j.foci) ? j.foci.map(String).map((s) => s.trim()).filter(Boolean) : [];
+        if (foci.length) setEvalFoci(foci);
+        if (!alts.length && !foci.length) { toast('동사/평가초점을 찾지 못했어요.'); return false; }
+        toast('외부 AI의 동사·평가초점을 적용했어요.');
+        return true;
+      },
+    },
+    steps: {
+      title: '🌐 외부 AI — 과제분석 단계 분해',
+      buildPrompt: async () => buildStepsPrompt(),
+      apply: (raw) => {
+        const j = parseLooseJSON(raw);
+        const steps = Array.isArray(j.steps) ? j.steps.map((s) => String(s).trim()).filter(Boolean) : [];
+        if (!steps.length) { toast('단계를 찾지 못했어요.'); return false; }
+        setTaskSteps(steps);
+        syncTaskTargets(steps.length);
+        toast(`외부 AI가 분해한 ${steps.length}개 단계를 적용했어요.`);
+        return true;
+      },
+    },
+    pyeong: {
+      title: '🌐 외부 AI — 교과 평어 생성',
+      buildPrompt: async () => {
+        const perfParts = [];
+        if (goal) perfParts.push('학기목표: ' + goal);
+        if ((evalFoci || []).filter((f) => f.trim()).length) perfParts.push('평가초점: ' + evalFoci.filter((f) => f.trim()).join(' / '));
+        if (plop) perfParts.push('현행수준: ' + plop);
+        return buildPyeongPrompt({
+          standard: `[${sel?.code}] ${sel?.text}`,
+          performance: perfParts.join('\n') || '수업 활동 및 수행 전반',
+          level: pyeongLevel,
+          count: 12,
+          context: profileNarrative(curStu) || curStu?.note || '',
+          includeBehaviorSupport: pyeongBehavior,
+        });
+      },
+      apply: (raw) => {
+        const parsed = parsePyeongLines(raw);
+        if (!parsed.length) { toast('평어 문장을 찾지 못했어요.'); return false; }
+        setPyeongLines(parsed);
+        toast(`외부 AI 평어 ${parsed.length}개를 적용했어요.`);
+        return true;
+      },
+    },
+  };
+  const extCfg = EXT_CONFIGS[extKind];
+  function openExt(kind) {
+    if (!sel && kind !== 'pyeong') { toast('성취기준을 먼저 선택하세요.'); return; }
+    if (kind === 'pyeong' && !sel) { toast('성취기준을 먼저 선택하세요.'); return; }
+    if (kind === 'verbs' && !(verb || sel?.verb)) { toast('먼저 측정 가능한 동사를 입력하거나 분석을 실행하세요.'); return; }
+    setExtKind(kind);
+  }
+
   if (!curStu) return (<><StuHero /><NoStudentHint /></>);
 
   const priorGoals = savedGoals.filter((g) => g.school_year && g.school_year < schoolYear);
@@ -1127,6 +1519,43 @@ export default function IepPage() {
   const curTier = curStuId ? studentTier(curStuId) : 1;
   const curTierGroups = (tier2Groups || []).filter((g) => (g.members || []).some((m) => m.student_id === curStuId));
   const TIER_BADGE = { 1: { t: 'Tier 1 (학급 보편)', c: '#4f6bed' }, 2: { t: 'Tier 2 (소그룹)', c: '#e8590c' }, 3: { t: 'Tier 3 (개별)', c: '#c43653' } };
+
+  // 경로별 카드 번호 (A: 성취기준→학기목표 / B: 학기목표→성취기준)
+  const stepNo = flowMode === 'goal'
+    ? { goal: '①', std: '②', foci: '③', editor: '④' }
+    : { std: '①', goal: '②', foci: '③', editor: '④' };
+
+  // 학기목표 설정 카드 — 경로A(성취기준 다음)·경로B(맨 처음) 공용 (0719 피드백: 학기목표 선행).
+  const goalCard = (
+    <div className="card" id="iep-goal">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <div className="card-title" style={{ marginBottom: 0 }}>🎯 {stepNo.goal} 학기목표 설정</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {flowMode === 'std' && aiOn && !!sel && (
+            <button className="btn btn-ok btn-sm" onClick={aiGoalFromStd} disabled={goalAiBusy}>
+              {goalAiBusy ? '생성 중…' : '✨ AI 학기목표 생성 (성취기준+학생 자료)'}
+            </button>
+          )}
+          {flowMode === 'goal' && aiOn && (
+            <button className="btn btn-ok btn-sm" onClick={aiRefineGoal} disabled={goalAiBusy}>
+              {goalAiBusy ? '다듬는 중…' : '✨ AI 문장 다듬기'}
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="card-subtitle">
+        {flowMode === 'goal'
+          ? '학생에게 지금 필요한 기술·내용 중심으로 한 학기 동안 도달할 목표를 먼저 적으세요. 다음 단계에서 관련 성취기준을 연결합니다.'
+          : '선택한 성취기준을 학생의 현행수준에 맞게 재구성해 학기목표를 확정하세요.'}
+        {' '}학기목표를 먼저 확정하면 평가초점과 월별 계획이 이 목표에서 나옵니다.
+      </div>
+      <div className="form-group" style={{ marginBottom: 0 }}>
+        <label className="form-label">학기목표 (한 문장 · 수정 가능)</label>
+        <textarea className="form-textarea" value={goal} onChange={(e) => setGoal(e.target.value)}
+          placeholder="예: 학교에서 있었던 일을 활동사진을 보고 단어로 적어 문장을 완성할 수 있다." />
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -1151,10 +1580,12 @@ export default function IepPage() {
 
       {/* 작성 순서 진행바(스텝퍼) — 성취기준 → 평가초점 → 목표 생성 → 저장 → 계획서 */}
       {(() => {
+        const stdStep = { label: flowMode === 'goal' ? '성취기준 연결' : '성취기준 선택', done: !!sel, id: 'iep-std' };
+        const goalStep = { label: '학기목표', done: !!String(goal).trim(), id: 'iep-goal' };
         const steps = [
-          { label: '성취기준 선택', done: !!sel, id: 'iep-std' },
+          ...(flowMode === 'goal' ? [goalStep, stdStep] : [stdStep, goalStep]),
           { label: '평가초점', done: (evalFoci || []).some((f) => String(f).trim()), id: 'iep-foci' },
-          { label: '월별 목표 생성', done: monthly.length > 0, id: 'iep-editor' },
+          { label: '월별 계획 생성', done: monthly.length > 0, id: 'iep-editor' },
           { label: '저장', done: !!editingId, id: 'iep-editor' },
           { label: '계획서 Word', done: wordDone, id: 'iep-saved' },
         ];
@@ -1195,7 +1626,7 @@ export default function IepPage() {
             <div key={g.id} style={{ border: '1px solid ' + (editingId === g.id ? '#7c4dff' : '#e3e6eb'), background: editingId === g.id ? '#f5f0ff' : '#fff', borderRadius: 9, padding: '10px 12px', marginTop: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <div style={{ minWidth: 220, flex: 1 }}>
-                  <div style={{ fontSize: 12, color: '#3b6ef5', fontWeight: 700 }}>[{g.standard_code}] {g.subject}{g.area ? ' · ' + g.area : ''} · {GRADE[g.grade_code]} · {g.semester}학기</div>
+                  <div style={{ fontSize: 12, color: '#3b6ef5', fontWeight: 700 }}>[{g.standard_code}]{Array.isArray(g.related_stds) && g.related_stds.length ? ` 외 ${g.related_stds.length}개` : ''} {g.subject}{g.area ? ' · ' + g.area : ''} · {GRADE[g.grade_code]} · {g.semester}학기</div>
                   <div style={{ fontSize: 13, marginTop: 3 }}>{g.semester_goal}</div>
                   <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 3 }}>월별 {Array.isArray(g.monthly) ? g.monthly.length : 0}개월 · 수정 {g.updated_at}</div>
                 </div>
@@ -1228,10 +1659,74 @@ export default function IepPage() {
         </div>
       )}
 
-      {/* ① 성취기준 선택 */}
+      {/* 학기목표 작성 경로 선택 (0719 피드백: 학기목표 선행 — 두 경로 중 선택) */}
+      <div className="card">
+        <div className="card-title">🧭 학기목표 작성 경로</div>
+        <div className="card-subtitle">학기목표를 먼저 확정하고, 평가초점·월별 계획은 학기목표에서 나옵니다. 어떤 순서로 학기목표를 만들지 선택하세요.</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 8 }}>
+          {[
+            { key: 'std', t: 'A. 성취기준 먼저 → 학기목표', d: '교과 성취기준을 먼저 고르고, 학생에 맞게 재구성해 학기목표를 만듭니다. (교과 중심)' },
+            { key: 'goal', t: 'B. 학기목표 먼저 → 성취기준', d: '학생에게 필요한 기술·내용 중심으로 학기목표를 먼저 쓰고, 관련 성취기준을 연결합니다.' },
+          ].map((m) => (
+            <button key={m.key} type="button" onClick={() => { setFlowMode(m.key); setStdRecs([]); }}
+              aria-pressed={flowMode === m.key}
+              style={{ textAlign: 'left', border: '2px solid ' + (flowMode === m.key ? '#3b6ef5' : '#e3e6eb'), background: flowMode === m.key ? '#eaf0ff' : '#fff', borderRadius: 10, padding: '10px 12px', cursor: 'pointer' }}>
+              <div style={{ fontWeight: 700, color: flowMode === m.key ? '#3b6ef5' : '#374151' }}>{flowMode === m.key ? '✓ ' : ''}{m.t}</div>
+              <div style={{ fontSize: 12.5, color: '#6b7280', marginTop: 3 }}>{m.d}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 경로B: 학기목표 카드가 맨 앞 */}
+      {flowMode === 'goal' && goalCard}
+
+      {/* 성취기준 선택/연결 — 경로A: 첫 단계, 경로B: 학기목표 다음 */}
+      {(flowMode === 'std' || !!String(goal).trim()) && (
       <div className="card" id="iep-std">
-        <div className="card-title">📋 ① 성취기준 선택</div>
-        <div className="card-subtitle">2022 개정 기본교육과정 성취기준 {rows.length || ''}개에서 교과·학년군·영역으로 좁혀 선택합니다.</div>
+        <div className="card-title">📋 {stepNo.std} {flowMode === 'goal' ? '성취기준 연결 (학기목표와 관련된 기준 선택)' : '성취기준 선택'}</div>
+        <div className="card-subtitle">2022 개정 기본교육과정 성취기준 {rows.length || ''}개에서 교과·학년군·영역으로 좁혀 선택합니다. <strong>여러 개 선택 가능</strong> — 누르면 담기고, 다시 누르면 빠집니다.</div>
+        {/* 0720: 선택된 성취기준 목록 — 단순 토글(대표 개념 없음) */}
+        {(sel || selExtra.length > 0) && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', margin: '4px 0 8px', padding: '8px 10px', background: '#f3f6fc', border: '1px solid #d5e0f5', borderRadius: 8 }}>
+            <span style={{ fontSize: '.78rem', fontWeight: 700, color: '#3b6ef5' }}>선택됨 {1 * !!sel + selExtra.length}개:</span>
+            {[...(sel ? [sel] : []), ...selExtra].map((x) => (
+              <span key={x.code} className="qchip on" title={x.text} style={{ maxWidth: 340 }}>
+                [{x.code}]
+                <button type="button" onClick={() => pickStandard(x)}
+                  title="선택에서 빼기" aria-label={`${x.code} 빼기`}
+                  style={{ marginLeft: 4, border: 'none', background: 'transparent', color: '#fff', cursor: 'pointer', fontWeight: 700 }}>×</button>
+              </span>
+            ))}
+            <span style={{ fontSize: '.72rem', color: 'var(--muted)' }}>계획서의 과목·영역 칸에는 첫 번째로 선택한 성취기준의 교과({sel?.subject || ''})가 쓰여요.</span>
+          </div>
+        )}
+        {flowMode === 'goal' && (
+          <div style={{ background: '#eef4ff', border: '1px solid #b9cdf0', borderRadius: 8, padding: '10px 12px', margin: '4px 0 10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <strong style={{ fontSize: '.86rem', color: '#274690' }}>✨ 학기목표로 추천</strong>
+              <button className="btn btn-pri btn-sm" onClick={aiRecommendStandards} disabled={stdRecBusy}>
+                {stdRecBusy ? '추천 중…' : (aiOn ? '✨ 관련 성취기준 추천 (AI)' : '🔎 키워드로 관련 기준 찾기')}
+              </button>
+              {sel && <span style={{ fontSize: 12, color: '#15803d', fontWeight: 700 }}>✓ 연결됨: [{sel.code}]{selExtra.length ? ` 외 ${selExtra.length}개` : ''}</span>}
+            </div>
+            {stdRecs.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 6, marginTop: 8 }}>
+                {stdRecs.map((r) => {
+                  const isOn = sel?.code === r.code || selExtra.some((x) => x.code === r.code);
+                  return (
+                    <div key={r.code} onClick={() => pickStandard(r)}
+                      style={{ border: '1px solid ' + (isOn ? '#3b6ef5' : '#cdd9f0'), background: isOn ? '#eaf0ff' : '#fff', borderRadius: 8, padding: '7px 10px', cursor: 'pointer' }}>
+                      <div style={{ fontSize: 11, color: '#3b6ef5', fontWeight: 700 }}>{isOn ? '✓ ' : ''}[{r.code}] {r.subject}{r.area ? ' · ' + r.area : ''} · {GRADE[r.gradeCode]}</div>
+                      <div style={{ fontSize: 12.5, marginTop: 2 }}>{r.text}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div style={{ fontSize: '.76rem', color: '#6b7280', marginTop: 6 }}>여러 개를 눌러 담을 수 있어요(다시 누르면 빠짐). 추천이 맞지 않으면 아래 필터로 직접 찾아 선택해도 됩니다. 성취기준을 선택해도 위에 쓴 학기목표는 유지됩니다.</div>
+          </div>
+        )}
         <div className="form-row">
           <div className="form-group">
             <label className="form-label">교과</label>
@@ -1266,29 +1761,52 @@ export default function IepPage() {
         </div>
         <div className="form-label" style={{ marginTop: 4 }}>후보 {candidates.length}개{candidates.length > 200 ? ' (상위 200개 표시)' : ''}</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 8, maxHeight: 280, overflow: 'auto' }}>
-          {candidates.slice(0, 200).map((r) => (
-            <div key={r.code} onClick={() => pickStandard(r)}
-              style={{ border: '1px solid ' + (sel?.code === r.code ? '#3b6ef5' : '#e3e6eb'), background: sel?.code === r.code ? '#eaf0ff' : '#fff', borderRadius: 9, padding: '8px 11px', cursor: 'pointer' }}>
-              <div style={{ fontSize: 11, color: '#3b6ef5', fontWeight: 700 }}>[{r.code}] {GRADE[r.gradeCode]}{r.subject === DAILY_SUBJECT && DAILY_MID_TO_BIG[r.area] ? ' · ' + DAILY_MID_TO_BIG[r.area] + ' › ' + r.area : (r.area ? ' · ' + r.area : '')}</div>
-              <div style={{ fontSize: 13, marginTop: 2 }}>{r.text}</div>
-            </div>
-          ))}
+          {candidates.slice(0, 200).map((r) => {
+            const isOn = sel?.code === r.code || selExtra.some((x) => x.code === r.code);
+            return (
+              <div key={r.code} onClick={() => pickStandard(r)}
+                style={{ border: '1px solid ' + (isOn ? '#3b6ef5' : '#e3e6eb'), background: isOn ? '#eaf0ff' : '#fff', borderRadius: 9, padding: '8px 11px', cursor: 'pointer' }}>
+                <div style={{ fontSize: 11, color: '#3b6ef5', fontWeight: 700 }}>
+                  {isOn ? '✓ ' : ''}[{r.code}] {GRADE[r.gradeCode]}{r.subject === DAILY_SUBJECT && DAILY_MID_TO_BIG[r.area] ? ' · ' + DAILY_MID_TO_BIG[r.area] + ' › ' + r.area : (r.area ? ' · ' + r.area : '')}
+                </div>
+                <div style={{ fontSize: 13, marginTop: 2 }}>{r.text}</div>
+              </div>
+            );
+          })}
           {!candidates.length && <div className="empty-state">조건에 맞는 성취기준이 없어요.</div>}
         </div>
       </div>
+      )}
 
-      {/* ② 평가초점 개발 (성취기준 분석 → 해석 → 평가초점) */}
-      {sel && (
+      {/* 경로A: 성취기준 다음에 학기목표 카드 */}
+      {flowMode === 'std' && sel && goalCard}
+
+      {/* 평가초점 개발 — 확정한 학기목표를 쪼개어 개발 (0719 피드백: 성취기준을 바로 나누지 않음) */}
+      {sel && !!String(goal).trim() && (
         <div className="card" id="iep-foci">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div>
-              <div className="card-title" style={{ marginBottom: 0 }}>🔍 ② 평가초점 개발 (성취기준 분석 → 해석 → 평가초점)</div>
-              <div className="card-subtitle">선택: [{sel.code}] {sel.text}</div>
+              <div className="card-title" style={{ marginBottom: 0 }}>🔍 {stepNo.foci} 평가초점 개발 (학기목표 쪼개기)</div>
+              <div className="card-subtitle">학기목표: {goal} <span style={{ color: '#9ca3af' }}>· 성취기준 [{sel.code}]{selExtra.length ? ` 외 ${selExtra.length}개` : ''}</span></div>
             </div>
-            {aiOn && <button className="btn btn-ghost btn-sm" onClick={aiDecompose} disabled={aiDecBusy}>{aiDecBusy ? 'AI 분석 중…' : '✨ AI 분석'}</button>}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              {/* 0720: AI 버튼 3개(쪼개기/성취기준 분석/동사 펼치기) → 1개로 통합(혼동 방지). */}
+              {aiOn && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '.8rem', color: 'var(--sub)' }} title="만들 평가초점 개수 (2~10)">
+                  <input type="number" className="form-input" style={{ width: 58, padding: '4px 6px' }} min={2} max={10}
+                    value={fociCount} onChange={(e) => setFociCount(e.target.value)} aria-label="평가초점 개수" />
+                  개
+                </span>
+              )}
+              {aiOn && <button className="btn btn-ok btn-sm" onClick={aiFociFromGoal} disabled={fociGoalBusy} title="학기목표를 하위 수행으로 쪼개 선택한 개수만큼 평가초점을 만듭니다. 품질 모델을 사용해 조금 느릴 수 있어요.">{fociGoalBusy ? '⏳ 정밀 생성 중… (품질 모델)' : '✨ 평가초점 생성 (AI)'}</button>}
+              {/* ✨ 성취기준 분석(보조) — 0720 버튼 통합으로 비표시. 복원 시 주석 해제
+              <button className="btn btn-ghost btn-sm" onClick={aiDecompose} disabled={aiDecBusy} title="성취기준을 동사·행위지향·서술자로 분석하는 보조 도구">{aiDecBusy ? 'AI 분석 중…' : '✨ 성취기준 분석 (보조)'}</button> */}
+              {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
+              <button className="btn btn-ghost btn-sm" onClick={() => openExt('analyze')} title="프롬프트를 복사해 클로드·ChatGPT 등에서 실행 후 응답을 붙여넣기">🌐 외부AI</button> */}
+            </div>
           </div>
           <div className="card-subtitle" style={{ marginTop: 2 }}>
-            평가초점은 <strong>지원 수준으로 나누는 것이 아니라</strong>, 성취기준을 동사·행위지향·서술자로 분석하고 서술자(대상·내용)의 스펙트럼을 확장해 개발합니다.
+            평가초점은 <strong>확정한 학기목표를</strong> 대상(무엇을)·장소(어디서)·상황(언제·누구와) 등으로 쪼개어 개발합니다. <strong>지원 수준으로 나누는 것이 아닙니다.</strong> AI 없이 만들 때는 아래 "🔧 고급 — 성취기준 분석 도구"를 펼쳐 쓰세요.
           </div>
           <details style={{ margin: '6px 0 12px', background: 'var(--pri-soft)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '10px 12px' }}>
             <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '.86rem', color: 'var(--pri-d)' }}>❓ 평가초점이 무엇인가요? (예시 보기)</summary>
@@ -1307,36 +1825,61 @@ export default function IepPage() {
               팁: 아래 <strong>서술자</strong> 칸에 대상(예: 나의 신상, 나의 선호…)을 쉼표로 나열하면 초점이 자동으로 여러 개 만들어져요.
             </div>
           </details>
-          <div className="form-row">
-            <div className="form-group">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                <label className="form-label" style={{ margin: 0 }}>측정 가능한 동사 (과정·기능) — 쉼표로 같은 의미의 여러 동사 입력 가능</label>
-                {aiOn && <button className="btn btn-ghost btn-sm" onClick={aiExpandVerbs} disabled={verbBusy} title="대표 동사를 같은 의미의 여러 동사로 펼칩니다">{verbBusy ? '펼치는 중…' : '✨ 같은 의미 동사 펼치기'}</button>}
-              </div>
-              <input className="form-input" style={{ marginTop: 6 }} value={verb} onChange={(e) => setVerb(e.target.value)} placeholder="예: 분류하기" />
-              {verbAlts.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6, alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, color: '#6b7280' }}>같은 의미 동사:</span>
-                  {verbAlts.map((v, i) => (
-                    <span key={i} style={{ fontSize: 12, background: 'var(--surface2)', color: 'var(--sub)', borderRadius: 6, padding: '1px 6px' }}>{v}</span>
-                  ))}
-                  <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={() => setVerbAlts([])} title="같은 의미 동사 비우기">✕</button>
+          {/* 0720: 성취기준 분석 도구(동사·행위지향·서술자)는 고급 영역으로 접음 — 기본 화면의 AI 버튼은 위 1개만. */}
+          <details style={{ margin: '6px 0 10px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '8px 12px' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '.84rem', color: 'var(--sub)' }}>🔧 고급 — 성취기준 분석 도구 (AI 없이 평가초점을 만들 때 사용)</summary>
+            <div style={{ marginTop: 8 }}>
+              <div className="form-row">
+                <div className="form-group">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                    <label className="form-label" style={{ margin: 0 }}>측정 가능한 동사 (과정·기능) — 쉼표로 같은 의미의 여러 동사 입력 가능</label>
+                    {/* 0720: 사용자 요청으로 동사 펼치기 AI 버튼 복원(고급 영역 안이라 기본 화면은 여전히 버튼 1개) */}
+                    {aiOn && <button className="btn btn-ghost btn-sm" onClick={aiExpandVerbs} disabled={verbBusy} title="대표 동사를 같은 의미의 여러 동사로 펼칩니다">{verbBusy ? '펼치는 중…' : '✨ 같은 의미 동사 펼치기'}</button>}
+                    {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
+                    <button className="btn btn-ghost btn-sm" onClick={() => openExt('verbs')} title="외부 AI로 동사 펼치기">🌐 외부AI</button> */}
+                  </div>
+                  <input className="form-input" style={{ marginTop: 6 }} value={verb} onChange={(e) => setVerb(e.target.value)} placeholder="예: 분류하기" />
+                  {verbAlts.length > 0 && (
+                    <div style={{ marginTop: 6 }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+                        <span style={{ fontSize: 12, color: '#6b7280' }}>같은 의미 동사:</span>
+                        {verbAlts.map((v, i) => (
+                          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 12, background: 'var(--surface2)', color: 'var(--sub)', borderRadius: 6, padding: '1px 4px 1px 8px' }}>
+                            {v}
+                            <button type="button" onClick={() => setVerbAlts((prev) => prev.filter((_, idx) => idx !== i))}
+                              title={`${v} 빼기`} aria-label={`${v} 빼기`}
+                              style={{ border: 'none', background: 'transparent', color: 'var(--err)', cursor: 'pointer', fontWeight: 700, lineHeight: 1, padding: '0 3px', fontSize: 13 }}>×</button>
+                          </span>
+                        ))}
+                        <button className="btn btn-ghost btn-sm" style={{ padding: '0 8px' }} onClick={() => setVerbAlts([])} title="같은 의미 동사 전부 비우기">전체 비우기</button>
+                      </div>
+                      <div style={{ fontSize: '.72rem', color: 'var(--muted)', marginTop: 3 }}>
+                        이 동사들은 "✨ 평가초점 생성 (AI)"에서 표현을 다양하게 만드는 후보로 쓰여요. 목표와 안 맞는 동사(예: 빌리기·갚아주기)는 ×로 빼세요 — 남긴 것만 반영됩니다.
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+                <div className="form-group"><label className="form-label">행위의 지향 (가치·태도)</label><input className="form-input" value={intent} onChange={(e) => setIntent(e.target.value)} placeholder="예: 다양한 방법으로 (없으면 비움)" /></div>
+              </div>
+              <div className="form-group"><label className="form-label">서술자 (지식·이해·대상) — 쉼표·줄바꿈으로 여러 대상 나열 시 평가초점이 여러 개 생성됩니다</label><textarea className="form-textarea" value={descriptor} onChange={(e) => setDescriptor(e.target.value)} placeholder="예: 나의 신상, 나의 몸, 나의 선호, 나의 흥미" /></div>
+              <button className="btn btn-ghost btn-sm" onClick={genFociNow} title="AI 없이, 위 동사·서술자 분석으로 평가초점을 만듭니다">↻ 분석·해석으로 생성 (AI 없음)</button>
             </div>
-            <div className="form-group"><label className="form-label">행위의 지향 (가치·태도)</label><input className="form-input" value={intent} onChange={(e) => setIntent(e.target.value)} placeholder="예: 다양한 방법으로 (없으면 비움)" /></div>
-          </div>
-          <div className="form-group"><label className="form-label">서술자 (지식·이해·대상) — 쉼표·줄바꿈으로 여러 대상 나열 시 평가초점이 여러 개 생성됩니다</label><textarea className="form-textarea" value={descriptor} onChange={(e) => setDescriptor(e.target.value)} placeholder="예: 나의 신상, 나의 몸, 나의 선호, 나의 흥미" /></div>
+          </details>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
             <label className="form-label" style={{ margin: 0 }}>평가초점 목록 — 사전에 수립해 질적 평가의 기준점으로 사용</label>
             <div style={{ display: 'flex', gap: 6 }}>
-              <button className="btn btn-ghost btn-sm" onClick={genFociNow}>↻ 분석·해석으로 생성</button>
               <button className="btn btn-ghost btn-sm" onClick={addFocus}>+ 평가초점 추가</button>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
-            {evalFoci.length === 0 && <div className="empty-state" style={{ padding: 12 }}>아직 평가초점이 없습니다. "↻ 분석·해석으로 생성" 또는 "+ 평가초점 추가"를 눌러 만드세요.</div>}
+            {/* 0720: 품질 모델 생성 중 스피너 — 어디에서 작업 중인지 보이게 */}
+            {fociGoalBusy && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 12px', color: '#6b7280', background: 'var(--surface2)', border: '1px dashed var(--border)', borderRadius: 8 }}>
+                <span style={spinner} /> 품질 모델이 평가초점 {Math.max(2, Math.min(10, parseInt(fociCount, 10) || 5))}개를 만드는 중… (수십 초 걸릴 수 있어요)
+              </div>
+            )}
+            {!fociGoalBusy && evalFoci.length === 0 && <div className="empty-state" style={{ padding: 12 }}>아직 평가초점이 없습니다. 위 "✨ 평가초점 생성 (AI)" 또는 "+ 평가초점 추가"를 눌러 만드세요.</div>}
             {evalFoci.map((f, i) => (
               <div key={i} style={{ display: 'grid', gridTemplateColumns: '24px 1fr auto', gap: 8, alignItems: 'center' }}>
                 <div style={{ fontWeight: 700, color: '#6b7280', textAlign: 'center' }}>{i + 1}</div>
@@ -1348,11 +1891,11 @@ export default function IepPage() {
         </div>
       )}
 
-      {/* ③ 목표 생성 */}
-      {sel && (
+      {/* 월별 계획 생성 — 확정된 학기목표 기반 (0719: 학기목표 선 작성 → 월별 후 작성) */}
+      {sel && !!String(goal).trim() && (
         <div className="card" id="iep-editor">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-            <div className="card-title" style={{ marginBottom: 0 }}>🎯 ③ 목표 생성 (학기목표 → 월별 점증)
+            <div className="card-title" style={{ marginBottom: 0 }}>📅 {stepNo.editor} 월별 계획 생성 (학기목표 기반 점증)
               {editingId && <span className="badge badge-purple" style={{ marginLeft: 8 }}>수정 중</span>}
             </div>
             {editingId && <button className="btn btn-ghost btn-sm" onClick={newGoal}>+ 새 목표 작성</button>}
@@ -1365,7 +1908,10 @@ export default function IepPage() {
               {startpoint.perfLevel && <div>· 수행 가능 수준: {String(startpoint.perfLevel).replace(/\n/g, ' / ')}</div>}
             </div>
           )}
-          <div className="form-group"><label className="form-label">학기목표 (수정 가능)</label><textarea className="form-textarea" value={goal} onChange={(e) => setGoal(e.target.value)} /></div>
+          {/* 학기목표 입력은 위 "학기목표 설정" 카드로 이동(0719: 학기목표 선행 흐름) */}
+          <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: '.84rem' }}>
+            <strong>학기목표</strong> — {goal} <span style={{ color: 'var(--muted)' }}>(수정은 위 {stepNo.goal} 학기목표 설정 카드에서)</span>
+          </div>
           <div className="form-group"><label className="form-label">현행수준 (학생 비식별 요약에서 연동 · 수정 가능)</label><textarea className="form-textarea" value={plop} onChange={(e) => setPlop(e.target.value)} /></div>
           <div className="form-row">
             <div className="form-group"><label className="form-label">학년도</label>
@@ -1447,6 +1993,8 @@ export default function IepPage() {
                 <div style={{ fontWeight: 700, color: '#5b3fb0' }}>🧩 과제 분석 — 단계 목록 (순차 분해)</div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="btn btn-ghost btn-sm" onClick={aiStepsNow} disabled={taskBusy}>{taskBusy ? '분석 중…' : (aiOn ? '↻ 단계 자동 분석(AI)' : '↻ 기본 단계 골격')}</button>
+                  {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
+                  <button className="btn btn-ghost btn-sm" onClick={() => openExt('steps')} title="외부 AI로 단계 분해">🌐 외부AI</button> */}
                   <button className="btn btn-ghost btn-sm" onClick={addStep}>+ 단계 추가</button>
                   <button className="btn btn-ghost btn-sm" onClick={downloadTaskSheetNow} title="단계×회기 기록지 Word">📋 기록지</button>
                 </div>
@@ -1504,9 +2052,14 @@ export default function IepPage() {
           )}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className="btn btn-pri" onClick={generate}>규칙 초안 (빠름, AI 없음)</button>
-            {aiOn
-              ? <button className="btn btn-ok" onClick={aiGenerateFromData} disabled={aiGenBusy}>{aiGenBusy ? 'AI 생성 중…' : '✨ AI 생성 (학생 데이터 반영)'}</button>
-              : <button className="btn btn-ok" onClick={openManualPrompt}>📋 AI 프롬프트 생성 (복사 → 외부 AI → 붙여넣기)</button>}
+            {aiOn && <button className="btn btn-ok" onClick={aiGenerateFromData} disabled={aiGenBusy}>{aiGenBusy ? '⏳ AI 생성 중… (약 3~5분)' : '✨ AI 생성 (학생 데이터 반영)'}</button>}
+            {aiGenBusy && (
+              <span style={{ fontSize: '.8rem', color: '#0d9488', alignSelf: 'center' }}>
+                품질 모델이 월별 계획 전체를 쓰는 중이에요 — 페이지를 이동하면 결과가 사라질 수 있어요.
+              </span>
+            )}
+            {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
+            <button className={'btn ' + (aiOn ? 'btn-ghost' : 'btn-ok')} onClick={openManualPrompt} title="프롬프트를 복사해 클로드·ChatGPT 등에서 실행 후 응답(JSON)을 붙여넣기">🌐 외부AI 연동 (복사→붙여넣기)</button> */}
           </div>
           <div className="card-subtitle" style={{ marginTop: 8 }}>
             <strong>규칙 초안</strong>은 AI 없이 고정된 틀로 즉시 만드는 기본형이고, <strong>✨ AI 생성</strong>은 학생 자료·평가초점을 반영해 문장을 새로 쓰는 방식이에요(AI 특성상 누를 때마다 표현이 조금씩 달라집니다).
@@ -1518,16 +2071,23 @@ export default function IepPage() {
           <div style={{ marginTop: 14, padding: 12, border: '1px solid #fdba74', borderRadius: 8, background: '#fff7ed' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
               <div style={{ fontWeight: 700, color: '#9a3412' }}>✍ 교과 평어 생성 (세부능력·특기사항)</div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {/* P10: 평어는 공개 문서(생기부) — 행동·정서 지원 언급은 기본 제외 */}
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '.78rem', color: '#9a3412', cursor: 'pointer' }} title="켜면 위기 서술 없이 자기 조절·참여 태도의 긍정적 성장으로만 최소 반영합니다.">
+                  <input type="checkbox" checked={pyeongBehavior} onChange={(e) => setPyeongBehavior(e.target.checked)} />
+                  행동·정서 성장 포함
+                </label>
                 <select className="form-input" style={{ width: 'auto', padding: '4px 8px' }} value={pyeongLevel} onChange={(e) => setPyeongLevel(e.target.value)}>
                   {PYEONG_LEVELS.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
                 </select>
                 <button className="btn btn-sm" style={{ background: '#ea580c', color: '#fff' }} onClick={aiPyeong} disabled={pyeongBusy}>
                   {pyeongBusy ? '⏳ 생성 중…' : '평어 생성'}
                 </button>
+                {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
+                <button className="btn btn-ghost btn-sm" onClick={() => openExt('pyeong')} title="외부 AI로 평어 생성">🌐 외부AI</button> */}
               </div>
             </div>
-            <div style={{ fontSize: '.8rem', color: '#9a3412', opacity: 0.8, marginTop: 4 }}>선택한 성취기준 + 학기목표·평가초점·현행수준을 반영해 명사형 평어 문장을 생성합니다.</div>
+            <div style={{ fontSize: '.8rem', color: '#9a3412', opacity: 0.8, marginTop: 4 }}>선택한 성취기준 + 학기목표·평가초점·현행수준을 반영해 명사형 평어 문장을 생성합니다. 행동 지원·위기 대응(안정실 등) 내용은 기본으로 제외돼요.</div>
             {pyeongLines.length > 0 && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
@@ -1597,8 +2157,19 @@ export default function IepPage() {
         </div>
       )}
 
+      {/* 🌐 외부AI 연동 모달 — 분석/동사/단계/평어 공용 */}
+      {extCfg && (
+        <ExternalAIModal
+          open={!!extKind}
+          onClose={() => setExtKind('')}
+          title={extCfg.title}
+          buildPrompt={extCfg.buildPrompt}
+          onApply={(raw) => { try { return extCfg.apply(raw); } catch (e) { toast('적용 실패: ' + e.message); return false; } }}
+        />
+      )}
+
       <Modal open={manualOpen} onClose={() => setManualOpen(false)} maxWidth={700}>
-        <h3>📋 AI 프롬프트 (연결된 AI 없이 사용)</h3>
+        <h3>🌐 외부 AI 연동 — 월별 계획 생성</h3>
         <p style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.6, marginTop: 4 }}>
           ① 아래 프롬프트를 복사해 ChatGPT·Claude 등 외부 AI에 붙여넣으세요. ② AI가 준 <b>JSON 응답</b>을 아래 칸에 붙여넣고 "응답 적용"을 누르면 화면에 채워집니다.
         </p>

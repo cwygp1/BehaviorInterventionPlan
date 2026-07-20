@@ -5,59 +5,27 @@ import { useToast } from '../../contexts/ToastContext';
 import { saveRAISD } from '../../lib/api/students';
 
 // 원문: 장애학생을 위한 강화제 평가 (RAISD, Fisher et al.)
-// 10개 질문 각각에 대해 (구체적 선호 항목 + 강도 1~5 + 추가 질문/대답)을 기록한다.
+// 0719 피드백 반영: 긴 설명문 대신 입력칸 예시(placeholder)로 안내하고,
+// 왼쪽 '자극' / 오른쪽 '강화제' 두 묶음으로 나눠 보여준다. 강도는 범주 제목 옆에 표기.
 const CATEGORIES = [
-  {
-    key: 'visual',
-    label: '1. 보기 (시각 자극)',
-    question: '거울, 불빛, 반짝거리는 물건, 빙글빙글 돌아가는 물건, TV 등을 쳐다보기를 좋아하는 경우가 있습니다. 학생은 무엇을 보는 것을 가장 좋아하나요?',
-  },
-  {
-    key: 'sound',
-    label: '2. 소리 (청각 자극)',
-    question: '음악, 자동차 소리, 휘파람 소리, 삑삑거리는 소리, 사이렌 소리, 손뼉 치는 소리, 노랫소리 등 다양한 소리 중 학생은 무슨 소리를 가장 좋아하나요?',
-  },
-  {
-    key: 'smell',
-    label: '3. 냄새 (후각 자극)',
-    question: '꽃향기, 커피, 화장품 냄새와 같은 다양한 냄새 중 학생은 무슨 냄새를 가장 좋아하나요?',
-  },
-  {
-    key: 'food',
-    label: '4. 음식 / 음료',
-    question: '아이스크림, 피자, 주스, 햄버거, 사탕, 초콜릿 등 학생이 특별히 가장 좋아하는 음식은 무엇인가요?',
-  },
-  {
-    key: 'physical',
-    label: '5. 신체 놀이',
-    question: '간지럼, 레슬링, 뛰기, 춤추기, 그네타기 등과 같은 신체 놀이 중 학생은 어떤 신체 놀이를 가장 좋아하나요?',
-  },
-  {
-    key: 'temperature',
-    label: '6. 온도 자극',
-    question: '눈이나 얼음, 손난로와 같이 뜨겁거나 차가운 물건 중 학생은 어떤 온도의 물건을 만지는 것을 가장 좋아하나요?',
-  },
-  {
-    key: 'sensory',
-    label: '7. 감각 활동',
-    question: '물 뿌리기, 피부에 진동, 선풍기 바람을 얼굴로 느끼기 등 다양한 감각 중 학생은 어떤 감각활동을 가장 좋아하나요?',
-  },
-  {
-    key: 'social',
-    label: '8. 사회적 관심',
-    question: '안아주기, 등 토닥토닥하기, 하이파이브, "잘했어!"라고 말해주기 등 학생은 어떤 형태로 주어지는 관심을 가장 좋아하나요?',
-  },
-  {
-    key: 'toy',
-    label: '9. 장난감 / 물건',
-    question: '퍼즐, 장난감, 만화책, 풍선 등과 같이 학생이 특별히 좋아하는 장난감이나 물건이 있으면 적어주세요.',
-  },
-  {
-    key: 'etc',
-    label: '10. 기타 물건 / 활동',
-    question: '학생이 좋아하는 기타 물건이나 활동에는 무엇이 있는지 좀 더 깊이 생각해보고, 생각나는 것이 있으면 적어주세요.',
-  },
+  // ── 자극 (감각별) ──
+  { key: 'visual',      group: 'stim',  label: '보기 (시각 자극)',    ph: '예: 거울, 불빛, TV, 반짝거리는 물건 등', question: '거울, 불빛, 반짝거리는 물건, 빙글빙글 돌아가는 물건, TV 등을 쳐다보기를 좋아하는 경우가 있습니다. 학생은 무엇을 보는 것을 가장 좋아하나요?' },
+  { key: 'sound',       group: 'stim',  label: '소리 (청각 자극)',    ph: '예: 음악, 노랫소리, 손뼉 소리, 사이렌 소리 등', question: '음악, 자동차 소리, 휘파람 소리, 삑삑거리는 소리, 사이렌 소리, 손뼉 치는 소리, 노랫소리 등 다양한 소리 중 학생은 무슨 소리를 가장 좋아하나요?' },
+  { key: 'smell',       group: 'stim',  label: '냄새 (후각 자극)',    ph: '예: 꽃향기, 커피, 화장품 냄새 등', question: '꽃향기, 커피, 화장품 냄새와 같은 다양한 냄새 중 학생은 무슨 냄새를 가장 좋아하나요?' },
+  { key: 'touch',       group: 'stim',  label: '촉각 (물렁·딱딱 등)', ph: '예: 물렁한 공, 딱딱한 블록, 부드러운 천 등', question: '물렁한 것, 딱딱한 것, 부드러운 것 등 학생이 만지기 좋아하는 촉감은 무엇인가요?' },
+  { key: 'temperature', group: 'stim',  label: '온도 자극',           ph: '예: 얼음, 손난로, 차가운 물 등', question: '눈이나 얼음, 손난로와 같이 뜨겁거나 차가운 물건 중 학생은 어떤 온도의 물건을 만지는 것을 가장 좋아하나요?' },
+  { key: 'sensory',     group: 'stim',  label: '감각 활동',           ph: '예: 물 뿌리기, 진동, 선풍기 바람 등', question: '물 뿌리기, 피부에 진동, 선풍기 바람을 얼굴로 느끼기 등 다양한 감각 중 학생은 어떤 감각활동을 가장 좋아하나요?' },
+  // ── 강화제 ──
+  { key: 'food',        group: 'reinf', label: '음식 / 음료',         ph: '예: 아이스크림, 주스, 사탕, 초콜릿 등', question: '아이스크림, 피자, 주스, 햄버거, 사탕, 초콜릿 등 학생이 특별히 가장 좋아하는 음식은 무엇인가요?' },
+  { key: 'physical',    group: 'reinf', label: '활동 (신체 놀이)',    ph: '예: 간지럼, 뛰기, 춤추기, 그네타기 등', question: '간지럼, 레슬링, 뛰기, 춤추기, 그네타기 등과 같은 신체 놀이 중 학생은 어떤 신체 놀이를 가장 좋아하나요?' },
+  { key: 'toy',         group: 'reinf', label: '물건 (장난감 등)',    ph: '예: 퍼즐, 장난감, 만화책, 풍선 등', question: '퍼즐, 장난감, 만화책, 풍선 등과 같이 학생이 특별히 좋아하는 장난감이나 물건이 있으면 적어주세요.' },
+  { key: 'social',      group: 'reinf', label: '사회적 관심',         ph: '예: 안아주기, 하이파이브, "잘했어!" 칭찬 등', question: '안아주기, 등 토닥토닥하기, 하이파이브, "잘했어!"라고 말해주기 등 학생은 어떤 형태로 주어지는 관심을 가장 좋아하나요?' },
+  { key: 'etc',         group: 'reinf', label: '기타',                ph: '예: 학생의 선호를 추가 작성', question: '학생이 좋아하는 기타 물건이나 활동에는 무엇이 있는지 좀 더 깊이 생각해보고, 생각나는 것이 있으면 적어주세요.' },
 ];
+const GROUP_META = {
+  stim:  { title: '자극 (감각별 선호)', color: '#3b6ef5', bg: '#f3f6ff' },
+  reinf: { title: '강화제 (음식·활동·물건·사회적)', color: '#7c4dff', bg: '#f7f3ff' },
+};
 
 // 이전 버전(6개 카테고리) 데이터 → 새 10개 질문 키로 이관.
 const LEGACY_MAP = { tangible: 'toy', activity: 'etc', escape: 'etc' };
@@ -167,66 +135,82 @@ export default function RAISDModal({ open, onClose }) {
     }
   }
 
+  // 0719 피드백: 좌 '자극' / 우 '강화제' 묶음 표시용.
+  const renderCat = (cat, idx) => (
+    <div key={cat.key} className="form-group" style={{ paddingBottom: 10, borderBottom: '1px dashed var(--border)', marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <label className="form-label" style={{ margin: 0 }} title={cat.question}>{idx + 1}. {cat.label}</label>
+        {/* 강도: 범주 제목 옆에 표기 (1 약함 ~ 5 매우 좋아함) */}
+        <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }} title="이 범주를 좋아하는 정도 (1 약함 ~ 5 매우 좋아함)">
+          <span style={{ fontSize: '.72rem', color: 'var(--muted)' }}>강도</span>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={'qchip' + (responses[cat.key]?.intensity === n ? ' on' : '')}
+              style={{ padding: '1px 7px', fontSize: '.74rem' }}
+              onClick={() => update(cat.key, 'intensity', n)}
+            >{n}</button>
+          ))}
+        </span>
+      </div>
+      <input
+        className="form-input"
+        style={{ marginTop: 6 }}
+        value={responses[cat.key]?.items || ''}
+        onChange={(e) => update(cat.key, 'items', e.target.value)}
+        placeholder={cat.ph}
+        title={cat.question}
+      />
+      <div style={{ fontSize: '.7rem', color: 'var(--muted)', marginTop: 2 }}>쉼표로 구분 · 항목별 강도는 괄호로 적어도 돼요: 거울(3), TV(5)</div>
+      <input
+        className="form-input"
+        style={{ marginTop: 6 }}
+        value={responses[cat.key]?.followup || ''}
+        onChange={(e) => update(cat.key, 'followup', e.target.value)}
+        placeholder="구체적 정보 추가 기입 (예: 개미가 나오는 영상을 좋아함)"
+      />
+    </div>
+  );
+
   return (
-    <Modal open={open} onClose={onClose} maxWidth={680}>
+    <Modal open={open} onClose={onClose} maxWidth={980}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
         <h3 style={{ margin: 0 }}>💡 선호/강화물 탐색 (RAISD)</h3>
         <button className="btn btn-pri btn-sm" onClick={onSave} disabled={busy}>💾 저장</button>
       </div>
       <p style={{ fontSize: '.84rem', color: 'var(--sub)', margin: '6px 0 14px', lineHeight: 1.6 }}>
         장애학생을 위한 강화제 평가 (Reinforcer Assessment for Individuals with Severe Disabilities).
-        교사·부모·보호자로부터 학생이 좋아하는 자극과 강화제 정보를 최대한 많이 얻는 것이 목적입니다.
-        각 질문에서 선호 항목을 적고 강도(1~5)를 체크한 뒤, 보다 구체적인 정보를 위해
-        <strong> 추가 질문과 대답</strong>을 기록하세요.
-        <em> (예: TV를 볼 때 가장 좋아하는 프로그램은? 거울 놀이는 혼자 하기를 좋아하나요, 함께 하기를 좋아하나요?)</em>
+        학생이 좋아하는 <strong>자극</strong>(왼쪽)과 <strong>강화제</strong>(오른쪽)를 예시처럼 적고, 범주별 강도(1~5)를 체크하세요.
       </p>
 
-      <Section title={`① 질문 1~10 (선호 자극·강화제)`} open={sec.qs} onToggle={() => toggleSec('qs')}>
-      {CATEGORIES.map((cat) => (
-        <div key={cat.key} className="form-group" style={{ paddingBottom: 10, borderBottom: '1px dashed var(--border)' }}>
-          <label className="form-label">{cat.label}</label>
-          <div style={{ fontSize: '.8rem', color: 'var(--muted)', lineHeight: 1.55, marginBottom: 6 }}>{cat.question}</div>
-          <input
-            className="form-input"
-            value={responses[cat.key]?.items || ''}
-            onChange={(e) => update(cat.key, 'items', e.target.value)}
-            placeholder="구체적 선호 항목 (쉼표로 구분)"
-          />
-          <div style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'center', fontSize: '.78rem' }}>
-            <span style={{ color: 'var(--muted)' }}>강도</span>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                type="button"
-                className={'qchip' + (responses[cat.key]?.intensity === n ? ' on' : '')}
-                onClick={() => update(cat.key, 'intensity', n)}
-              >{n}</button>
-            ))}
-          </div>
-          <input
-            className="form-input"
-            style={{ marginTop: 6 }}
-            value={responses[cat.key]?.followup || ''}
-            onChange={(e) => update(cat.key, 'followup', e.target.value)}
-            placeholder="더 구체적인 정보를 위한 추가 질문과 대답"
-          />
+      <Section title="① 선호 자극·강화제" open={sec.qs} onToggle={() => toggleSec('qs')}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+          {['stim', 'reinf'].map((grp) => {
+            const meta = GROUP_META[grp];
+            const cats = CATEGORIES.filter((c) => c.group === grp);
+            return (
+              <div key={grp} style={{ border: `1.5px solid ${meta.color}55`, background: meta.bg, borderRadius: 10, padding: '10px 12px' }}>
+                <div style={{ fontWeight: 800, color: meta.color, marginBottom: 8, fontSize: '.92rem' }}>{grp === 'stim' ? '🔵' : '🟣'} {meta.title}</div>
+                {cats.map((cat, i) => renderCat(cat, i))}
+              </div>
+            );
+          })}
         </div>
-      ))}
       </Section>
 
-      {/* 자극 선호도 순위 */}
+      {/* 자극 선호도 순위 — 0719 피드백: 설명 축약 + 예시는 입력칸에 */}
       <Section title="② 자극 선호도 순위 (1~16)" open={sec.rank} onToggle={() => toggleSec('rank')}>
       <div className="form-group">
         <div style={{ fontSize: '.8rem', color: 'var(--muted)', lineHeight: 1.55, marginBottom: 8 }}>
-          설문 작성이 끝나면, 목표행동 발생 시 제시할 수 있는 자극·제거할 수 없는 자극을 모두 선택하고
-          (예: 장난감은 제시/제거 가능, 산책 활동은 제시/제거 불가), 자극별 카드를 만들어 응답자에게
-          좋아하는 순서대로 나열하게 한 뒤 그 순서를 아래에 기록합니다.
+          목표행동이 나타날 때 제시할 수 있는 자극·강화제를 <strong>좋아하는 순서대로</strong> 적고, 괄호로 <strong>제거(회수) 가능 여부</strong>를 함께 표기하세요.
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
           {ranking.map((v, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 22, textAlign: 'right', fontSize: '.8rem', color: 'var(--muted)', flexShrink: 0 }}>{i + 1}.</span>
-              <input className="form-input" value={v} onChange={(e) => updRank(i, e.target.value)} />
+              <input className="form-input" value={v} onChange={(e) => updRank(i, e.target.value)}
+                placeholder={i === 0 ? '예: 장난감(제거 가능), 영상 시청(제거 불가능)' : undefined} />
             </div>
           ))}
         </div>

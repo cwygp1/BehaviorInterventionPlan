@@ -4,6 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { fetchPbsSurvey, savePbsSurvey } from '../../lib/api/students';
 import PromptResultBlock from '../modals/PromptResultBlock';
+import useFormLoad, { FormLoading } from '../../lib/hooks/useFormLoad';
 import {
   PBS_BEHAVIORS, PBS_INTENSITY, PBS_INTERVENTIONS, PBS_AWARENESS, PBS_EFFECT_AREAS,
   PBS_DIFFICULTIES, PBS_PLACES, PBS_TIMES, PBS_EXPECTED, emptyPbsSurvey,
@@ -122,15 +123,20 @@ export default function PbsSurveyPage() {
   const [aiBusy, setAiBusy] = useState(false);
   const [aiOut, setAiOut] = useState('');
 
+  // 저장값 로드 전에는 설문 UI를 띄우지 않는다 — 로드 중 입력한 응답 유실 방지.
+  const { loaded, applyLoaded } = useFormLoad([curClassId, curSemester]);
+
   useEffect(() => {
     if (!curClassId) return;
     let cancelled = false;
     fetchPbsSurvey(curClassId, curSemester).then((d) => {
       if (cancelled) return;
-      setR(d?.data?.responses ? { ...emptyPbsSurvey(), ...d.data.responses } : emptyPbsSurvey());
-    }).catch(() => {});
+      applyLoaded(() => {
+        setR(d?.data?.responses ? { ...emptyPbsSurvey(), ...d.data.responses } : emptyPbsSurvey());
+      });
+    }).catch(() => { if (!cancelled) applyLoaded(); });
     return () => { cancelled = true; };
-  }, [curClassId, curSemester]);
+  }, [curClassId, curSemester, applyLoaded]);
 
   // 불변 갱신 헬퍼.
   const patch = (partial) => setR((cur) => ({ ...cur, ...partial }));
@@ -197,6 +203,8 @@ export default function PbsSurveyPage() {
     return <div className="card"><div className="card-title">📋 PBS 기초 설문조사</div>
       <p style={{ color: '#64748b' }}>먼저 상단에서 학급을 선택해주세요. 설문은 <strong>반·학기 단위</strong>로 저장됩니다.</p></div>;
   }
+
+  if (!loaded) return <FormLoading label="설문 응답을 불러오는 중…" />;
 
   return (
     <>

@@ -42,7 +42,12 @@ export default function EditStudentModal({ open, onClose, student }) {
     const r = splitNote(extra);
     setStrengths((cur) => [cur, r.strengths].filter(Boolean).join(', '));
     setDifficulties((cur) => [cur, r.difficulties].filter(Boolean).join(', '));
-    setExtra('');
+    // 학년 등 중립 서술은 강점/어려움 어느 쪽도 아니므로 추가 요약에 남긴다.
+    setExtra(r.neutral || '');
+    if (!r.strengths && !r.difficulties) {
+      toast('강점/어려움으로 나눌 만한 표현을 찾지 못했어요. 직접 입력해주세요.');
+      return;
+    }
     toast('요약을 강점/어려움으로 분리했어요. 내용을 확인·수정해주세요.');
   }
 

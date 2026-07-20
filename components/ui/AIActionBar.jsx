@@ -40,14 +40,15 @@ export default function AIActionBar({
       ) : (
         <>
           <span style={{ fontSize: '.74rem', color: 'var(--muted)', marginRight: 'auto' }}>
-            🟡 AI 미연결 — 외부 AI에 프롬프트 붙여넣기
+            🟡 AI 미연결 — 우측 상단 AI 버튼에서 연결을 설정하세요
           </span>
+          {/* 🌐 외부AI 복사→붙여넣기 임시 비활성(0719 요청) — 복원 시 주석 해제
           <button className="btn btn-pri btn-sm" onClick={copyPrompt} disabled={!prompt || disabled}>
             📋 프롬프트 복사
           </button>
           <a className="btn btn-ghost btn-sm" href="https://chat.openai.com/" target="_blank" rel="noreferrer">↗ ChatGPT</a>
           <a className="btn btn-ghost btn-sm" href="https://claude.ai/new" target="_blank" rel="noreferrer">↗ Claude</a>
-          <a className="btn btn-ghost btn-sm" href="https://gemini.google.com/" target="_blank" rel="noreferrer">↗ Gemini</a>
+          <a className="btn btn-ghost btn-sm" href="https://gemini.google.com/" target="_blank" rel="noreferrer">↗ Gemini</a> */}
         </>
       )}
     </div>

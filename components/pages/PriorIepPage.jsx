@@ -5,6 +5,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { fetchIEP, saveIEPGoal, deleteIEPGoal } from '../../lib/api/students';
 import { extractFromFile } from '../../lib/utils/extractText';
+import ExternalAIModal from '../ui/ExternalAIModal';
 
 const gradeFromLevel = (lv) => (lv?.includes('고') ? 12 : lv?.includes('중') ? 9 : 6);
 
@@ -25,6 +26,7 @@ export default function PriorIepPage() {
   const [impImages, setImpImages] = useState([]);
   const [impMsg, setImpMsg] = useState('');
   const [impBusy, setImpBusy] = useState(false);
+  const [extOpen, setExtOpen] = useState(false); // 🌐 외부AI 파싱 모달
 
   // 수동 입력 / 수정 폼
   const [editingId, setEditingId] = useState(null);
@@ -84,34 +86,41 @@ export default function PriorIepPage() {
     } catch (err) { toast('추출 실패: ' + err.message); }
     finally { setImpMsg(''); e.target.value = ''; }
   }
+  const PARSE_INSTR =
+    '교과(영역)별로 학기·학기목표·현행수준·평가를 추출하고, 월별 계획이 있으면 함께 추출하라. 식별정보 제거. 반드시 JSON 배열만 출력:\n' +
+    '[{"subject":"국어","area":"읽기","semester":1,"semester_goal":"...","plop":"...","semestral_eval":"...","monthly":[{"month":3,"goal":"...","content":"...","methods":["..."],"eval":"..."}]}]';
+
+  // 파싱된 목표 배열을 저장 — 로컬 AI·🌐 외부AI 공용. 저장 개수 반환.
+  async function saveParsedGoals(arr) {
+    const gc = gradeFromLevel(curStu.level);
+    let n = 0;
+    for (const g of arr) {
+      const monthly = Array.isArray(g.monthly) ? g.monthly.map((x) => ({ month: x.month, goal: String(x.goal || ''), content: String(x.content || ''), methods: Array.isArray(x.methods) ? x.methods.map(String) : [], eval: String(x.eval || '') })) : [];
+      await saveIEPGoal(curStuId, {
+        school_year: year, subject: g.subject || '', grade_code: gc, area: g.area || '',
+        standard_code: '', standard_text: '', semester: (g.semester === 1 || g.semester === 2) ? g.semester : Number(semester),
+        semester_goal: g.semester_goal || '', plop: g.plop || '', crit_type: 'rate', crit_start: 30, crit_end: 80,
+        monthly, semestral_eval: g.semestral_eval || '',
+      });
+      n += 1;
+    }
+    return n;
+  }
+
   async function parseImport() {
-    if (!aiOn) { toast('AI 미설정: 우측 상단 AI 연결을 먼저 설정하세요.'); return; }
+    if (!aiOn) { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
     if (!impText.trim() && !impImages.length) { toast('파일을 올리거나 내용을 붙여넣어 주세요.'); return; }
     setImpBusy(true);
     try {
-      const instr =
-        '교과(영역)별로 학기·학기목표·현행수준·평가를 추출하고, 월별 계획이 있으면 함께 추출하라. 식별정보 제거. 반드시 JSON 배열만 출력:\n' +
-        '[{"subject":"국어","area":"읽기","semester":1,"semester_goal":"...","plop":"...","semestral_eval":"...","monthly":[{"month":3,"goal":"...","content":"...","methods":["..."],"eval":"..."}]}]';
       let r;
-      if (impImages.length) r = await callVisionDetailed('/no_think\n다음 이미지는 학생의 전년도 IEP 문서다. 글자를 읽어(OCR) ' + instr, impImages, { temperature: 0.3, tier: 'fast' });
-      else r = await callDetailed('/no_think\n다음은 학생의 전년도 IEP 문서 텍스트다. ' + instr + '\n\n[문서]\n' + impText.slice(0, 12000), { temperature: 0.3, tier: 'fast' });
+      if (impImages.length) r = await callVisionDetailed('/no_think\n다음 이미지는 학생의 전년도 IEP 문서다. 글자를 읽어(OCR) ' + PARSE_INSTR, impImages, { temperature: 0.3, tier: 'fast' });
+      else r = await callDetailed('/no_think\n다음은 학생의 전년도 IEP 문서 텍스트다. ' + PARSE_INSTR + '\n\n[문서]\n' + impText.slice(0, 12000), { temperature: 0.3, tier: 'fast' });
       const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
       const m = (out || '').match(/\[[\s\S]*\]/);
       if (!m) { toast(r.finish_reason === 'length' ? 'AI 응답이 잘렸어요. max_tokens를 늘려보세요.' : '목표 목록을 찾지 못했어요.'); return; }
       const arr = JSON.parse(m[0]);
       if (!Array.isArray(arr) || !arr.length) { toast('파싱된 목표가 없습니다.'); return; }
-      const gc = gradeFromLevel(curStu.level);
-      let n = 0;
-      for (const g of arr) {
-        const monthly = Array.isArray(g.monthly) ? g.monthly.map((x) => ({ month: x.month, goal: String(x.goal || ''), content: String(x.content || ''), methods: Array.isArray(x.methods) ? x.methods.map(String) : [], eval: String(x.eval || '') })) : [];
-        await saveIEPGoal(curStuId, {
-          school_year: year, subject: g.subject || '', grade_code: gc, area: g.area || '',
-          standard_code: '', standard_text: '', semester: (g.semester === 1 || g.semester === 2) ? g.semester : Number(semester),
-          semester_goal: g.semester_goal || '', plop: g.plop || '', crit_type: 'rate', crit_start: 30, crit_end: 80,
-          monthly, semestral_eval: g.semestral_eval || '',
-        });
-        n += 1;
-      }
+      const n = await saveParsedGoals(arr);
       setImpText(''); setImpImages([]);
       toast(`${year}학년도 IEP에서 ${n}개 목표를 불러왔어요.`);
       reload();
@@ -148,7 +157,34 @@ export default function PriorIepPage() {
         </div>
         {impMsg && <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#6b7280', fontSize: 12.5 }}><span style={spinner} /> {impMsg}</div>}
         {impImages.length > 0 && <div style={{ fontSize: 12.5, color: '#15a36e', fontWeight: 600 }}>🖼 이미지 {impImages.length}장 첨부됨 <button className="btn btn-ghost btn-sm" onClick={() => setImpImages([])}>비우기</button></div>}
-        <button className="btn btn-pri" style={{ marginTop: 10 }} onClick={parseImport} disabled={impBusy || !!impMsg || !aiOn}>{impBusy ? 'AI 파싱 중…' : `✨ ${year}학년도로 파싱해 추가`}</button>
+        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          <button className="btn btn-pri" onClick={parseImport} disabled={impBusy || !!impMsg || !aiOn}>{impBusy ? 'AI 파싱 중…' : `✨ ${year}학년도로 파싱해 추가`}</button>
+          {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
+          <button className="btn btn-ghost" onClick={() => { if (!impText.trim()) { toast('외부AI 파싱은 텍스트만 지원해요. 문서 내용을 붙여넣어 주세요.'); return; } setExtOpen(true); }}
+            title="프롬프트를 복사해 클로드·ChatGPT 등에서 실행 후 응답(JSON 배열)을 붙여넣기">🌐 외부AI 파싱</button> */}
+        </div>
+
+        {/* 🌐 외부AI — 전년도 IEP 텍스트 파싱 */}
+        <ExternalAIModal
+          open={extOpen}
+          onClose={() => setExtOpen(false)}
+          title="🌐 외부 AI — 전년도 IEP 파싱"
+          buildPrompt={async () => ('다음은 학생의 전년도 IEP 문서 텍스트다. ' + PARSE_INSTR + '\n\n[문서]\n' + impText.slice(0, 12000))}
+          placeholder='[{"subject":"국어", ...}] 형태의 JSON 배열을 붙여넣으세요.'
+          onApply={(raw) => {
+            const m = (raw || '').match(/\[[\s\S]*\]/);
+            if (!m) { toast('붙여넣은 내용에서 JSON 배열을 찾지 못했어요.'); return false; }
+            let arr;
+            try { arr = JSON.parse(m[0]); } catch (e) { toast('JSON 파싱 실패: ' + e.message); return false; }
+            if (!Array.isArray(arr) || !arr.length) { toast('파싱된 목표가 없습니다.'); return false; }
+            saveParsedGoals(arr).then((n) => {
+              setImpText(''); setImpImages([]);
+              toast(`${year}학년도 IEP에서 ${n}개 목표를 불러왔어요.`);
+              reload();
+            }).catch((e) => toast('저장 실패: ' + e.message));
+            return true;
+          }}
+        />
       </div>
 
       {/* 수동 입력 / 수정 */}

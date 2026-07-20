@@ -4,9 +4,10 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { EditableChipGroup, makeAppender } from '../ui/QChip';
+import ExternalAIModal from '../ui/ExternalAIModal';
 import { fetchStartpoint, saveStartpoint } from '../../lib/api/students';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
-import { splitNote } from '../../lib/utils/splitNote';
+import { studentProfileParts, sanitizeStrengths, RISK_RE } from '../../lib/utils/splitNote';
 
 // 입력 5블록 / 산출물 3블록 빠른입력 칩
 const GUARDIAN_CHIPS = ['자립생활 향상 희망', '의사소통 향상 희망', '친구 관계 개선 희망', '가정 내 일상 자립 희망', '여가활동 참여 희망', '건강·안전 관리 요청', '진로·직업 준비 희망'];
@@ -52,6 +53,7 @@ export default function StartPointPage() {
   const [f, setF] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+  const [extOpen, setExtOpen] = useState(false); // 🌐 외부AI 연동 모달
   const set = (k) => (v) => setF((cur) => ({ ...cur, [k]: typeof v === 'function' ? v(cur[k]) : v }));
 
   // FBA 자동 요약(QABF 추정 주요 기능) — 저장된 fba가 비어 있을 때만 채운다.
@@ -74,12 +76,10 @@ export default function StartPointPage() {
   }, [curStuData?.abc]);
 
   // 학생 프로필의 강점/어려움 — 분리 저장된 값이 없으면(기존 학생) note를 규칙으로 분리.
-  const profile = useMemo(() => {
-    if (curStu?.strengths || curStu?.difficulties) {
-      return { strengths: curStu.strengths || '', difficulties: curStu.difficulties || '' };
-    }
-    return splitNote(curStu?.note || '');
-  }, [curStu?.strengths, curStu?.difficulties, curStu?.note]);
+  // P2: studentProfileParts가 강점 칸의 위험 정보("자해 위험", "안정실 이용 이력")를
+  // 어려움 쪽으로 재분류해 주므로, 강점 자동 연동에 위험 정보가 섞이지 않는다.
+  const profile = useMemo(() => studentProfileParts(curStu),
+    [curStu?.strengths, curStu?.difficulties, curStu?.note]);
 
   // 어려움(약점)은 '행동특성(교사관찰)' 블록으로 연동.
   const obsAuto = useMemo(() => {
@@ -132,39 +132,49 @@ export default function StartPointPage() {
     toast('관찰·FBA·학생정보(강점/어려움)를 연동했어요.');
   }
 
+  // 산출물 도출 프롬프트 — 로컬 AI 호출·🌐 외부AI 복사 공용.
+  function buildDerivePrompt() {
+    return (
+      '너는 특수교육 IEPBS(생활중심 IEP + PBS) 전문가다. 아래 "학습자 분석(모듈1 출발점)" 입력을 바탕으로, ' +
+      '행동문제를 "문제"가 아니라 "지원 요구의 신호"로 해석해 IEP의 출발점이 될 산출물 3가지를 도출하라.\n' +
+      '삶·생활맥락·참여 관점에서 생활중심으로 작성한다.\n\n' +
+      `[학생] ${curStu.code} / 학교급 ${curStu.level || '-'} / 장애영역 ${curStu.disability || '-'}\n` +
+      `[가족 또는 학생의 희망사항] ${f.guardian || '-'}\n` +
+      `[행동특성(교사관찰)] ${f.observation || '-'}\n` +
+      `[기능평가 FBA] ${f.fba || '-'}\n` +
+      `[학생 강점] ${f.strengths || '-'}\n` +
+      `[생태학적환경 및 기타사항] ${f.eco || '-'}\n\n` +
+      '아래 JSON만 출력하라(설명 금지). 각 값은 "- "로 시작하는 항목 2~4개를 줄바꿈으로 묶은 문자열:\n' +
+      '{\n' +
+      '  "supportNeeds": "생활지원 요구(일상생활에서 무엇이 어렵고 무엇을 지원해야 하는가)",\n' +
+      '  "functions": "기능의 목록화(가르치거나 강화할 기능적 기술 — 대체기술 포함)",\n' +
+      '  "perfLevel": "수행 가능 수준(현재 독립/촉진 수준과 가능한 수행 범위)"\n' +
+      '}'
+    );
+  }
+  // 산출물 JSON 적용 — 로컬·외부AI 공용.
+  function applyDerived(parsed) {
+    setF((cur) => ({
+      ...cur,
+      supportNeeds: parsed.supportNeeds || cur.supportNeeds,
+      functions: parsed.functions || cur.functions,
+      perfLevel: parsed.perfLevel || cur.perfLevel,
+    }));
+  }
+  const hasDeriveInput = () => !!(f.guardian || f.observation || f.fba || f.strengths || f.eco);
+
   async function onAIDerive() {
     if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
-    if (!f.guardian && !f.observation && !f.fba && !f.strengths && !f.eco) {
+    if (!hasDeriveInput()) {
       toast('입력 블록(희망사항·행동특성·FBA·강점·환경)을 먼저 채워주세요.');
       return;
     }
     setAiBusy(true);
     try {
-      const prompt =
-        '너는 특수교육 IEPBS(생활중심 IEP + PBS) 전문가다. 아래 "학습자 분석(모듈1 출발점)" 입력을 바탕으로, ' +
-        '행동문제를 "문제"가 아니라 "지원 요구의 신호"로 해석해 IEP의 출발점이 될 산출물 3가지를 도출하라.\n' +
-        '삶·생활맥락·참여 관점에서 생활중심으로 작성한다.\n\n' +
-        `[학생] ${curStu.code} / 학교급 ${curStu.level || '-'} / 장애영역 ${curStu.disability || '-'}\n` +
-        `[가족 또는 학생의 희망사항] ${f.guardian || '-'}\n` +
-        `[행동특성(교사관찰)] ${f.observation || '-'}\n` +
-        `[기능평가 FBA] ${f.fba || '-'}\n` +
-        `[학생 강점] ${f.strengths || '-'}\n` +
-        `[생태학적환경 및 기타사항] ${f.eco || '-'}\n\n` +
-        '아래 JSON만 출력하라(설명 금지). 각 값은 "- "로 시작하는 항목 2~4개를 줄바꿈으로 묶은 문자열:\n' +
-        '{\n' +
-        '  "supportNeeds": "생활지원 요구(일상생활에서 무엇이 어렵고 무엇을 지원해야 하는가)",\n' +
-        '  "functions": "기능의 목록화(가르치거나 강화할 기능적 기술 — 대체기술 포함)",\n' +
-        '  "perfLevel": "수행 가능 수준(현재 독립/촉진 수준과 가능한 수행 범위)"\n' +
-        '}';
-      const r = await callDetailed(prompt, { temperature: 0.5 });
+      const r = await callDetailed(buildDerivePrompt(), { temperature: 0.5 });
       const parsed = extractJSON(r.content) || extractJSON(r.reasoning || '');
       if (!parsed) { toast('AI 응답을 해석하지 못했어요. 다시 시도해 주세요.'); return; }
-      setF((cur) => ({
-        ...cur,
-        supportNeeds: parsed.supportNeeds || cur.supportNeeds,
-        functions: parsed.functions || cur.functions,
-        perfLevel: parsed.perfLevel || cur.perfLevel,
-      }));
+      applyDerived(parsed);
       toast('AI가 생활지원 요구·기능·수행 수준을 도출했어요.');
     } catch (e) {
       toast('AI 도출 실패: ' + e.message);
@@ -221,6 +231,25 @@ export default function StartPointPage() {
           <label className="form-label">🌟 학생 강점</label>
           <EditableChipGroup storageKey="sp_strength" defaults={STRENGTH_CHIPS} onPick={makeAppender(f.strengths, set('strengths'), false)} />
           <textarea className="form-textarea" rows={2} value={f.strengths} onChange={(e) => set('strengths')(e.target.value)} placeholder="강점·선호·잘하는 것" />
+          {/* P2: 강점 칸에 위험·이력 정보가 들어 있으면 경고 + 원클릭 이동.
+              그대로 두면 "안정실 이용 이력 등에 강점을 보이나…" 같은 문장이 IEP 현행수준까지 전파된다. */}
+          {RISK_RE.test(f.strengths || '') && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '.8rem', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '7px 11px', marginTop: 6 }}>
+              <span>⚠ 강점 칸에 위험·이력 정보(자해·안정실 등)가 섞여 있어요 — 이대로 두면 IEP 현행수준에 "강점"으로 인용됩니다.</span>
+              <button type="button" className="btn btn-ghost btn-sm" style={{ borderColor: '#fca5a5', color: '#b91c1c' }}
+                onClick={() => {
+                  const { strengths, moved, dropped } = sanitizeStrengths(f.strengths);
+                  setF((cur) => ({
+                    ...cur,
+                    strengths,
+                    observation: [cur.observation, moved].filter(Boolean).join('\n'),
+                  }));
+                  toast(`위험·이력 정보를 행동특성(교사관찰)으로 옮겼어요${dropped ? ` (중립 정보 "${dropped}"는 제외)` : ''}.`);
+                }}>
+                🚚 행동특성 칸으로 옮기기
+              </button>
+            </div>
+          )}
         </div>
         <div className="form-group">
           <label className="form-label">🌐 생태학적환경 및 기타사항</label>
@@ -236,9 +265,13 @@ export default function StartPointPage() {
             <div className="card-title" style={{ marginBottom: 0 }}>📤 산출물 (출발점 결과)</div>
             <div className="card-subtitle">생활지원 요구 · 기능의 목록화 · 수행 가능 수준 — IEP 목표의 출발점</div>
           </div>
-          <button className="btn btn-pri btn-sm" onClick={onAIDerive} disabled={aiBusy}>
-            {aiBusy ? '⏳ 도출 중…' : '✨ AI로 산출물 도출'}
-          </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn btn-pri btn-sm" onClick={onAIDerive} disabled={aiBusy}>
+              {aiBusy ? '⏳ 도출 중…' : '✨ AI로 산출물 도출'}
+            </button>
+            {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
+            <button className="btn btn-ghost btn-sm" onClick={() => { if (!hasDeriveInput()) { toast('입력 블록을 먼저 채워주세요.'); return; } setExtOpen(true); }} title="외부 AI(클로드 등)로 산출물 도출">🌐 외부AI</button> */}
+          </div>
         </div>
 
         <div className="form-group">
@@ -256,6 +289,22 @@ export default function StartPointPage() {
           <EditableChipGroup storageKey="sp_perf" defaults={PERF_CHIPS} onPick={makeAppender(f.perfLevel, set('perfLevel'), false)} />
           <textarea className="form-textarea" rows={3} value={f.perfLevel} onChange={(e) => set('perfLevel')(e.target.value)} placeholder="현재 독립/촉진 수준과 가능한 수행 범위" />
         </div>
+
+        {/* 🌐 외부AI — 산출물 도출 */}
+        <ExternalAIModal
+          open={extOpen}
+          onClose={() => setExtOpen(false)}
+          title="🌐 외부 AI — 출발점 산출물 도출"
+          buildPrompt={async () => buildDerivePrompt()}
+          placeholder='{"supportNeeds":"- ...","functions":"- ...","perfLevel":"- ..."} 형태의 JSON을 붙여넣으세요.'
+          onApply={(raw) => {
+            const parsed = extractJSON(raw);
+            if (!parsed) { toast('붙여넣은 내용에서 JSON을 찾지 못했어요.'); return false; }
+            applyDerived(parsed);
+            toast('외부 AI 산출물을 적용했어요. 확인 후 저장하세요.');
+            return true;
+          }}
+        />
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
           <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 출발점 저장</button>

@@ -12,6 +12,7 @@ import {
   setLLMConfig,
 } from '../lib/api/llm';
 import { apiPost } from '../lib/api/client';
+import { normalizeAIText } from '../lib/utils/aiText';
 import { useAuth } from './AuthContext';
 
 const LLMContext = createContext({
@@ -39,15 +40,22 @@ export function LLMProvider({ children }) {
 
   // --- 진행 상태(busy) 추적 -------------------------------------------------
   // 동시 호출을 고려해 카운터로 관리한다. 0보다 크면 어딘가에서 AI 생성 중.
+  // 0720: 무엇이 돌고 있는지 전역 스피너에 보여주기 위해 진행 중인 작업 라벨도 함께 추적.
   const busyCount = useRef(0);
   const [busy, setBusy] = useState(false);
-  const incBusy = useCallback(() => {
+  const [busyLabels, setBusyLabels] = useState([]); // 진행 중인 AI 작업 라벨 목록
+  const incBusy = useCallback((label) => {
     busyCount.current += 1;
     setBusy(true);
+    setBusyLabels((prev) => [...prev, label || 'AI 생성']);
   }, []);
-  const decBusy = useCallback(() => {
+  const decBusy = useCallback((label) => {
     busyCount.current = Math.max(0, busyCount.current - 1);
     if (busyCount.current === 0) setBusy(false);
+    setBusyLabels((prev) => {
+      const i = prev.indexOf(label || 'AI 생성');
+      return i >= 0 ? [...prev.slice(0, i), ...prev.slice(i + 1)] : prev.slice(1);
+    });
   }, []);
 
   // --- 전역 AI 통신 로그 ----------------------------------------------------
@@ -89,10 +97,19 @@ export function LLMProvider({ children }) {
   // meta = { model, tier } — 사용량 로깅에 쓰인다(응답의 실제 model이 우선).
   const trackCall = useCallback(
     async (label, fn, meta) => {
-      incBusy();
+      incBusy(label);
       pushLog('start', label, '요청 전송…');
       try {
-        const r = await fn();
+        const raw = await fn();
+        // 표기 정리(한자 혼입·숫자와 단위 사이 공백)는 모든 LLM 호출에 공통 적용.
+        // reasoning도 정리한다 — content가 비면 reasoning을 본문으로 쓰는 호출부가 있음(P11).
+        const r = raw && (typeof raw.content === 'string' || typeof raw.reasoning === 'string')
+          ? {
+              ...raw,
+              content: typeof raw.content === 'string' ? normalizeAIText(raw.content) : raw.content,
+              reasoning: typeof raw.reasoning === 'string' ? normalizeAIText(raw.reasoning) : raw.reasoning,
+            }
+          : raw;
         const out = r && r.content && r.content.trim() ? r.content : (r?.reasoning || '');
         const usageStr = r?.usage
           ? ` · 토큰 ${r.usage.total_tokens ?? '?'}(in ${r.usage.prompt_tokens ?? '?'}/out ${r.usage.completion_tokens ?? '?'})`
@@ -113,7 +130,7 @@ export function LLMProvider({ children }) {
         setStatus('err');
         throw e;
       } finally {
-        decBusy();
+        decBusy(label);
       }
     },
     [incBusy, decBusy, pushLog, logUsage]
@@ -236,7 +253,7 @@ export function LLMProvider({ children }) {
   );
 
   return (
-    <LLMContext.Provider value={{ config, status, busy, aiLog, pushLog, clearLog, saveConfig, clearConfig, call, callDetailed, callVisionDetailed, setStatus }}>
+    <LLMContext.Provider value={{ config, status, busy, busyLabels, aiLog, pushLog, clearLog, saveConfig, clearConfig, call, callDetailed, callVisionDetailed, setStatus }}>
       {children}
     </LLMContext.Provider>
   );

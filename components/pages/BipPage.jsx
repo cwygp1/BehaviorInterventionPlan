@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import StuHero, { NoStudentHint } from '../student/StuHero';
+import { FormLoading } from '../../lib/hooks/useFormLoad';
 import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useLLM } from '../../contexts/LLMContext';
 import { EditableChipGroup, makeAppender } from '../ui/QChip';
 import TokenField from '../ui/TokenField';
 import BIPPromptModal from '../modals/BIPPromptModal';
@@ -10,6 +12,16 @@ import FamilyLetterModal from '../modals/FamilyLetterModal';
 import { saveBIP as apiSaveBIP } from '../../lib/api/students';
 import { printBehaviorContract } from '../../lib/utils/printContract';
 import { printBIP } from '../../lib/utils/printBIP';
+
+// LLM 응답에서 JSON 오브젝트를 관대하게 추출.
+function looseJSON(raw) {
+  const m = String(raw || '').match(/\{[\s\S]*\}/);
+  if (!m) throw new Error('JSON을 찾지 못했어요.');
+  try { return JSON.parse(m[0]); }
+  catch (_) {
+    return JSON.parse(m[0].replace(/```(?:json)?/gi, '').replace(/[“”]/g, '"').replace(/,\s*([}\]])/g, '$1'));
+  }
+}
 
 const ALT_CHIPS = ['쉬어 카드 들기', '"도와주세요" 카드', '심호흡 3회', '감각 도구 요청', '휴식 신호', '대안 활동 선택'];
 const FCT_CHIPS = ['"도와주세요" 카드', '"쉬고 싶어요" 카드', '"이해 안 돼요" 카드', '"그만" 카드', 'PECS 그림 카드', 'AAC 음성 출력'];
@@ -21,10 +33,13 @@ const RESP_CHIPS = ['계획적 무시 10초', '대체행동 즉각 촉진', '안
 const REWARD_CHIPS = ['스티커 5개당 작은 선물', '특별 활동 시간', '선택 시간', '또래 칭찬 카드', '보호자 칭찬 통신문', '자리 선택권'];
 
 export default function BipPage() {
-  const { curStu, curStuId, curStuData, updateStudentData } = useStudents();
+  const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData } = useStudents();
   const { user } = useAuth();
   const toast = useToast();
+  const { callDetailed, status: llmStatus } = useLLM();
+  const aiOn = llmStatus !== 'off';
 
+  const [opdef, setOpdef] = useState(''); // 0719: 표적행동(문제행동) 조작적 정의 — ABC 다음 단계
   const [alt, setAlt] = useState('');
   const [fct, setFct] = useState('');
   const [crit, setCrit] = useState('');
@@ -32,6 +47,9 @@ export default function BipPage() {
   const [teach, setTeach] = useState('');
   const [reinf, setReinf] = useState('');
   const [resp, setResp] = useState('');
+  const [bgoal, setBgoal] = useState(''); // 0719: 중재계획 다음 단계 — 메이거식 행동목표
+  const [opdefBusy, setOpdefBusy] = useState(false);
+  const [bgoalBusy, setBgoalBusy] = useState(false);
 
   const [conStu, setConStu] = useState('');
   const [conCrit, setConCrit] = useState('');
@@ -47,15 +65,18 @@ export default function BipPage() {
     const b = curStuData?.bip || {};
     setAlt(b.alt || ''); setFct(b.fct || ''); setCrit(b.crit || '');
     setPrev(b.prev || ''); setTeach(b.teach || ''); setReinf(b.reinf || ''); setResp(b.resp || '');
+    setOpdef(b.opdef || ''); setBgoal(b.bgoal || '');
   }, [curStuId, curStuData?.bip]);
 
   if (!curStu) return <><StuHero /><NoStudentHint /></>;
+  // 서버 데이터 도착 전 입력 UI를 띄우지 않는다 — 로드 중 입력이 덮어써지는 것 방지.
+  if (!curStuDataLoaded) return <><StuHero /><FormLoading label="BIP 내용을 불러오는 중…" /></>;
 
   async function onSave() {
     if (!curStuId) return;
     setBusy(true);
     try {
-      const body = { alt, fct, crit, prev, teach, reinf, resp };
+      const body = { alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal };
       await apiSaveBIP(curStuId, body);
       updateStudentData(curStuId, (cur) => ({ ...cur, bip: body }));
       toast('BIP 저장 완료');
@@ -64,6 +85,64 @@ export default function BipPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  // 0719: ABC 누적 기록으로 표적행동 조작적 정의 초안 생성.
+  async function aiOpdef() {
+    if (!aiOn) { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    const abcs = (curStuData?.abc || []).slice(0, 12);
+    if (!abcs.length) { toast('ABC 관찰 기록이 없어요. 학생 관찰/ABC에서 먼저 기록하세요.'); return; }
+    setOpdefBusy(true);
+    try {
+      const prompt =
+        '/no_think\n너는 특수교육 행동지원(PBS) 전문가다. 아래 ABC 관찰 기록을 바탕으로 표적행동(문제행동)의 "조작적 정의"를 작성하라.\n' +
+        '- 눈으로 보고 셀 수 있는 구체적 움직임으로("죽은 사람 검사" 통과), 시작·끝을 알 수 있게 1~2문장.\n' +
+        '- 추측·감정 표현(화가 나서, 반항적으로 등) 금지. 쉬운 우리말.\n' +
+        (opdef.trim() ? `- 교사가 쓴 초안을 다듬어라: "${opdef.trim()}"\n` : '') +
+        '[ABC 기록]\n' + abcs.map((r) => `- A: ${r.a} / B: ${r.b} / C: ${r.c}`).join('\n') + '\n' +
+        '반드시 JSON만 출력: {"opdef":"..."}';
+      const r = await callDetailed(prompt, { temperature: 0.3, tier: 'fast', label: '조작적 정의 생성' });
+      const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
+      const j = looseJSON(out);
+      if (!String(j.opdef || '').trim()) throw new Error('정의를 받지 못했어요.');
+      setOpdef(String(j.opdef).trim());
+      toast('조작적 정의 초안을 만들었어요. 다듬은 뒤 저장하세요.');
+    } catch (e) { toast('생성 실패: ' + e.message); }
+    finally { setOpdefBusy(false); }
+  }
+
+  // 0719: 선택한 키워드·작성 내용(조작적 정의+대체행동+중재전략)으로 메이거식 행동목표 생성.
+  async function aiBgoal() {
+    if (!aiOn) { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (!alt.trim() && !opdef.trim()) { toast('조작적 정의나 대체 행동을 먼저 작성하세요.'); return; }
+    setBgoalBusy(true);
+    try {
+      const prompt =
+        '/no_think\n너는 특수교육 행동지원(PBS) 전문가다. 아래 중재계획을 바탕으로 메이거(Mager) 방식의 "행동목표"를 1문장으로 작성하라.\n' +
+        '- 조건(어떤 상황·자료에서) + 행동(관찰 가능한 대체행동을 한다) + 기준(성공 기준: 횟수·비율·기간)을 모두 담을 것.\n' +
+        '- 문제행동 감소가 아니라 대체행동 수행을 긍정형으로 진술. 쉬운 우리말, 전략 이름 금지.\n' +
+        (opdef.trim() ? `[표적행동 조작적 정의] ${opdef.trim()}\n` : '') +
+        (alt.trim() ? `[대체 행동] ${alt.trim()}\n` : '') +
+        (fct.trim() ? `[FCT 기술] ${fct.trim()}\n` : '') +
+        (crit.trim() ? `[성공 기준] ${crit.trim()}\n` : '') +
+        (prev.trim() ? `[예방 전략] ${prev.replace(/\n/g, ' / ')}\n` : '') +
+        (teach.trim() ? `[교수 전략] ${teach.replace(/\n/g, ' / ')}\n` : '') +
+        (reinf.trim() ? `[강화 전략] ${reinf.replace(/\n/g, ' / ')}\n` : '') +
+        '반드시 JSON만 출력: {"bgoal":"..."}';
+      const r = await callDetailed(prompt, { temperature: 0.4, tier: 'fast', label: '행동목표 생성(메이거식)' });
+      const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
+      const j = looseJSON(out);
+      if (!String(j.bgoal || '').trim()) throw new Error('행동목표를 받지 못했어요.');
+      setBgoal(String(j.bgoal).trim());
+      toast('행동목표 초안을 만들었어요. 다듬은 뒤 저장하세요.');
+    } catch (e) { toast('생성 실패: ' + e.message); }
+    finally { setBgoalBusy(false); }
+  }
+
+  async function copyBgoal() {
+    if (!bgoal.trim()) { toast('행동목표를 먼저 작성하세요.'); return; }
+    try { await navigator.clipboard.writeText(bgoal.trim()); toast('행동목표를 복사했어요. IEP "학기목표 먼저" 경로에 붙여넣으면 개별화 학기목표로 쓸 수 있어요.'); }
+    catch (_) { toast('복사가 막혔어요. 직접 선택해 복사하세요.'); }
   }
 
   function copyBIPToContract() {
@@ -102,10 +181,27 @@ export default function BipPage() {
     <>
       <StuHero />
 
+      {/* 0719 피드백: ABC → ① 조작적 정의 → ② 중재계획 → ③ 행동목표 순서를 화면에 드러냄 */}
+      <div className="card" style={{ background: 'var(--pri-soft)', borderColor: 'var(--pri-l)', fontSize: '.84rem', lineHeight: 1.6 }}>
+        🧭 <strong>작성 순서</strong> — ABC 관찰 뒤 ① <strong>표적행동 조작적 정의</strong>를 쓰고, ② 대체행동·중재 전략(BIP)을 세운 다음, ③ <strong>행동목표(메이거식)</strong>를 만들어 마무리합니다. 행동목표는 IEP의 개별화 학기목표로도 쓸 수 있어요.
+      </div>
+
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div>
-            <div className="card-title" style={{ marginBottom: 0 }}>🎯 목표 행동(대체 행동) 설정</div>
+            <div className="card-title" style={{ marginBottom: 0 }}>🪄 ① 표적행동(문제행동) 조작적 정의</div>
+            <div className="card-subtitle">ABC 기록을 근거로, 눈으로 보고 셀 수 있는 구체적 행동으로 정의합니다.</div>
+          </div>
+          {aiOn && <button className="btn btn-ghost btn-sm" onClick={aiOpdef} disabled={opdefBusy}>{opdefBusy ? '생성 중…' : '✨ ABC 기록으로 AI 초안'}</button>}
+        </div>
+        <textarea className="form-textarea" rows={2} value={opdef} onChange={(e) => setOpdef(e.target.value)}
+          placeholder='예: 과제를 제시받으면 3초 이내에 "싫어"라고 소리치며 책상 위 물건을 바닥으로 던진다.' />
+      </div>
+
+      <div className="card">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <div className="card-title" style={{ marginBottom: 0 }}>🎯 ② 목표 행동(대체 행동) 설정</div>
             <div className="card-subtitle">ABC + QABF + 학생 정보를 기반으로 AI가 4영역 초안을 만들어줍니다.</div>
           </div>
           <button className="btn btn-pri btn-sm" onClick={() => setAiOpen(true)}>📜 AI BIP 중재안 프롬프트</button>
@@ -147,9 +243,57 @@ export default function BipPage() {
           <label className="form-label">🚨 반응 절차</label>
           <TokenField value={resp} onChange={setResp} options={RESP_CHIPS} storageKey="bip_resp" editPlaceholder="이 학생 맥락의 반응 절차" />
         </div>
+
+        {/* 0719 피드백(E-3): 선택한 전략을 BIP 인쇄 표처럼 화면에서 바로 정리해 보여준다 */}
+        {(prev.trim() || teach.trim() || reinf.trim() || resp.trim() || alt.trim() || crit.trim()) && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontWeight: 700, fontSize: '.9rem', marginBottom: 6 }}>📋 선택한 전략 자동 정리 <span style={{ fontWeight: 400, fontSize: '.76rem', color: 'var(--muted)' }}>— 인쇄되는 표와 같은 구성으로 실시간 정리됩니다</span></div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.84rem' }}>
+              <tbody>
+                {[
+                  ['🛡 예방 (Antecedent)', prev, '#eef4ff'],
+                  ['📖 교수 (Teaching)', teach, '#f0fbf4'],
+                  ['⭐ 강화 (Reinforcement)', reinf, '#fff7ed'],
+                  ['🚨 반응 (Response)', resp, '#fff1f4'],
+                  ['🎯 대체 행동', alt, '#f7f3ff'],
+                  ['✅ 결과 평가 (성공 기준)', crit, '#f2f4f7'],
+                ].filter(([, v]) => String(v || '').trim()).map(([label, v, bg]) => (
+                  <tr key={label}>
+                    <td style={{ border: '1px solid var(--border)', background: bg, padding: '6px 10px', fontWeight: 700, width: 170, verticalAlign: 'top', whiteSpace: 'nowrap' }}>{label}</td>
+                    <td style={{ border: '1px solid var(--border)', padding: '6px 10px', verticalAlign: 'top' }}>
+                      {String(v).split(/\n|,\s*/).map((t) => t.trim()).filter(Boolean).map((t, i) => (
+                        <div key={i}>· {t}</div>
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
           <button className="btn btn-ghost" onClick={onPrintBIP}>🖨 BIP 인쇄/PDF</button>
           <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 BIP 저장</button>
+        </div>
+      </div>
+
+      {/* 0719 피드백(A-3): ③ 행동목표 — 중재계획을 참고해 메이거식으로 작성, IEP 학기목표로 연계 */}
+      <div className="card" style={{ borderColor: '#c7b9f0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <div className="card-title" style={{ marginBottom: 0 }}>🏁 ③ 행동목표 (메이거식: 조건 + 행동 + 기준)</div>
+            <div className="card-subtitle">작성한 조작적 정의·대체행동·중재 전략을 바탕으로 한 문장의 행동목표를 만듭니다.</div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {aiOn && <button className="btn btn-ok btn-sm" onClick={aiBgoal} disabled={bgoalBusy}>{bgoalBusy ? '생성 중…' : '✨ 중재계획으로 AI 생성'}</button>}
+            <button className="btn btn-ghost btn-sm" onClick={copyBgoal} title="복사해서 IEP 학기목표(경로 B)에 붙여넣기">📋 IEP 학기목표로 복사</button>
+          </div>
+        </div>
+        <textarea className="form-textarea" rows={2} value={bgoal} onChange={(e) => setBgoal(e.target.value)}
+          placeholder='예: 과제가 어려울 때(조건), "도와주세요" 카드를 들어 도움을 요청하기를(행동) 2주 연속 하루 3회 이상 한다(기준).' />
+        <div style={{ fontSize: '.76rem', color: 'var(--muted)', marginTop: 6 }}>
+          이 행동목표는 <strong>개별화교육(IEP) → 학기목표 먼저(경로 B)</strong>에 붙여넣어 개별화 학기목표로 그대로 쓸 수 있어요. 저장하면 Tier 3 통합 문서·AI 생성에도 반영됩니다.
         </div>
       </div>
 

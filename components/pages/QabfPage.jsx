@@ -8,6 +8,7 @@ import QabfFnChart from '../ui/QabfFnChart';
 import AIActionBar from '../ui/AIActionBar';
 import PromptResultBlock from '../modals/PromptResultBlock';
 import { downloadQabfExcel } from '../../lib/utils/exportQabf';
+import { FormLoading } from '../../lib/hooks/useFormLoad';
 import {
   QABF_QUESTIONS as QUESTIONS,
   QABF_FUNCTION_LABELS as FUNCTION_LABELS,
@@ -15,15 +16,21 @@ import {
   QABF_SCALE as SCALE,
   QABF_SCALE_LABELS as SCALE_LABELS,
   QABF_SHORT_LABELS,
+  QABF_NA,
+  QABF_NA_LABEL,
+  qabfAnswered,
   qabfScores,
 } from '../../lib/qabf';
 
 export default function QabfPage() {
-  const { curStu, curStuId, curStuData, updateStudentData } = useStudents();
+  const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData } = useStudents();
   const toast = useToast();
-  const { call, status: llmStatus } = useLLM();
+  const { call, callVisionDetailed, status: llmStatus } = useLLM();
   const [responses, setResponses] = useState(new Array(25).fill(-1));
   const [busy, setBusy] = useState(false);
+  // 0719: 기존 QABF 자료 불러오기 (사진 AI 판독 / 응답 붙여넣기)
+  const [impBusy, setImpBusy] = useState(false);
+  const [impPaste, setImpPaste] = useState('');
 
   // AI 기능 해석
   const [aiOutput, setAiOutput] = useState('');
@@ -55,7 +62,7 @@ export default function QabfPage() {
     if (!qabfDraftKey) return;
     try {
       const saved = (curStuData?.qabf && curStuData.qabf.length === 25) ? curStuData.qabf : new Array(25).fill(-1);
-      const allEmpty = responses.every((v) => v < 0);
+      const allEmpty = responses.every((v) => v === -1);
       const sameAsSaved = JSON.stringify(responses) === JSON.stringify(saved);
       if (allEmpty || sameAsSaved) sessionStorage.removeItem(qabfDraftKey);
       else sessionStorage.setItem(qabfDraftKey, JSON.stringify(responses));
@@ -63,6 +70,9 @@ export default function QabfPage() {
   }, [responses, qabfDraftKey, curStuData?.qabf]);
 
   if (!curStu) return <><StuHero /><NoStudentHint /></>;
+  // 저장된 QABF가 도착하기 전에는 문항·붙여넣기 UI를 띄우지 않는다.
+  // (로드 중 '적용'을 누르면 뒤늦게 온 서버 응답이 덮어써 아무 일도 안 일어난 것처럼 보였음)
+  if (!curStuDataLoaded) return <><StuHero /><FormLoading label="QABF 응답을 불러오는 중…" /></>;
 
   // Calculate per-function totals (심각도 = 점수 합계)
   const totals = { attention: 0, escape: 0, sensory: 0, physical: 0, tangible: 0 };
@@ -91,7 +101,57 @@ export default function QabfPage() {
     }
   }
 
-  const completed = responses.filter((v) => v >= 0).length;
+  const completed = responses.filter(qabfAnswered).length; // X(해당없음)도 응답으로 집계
+
+  // ── 0719: 기존 QABF 자료 불러오기 ─────────────────────────────
+  // (a) 25개 응답 붙여넣기 — "0 1 2 3 X ..." / 쉼표·줄바꿈 구분 모두 허용. AI 불필요.
+  function applyPastedResponses() {
+    const toks = String(impPaste || '').toUpperCase().match(/[0-3X]/g) || [];
+    if (toks.length < 25) { toast(`응답을 25개 찾지 못했어요(현재 ${toks.length}개). 0~3 또는 X를 25개 붙여넣어 주세요.`); return; }
+    const arr = toks.slice(0, 25).map((t) => (t === 'X' ? QABF_NA : parseInt(t, 10)));
+    setResponses(arr);
+    setImpPaste('');
+    toast('25개 응답을 적용했어요. 확인 후 저장하세요.', 'success');
+  }
+  // (b) 작성된 QABF 사진(이미지) → AI 비전 판독.
+  async function onImportImage(e) {
+    const files = [...(e.target.files || [])];
+    e.target.value = '';
+    if (!files.length) return;
+    if (llmStatus !== 'on') { toast('사진 판독은 AI 연결이 필요해요. 아래 "응답 붙여넣기"는 AI 없이 사용할 수 있어요.'); return; }
+    setImpBusy(true);
+    try {
+      const images = await Promise.all(files.map((f) => new Promise((resolve, reject) => {
+        const rd = new FileReader();
+        rd.onload = () => resolve(rd.result);
+        rd.onerror = reject;
+        rd.readAsDataURL(f);
+      })));
+      const prompt =
+        '/no_think\n다음 이미지는 작성 완료된 QABF(행동기능설문지) 25문항 응답지다. 각 문항(1~25번)에 표시된 응답을 읽어라.\n' +
+        '- 응답 값: 0(전혀 아님), 1(가끔), 2(종종), 3(자주), "X"(해당없음). 알아볼 수 없거나 빈 문항은 -1.\n' +
+        '반드시 JSON만 출력: {"responses":[25개 값 배열, 예: 0,1,"X",3,...]}';
+      const r = await callVisionDetailed(prompt, images, { temperature: 0.1, tier: 'fast', label: 'QABF 사진 판독' });
+      const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
+      const m = out.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error('응답 JSON을 찾지 못했어요.');
+      const j = JSON.parse(m[0].replace(/```(?:json)?/gi, '').replace(/,\s*([}\]])/g, '$1'));
+      const raw = Array.isArray(j.responses) ? j.responses : [];
+      if (raw.length < 20) throw new Error('문항을 충분히 읽지 못했어요. 더 선명한 사진으로 시도해 주세요.');
+      const arr = new Array(25).fill(-1).map((_, i) => {
+        const v = raw[i];
+        if (v === 'X' || v === 'x') return QABF_NA;
+        const n = parseInt(v, 10);
+        return n >= 0 && n <= 3 ? n : -1;
+      });
+      setResponses(arr);
+      toast(`사진에서 ${arr.filter(qabfAnswered).length}개 응답을 읽었어요. 문항별로 확인 후 저장하세요.`, 'success');
+    } catch (err) {
+      toast('사진 판독 실패: ' + err.message);
+    } finally {
+      setImpBusy(false);
+    }
+  }
 
   // QABF 기능/심각도 프로필을 비식별 텍스트로 정리해 AI 해석 프롬프트를 만든다.
   // (학생 이름 등 PII는 절대 포함하지 않고, 학생 코드만 사용한다.)
@@ -135,9 +195,9 @@ ${profile}
     <>
       <StuHero />
       <div className="card">
-        <div className="card-title">📊 QABF 척도 (Questions About Behavioral Function)</div>
+        <div className="card-title">📊 QABF 척도 (Questions About Behavioral Function · 행동기능설문지)</div>
         <div className="card-subtitle">
-          공식 QABF 25문항 · 4점 척도(0 해당없음 ~ 3 자주)로 행동의 기능을 정량화합니다. 진행: <strong>{completed}/25</strong>
+          공식 QABF 25문항 — <strong>0 전혀 아님 ~ 3 자주</strong> 4점 척도 + <strong>X 해당없음</strong>(관찰 기회가 없던 문항)으로 행동의 기능을 정량화합니다. 진행: <strong>{completed}/25</strong>
         </div>
         <div className="qabf-results" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginTop: 12 }}>
           {Object.keys(totals).map((f) => {
@@ -157,6 +217,27 @@ ${profile}
             <span style={{ color: 'var(--muted)' }}>(점수가 가장 높은 기능)</span>
           </div>
         )}
+      </div>
+
+      {/* 0719 피드백: 가지고 있는 QABF 자료 업로드 */}
+      <div className="card">
+        <div className="card-title">📎 기존 QABF 자료 불러오기</div>
+        <div className="card-subtitle">이미 작성해 둔 QABF가 있으면 다시 입력할 필요 없이 불러올 수 있어요. 불러온 뒤 아래 체크리스트에서 확인·수정하고 저장하세요.</div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">📷 작성지 사진 업로드 (AI 판독{llmStatus !== 'on' ? ' · AI 연결 필요' : ''})</label>
+            <input type="file" accept="image/*" multiple onChange={onImportImage} disabled={impBusy} />
+            {impBusy && <div style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 4 }}>⏳ 사진에서 응답을 읽는 중…</div>}
+          </div>
+          <div className="form-group">
+            <label className="form-label">⌨ 응답 붙여넣기 (AI 불필요) — 1~25번 순서로 0~3 또는 X</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input className="form-input" value={impPaste} onChange={(e) => setImpPaste(e.target.value)}
+                placeholder="예: 0 1 2 3 X 0 1 … (쉼표·띄어쓰기·줄바꿈 무관)" />
+              <button className="btn btn-pri btn-sm" onClick={applyPastedResponses} style={{ flexShrink: 0 }}>적용</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="card">
@@ -196,6 +277,16 @@ ${profile}
                   {v} · {SCALE_LABELS[v]}
                 </span>
               ))}
+              {/* 0719: X 해당없음(관찰 기회 없음) — 점수 계산에서 제외 */}
+              <span
+                className={'qchip' + (responses[i] === QABF_NA ? ' on' : '')}
+                role="button" tabIndex={0} aria-pressed={responses[i] === QABF_NA}
+                title="이 상황을 관찰할 기회가 없었던 문항 — 점수 계산에서 제외됩니다"
+                onClick={() => setVal(i, QABF_NA)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setVal(i, QABF_NA); } }}
+              >
+                {QABF_NA_LABEL}
+              </span>
             </div>
           </div>
         ))}

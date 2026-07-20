@@ -7,7 +7,12 @@ import { studentProfileParts, decomposeNote } from '../../lib/utils/splitNote';
 export function ProfileSummary({ stu, style }) {
   if (!stu) return null;
   const { strengths, difficulties } = studentProfileParts(stu);
-  const extra = stu.note ? decomposeNote(stu.note).extra : '';
+  const dec = stu.note ? decomposeNote(stu.note) : { strengths: '', difficulties: '', extra: '' };
+  // note가 [강점]/[어려움] 라벨 형식일 때만 라벨 없는 줄이 '진짜 추가 요약'이다.
+  // 구버전 note(라벨 없는 원문 한 줄)는 이미 강점/어려움 칩으로 표시되므로
+  // 그대로 또 보여주면 같은 문장이 두 번 나온다 → 그럴 땐 숨긴다.
+  const noteIsLabeled = !!(dec.strengths || dec.difficulties);
+  const extra = noteIsLabeled ? dec.extra : '';
   if (!strengths && !difficulties) {
     return <div className="stu-hero-note" style={style}>{stu.note || '(비식별 요약 없음)'}</div>;
   }

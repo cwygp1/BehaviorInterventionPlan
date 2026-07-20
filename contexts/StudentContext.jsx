@@ -348,6 +348,10 @@ export function StudentProvider({ children }) {
 
   const curStu = allStudents.find((s) => s.id === curStuId) || null;
   const curStuData = curStuId ? studentDataCache[curStuId] : null;
+  // 선택된 학생의 상세 데이터(ABC·QABF·BIP…)가 실제로 도착했는지.
+  // 각 페이지는 이 값이 false인 동안 입력 UI를 띄우지 않아, 로드 도중 넣은
+  // 값이 뒤늦게 도착한 서버 데이터에 덮어써지는 것을 막는다.
+  const curStuDataLoaded = !!(curStuId && studentDataCache[curStuId]);
   const curClass = classes.find((c) => c.id === curClassId) || null;
 
   // Derived tier membership for the current class + semester.
@@ -407,6 +411,7 @@ export function StudentProvider({ children }) {
         curStu,
         curStuId,
         curStuData,
+        curStuDataLoaded,
         studentDataCache,
         homeSummary,
         selectStudent,

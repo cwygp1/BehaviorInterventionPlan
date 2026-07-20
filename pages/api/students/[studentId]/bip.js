@@ -38,12 +38,15 @@ export default requireStudentAccess(async function handler(req, res) {
 
       case 'POST':
       case 'PUT': {
-        const { alt, fct, crit, prev, teach, reinf, resp } = req.body || {};
+        const { alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal } = req.body || {};
+        // 0719 피드백: 조작적 정의(opdef)·행동목표(bgoal) — /api/migrate 전에도 동작하도록 셀프힐.
+        await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS opdef TEXT NOT NULL DEFAULT ''`;
+        await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS bgoal TEXT NOT NULL DEFAULT ''`;
         const result = await sql`
-          INSERT INTO bip_data (student_id, alt, fct, crit, prev, teach, reinf, resp, updated_at)
-          VALUES (${studentId}, ${alt || ''}, ${fct || ''}, ${crit || ''}, ${prev || ''}, ${teach || ''}, ${reinf || ''}, ${resp || ''}, NOW())
+          INSERT INTO bip_data (student_id, alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, updated_at)
+          VALUES (${studentId}, ${alt || ''}, ${fct || ''}, ${crit || ''}, ${prev || ''}, ${teach || ''}, ${reinf || ''}, ${resp || ''}, ${opdef || ''}, ${bgoal || ''}, NOW())
           ON CONFLICT (student_id)
-          DO UPDATE SET alt = ${alt || ''}, fct = ${fct || ''}, crit = ${crit || ''}, prev = ${prev || ''}, teach = ${teach || ''}, reinf = ${reinf || ''}, resp = ${resp || ''}, updated_at = NOW()
+          DO UPDATE SET alt = ${alt || ''}, fct = ${fct || ''}, crit = ${crit || ''}, prev = ${prev || ''}, teach = ${teach || ''}, reinf = ${reinf || ''}, resp = ${resp || ''}, opdef = ${opdef || ''}, bgoal = ${bgoal || ''}, updated_at = NOW()
           RETURNING *
         `;
         return res.status(200).json(toEnvelope(result.rows[0]));

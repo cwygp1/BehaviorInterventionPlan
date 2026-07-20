@@ -6,7 +6,7 @@ import EvalReportModal from '../modals/EvalReportModal';
 import { pnd, pndInterpretation, tauU, tauUInterpretation } from '../../lib/utils/effectSize';
 import QabfFnChart from '../ui/QabfFnChart';
 
-const METRIC_LABELS = { freq: '발생 빈도 (회)', dur: '지속 시간 (분)', int: '강도 (1~5)', dbr: 'DBR (0~10)' };
+const METRIC_LABELS = { freq: '발생 빈도 (회)', dur: '지속 시간 (분)', int: '강도 (1~5)', dbr: '일일 행동 평정 DBR (0~10)' };
 
 const FUNC_LABELS = ['관심', '회피', '자동·감각', '신체', '강화물'];
 const FUNC_COLORS = ['#4f6bed', '#ef476f', '#12b886', '#9c36b5', '#f59f00'];
@@ -182,16 +182,24 @@ export default function EvalPage() {
     const grpB = mon.filter((r) => inB(r.date || ''));
     if (!grpA.length || !grpB.length) { setCompResult({ error: '두 기간 모두에 데이터가 필요합니다.' }); return; }
     const avg = (arr, k) => arr.length ? (arr.reduce((s, r) => s + (r[k] || 0), 0) / arr.length).toFixed(1) : 0;
-    const aFreqs = grpA.map((r) => r.freq || 0);
-    const bFreqs = grpB.map((r) => r.freq || 0);
+    // 0719 피드백: 빈도만이 아니라 빈도·지속·강도·DBR 4가지 모두 효과크기(PND·Tau-U) 비교.
+    // DBR은 높을수록 좋음(higherIsBetter), 나머지는 낮을수록 좋음.
+    const vals = (arr, k) => arr.map((r) => r[k] || 0);
+    const es = {};
+    [['freq', false], ['dur', false], ['int', false], ['dbr', true]].forEach(([k, hib]) => {
+      const a = vals(grpA, k), b = vals(grpB, k);
+      es[k] = { pnd: pnd(a, b, hib), tau: tauU(a, b) };
+    });
     setCompResult({
       grpA, grpB,
       freq: { a: avg(grpA, 'freq'), b: avg(grpB, 'freq') },
       dur: { a: avg(grpA, 'dur'), b: avg(grpB, 'dur') },
       int: { a: avg(grpA, 'int'), b: avg(grpB, 'int') },
       dbr: { a: avg(grpA, 'dbr'), b: avg(grpB, 'dbr') },
-      pnd: pnd(aFreqs, bFreqs, false),
-      tau: tauU(aFreqs, bFreqs),
+      es,
+      // 하위 호환(보고서 모달 등): 대표값은 기존대로 빈도 기준.
+      pnd: es.freq.pnd,
+      tau: es.freq.tau,
     });
   }
 
@@ -225,7 +233,7 @@ export default function EvalPage() {
       <div className="card">
         <div className="card-title">📈 행동 변화 추이 (기초선 A vs 중재 B)</div>
         <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-          {[['freq', '빈도'], ['dur', '지속'], ['int', '강도'], ['dbr', 'DBR']].map(([k, l]) => (
+          {[['freq', '빈도'], ['dur', '지속'], ['int', '강도'], ['dbr', '일일 행동 평정(DBR)']].map(([k, l]) => (
             <span key={k} className={'qchip' + (metric === k ? ' on' : '')} onClick={() => setMetric(k)}>{l}</span>
           ))}
         </div>
@@ -277,26 +285,31 @@ export default function EvalPage() {
           <p style={{ color: 'var(--err)', marginTop: 10 }}>{compResult.error}</p>
         ) : (
           <div style={{ marginTop: 14 }}>
+            {/* 0719 피드백: 4지표(빈도·지속·강도·DBR) 모두 평균 + 효과크기(PND·Tau-U) 비교 */}
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
-              <thead><tr style={{ background: 'var(--pri-l)' }}><th style={{ padding: 8 }}>지표</th><th>기간 A ({compResult.grpA.length}건)</th><th>기간 B ({compResult.grpB.length}건)</th><th>변화</th></tr></thead>
+              <thead><tr style={{ background: 'var(--pri-l)' }}><th style={{ padding: 8 }}>지표</th><th>기간 A ({compResult.grpA.length}건)</th><th>기간 B ({compResult.grpB.length}건)</th><th>변화</th><th>PND</th><th>Tau-U</th></tr></thead>
               <tbody>
-                {[['freq', '빈도'], ['dur', '지속시간'], ['int', '강도'], ['dbr', 'DBR']].map(([k, l]) => {
+                {[['freq', '빈도'], ['dur', '지속시간'], ['int', '강도'], ['dbr', '일일 행동 평정(DBR)']].map(([k, l]) => {
                   const a = compResult[k].a, b = compResult[k].b, d = (b - a).toFixed(1);
-                  return <tr key={k}><td style={{ padding: 8 }}>{l}</td><td style={{ padding: 8 }}>{a}</td><td style={{ padding: 8 }}>{b}</td><td style={{ padding: 8, color: d < 0 ? 'var(--ok)' : 'var(--err)', fontWeight: 700 }}>{d > 0 ? '+' : ''}{d}</td></tr>;
+                  const good = k === 'dbr' ? d > 0 : d < 0; // DBR은 높아져야 개선
+                  const e = compResult.es?.[k] || {};
+                  const pi = pndInterpretation(e.pnd);
+                  const ti = tauUInterpretation(e.tau);
+                  return (
+                    <tr key={k}>
+                      <td style={{ padding: 8 }}>{l}{k === 'dbr' && <span style={{ fontSize: '.7rem', color: 'var(--muted)' }}> (↑ 좋음)</span>}</td>
+                      <td style={{ padding: 8 }}>{a}</td>
+                      <td style={{ padding: 8 }}>{b}</td>
+                      <td style={{ padding: 8, color: good ? 'var(--ok)' : 'var(--err)', fontWeight: 700 }}>{d > 0 ? '+' : ''}{d}</td>
+                      <td style={{ padding: 8 }}><span style={{ color: pi.color, fontWeight: 700 }}>{e.pnd != null ? e.pnd + '%' : '—'}</span> <span style={{ fontSize: '.72rem', color: 'var(--muted)' }}>{pi.label}</span></td>
+                      <td style={{ padding: 8 }}><span style={{ color: ti.color, fontWeight: 700 }}>{e.tau != null ? e.tau.toFixed(2) : '—'}</span> <span style={{ fontSize: '.72rem', color: 'var(--muted)' }}>{ti.label}</span></td>
+                    </tr>
+                  );
                 })}
               </tbody>
             </table>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
-              <div style={{ background: 'var(--surface2)', padding: 12, borderRadius: 8 }}>
-                <div style={{ fontSize: '.78rem', color: 'var(--muted)' }}>PND (빈도 기준)</div>
-                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: pndInterpretation(compResult.pnd).color }}>{compResult.pnd != null ? compResult.pnd + '%' : '—'}</div>
-                <div style={{ fontSize: '.78rem' }}>{pndInterpretation(compResult.pnd).label}</div>
-              </div>
-              <div style={{ background: 'var(--surface2)', padding: 12, borderRadius: 8 }}>
-                <div style={{ fontSize: '.78rem', color: 'var(--muted)' }}>Tau-U (빈도 기준)</div>
-                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: tauUInterpretation(compResult.tau).color }}>{compResult.tau != null ? compResult.tau.toFixed(2) : '—'}</div>
-                <div style={{ fontSize: '.78rem' }}>{tauUInterpretation(compResult.tau).label}</div>
-              </div>
+            <div style={{ fontSize: '.76rem', color: 'var(--muted)', marginTop: 8 }}>
+              빈도·지속시간·강도는 낮아질수록, 일일 행동 평정(DBR)은 높아질수록 개선입니다. PND·Tau-U도 지표별로 그 방향에 맞춰 계산됩니다.
             </div>
           </div>
         ))}

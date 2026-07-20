@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -40,9 +40,21 @@ export default function Tier2GroupPanel({ selectedGroupId, onSelectGroup }) {
     return m;
   }, [students]);
 
+  const group = tier2Groups.find((g) => g.id === selectedGroupId) || null;
+
+  // 소그룹에 들어오면 기록 대상 학생을 그 그룹 구성원으로 맞춘다.
+  // (상단에서 고른 학생이 이 소그룹 소속이 아닌 채로 남아, 아래 CICO/DPR 기록이
+  //  구성원도 아닌 학생으로 뜨던 문제 방지. 이미 구성원이면 그대로 둔다.)
+  const members = group?.members || [];
+  useEffect(() => {
+    if (!group || members.length === 0) return;
+    if (members.some((m) => m.student_id === curStuId)) return;
+    selectStudent(members[0].student_id);
+  }, [group?.id, members.map((m) => m.student_id).join(','), curStuId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!curClassId) return null;
 
-  const selectedGroup = tier2Groups.find((g) => g.id === selectedGroupId) || null;
+  const selectedGroup = group;
 
   async function onCreate() {
     const nm = newName.trim();
@@ -142,7 +154,8 @@ export default function Tier2GroupPanel({ selectedGroupId, onSelectGroup }) {
           padding: '8px 12px', background: 'var(--pri-soft)', border: '1px dashed var(--pri-l)', borderRadius: 8,
         }}>
           <span style={{ fontSize: '.8rem', color: 'var(--sub)' }}>
-            🔄 <strong>새 학기 준비</strong> — {otherSem}학기에 만든 소그룹(이름·구성원)을 {curSemester}학기로 복사할 수 있어요.
+            {/* 1학기를 보는 중이라면 2학기 → 1학기 복사이므로 '새 학기 준비'가 아니다. */}
+            🔄 <strong>{curSemester === 2 ? '새 학기 준비' : '소그룹 가져오기'}</strong> — 같은 반 {otherSem}학기에 만든 소그룹(이름·구성원)을 {curSemester}학기로 복사할 수 있어요.
           </span>
           <div style={{ flex: 1 }} />
           <button className="btn btn-ghost btn-sm" onClick={onCopyFromOther} disabled={busy}>

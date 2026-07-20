@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchClassPBS, saveClassPBS, fetchClassChecklist } from '../../lib/api/students';
+import useFormLoad, { FormLoading } from '../../lib/hooks/useFormLoad';
 import { CWPBS_ITEMS, SOLVE_ITEMS } from '../../lib/classChecklist';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -29,6 +30,9 @@ export default function ClassPBSPage() {
     { name: '점심 먼저 가기', points: 30, icon: '🍕' },
   ]);
   const [busy, setBusy] = useState(false);
+  // 저장값을 불러오기 전에는 입력 UI를 띄우지 않는다 — 로드 전에 누른 포인트가
+  // fetch 응답에 덮어써져 사라지던 문제(예: 화면엔 0인데 실제 저장값은 16) 방지.
+  const { loaded, applyLoaded } = useFormLoad([curClassId, curSemester]);
 
   // AI coaching
   const [question, setQuestion] = useState('우리 반은 30명인데 4:1 긍정 비율을 어떻게 실천할 수 있을까요?');
@@ -45,23 +49,25 @@ export default function ClassPBSPage() {
     let cancelled = false;
     fetchClassPBS(curClassId, curSemester).then((d) => {
       if (cancelled) return;
-      if (d?.data) {
-        setGoal(d.data.goal || '모두가 행복한 교실');
-        setTarget(d.data.target_points || 100);
-        setCurrent(d.data.current_points || 0);
-        setRewards(d.data.rewards && d.data.rewards.length ? d.data.rewards : []);
-      } else {
-        setGoal('모두가 행복한 교실');
-        setTarget(100);
-        setCurrent(0);
-        setRewards([]);
-      }
-    }).catch(() => {});
+      applyLoaded(() => {
+        if (d?.data) {
+          setGoal(d.data.goal || '모두가 행복한 교실');
+          setTarget(d.data.target_points || 100);
+          setCurrent(d.data.current_points || 0);
+          setRewards(d.data.rewards && d.data.rewards.length ? d.data.rewards : []);
+        } else {
+          setGoal('모두가 행복한 교실');
+          setTarget(100);
+          setCurrent(0);
+          setRewards([]);
+        }
+      });
+    }).catch(() => { if (!cancelled) applyLoaded(); });
     fetchClassChecklist(curClassId, curSemester).then((d) => {
       if (!cancelled) setChecklist(d?.data?.responses || null);
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [curClassId, curSemester]);
+  }, [curClassId, curSemester, applyLoaded]);
 
   // 체크리스트 진단 요약(총점 + 낮은 문항) — 없으면 ''.
   function checklistBlock() {
@@ -160,6 +166,8 @@ ${question}
       </div>
     );
   }
+
+  if (!loaded) return <FormLoading label="학급 PBS 설정을 불러오는 중…" />;
 
   return (
     <>

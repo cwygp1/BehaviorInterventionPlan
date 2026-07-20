@@ -7,6 +7,8 @@ import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { fetchIEP, saveIEPGoal } from '../../lib/api/students';
 import { downloadNiceIepDocx } from '../../lib/utils/niceIepDocx';
+import { findHanja } from '../../lib/utils/aiText';
+import ExternalAIModal from '../ui/ExternalAIModal';
 
 const GRADE = { 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
 
@@ -35,6 +37,7 @@ export default function IepReportPage() {
   const [savingId, setSavingId] = useState(null);
   const [synthId, setSynthId] = useState(null);
   const [planId, setPlanId] = useState(null); // 평가계획 채우기 진행 중인 목표 id
+  const [extPlanGoal, setExtPlanGoal] = useState(null); // 🌐 외부AI로 평가계획 채우기 대상 목표
   const teacher = user?.name || '';
 
   // 수동 프롬프트 모달 (AI 미연결)
@@ -88,7 +91,7 @@ export default function IepReportPage() {
       `[학생] ${curStu.code} · ${curStu.level || ''} · ${curStu.disability || ''}\n${note}` +
       `[영역] ${g.subject}${g.area ? ' · ' + g.area : ''} (${g.semester}학기)\n` +
       `[월별 계획]\n${mon || '(없음)'}\n\n` +
-      `요구사항:\n- 현행수준(plop): 학생 자료에 근거해 구체적으로.\n- 학기목표(semester_goal): 월별을 종합한 학기 도달점을 "- "로 시작하는 2~4개 항목으로 다양하게.\n- 평가(semestral_eval): 도달도와 학습 과정·변화를 "- "로 시작하는 2~4개 항목으로 다양하게.\n- 실명/식별정보 금지.\n\n` +
+      `요구사항:\n- 현행수준(plop): 학생 자료에 근거해 구체적으로.\n- 학기목표(semester_goal): 월별을 종합한 학기 도달점을 "- "로 시작하는 2~4개 항목으로 다양하게.\n- 평가(semestral_eval): [중요] 이 학기는 아직 끝나지 않았다. 결과를 이미 이룬 것처럼 완료형("~향상되었으며", "~달성함", "~검증됨")으로 쓰면 허위 기록이 된다. 학기말에 "무엇을 어떤 기준으로 평가할지"의 평가 계획·기준 어투("~도달 여부를 확인함", "~를 기준으로 평가함", "~변화를 서술 평가함")로만 쓸 것. "- "로 시작하는 2~4개 항목.\n- 실명/식별정보 금지.\n\n` +
       `반드시 JSON만 출력: {"plop":"- ...\\n- ...","semester_goal":"- ...\\n- ...","semestral_eval":"- ...\\n- ..."}`
     );
   }
@@ -100,7 +103,8 @@ export default function IepReportPage() {
     });
   }
   async function aiSynth(g) {
-    if (!aiOn) { openManual(g); return; }
+    // 외부AI 폴백 비활성(0719 요청): AI 미연결 시 연결 안내만.
+    if (!aiOn) { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
     setSynthId(g.id);
     try {
       const prompt = await buildSynthPrompt(g);
@@ -108,43 +112,59 @@ export default function IepReportPage() {
       const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
       const m = (out || '').match(/\{[\s\S]*\}/);
       if (!m) { toast(r.finish_reason === 'length' ? '응답이 잘렸어요. AI max_tokens를 늘려보세요.' : 'AI 응답 해석 실패'); return; }
-      applySynth(g.id, parseLooseJSON(m[0]));
-      toast('월별을 종합해 학기 현행수준·목표·평가를 작성했어요. (확인 후 저장)', 'success');
-    } catch (e) { toast('AI 종합 실패: ' + e.message + ' — "프롬프트 복사"로 외부 AI에서 시도해 보세요.'); openManual(g); } finally { setSynthId(null); }
+      const j = parseLooseJSON(m[0]);
+      applySynth(g.id, j);
+      // P11: 치환표 밖 한자 혼입 경고.
+      const hanja = findHanja(JSON.stringify(j));
+      if (hanja.length) toast(`⚠ 생성문에 한자 혼입 ${hanja.length}곳(${hanja.slice(0, 3).join(', ')}…)이 있어요 — 확인·수정해 주세요.`);
+      toast('월별을 종합해 학기 현행수준·목표·평가(기준)를 작성했어요. (확인 후 저장)', 'success');
+    } catch (e) { toast('AI 종합 실패: ' + e.message); } finally { setSynthId(null); }
+  }
+
+  // 평가계획 프롬프트 — 로컬 AI 호출·🌐 외부AI 복사 공용. (빈 구간이 없으면 null)
+  function buildEvalPlanPrompt(g) {
+    const targets = (g.monthly || []).filter((m) => !(m.eval_plan || '').trim());
+    if (!targets.length) return null;
+    const rows = targets.map((m) => `${m.month}월) 교육목표: ${(m.goal || '').replace(/\n/g, ' ')} / 교육내용: ${(m.content || '').replace(/\n/g, ' ')}`).join('\n');
+    return (
+      '아래는 특수교육 IEP 한 목표의 구간별 교육목표·교육내용이다. 각 구간의 "평가계획"을 작성하라.\n' +
+      '- 구간마다 "~는가?"로 끝나는 질문형 항목 2~3개.\n' +
+      '- 서로 다른 측면을 다각적으로: (a) 수행·도달, (b) 참여 태도, (c) 지속성(시간·횟수), (d) 독립·모방 수준, (e) 일반화(다른 상황·자료·사람) 중 2~3개 측면을 골라 한 측면당 1개 질문. 같은 측면 반복 금지.\n' +
+      '- 질문에는 그 구간의 교육목표·교육내용에 나온 실제 활동·재료를 담아 구체적으로 쓸 것.\n' +
+      '- 영어 단어·어려운 한자어 없이 쉬운 우리말로, 맞춤법·문장 오류 없이.\n\n' +
+      `[영역] ${g.subject}${g.area ? ' · ' + g.area : ''} (${g.semester}학기)\n[구간]\n${rows}\n\n` +
+      '반드시 JSON만 출력: {"plans":[{"month":"3","eval_plan":"- ...는가?\\n- ...는가?"}]}'
+    );
+  }
+  // 평가계획 JSON을 목표에 병합 — 이미 값이 있는 구간은 덮어쓰지 않는다. 채운 개수 반환.
+  function applyEvalPlanJson(goalId, j) {
+    const plans = Array.isArray(j?.plans) ? j.plans : [];
+    const byMonth = {};
+    plans.forEach((p) => { if (p && p.month != null && String(p.eval_plan || '').trim()) byMonth[String(p.month)] = String(p.eval_plan).trim(); });
+    if (!Object.keys(byMonth).length) return 0;
+    setGoals((prev) => prev.map((x) => {
+      if (x.id !== goalId) return x;
+      const monthly = (x.monthly || []).map((mm) => ((mm.eval_plan || '').trim() ? mm : { ...mm, eval_plan: byMonth[String(mm.month)] || mm.eval_plan || '' }));
+      return { ...x, monthly };
+    }));
+    return Object.keys(byMonth).length;
   }
 
   // 평가계획(eval_plan)이 비어 있는 구간만 골라 AI로 채운다.
   // 평가계획 기능 이전에 저장된 목표를 위해 — 기존 목표·내용·평가는 건드리지 않는다.
   async function aiFillEvalPlans(g) {
     if (!aiOn) { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
-    const targets = (g.monthly || []).filter((m) => !(m.eval_plan || '').trim());
-    if (!targets.length) { toast('모든 구간에 평가계획이 이미 있어요.'); return; }
+    const prompt = buildEvalPlanPrompt(g);
+    if (!prompt) { toast('모든 구간에 평가계획이 이미 있어요.'); return; }
     setPlanId(g.id);
     try {
-      const rows = targets.map((m) => `${m.month}월) 교육목표: ${(m.goal || '').replace(/\n/g, ' ')} / 교육내용: ${(m.content || '').replace(/\n/g, ' ')}`).join('\n');
-      const prompt =
-        '아래는 특수교육 IEP 한 목표의 구간별 교육목표·교육내용이다. 각 구간의 "평가계획"을 작성하라.\n' +
-        '- 구간마다 "~는가?"로 끝나는 질문형 항목 2~3개.\n' +
-        '- 서로 다른 측면을 다각적으로: (a) 수행·도달, (b) 참여 태도, (c) 지속성(시간·횟수), (d) 독립·모방 수준, (e) 일반화(다른 상황·자료·사람) 중 2~3개 측면을 골라 한 측면당 1개 질문. 같은 측면 반복 금지.\n' +
-        '- 질문에는 그 구간의 교육목표·교육내용에 나온 실제 활동·재료를 담아 구체적으로 쓸 것.\n' +
-        '- 영어 단어·어려운 한자어 없이 쉬운 우리말로, 맞춤법·문장 오류 없이.\n\n' +
-        `[영역] ${g.subject}${g.area ? ' · ' + g.area : ''} (${g.semester}학기)\n[구간]\n${rows}\n\n` +
-        '반드시 JSON만 출력: {"plans":[{"month":"3","eval_plan":"- ...는가?\\n- ...는가?"}]}';
       const r = await callDetailed('/no_think\n' + prompt, { temperature: 0.4 });
       const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
       const m = (out || '').match(/\{[\s\S]*\}/);
       if (!m) { toast(r.finish_reason === 'length' ? '응답이 잘렸어요. AI max_tokens를 늘려보세요.' : 'AI 응답 해석 실패'); return; }
-      const j = parseLooseJSON(m[0]);
-      const plans = Array.isArray(j.plans) ? j.plans : [];
-      if (!plans.length) { toast('평가계획을 받지 못했어요.'); return; }
-      const byMonth = {};
-      plans.forEach((p) => { if (p && p.month != null) byMonth[String(p.month)] = String(p.eval_plan || '').trim(); });
-      setGoals((prev) => prev.map((x) => {
-        if (x.id !== g.id) return x;
-        const monthly = (x.monthly || []).map((mm) => ((mm.eval_plan || '').trim() ? mm : { ...mm, eval_plan: byMonth[String(mm.month)] || mm.eval_plan || '' }));
-        return { ...x, monthly };
-      }));
-      toast(`빈 평가계획 ${Object.keys(byMonth).length}개 구간을 채웠어요. 확인 후 저장하세요.`, 'success');
+      const n = applyEvalPlanJson(g.id, parseLooseJSON(m[0]));
+      if (!n) { toast('평가계획을 받지 못했어요.'); return; }
+      toast(`빈 평가계획 ${n}개 구간을 채웠어요. 확인 후 저장하세요.`, 'success');
     } catch (e) { toast('평가계획 생성 실패: ' + e.message); }
     finally { setPlanId(null); }
   }
@@ -166,7 +186,9 @@ export default function IepReportPage() {
     downloadNiceIepDocx({
       student: { code: curStu.code, level: curStu.level },
       teacherName: teacher, year: yearF || curYear, semester: sem, goals: list,
-    }).catch((e) => toast('Word 생성 실패: ' + e.message));
+    })
+      .then(() => toast('나이스 양식 Word 파일을 내려받았어요 — 브라우저 다운로드 폴더를 확인하세요.', 'success'))
+      .catch((e) => toast('Word 생성 실패: ' + e.message));
   }
 
   return (
@@ -207,7 +229,11 @@ export default function IepReportPage() {
             <div className="card-title" style={{ marginBottom: 0 }}>📘 {g.subject}{g.area ? ' · ' + g.area : ''} <span style={{ fontWeight: 400, fontSize: 12, color: '#6b7280' }}>· {g.school_year || '-'}학년도 {g.semester}학기 · {GRADE[g.grade_code] || ''}</span></div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-ghost btn-sm" onClick={() => aiFillEvalPlans(g)} disabled={planId === g.id}>{planId === g.id ? '평가계획 생성 중…' : '✨ 평가계획 채우기'}</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => aiSynth(g)} disabled={synthId === g.id}>{synthId === g.id ? 'AI 종합 중…' : (aiOn ? '✨ AI 종합 (월별→학기)' : '📋 AI 프롬프트')}</button>
+              {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
+              <button className="btn btn-ghost btn-sm" onClick={() => { if (!buildEvalPlanPrompt(g)) { toast('모든 구간에 평가계획이 이미 있어요.'); return; } setExtPlanGoal(g); }} title="외부 AI(클로드 등)로 평가계획 채우기">🌐 외부AI</button> */}
+              <button className="btn btn-ghost btn-sm" onClick={() => aiSynth(g)} disabled={synthId === g.id}>{synthId === g.id ? 'AI 종합 중…' : '✨ AI 종합 (월별→학기)'}</button>
+              {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
+              <button className="btn btn-ghost btn-sm" onClick={() => openManual(g)} title="외부 AI(클로드 등)로 학기 종합">🌐 외부AI 종합</button> */}
               <button className="btn btn-pri btn-sm" onClick={() => saveGoal(g)} disabled={savingId === g.id}>{savingId === g.id ? '저장 중…' : '💾 저장'}</button>
             </div>
           </div>
@@ -222,7 +248,11 @@ export default function IepReportPage() {
               <div className="form-group"><label className="form-label">현행수준</label><textarea className="form-textarea" rows={3} value={g.plop || ''} onChange={(e) => updateGoal(g.id, { plop: e.target.value })} /></div>
               <div className="form-group"><label className="form-label">학기목표 (여러 줄 "-")</label><textarea className="form-textarea" rows={3} value={g.semester_goal || ''} onChange={(e) => updateGoal(g.id, { semester_goal: e.target.value })} /></div>
             </div>
-            <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">학기 평가 (여러 줄 "-")</label><textarea className="form-textarea" rows={3} value={g.semestral_eval || ''} onChange={(e) => updateGoal(g.id, { semestral_eval: e.target.value })} /></div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">학기 평가 (여러 줄 "-")</label>
+              <div style={{ fontSize: '.74rem', color: '#92400e', margin: '0 0 4px' }}>📌 학기말 작성 칸 — 학기 중에는 평가 "기준·계획"만 적고, 실제 결과는 학기말에 기록하세요.</div>
+              <textarea className="form-textarea" rows={3} value={g.semestral_eval || ''} onChange={(e) => updateGoal(g.id, { semestral_eval: e.target.value })} />
+            </div>
           </div>
 
           {/* ── 월별 섹션 (월별 표) ── */}
@@ -253,6 +283,25 @@ export default function IepReportPage() {
           </div>
         </div>
       ))}
+
+      {/* 🌐 외부AI — 평가계획 채우기 */}
+      <ExternalAIModal
+        open={!!extPlanGoal}
+        onClose={() => setExtPlanGoal(null)}
+        title="🌐 외부 AI — 평가계획 채우기"
+        buildPrompt={async () => buildEvalPlanPrompt(extPlanGoal) || ''}
+        placeholder='{"plans":[{"month":"3","eval_plan":"- ...는가?"}]} 형태의 JSON을 붙여넣으세요.'
+        onApply={(raw) => {
+          try {
+            const m = (raw || '').match(/\{[\s\S]*\}/);
+            if (!m) { toast('붙여넣은 내용에서 JSON을 찾지 못했어요.'); return false; }
+            const n = applyEvalPlanJson(extPlanGoal.id, parseLooseJSON(m[0]));
+            if (!n) { toast('평가계획을 찾지 못했어요.'); return false; }
+            toast(`빈 평가계획 ${n}개 구간을 채웠어요. 확인 후 저장하세요.`, 'success');
+            return true;
+          } catch (e) { toast('JSON 파싱 실패: ' + e.message); return false; }
+        }}
+      />
 
       <Modal open={!!manualGoalId} onClose={() => setManualGoalId(null)} maxWidth={700}>
         <h3>📋 AI 종합 프롬프트 (연결된 AI 없이 사용)</h3>

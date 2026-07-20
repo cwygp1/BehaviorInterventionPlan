@@ -1,6 +1,8 @@
 import LLMIndicator from './LLMIndicator';
 import { useStudents } from '../../contexts/StudentContext';
 
+// 사이드바의 모든 페이지 키에 제목이 있어야 한다. 빠지면 상단 제목이 빈칸으로
+// 뜬다(0720: pbssurvey·classcheck·generator·startpoint·iep 계열이 그랬음).
 const TITLES = {
   home: '홈',
   students: '학생 관리',
@@ -13,8 +15,15 @@ const TITLES = {
   crisis: '위기행동 관리 및 대처',
   support: '교사 지원 자료실',
   classpbs: '학급 차원 PBS (Tier 1)',
+  pbssurvey: 'PBS 기초 설문조사 (Tier 1)',
+  classcheck: '학급관리 체크리스트 (Tier 1)',
   tier2: 'Tier 2 · 소그룹 지원 (CICO / DPR)',
   tier3: 'Tier 3 · 개별 맞춤형 중재',
+  startpoint: '출발점 분석 (현행수준)',
+  iep: 'IEP 목표 생성',
+  priorIep: '전년도 IEP',
+  iepReport: 'IEP 계획서 (완성·출력)',
+  generator: 'AI 생성기',
   qa: 'PBS Q&A 전문가',
   videos: 'PBS 영상 강의실',
 };

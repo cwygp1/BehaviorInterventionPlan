@@ -56,7 +56,7 @@ ${q}`;
     setQuestion(q);
     setOutput('');
     if (status !== 'on') {
-      toast('질문이 입력되었습니다. 우측 하단에서 프롬프트를 복사하거나 외부 AI에 보내세요.');
+      toast('질문이 입력되었습니다. 우측 상단 AI 버튼에서 연결을 설정하면 바로 답을 받을 수 있어요.');
       return;
     }
     // Auto-call AI with the picked question (avoid stale state — pass q directly)

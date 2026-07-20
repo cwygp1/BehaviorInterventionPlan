@@ -27,7 +27,7 @@ const STEPS = [
   {
     n: 2, page: 'qabf', icon: '📊', title: '기능평가 (QABF)',
     desc: '25문항 4점 척도로 문제행동의 기능을 정량화 (관심·회피·자동감각·신체·강화물).',
-    measure: (d) => (d?.qabf || []).filter((v) => v >= 0).length,
+    measure: (d) => (d?.qabf || []).filter((v) => v >= 0 || v === -2).length, // X(해당없음)도 응답으로 집계
     measureLabel: '/25 문항 응답',
   },
   {
@@ -38,7 +38,7 @@ const STEPS = [
   },
   {
     n: 4, page: 'monitor', icon: '📈', title: '행동 데이터',
-    desc: 'CICO·DBR·지연시간·강도. Phase A(기초선) vs Phase B(중재) 명시 전환으로 효과 측정.',
+    desc: 'CICO·일일 행동 평정(DBR)·지연시간·강도. Phase A(기초선) vs Phase B(중재) 명시 전환으로 효과 측정.',
     measure: (d) => (d?.mon?.length || 0),
     measureLabel: '건의 모니터 기록',
   },

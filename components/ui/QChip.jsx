@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useToast } from '../../contexts/ToastContext';
 
 /**
  * QChip — quick-select chip. Supports two patterns:
@@ -69,10 +70,14 @@ export function makeAppender(value, setValue, isInput) {
  */
 export function EditableChipGroup({ label, storageKey, defaults = [], mode = 'append', target, onChange, onPick }) {
   const LS = 'qchips:' + storageKey;
+  const toast = useToast();
   const [userChips, setUserChips] = useState([]);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
   const [manage, setManage] = useState(false);
+  // 0719 피드백: 추가한 항목을 수정도 할 수 있게 — 관리 모드에서 칩을 누르면 이름 바꾸기.
+  const [editingChip, setEditingChip] = useState(null); // 수정 중인 내 칩 텍스트
+  const [editDraft, setEditDraft] = useState('');
 
   useEffect(() => {
     try {
@@ -92,10 +97,34 @@ export function EditableChipGroup({ label, storageKey, defaults = [], mode = 'ap
     if (![...defaultTexts, ...userChips].includes(t)) persist([...userChips, t]);
     setDraft(''); setAdding(false);
   }
-  function removeChip(t) { persist(userChips.filter((c) => c !== t)); }
+  // 관리 모드 종료(수정 중이던 상태도 정리).
+  function exitManage() { setManage(false); setEditingChip(null); setEditDraft(''); }
+  function removeChip(t) {
+    const next = userChips.filter((c) => c !== t);
+    persist(next);
+    // 선택형(set)에서 현재 선택된 칩을 지우면 선택값도 비운다.
+    if (mode === 'set' && target === t) onChange?.('');
+    // 마지막 항목을 지우면 관리 모드 자동 종료(완료 버튼이 사라져 갇히는 문제 방지).
+    if (!next.length) exitManage();
+  }
+  // 내 칩 이름 바꾸기 (관리 모드에서 칩을 눌러 수정)
+  function renameChip(oldText, newTextRaw) {
+    const newText = String(newTextRaw || '').trim();
+    setEditingChip(null); setEditDraft('');
+    if (!newText || newText === oldText) return;
+    if ([...defaultTexts, ...userChips].includes(newText)) { removeChip(oldText); return; } // 중복이면 기존 것 삭제만
+    persist(userChips.map((c) => (c === oldText ? newText : c)));
+    // 선택형(set)에서 현재 선택된 칩을 수정하면 선택값도 따라간다.
+    if (mode === 'set' && target === oldText) onChange?.(newText);
+  }
 
-  function clickChip(text) {
-    if (manage) return; // 관리 모드에서는 선택 대신 삭제만
+  function clickChip(text, custom) {
+    if (manage) {
+      // 관리 모드: 내 칩을 누르면 수정(이름 바꾸기) 시작. 기본 칩은 안내만.
+      if (custom) { setEditingChip(text); setEditDraft(text); }
+      else toast("수정·삭제는 직접 추가한 항목만 가능해요. 선택하려면 '완료'를 먼저 눌러 주세요.");
+      return;
+    }
     if (mode === 'set') onChange?.(text);
     else onPick?.(text);
   }
@@ -112,6 +141,25 @@ export function EditableChipGroup({ label, storageKey, defaults = [], mode = 'ap
         {all.map((opt) => {
           const isOn = mode === 'set' && target === opt.text;
           const cls = 'qchip' + (isOn ? ' on' : '') + (opt.custom ? ' qchip-recent' : '');
+          // 관리 모드에서 수정 중인 내 칩 → 인라인 입력으로 전환
+          if (manage && opt.custom && editingChip === opt.text) {
+            return (
+              <span key={opt.text} className="qchip" style={{ padding: 2, outline: '1px dashed var(--pri)' }}>
+                <input
+                  autoFocus
+                  value={editDraft}
+                  onChange={(e) => setEditDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') renameChip(opt.text, editDraft);
+                    if (e.key === 'Escape') { setEditingChip(null); setEditDraft(''); }
+                  }}
+                  onBlur={() => renameChip(opt.text, editDraft)}
+                  aria-label={`${opt.text} 이름 바꾸기`}
+                  style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '.82rem', width: 130 }}
+                />
+              </span>
+            );
+          }
           return (
             <span
               key={opt.text}
@@ -119,9 +167,10 @@ export function EditableChipGroup({ label, storageKey, defaults = [], mode = 'ap
               role="button"
               tabIndex={0}
               aria-pressed={isOn ? 'true' : undefined}
-              onClick={() => clickChip(opt.text)}
-              onKeyDown={(e) => { if (!manage && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); clickChip(opt.text); } }}
-              style={manage && opt.custom ? { outline: '1px dashed var(--err)' } : undefined}
+              title={manage ? (opt.custom ? '누르면 이름을 바꿀 수 있어요' : '기본 항목은 수정할 수 없어요') : undefined}
+              onClick={() => clickChip(opt.text, opt.custom)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); clickChip(opt.text, opt.custom); } }}
+              style={manage && opt.custom ? { outline: '1px dashed var(--err)' } : (manage ? { opacity: 0.45 } : undefined)}
             >
               {opt.custom ? '＋ ' : ''}{opt.text}
               {manage && opt.custom && (
@@ -160,16 +209,18 @@ export function EditableChipGroup({ label, storageKey, defaults = [], mode = 'ap
           >＋ 항목 추가</span>
         )}
 
-        {userChips.length > 0 && (
+        {/* 관리 중이면 내 칩이 0개여도 '완료'를 항상 보여준다(관리 모드 갇힘 방지) */}
+        {(userChips.length > 0 || manage) && (
           <span
             className="qchip"
             role="button"
             tabIndex={0}
-            onClick={() => setManage((m) => !m)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setManage((m) => !m); } }}
-            style={{ borderStyle: 'dashed', color: manage ? 'var(--err)' : 'var(--muted)' }}
+            onClick={() => { setManage((m) => !m); setEditingChip(null); setEditDraft(''); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setManage((m) => !m); setEditingChip(null); setEditDraft(''); } }}
+            title="직접 추가한 항목을 눌러서 수정하거나 ×로 삭제"
+            style={{ borderStyle: 'dashed', color: manage ? 'var(--err)' : 'var(--muted)', fontWeight: manage ? 700 : 400 }}
           >
-            {manage ? '완료' : '✎ 내 칩 관리'}
+            {manage ? '✓ 완료' : '✎ 추가 항목 수정·삭제'}
           </span>
         )}
       </div>

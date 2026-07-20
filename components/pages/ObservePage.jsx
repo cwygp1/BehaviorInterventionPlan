@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import StuHero, { NoStudentHint, ProfileSummary } from '../student/StuHero';
+import { FormLoading } from '../../lib/hooks/useFormLoad';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
@@ -51,7 +52,7 @@ function parseLooseJSON(raw) {
 }
 
 export default function ObservePage() {
-  const { curStu, curStuId, curStuData, updateStudentData } = useStudents();
+  const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData } = useStudents();
   const toast = useToast();
   const { callDetailed, status: llmStatus } = useLLM();
   const aiOn = llmStatus !== 'off';
@@ -106,8 +107,21 @@ export default function ObservePage() {
   }, [a, b, c, timeVal, placeVal, date, draftKey]);
 
   if (!curStu) return <><StuHero /><NoStudentHint /></>;
+  // 서버 데이터 도착 전 입력 UI를 띄우지 않는다 — 로드 중 입력이 덮어써지는 것 방지.
+  if (!curStuDataLoaded) return <><StuHero /><FormLoading label="관찰 기록을 불러오는 중…" /></>;
 
   const abc = curStuData?.abc || [];
+  // 목록은 관찰일(date) 기준 최신순. 예전에는 배열 순서를 그대로 뒤집기만 해서
+  // 시드/일괄 입력처럼 created_at이 같은 기록들이 04-14 → 04-07 → 04-25 식으로
+  // 뒤섞여 보였다. 같은 날짜는 작성시각(created_at) → id로 안정 정렬한다.
+  const abcKey = (r) => `${r.date || r.created_at || ''}`;
+  const abcSorted = abc.slice().sort((a, b) => {
+    const d = abcKey(b).localeCompare(abcKey(a));
+    if (d !== 0) return d;
+    const c = String(b.created_at || '').localeCompare(String(a.created_at || ''));
+    if (c !== 0) return c;
+    return (b.id || 0) - (a.id || 0);
+  });
 
   // 분배 결과(JSON {a,b,c})를 A/B/C 칸에 반영(빈 칸 채움, 있으면 덧붙임).
   function applySplit(j) {
@@ -147,7 +161,7 @@ export default function ObservePage() {
 
   // 같은 학생의 가장 최근 ABC 기록을 편집 폼에 불러온다(달라진 부분만 수정).
   function recallLast() {
-    const last = abc[0]; // onSave가 새 기록을 앞에 추가하므로 [0]이 최신
+    const last = abcSorted[0]; // 관찰일 기준 최신 기록
     if (!last) { toast('불러올 지난 기록이 없어요.'); return; }
     setA(last.a || ''); setB(last.b || ''); setC(last.c || '');
     if (last.time) {
@@ -223,12 +237,12 @@ export default function ObservePage() {
             <textarea className="form-textarea" style={{ minHeight: 58 }} value={quickText} onChange={(e) => setQuickText(e.target.value)}
               placeholder="예: 수학 익힘책 풀라고 했더니 '싫어!' 하며 책을 던졌고, 교사가 다가가 진정시켰다" />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {aiOn
-                ? <button className="btn btn-pri btn-sm" onClick={splitABC} disabled={qcBusy}>{qcBusy ? '나누는 중…' : '✨ A·B·C로 나누기'}</button>
-                : <button className="btn btn-pri btn-sm" onClick={() => setQcPasteOpen((o) => !o)}>🤖 AI로 나누기</button>}
+              {aiOn && <button className="btn btn-pri btn-sm" onClick={splitABC} disabled={qcBusy}>{qcBusy ? '나누는 중…' : '✨ A·B·C로 나누기'}</button>}
+              {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
+              <button className={'btn btn-sm ' + (aiOn ? 'btn-ghost' : 'btn-pri')} onClick={() => setQcPasteOpen((o) => !o)} title="프롬프트를 복사해 클로드·ChatGPT 등에서 실행 후 응답을 붙여넣기">🌐 외부AI</button> */}
             </div>
           </div>
-          {!aiOn && qcPasteOpen && (
+          {qcPasteOpen && (
             <div style={{ marginTop: 10 }}>
               <AIActionBar prompt={buildSplitPrompt(quickText)} align="flex-start" />
               <div className="form-group" style={{ marginTop: 8, marginBottom: 0 }}>
@@ -278,12 +292,12 @@ export default function ObservePage() {
           <div className="empty-state"><span className="emoji">📄</span>저장된 기록이 없습니다.</div>
         ) : (
           <ul className="data-list">
-            {abc.slice().reverse().map((r) => (
+            {abcSorted.map((r) => (
               <li key={r.id} className="data-item">
                 <button className="data-item-del" onClick={() => onDelete(r.id)} title="삭제" aria-label="삭제">×</button>
                 <div className="data-item-head">
-                  <span className="badge badge-pri">{r.created_at || r.date}</span>
-                  <span className="data-item-date">{r.time || ''}</span>
+                  <span className="badge badge-pri" title="기록 해당일(관찰일)">📅 {r.date || r.created_at}</span>
+                  <span className="data-item-date">{r.time || ''}<span style={{ marginLeft: 8, fontSize: '.72rem', color: 'var(--muted)' }}>작성 {r.created_at || '-'}</span></span>
                 </div>
                 <div className="data-item-body">
                   <strong>A:</strong> {r.a}<br />

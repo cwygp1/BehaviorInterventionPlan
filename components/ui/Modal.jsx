@@ -33,7 +33,11 @@ export default function Modal({ open, onClose, children, maxWidth }) {
       const focusable = box.querySelector(
         'input,textarea,select,button:not(.modal-close)'
       ) || box.querySelector('.modal-close');
-      focusable?.focus?.();
+      // preventScroll — 첫 포커스 대상이 본문 아래쪽에 있으면(예: 선택지가 전부
+      // span이고 첫 button이 하단 '취소'인 우선순위 체크리스트) 브라우저가 그
+      // 위치로 스크롤해 모달이 하단부터 열려 제목·1번 문항이 잘려 보였다.
+      focusable?.focus?.({ preventScroll: true });
+      box.scrollTop = 0; // 항상 맨 위에서 시작
     }, 40);
 
     return () => { document.removeEventListener('keydown', onKey); clearTimeout(t); };

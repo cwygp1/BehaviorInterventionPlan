@@ -250,6 +250,8 @@ ${lines || '  (기록 없음)'}
     }
   }
 
+  // 최근 7"건" — 달력상 7일이 아니라 최근 기록 7개의 평균이다.
+  // (라벨도 '최근 N회 평균'으로 맞췄다. 예전엔 두 달 전 기록만 있어도 "최근 7일"로 보였음)
   const last7 = cicoRecords.slice(0, 7);
   const last7Avg = last7.length
     ? Math.round(last7.reduce((s, r) => s + (r.max_score ? r.total_score / r.max_score : 0), 0) / last7.length * 100)
@@ -283,7 +285,7 @@ ${lines || '  (기록 없음)'}
           </p>
           {last7Avg != null && (
             <div style={{ marginTop: 12, display: 'inline-block', background: 'rgba(255,255,255,.2)', padding: '6px 14px', borderRadius: 99, fontSize: '.85rem', fontWeight: 600 }}>
-              📊 최근 7일 평균: {last7Avg}%
+              📊 최근 {last7.length}회 평균: {last7Avg}%
             </div>
           )}
         </div>
