@@ -1,6 +1,6 @@
 import { useStudents } from '../../contexts/StudentContext';
 import { stuColor } from '../../lib/utils/colors';
-import { studentProfileParts, decomposeNote } from '../../lib/utils/splitNote';
+import { studentProfileParts, decomposeNote, dedupeExtra } from '../../lib/utils/splitNote';
 
 // 강점(초록)/어려움(주황)을 나눠 보여주는 프로필 요약. 분리 정보가 없으면 note 원문.
 // StuHero와 관찰 페이지 프로필 카드에서 공용.
@@ -12,7 +12,9 @@ export function ProfileSummary({ stu, style }) {
   // 구버전 note(라벨 없는 원문 한 줄)는 이미 강점/어려움 칩으로 표시되므로
   // 그대로 또 보여주면 같은 문장이 두 번 나온다 → 그럴 땐 숨긴다.
   const noteIsLabeled = !!(dec.strengths || dec.difficulties);
-  const extra = noteIsLabeled ? dec.extra : '';
+  // 0720 현장 피드백: 라벨 형식이어도 '추가 요약'에 강점/어려움과 같은 문장이
+  // 남아 있으면 세 번 반복돼 보인다 → 칩에 이미 나온 문장은 표시에서 걸러낸다.
+  const extra = dedupeExtra(noteIsLabeled ? dec.extra : '', strengths, difficulties);
   if (!strengths && !difficulties) {
     return <div className="stu-hero-note" style={style}>{stu.note || '(비식별 요약 없음)'}</div>;
   }
