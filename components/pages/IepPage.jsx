@@ -39,6 +39,21 @@ const DAILY_MID_TO_BIG = Object.entries(DAILY_AREA_GROUPS).reduce((acc, [big, mi
 
 // 월별 점증 시 지원 수준 표현(서술 보조용). 평가초점을 나누는 기준이 아님.
 const SUP = ['교사의 도움을 받아 ', '부분적으로 ', '교사 감독 하에 스스로 ', '스스로 ', '다양한 상황에서 스스로 '];
+
+// P15: 평가초점 종결형("~한다.")을 관형형("~하는")으로 — 학기 교육내용 초안용.
+// 1) "먹는다"류(는다) → "먹는"  2) 종성 ㄴ("요약한다·이어간다") → ㄴ 탈락+"는"  3) 그 외는 원문 유지.
+function toActivityPhrase(s) {
+  const t = String(s || '').trim().replace(/\.$/, '');
+  if (/는다$/.test(t)) return t.replace(/는다$/, '는') + ' 활동';
+  const m = t.match(/^(.*)([가-힣])다$/);
+  if (m) {
+    const ch = m[2], code = ch.charCodeAt(0) - 0xac00;
+    if (code >= 0 && code % 28 === 4) { // 종성 ㄴ
+      return m[1] + String.fromCharCode(ch.charCodeAt(0) - 4) + '는 활동';
+    }
+  }
+  return t + ' 관련 활동';
+}
 const CONTENT_SUFFIX = ['탐색·모방 활동', '구조화된 연습 활동', '실제 상황 적용 연습', '모의·실제 상황 일반화 활동'];
 
 function methodsForType(disability) {
@@ -280,6 +295,10 @@ export default function IepPage() {
 
   const [goal, setGoal] = useState('');
   const [plop, setPlop] = useState('');
+  // P15(0720 현장 피드백): 학기 수준 교육내용·교육방법 — 월별 생성 전에 한번 방향을 잡으면
+  // 규칙 초안·AI 생성이 이를 이어받아 월별이 더 구체적으로 나온다.
+  const [semContent, setSemContent] = useState('');
+  const [semMethods, setSemMethods] = useState('');
   // 기본 학년도·학기는 상단 전역 선택값을 따른다(반·학기 일관성).
   const [schoolYear, setSchoolYear] = useState(curYear || new Date().getFullYear());
   const [sem, setSem] = useState(String(curSemester || 1));
@@ -440,6 +459,7 @@ export default function IepPage() {
     setVerb(std.verb || ''); setIntent(std.intent || ''); setDescriptor(std.descriptor || '');
     setEvalFoci(Array.isArray(g.eval_foci) ? g.eval_foci : []);
     setGoal(g.semester_goal || ''); setPlop(g.plop || '');
+    setSemContent(g.sem_content || ''); setSemMethods(g.sem_methods || '');
     setSchoolYear(g.school_year || new Date().getFullYear());
     setSem(String(g.semester || 1)); setCritType(g.crit_type || 'rate');
     setSupportTier(g.support_tier || '');
@@ -473,6 +493,7 @@ export default function IepPage() {
 
   function newGoal() {
     setSel(null); setSelExtra([]); setEditingId(null); setMonthly([]); setSemEval(''); setGoal('');
+    setSemContent(''); setSemMethods('');
     setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setSupportTier(''); setTaskSteps([]);
     setChainType('forward'); setPromptSystem('mtl'); setMonths(monthsOf(sem)); setMonthGroups('');
     resetDrafts();
@@ -595,6 +616,12 @@ export default function IepPage() {
     const methods = isTask ? methodsForTask(curStu?.disability, promptSystem) : methodsForType(curStu?.disability);
     const foci = (evalFoci || []).map((f) => f.trim()).filter(Boolean);
     const steps = (taskSteps || []).map((t) => t.trim()).filter(Boolean);
+    // P15: 학기 교육내용·교육방법(교사 방향) — 월별에 배분/반영.
+    const semCLines = String(semContent || '').split(/\n/).map((s) => s.replace(/^\s*[-•·]\s*/, '').trim()).filter(Boolean);
+    const semMLines = String(semMethods || '').split(/\n/).map((s) => s.replace(/^\s*[-•·]\s*/, '').trim()).filter(Boolean);
+    const semStrategy = (semMLines.find((l) => /^지도\s*전략/.test(l)) || '').replace(/^지도\s*전략\s*[:：]\s*/, '')
+      || (semMLines.length && !semMLines.some((l) => /^(지원\s*수준|강화)/.test(l)) ? semMLines.join(', ') : '');
+    const semCFor = (i) => semCLines.filter((_, k) => k % n === i || (semCLines.length <= n && k === i));
     const totalSteps = steps.length || Math.max(+e || 0, 4); // 단계 미입력 시 목표 단계 수로 대체
     const stepChain = steps.length ? steps.map((t, k) => `${k + 1}) ${t}`).join(' → ') : '단계 목록 참조';
     const frac = (i) => (i + 1) / n; // 첫 구간부터 시작수준보다 한 걸음 위로 점증(피드백: 첫 달 목표 = 시작수준은 오류)
@@ -615,8 +642,10 @@ export default function IepPage() {
       ? '습득 단계 — 연속강화(CRF): 정반응마다 즉시 칭찬·선호 강화물 제공'
       : '유지 단계 — 간헐강화(VR2~VR3): 2~3회에 한 번 불규칙하게 강화하며 자연적 칭찬·성취감으로 전환');
     const methodsFor = (i) => [
-      `지도전략: ${methods.join(', ')}`,
-      `지원수준(촉구·용암): ${isTask ? promptDesc(promptSystem, i, n, support) : `${support(i).trim()} 수준에서 촉구를 점차 줄여(최대-최소 촉진→시간지연) 독립 수행으로`}`,
+      // P15: 교사가 학기 교육방법에 적은 지도전략을 우선 반영.
+      `지도전략: ${semStrategy || methods.join(', ')}`,
+      // 0720: "부분적으로 수준에서" 비문 → "'부분적으로' 수행하는 수준에서"로 교정.
+      `지원수준(촉구·용암): ${isTask ? promptDesc(promptSystem, i, n, support) : `'${support(i).trim()}' 수행하는 수준에서 촉구를 점차 줄여(최대-최소 촉진→시간지연) 독립 수행으로`}`,
       `강화 스케줄: ${reinforceFor(i)}`,
     ];
     const list = groups.map((grp, i) => {
@@ -632,6 +661,7 @@ export default function IepPage() {
       const content = (isTask
         ? [
             fLead ? `- 평가초점 '${fLead}'에 도달하도록 아래 과제 단계 수행을 지도` : null,
+            ...semCFor(i).map((c) => `- ${c}`), // P15: 학기 교육내용 배분
             `- 과제분석 ${totalSteps}단계를 순서대로 지도(${CHAIN_LABEL[chainType]}): ${stepChain}`,
             `- 이번 달 중점(${phase(i)}): ${chainDesc(chainType, totalSteps, stepCount(i))}`,
             `- 촉진: ${promptDesc(promptSystem, i, n, support)}`,
@@ -641,6 +671,8 @@ export default function IepPage() {
             // 0720: "${obj} 학습내용을 지도"가 "주요 내용 학습내용을 지도" 같은 비문을 만들고,
             // 평가초점이 월마다 바뀌는데 지도 문구는 고정되던 문제 → 평가초점 자체를 지도 대상으로 서술.
             fLead ? `- 평가초점 '${fLead}'에 도달하기 위한 학습내용을 지도` : null,
+            // P15: 교사가 적은 학기 교육내용을 월별로 배분해 활동으로 반영.
+            ...semCFor(i).map((c) => `- ${c}`),
             `- ${sel.area ? sel.area + ' ' : ''}${obj} ${phase(i)}`,
             `- 교사 시범 후 ${stem ? stem + '하기를 ' : ''}단계별(과제분석)로 따라 하기`,
             `- ${i < n - 1 ? '구조화된 학습 자료로' : '실제·모의 상황에서'} ${stem ? stem + '하기 ' : ''}반복·적용하기`,
@@ -1170,6 +1202,13 @@ export default function IepPage() {
       fociBlock + stepsBlock +
       `[학기목표(확정)] ${goal}\n` +
       `  → 이 학기목표가 월별 계획 전체의 축이다(학기목표 선 확정 → 월별 후 작성). 각 구간(월)의 교육목표·교육내용은 이 학기목표에 도달하기 위한 중간 단계로 설계하고, 마지막 구간은 학기목표 수준에 도달하게 할 것.\n` +
+      // P15(0720 현장 피드백): 교사가 학기 수준에서 잡은 교육내용·교육방법 방향을 월별에 구체화.
+      (String(semContent || '').trim()
+        ? `[학기 교육내용(교사 방향)]\n${String(semContent).trim()}\n  → 월별 교육내용(content)은 이 방향의 활동을 월 순서에 맞게 나누어 구체화·심화할 것(방향에 없는 활동을 새로 만들 수 있으나, 위 방향과 어긋나지 않게).\n`
+        : '') +
+      (String(semMethods || '').trim()
+        ? `[학기 교육방법(교사 방향)]\n${String(semMethods).trim()}\n  → 월별 교육방법(methods)의 지도전략은 이 방향을 우선 반영하고, 구간별 촉구·강화 계획을 이 방향 위에서 점증 설계할 것.\n`
+        : '') +
       `[대상 월(구간)] ${ms.map((x) => x + '월').join(', ')} (총 ${ms.length}구간 — 월을 묶은 구간은 한 행으로 작성)\n` +
       critLine + tierLine + ebpBlock +
       `\n[형식 본보기 — 일부러 고른 "다른 교과"의 한 구간 예시]\n` +
@@ -1348,6 +1387,7 @@ export default function IepPage() {
         // 0720: 관련 성취기준(다중 선택) — 연수자료 양식의 "관련성취기준" 목록.
         related_stds: selExtra.map((x) => ({ code: x.code, text: x.text, subject: x.subject, area: x.area, grade_code: x.gradeCode })),
         semester: +sem, semester_goal: goal, plop,
+        sem_content: semContent, sem_methods: semMethods,
         crit_type: critType, crit_start: +cStart, crit_end: +cEnd,
         support_tier: supportTier,
         tier2_group_id: myTierGroups[0]?.id ?? null,
@@ -1549,10 +1589,53 @@ export default function IepPage() {
           : '선택한 성취기준을 학생의 현행수준에 맞게 재구성해 학기목표를 확정하세요.'}
         {' '}학기목표를 먼저 확정하면 평가초점과 월별 계획이 이 목표에서 나옵니다.
       </div>
-      <div className="form-group" style={{ marginBottom: 0 }}>
+      <div className="form-group">
         <label className="form-label">학기목표 (한 문장 · 수정 가능)</label>
         <textarea className="form-textarea" value={goal} onChange={(e) => setGoal(e.target.value)}
           placeholder="예: 학교에서 있었던 일을 활동사진을 보고 단어로 적어 문장을 완성할 수 있다." />
+      </div>
+      {/* P15(0720 현장 피드백): 학기목표와 함께 교육내용·교육방법도 학기 수준에서 같이 작성 —
+          여기서 잡은 방향이 월별 계획(규칙 초안·AI 생성)의 교육내용·교육방법으로 이어진다. */}
+      <div className="form-row" style={{ marginBottom: 0 }}>
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+            <label className="form-label" style={{ margin: 0 }}>교육내용 (학기 방향 · 여러 줄 "-")</label>
+            {/* 0720: "평가초점에서 채우기"는 순서가 거꾸로였음(평가초점은 다음 ③단계).
+                이 단계에 이미 있는 학기목표·성취기준을 재료로 초안을 만든다. */}
+            <button type="button" className="btn btn-ghost btn-sm" title="학기목표와 선택한 성취기준에서 학기 교육내용 초안을 만듭니다"
+              onClick={() => {
+                const srcs = [...new Set([
+                  ...[sel, ...selExtra].filter(Boolean).map((x) => String(x.text || '').trim()),
+                  String(goal || '').trim(),
+                ].filter(Boolean))];
+                if (!srcs.length) { toast('학기목표를 적거나 성취기준을 선택하면 초안을 채울 수 있어요.'); return; }
+                setSemContent(srcs.map((s) => `- ${toActivityPhrase(s)}`).join('\n'));
+                toast('학기목표·성취기준에서 학기 교육내용 초안을 채웠어요 — 다듬어 쓰세요.');
+              }}>↻ 목표·성취기준에서 채우기</button>
+          </div>
+          <textarea className="form-textarea" rows={3} style={{ marginTop: 6 }} value={semContent} onChange={(e) => setSemContent(e.target.value)}
+            placeholder={'이 학기에 다룰 학습내용·활동의 큰 방향 (예: - 짧은 글 읽고 주요 내용 찾기 활동)'} />
+        </div>
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+            <label className="form-label" style={{ margin: 0 }}>교육방법 (학기 방향 · 여러 줄 "-")</label>
+            <button type="button" className="btn btn-ghost btn-sm" title="장애유형·촉진체계 기본값으로 학기 교육방법 초안을 만듭니다"
+              onClick={() => {
+                const ms = critType === 'task' ? methodsForTask(curStu?.disability, promptSystem) : methodsForType(curStu?.disability);
+                setSemMethods([
+                  `- 지도전략: ${ms.join(', ')}`,
+                  `- 지원수준: ${critType === 'task' ? PROMPT_LABEL[promptSystem] : '최대-최소 촉진에서 시간지연으로'} 촉구를 점차 줄여 독립 수행으로`,
+                  '- 강화: 습득 단계 즉시 강화 → 유지 단계 간헐 강화로 전환',
+                ].join('\n'));
+                toast('기본 전략으로 학기 교육방법 초안을 채웠어요 — 학생에 맞게 다듬어 쓰세요.');
+              }}>↻ 기본 전략으로 채우기</button>
+          </div>
+          <textarea className="form-textarea" rows={3} style={{ marginTop: 6 }} value={semMethods} onChange={(e) => setSemMethods(e.target.value)}
+            placeholder={'이 학기에 쓸 지도전략·지원 방법의 큰 방향 (예: - 시각적 지원과 직접교수 중심)'} />
+        </div>
+      </div>
+      <div style={{ fontSize: '.76rem', color: 'var(--muted)', marginTop: 4 }}>
+        여기 적은 학기목표·교육내용·교육방법이 아래 <strong>월별 계획(규칙 초안·AI 생성)</strong>에 이어져 더 구체적으로 만들어져요. 비워 두면 기존 방식대로 자동 구성됩니다.
       </div>
     </div>
   );
@@ -1913,6 +1996,15 @@ export default function IepPage() {
             <strong>학기목표</strong> — {goal} <span style={{ color: 'var(--muted)' }}>(수정은 위 {stepNo.goal} 학기목표 설정 카드에서)</span>
           </div>
           <div className="form-group"><label className="form-label">현행수준 (학생 비식별 요약에서 연동 · 수정 가능)</label><textarea className="form-textarea" value={plop} onChange={(e) => setPlop(e.target.value)} /></div>
+          {/* P15: 학기 교육내용·교육방법 입력은 ② 학기목표 설정 카드로 이동(현장 피드백 — 학기목표와 함께 작성).
+              여기서는 확정된 방향을 참고로만 보여준다. */}
+          {(String(semContent || '').trim() || String(semMethods || '').trim()) && (
+            <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: '.82rem', color: 'var(--sub)' }}>
+              {String(semContent || '').trim() && <div><strong>학기 교육내용</strong> — {String(semContent).replace(/\n/g, ' / ').replace(/-\s*/g, '')} </div>}
+              {String(semMethods || '').trim() && <div style={{ marginTop: 2 }}><strong>학기 교육방법</strong> — {String(semMethods).replace(/\n/g, ' / ').replace(/-\s*/g, '')} </div>}
+              <span style={{ color: 'var(--muted)' }}>(수정은 위 {stepNo.goal} 학기목표 설정 카드에서 · 아래 월별 생성에 반영됩니다)</span>
+            </div>
+          )}
           <div className="form-row">
             <div className="form-group"><label className="form-label">학년도</label>
               <input type="number" className="form-input" value={schoolYear} onChange={(e) => setSchoolYear(Number(e.target.value))} /></div>
