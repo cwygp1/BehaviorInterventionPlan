@@ -299,6 +299,7 @@ export default function IepPage() {
   // 규칙 초안·AI 생성이 이를 이어받아 월별이 더 구체적으로 나온다.
   const [semContent, setSemContent] = useState('');
   const [semMethods, setSemMethods] = useState('');
+  const [semAiBusy, setSemAiBusy] = useState(false); // P16: 연수자료 방식 AI 채우기
   // 기본 학년도·학기는 상단 전역 선택값을 따른다(반·학기 일관성).
   const [schoolYear, setSchoolYear] = useState(curYear || new Date().getFullYear());
   const [sem, setSem] = useState(String(curSemester || 1));
@@ -991,6 +992,41 @@ export default function IepPage() {
     finally { setGoalAiBusy(false); }
   }
 
+  // P16(0720 현장 피드백): 학기 교육내용·교육방법을 연수자료(대전 개별화연수) 양식으로 AI 초안.
+  //   교육내용 = 학기목표를 잘게 쪼갠 "~하기" 활동 목록,
+  //   교육방법 = 교사의 실제 교수 행동 + 지원을 점차 줄이는 단계 흐름("→" 서술).
+  async function aiSemContentMethods() {
+    if (!String(goal || '').trim()) { toast('학기목표를 먼저 적어주세요.'); return; }
+    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    setSemAiBusy(true);
+    try {
+      const stds = [sel, ...selExtra].filter(Boolean).map((x) => `[${x.code}] ${x.text}`).join(' / ');
+      const prompt =
+        '너는 특수교육 IEP 작성 전문가다. 아래 학기목표를 "학기 수준의 교육내용·교육방법"으로 펼쳐라.\n' +
+        '개별화교육 연수자료의 서술 방식을 따른다.\n\n' +
+        `[학기목표] ${goal}\n` +
+        (stds ? `[성취기준] ${stds}\n` : '') +
+        (String(plop || '').trim() ? `[현행수준] ${String(plop).trim()}\n` : '') +
+        (curStu?.disability ? `[장애영역] ${curStu.disability}\n` : '') +
+        '\n작성 규칙:\n' +
+        '1) content(교육내용): 학기목표에 도달하기 위한 구체 활동을 "~하기" 명사형으로 4~7개. 활동을 잘게 쪼개고 실제 자료·상황을 담을 것. 학기목표에 여러 요소(예: 읽기와 대화)가 있으면 모든 요소를 고르게 다룰 것. "~하기"는 항목 끝에 1번만 쓸 것("돌리기하기"처럼 겹치면 안 됨).\n' +
+        '   (서술 방식 예 — 내용은 베끼지 말 것: "화재경보기 소리와 다른 유사한 소리 구별하기" / "혼자서 버스 타기" / "버스 타고 내리기 순서 익히기")\n' +
+        '2) methods(교육방법): 교사가 실제로 어떻게 가르치는지 2~4개 항목. 그중 1개 이상은 지원을 점차 줄여 독립 수행으로 가는 단계 흐름을 "→"로 이어 서술할 것.\n' +
+        '   (서술 방식 예 — 내용은 베끼지 말 것: "교사가 학생의 손을 잡고 대피하기 → 대피 방법을 말로 설명하며 반복하기 → 설명 없이 함께 대피하기 → 교사가 한 걸음 뒤에서 지켜보기 → 학생이 머뭇거릴 때만 촉구 제공하며 스스로 대피하기")\n' +
+        '3) 각 항목은 "- "로 시작하는 한 줄. 쉬운 우리말, 학생 실명·영어 단어 금지.\n\n' +
+        '반드시 JSON만 출력: {"content":"- ...하기\\n- ...하기","methods":"- ...\\n- ... → ... → ..."}';
+      const j = await llmJSON('학기 교육내용·방법 생성(연수자료 방식)', prompt, { tier: 'fast', temperature: 0.5 });
+      const c = String(j.content || '').trim(), m = String(j.methods || '').trim();
+      if (!c && !m) throw new Error('내용을 받지 못했어요.');
+      if (c) setSemContent(c);
+      if (m) setSemMethods(m);
+      const hanja = findHanja(c + '\n' + m);
+      if (hanja.length) toast(`⚠ 한자 혼입(${hanja.join(', ')})이 있어요 — 수정해 주세요.`);
+      toast('연수자료 방식으로 교육내용·교육방법 초안을 만들었어요 — 다듬어 쓰세요.');
+    } catch (e) { toast('AI 채우기 실패: ' + e.message); }
+    finally { setSemAiBusy(false); }
+  }
+
   // 결과가 원문(초안·성취기준)의 소재를 유지했는지 검사 — 핵심 단어가 하나도 안 겹치면 이탈.
   // (로컬 소형 모델이 학생 자료의 행동중재 내용으로 끌려가는 사고 방지)
   function topicOverlap(source, out) {
@@ -1600,6 +1636,13 @@ export default function IepPage() {
         <div className="form-group" style={{ marginBottom: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
             <label className="form-label" style={{ margin: 0 }}>교육내용 (학기 방향 · 여러 줄 "-")</label>
+            {/* P16: 연수자료 방식 AI 초안 — 교육내용("~하기" 활동)+교육방법("→" 단계 서술)을 한 번에. */}
+            {aiOn && (
+              <button type="button" className="btn btn-ok btn-sm" onClick={aiSemContentMethods} disabled={semAiBusy}
+                title="연수자료 방식(활동 목록 + 지원을 줄여가는 단계 서술)으로 교육내용·교육방법 초안을 AI가 만듭니다">
+                {semAiBusy ? '⏳ 채우는 중…' : '✨ AI로 내용·방법 채우기'}
+              </button>
+            )}
             {/* 0720: "평가초점에서 채우기"는 순서가 거꾸로였음(평가초점은 다음 ③단계).
                 이 단계에 이미 있는 학기목표·성취기준을 재료로 초안을 만든다. */}
             <button type="button" className="btn btn-ghost btn-sm" title="학기목표와 선택한 성취기준에서 학기 교육내용 초안을 만듭니다"
