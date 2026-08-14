@@ -1,6 +1,7 @@
 import { sql } from '../../../lib/db';
 import bcrypt from 'bcryptjs';
 import { signSessionToken, setAuthCookie } from '../../../lib/auth';
+import { ensureUserTierColCached } from '../../../lib/ensureSchema';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -23,10 +24,13 @@ export default async function handler(req, res) {
     const terms_version = String(consent.terms_version).slice(0, 20);
     const user_agent = String(consent.user_agent || req.headers['user-agent'] || '').slice(0, 300);
 
+    // used_tiers(메뉴 스코핑) 컬럼 자가치유 — 신규 가입자는 ''(미설정)로 시작해
+    // 홈에서 사용 단계 선택을 유도한다.
+    await ensureUserTierColCached();
     const result = await sql`
       INSERT INTO users (email, password_hash, name, school, terms_version, terms_agreed_at, user_agent)
       VALUES (${email}, ${password_hash}, ${name}, ${school || ''}, ${terms_version}, NOW(), ${user_agent})
-      RETURNING id, email, name, school, terms_version, terms_agreed_at, created_at
+      RETURNING id, email, name, school, used_tiers, terms_version, terms_agreed_at, created_at
     `;
 
     const user = result.rows[0];

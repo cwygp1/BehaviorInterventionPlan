@@ -8,6 +8,7 @@ const AuthContext = createContext({
   signup: async () => {},
   logout: async () => {},
   refresh: async () => {},
+  updateUsedTiers: async () => {},
 });
 
 export function AuthProvider({ children }) {
@@ -56,6 +57,13 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  // 사용 지원 단계(Tier) 저장 — 성공 시 서버가 돌려준 user로 로컬 상태 갱신.
+  const updateUsedTiers = useCallback(async (usedTiersCsv) => {
+    const data = await api('/api/me', 'PATCH', { used_tiers: usedTiersCsv });
+    setUser(data.user);
+    return data.user;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
@@ -67,7 +75,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, status, login, signup, logout, refresh }}>
+    <AuthContext.Provider value={{ user, status, login, signup, logout, refresh, updateUsedTiers }}>
       {children}
     </AuthContext.Provider>
   );

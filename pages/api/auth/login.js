@@ -1,6 +1,7 @@
 import { sql } from '../../../lib/db';
 import bcrypt from 'bcryptjs';
 import { signSessionToken, setAuthCookie } from '../../../lib/auth';
+import { ensureUserTierColCached } from '../../../lib/ensureSchema';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -14,8 +15,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'email and password are required' });
     }
 
+    // used_tiers(메뉴 스코핑)까지 함께 내려준다 — 컬럼이 없을 수 있어 자가치유 먼저.
+    await ensureUserTierColCached();
     const result = await sql`
-      SELECT id, email, name, school, password_hash FROM users WHERE email = ${email}
+      SELECT id, email, name, school, used_tiers, password_hash FROM users WHERE email = ${email}
     `;
 
     if (result.rows.length === 0) {
@@ -40,6 +43,7 @@ export default async function handler(req, res) {
         name: user.name,
         email: user.email,
         school: user.school,
+        used_tiers: user.used_tiers || '',
       },
     });
   } catch (error) {

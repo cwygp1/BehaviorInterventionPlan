@@ -7,7 +7,11 @@ import AuthScreen from '../components/auth/AuthScreen';
 import Layout from '../components/layout/Layout';
 import LoadingOverlay from '../components/ui/LoadingOverlay';
 
-import HomePage from '../components/pages/HomePage';
+import PortalHome from '../components/pages/PortalHome';
+import Tier1Dashboard from '../components/pages/dash/Tier1Dashboard';
+import Tier2Dashboard from '../components/pages/dash/Tier2Dashboard';
+import Tier3Dashboard from '../components/pages/dash/Tier3Dashboard';
+import IepDashboard from '../components/pages/dash/IepDashboard';
 import StudentsPage from '../components/pages/StudentsPage';
 import StartPointPage from '../components/pages/StartPointPage';
 import ObservePage from '../components/pages/ObservePage';
@@ -94,7 +98,11 @@ export default function Home() {
 
 function PageRouter({ activePage, onNavigate }) {
   switch (activePage) {
-    case 'home': return <HomePage onNavigate={onNavigate} />;
+    case 'home': return <PortalHome onNavigate={onNavigate} />;
+    case 'dash1': return <Tier1Dashboard onNavigate={onNavigate} />;
+    case 'dash2': return <Tier2Dashboard onNavigate={onNavigate} />;
+    case 'dash3': return <Tier3Dashboard onNavigate={onNavigate} />;
+    case 'dashIep': return <IepDashboard onNavigate={onNavigate} />;
     case 'students': return <StudentsPage />;
     case 'startpoint': return <StartPointPage />;
     case 'observe': return <><ObservePage /><StepNav cur="observe" onNavigate={onNavigate} /></>;
@@ -116,6 +124,6 @@ function PageRouter({ activePage, onNavigate }) {
     case 'videos': return <VideoLecturesPage onNavigate={onNavigate} />;
     case 'qa': return <QAPage />;
     case 'generator': return <GeneratorPage />;
-    default: return <HomePage onNavigate={onNavigate} />;
+    default: return <PortalHome onNavigate={onNavigate} />;
   }
 }

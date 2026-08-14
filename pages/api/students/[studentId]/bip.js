@@ -38,15 +38,18 @@ export default requireStudentAccess(async function handler(req, res) {
 
       case 'POST':
       case 'PUT': {
-        const { alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal } = req.body || {};
+        const { alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest } = req.body || {};
         // 0719 피드백: 조작적 정의(opdef)·행동목표(bgoal) — /api/migrate 전에도 동작하도록 셀프힐.
         await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS opdef TEXT NOT NULL DEFAULT ''`;
         await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS bgoal TEXT NOT NULL DEFAULT ''`;
+        // 0814 전문가 자문: 행동목표 행선지 — 'iep'(개별화 목표로) | 'subject'(교과 목표에 녹임) | ''(미선택).
+        await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS bgoal_dest VARCHAR(20) NOT NULL DEFAULT ''`;
+        const dest = ['iep', 'subject'].includes(bgoal_dest) ? bgoal_dest : '';
         const result = await sql`
-          INSERT INTO bip_data (student_id, alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, updated_at)
-          VALUES (${studentId}, ${alt || ''}, ${fct || ''}, ${crit || ''}, ${prev || ''}, ${teach || ''}, ${reinf || ''}, ${resp || ''}, ${opdef || ''}, ${bgoal || ''}, NOW())
+          INSERT INTO bip_data (student_id, alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest, updated_at)
+          VALUES (${studentId}, ${alt || ''}, ${fct || ''}, ${crit || ''}, ${prev || ''}, ${teach || ''}, ${reinf || ''}, ${resp || ''}, ${opdef || ''}, ${bgoal || ''}, ${dest}, NOW())
           ON CONFLICT (student_id)
-          DO UPDATE SET alt = ${alt || ''}, fct = ${fct || ''}, crit = ${crit || ''}, prev = ${prev || ''}, teach = ${teach || ''}, reinf = ${reinf || ''}, resp = ${resp || ''}, opdef = ${opdef || ''}, bgoal = ${bgoal || ''}, updated_at = NOW()
+          DO UPDATE SET alt = ${alt || ''}, fct = ${fct || ''}, crit = ${crit || ''}, prev = ${prev || ''}, teach = ${teach || ''}, reinf = ${reinf || ''}, resp = ${resp || ''}, opdef = ${opdef || ''}, bgoal = ${bgoal || ''}, bgoal_dest = ${dest}, updated_at = NOW()
           RETURNING *
         `;
         return res.status(200).json(toEnvelope(result.rows[0]));

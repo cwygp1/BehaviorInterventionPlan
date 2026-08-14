@@ -475,3 +475,193 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 /* === Print Hide === */
 @media print{.sidebar,.topbar,.mobile-toggle{display:none!important}.main{overflow:visible}.content{padding:0}}
 @media print{.md-body table{page-break-inside:avoid}.md-table-wrap{overflow:visible}}
+
+/* === Tier 진입 허브 + 사용 단계 설정 (2026-08-14) ===
+   홈을 Tier 선택 허브로 재구성: 선생님이 사용하는 단계(Tier 1·2·3)만
+   색상 카드로 표시하고, 카드 안 바로가기로 진입한다. --tc(색)·--tc-soft(연한 배경)는
+   카드 인라인 style로 주입. */
+.tier-hub-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 2px 10px}
+.tier-hub-head h3{font-size:1.05rem;font-weight:800;color:var(--text)}
+.tier-hub{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:18px}
+.tier-card{position:relative;background:linear-gradient(180deg,var(--tc-soft,#fff) 0%,#fff 55%);border:1px solid var(--border);border-left:5px solid var(--tc,var(--pri));border-radius:var(--r);padding:18px 20px;box-shadow:var(--sh-card);transition:.2s;display:flex;flex-direction:column;gap:10px}
+.tier-card:hover{transform:translateY(-2px);box-shadow:var(--sh-lg)}
+.tier-card.span{grid-column:1/-1}
+.tier-card-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tier-badge{font-size:.72rem;font-weight:800;color:#fff;background:var(--tc,var(--pri));border-radius:999px;padding:3px 10px;letter-spacing:.02em;flex-shrink:0}
+.tier-card-title{font-size:1.02rem;font-weight:800;color:var(--text)}
+.tier-card-short{font-size:.76rem;font-weight:600;color:var(--tc,var(--muted));margin-left:auto}
+.tier-card-desc{font-size:.82rem;color:var(--sub);line-height:1.55}
+.tier-entries{display:flex;flex-wrap:wrap;gap:8px}
+.tier-entry{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;min-height:40px;border:1px solid var(--border);border-radius:999px;background:#fff;font-size:.83rem;font-weight:600;color:var(--sub);transition:.15s;cursor:pointer}
+.tier-entry:hover{border-color:var(--tc,var(--pri));color:var(--tc,var(--pri));box-shadow:var(--sh-card);transform:translateY(-1px)}
+.te-step{width:20px;height:20px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;color:#fff;background:var(--tc,var(--pri));border-radius:50%}
+.tier-card-hint{font-size:.78rem;color:var(--sub);background:#fff;border:1px dashed var(--tc,var(--border));border-radius:var(--r-sm);padding:9px 12px;line-height:1.6}
+/* Tier 카드들 ↓ IEP 카드 연결 표시 — IEP는 별도 영역이지만 Tier 기록이 반영됨 */
+.tier-iep-bridge{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:8px;font-size:.78rem;font-weight:600;color:var(--muted);padding:2px 0;margin:-4px 0}
+.tier-iep-bridge .tib-arrow{font-size:.9rem;color:#2563eb}
+@media(max-width:640px){.tier-hub{grid-template-columns:1fr}.tier-card-short{margin-left:0;width:100%}}
+
+/* 미설정 유도 배너 */
+.tier-setup-banner{display:flex;align-items:center;gap:16px;flex-wrap:wrap;border-color:var(--pri-l);background:linear-gradient(135deg,#fff 0%,var(--pri-soft) 100%)}
+.tier-setup-banner .tsb-body{flex:1;min-width:220px}
+
+/* 사용 단계 설정 모달 */
+.tier-setup-sub{font-size:.84rem;color:var(--sub);line-height:1.6;margin:-6px 0 16px}
+.tier-pick{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:2px solid var(--border);border-radius:var(--r);padding:13px 15px;margin-bottom:10px;transition:.15s;cursor:pointer}
+.tier-pick:hover{border-color:var(--tc,var(--pri))}
+.tier-pick.on{border-color:var(--tc,var(--pri));background:var(--tc-soft,#fff)}
+.tier-pick .tp-icon{font-size:1.3rem;flex-shrink:0}
+.tier-pick .tp-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.tier-pick .tp-title{display:flex;align-items:center;gap:8px;font-size:.92rem;font-weight:800;color:var(--text);flex-wrap:wrap}
+.tier-pick .tp-desc{font-size:.78rem;color:var(--muted)}
+.tier-pick .tp-check{width:26px;height:26px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:50%;border:2px solid var(--border);color:#fff;font-weight:800;font-size:.85rem;transition:.15s}
+.tier-pick .tp-check.on{background:var(--tc,var(--ok));border-color:var(--tc,var(--ok))}
+.tier-setup-note{font-size:.79rem;color:var(--sub);background:var(--surface2);border-radius:var(--r-sm);padding:10px 12px;line-height:1.6}
+
+/* BIP ③ 행동목표 → IEP 반영 방식 선택 (0814 전문가 자문: 개별화로 vs 교과로) */
+.bgoal-dest{margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px}
+.bgoal-dest-label{font-size:.84rem;font-weight:700;color:var(--text);margin-bottom:8px}
+.bgoal-dest-sub{font-weight:400;font-size:.74rem;color:var(--muted)}
+.bgoal-dest-opts{display:flex;gap:8px;flex-wrap:wrap}
+.bgoal-dest-opt{flex:1 1 170px;min-width:150px;display:flex;align-items:flex-start;gap:8px;text-align:left;background:#fff;border:2px solid var(--border);border-radius:var(--r-sm);padding:9px 12px;transition:.15s;cursor:pointer}
+.bgoal-dest-opt:hover{border-color:var(--pri)}
+.bgoal-dest-opt.on{border-color:var(--pri);background:var(--pri-soft);box-shadow:0 0 0 3px rgba(79,107,237,.12)}
+.bgoal-dest-opt .bdo-body{display:flex;flex-direction:column;gap:2px;min-width:0}
+.bgoal-dest-opt .bdo-body b{font-size:.82rem;color:var(--text)}
+.bgoal-dest-opt .bdo-body small{font-size:.72rem;color:var(--muted);line-height:1.45}
+
+/* === 시안 B: 런처 포털 + 워크스페이스 사이드바 + 영역 대시보드 (2026-08-14) ===
+   홈 = 큰 카드 포털(영역 선택), 영역 진입 시 사이드바에 그 영역 메뉴만.
+   대시보드는 kimju '교사기록실' 패턴(KPI·업무흐름·명부·검토필요) 참고. */
+
+/* ── 포털 홈 ── */
+.portal{max-width:980px;margin:0 auto}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-bottom:14px}
+.pcard{position:relative;background:linear-gradient(180deg,var(--cs,#fff) 0%,#fff 55%);border:1px solid var(--border);border-top:6px solid var(--c,var(--pri));border-radius:16px;padding:20px;text-align:left;transition:.18s;box-shadow:var(--sh-card);display:flex;flex-direction:column;gap:4px;cursor:pointer}
+.pcard:hover{transform:translateY(-3px);box-shadow:var(--sh-lg);border-color:var(--c)}
+.pcard .ic{font-size:1.7rem;margin-bottom:4px}
+.pcard .bdg{align-self:flex-start;font-size:.68rem;font-weight:800;color:#fff;background:var(--c);border-radius:999px;padding:2px 10px}
+.pcard h4{font-size:1rem;font-weight:800;color:var(--text);margin-top:6px}
+.pcard p{font-size:.78rem;color:var(--muted);line-height:1.5;min-height:36px}
+.pcard .ph-hint{font-size:.73rem;font-weight:600;color:var(--sub);background:#fff;border:1px dashed var(--border);border-radius:8px;padding:4px 9px;margin-top:6px;align-self:flex-start}
+.pcard .go{margin-top:10px;font-size:.8rem;font-weight:800;color:var(--c)}
+.pcard.iepwide{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center;gap:4px 14px}
+.pcard.iepwide .ic{margin:0}
+.pcard.iepwide h4{margin:0}
+.pcard.iepwide p{min-height:0;flex:1 1 240px;margin:0}
+.pcard.iepwide .go{margin:0 0 0 auto}
+.portal-bridge{grid-column:1/-1;text-align:center;font-size:.76rem;font-weight:600;color:var(--muted);margin:-4px 0}
+.portal-bridge b{color:#2563eb}
+.pquick{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.pquick button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;border-radius:999px;padding:8px 15px;min-height:40px;font-size:.79rem;font-weight:600;color:var(--sub);transition:.13s}
+.pquick button:hover{border-color:var(--pri);color:var(--pri);box-shadow:var(--sh-card)}
+
+/* ── 워크스페이스 사이드바 ── */
+.ws-head{padding:16px 16px;color:#fff;font-weight:800;font-size:.92rem;display:flex;align-items:center;gap:8px}
+.ws-back{width:100%;text-align:left;border:none;background:none;padding:11px 16px;font-size:.8rem;font-weight:700;color:var(--sub);border-bottom:1px solid var(--border);transition:.13s}
+.ws-back:hover{color:var(--pri);background:var(--pri-soft)}
+.ws-common{border-top:1px solid var(--border);margin-top:6px}
+.portal-hintbox{font-size:.74rem;color:var(--muted);line-height:1.6;background:var(--surface2);border-radius:var(--r-sm);padding:10px 12px;margin:2px 10px}
+.portal-hintbox b{color:var(--pri)}
+
+/* ── 탑바 영역 전환 칩 ── */
+.tb-chips{display:flex;gap:5px;margin-left:12px}
+.tb-chip{border:1.5px solid var(--border);background:#fff;border-radius:999px;padding:4px 12px;min-height:30px;font-size:.74rem;font-weight:800;color:var(--sub);transition:.13s}
+.tb-chip:hover{border-color:var(--pri);color:var(--pri)}
+.tb-chip.on{color:#fff}
+@media(max-width:900px){.tb-chips{display:none}}
+
+/* ── 대시보드 공용 (dz-*) ── */
+.dz-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px}
+.dz-kpi{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--sh-card);transition:.15s;border-top:4px solid var(--kc,var(--pri))}
+.dz-kpi.click{cursor:pointer}
+.dz-kpi.click:hover{transform:translateY(-2px);box-shadow:var(--sh-lg)}
+.dz-kpi-top{display:flex;align-items:center;gap:8px}
+.dz-kpi-top .ic{font-size:1.1rem}
+.dz-kpi-top .v{font-size:1.3rem;font-weight:800;color:var(--text)}
+.dz-kpi-label{font-size:.78rem;font-weight:700;color:var(--sub);margin-top:2px}
+.dz-kpi-hint{font-size:.71rem;color:var(--muted);margin-top:3px}
+.dz-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:860px){.dz-grid2{grid-template-columns:1fr}}
+
+/* 업무 흐름 스트립 */
+.dz-flow{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap}
+.dz-flow-item{display:flex;align-items:center;gap:6px;flex:1 1 150px;min-width:150px}
+.dz-flow-arrow{color:var(--muted);font-weight:700;flex-shrink:0}
+.dz-flow-step{flex:1;display:flex;align-items:center;gap:9px;text-align:left;background:#fff;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;transition:.13s;cursor:pointer;min-height:56px}
+.dz-flow-step:hover{border-color:var(--fc,var(--pri));box-shadow:var(--sh-card)}
+.dz-flow-step .fs-ic{width:26px;height:26px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--surface2);font-size:.85rem}
+.dz-flow-step .fs-body{display:flex;flex-direction:column;min-width:0}
+.dz-flow-step .fs-body b{font-size:.8rem;color:var(--text)}
+.dz-flow-step .fs-body small{font-size:.68rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dz-flow-step.done{background:color-mix(in srgb,var(--fc,var(--ok)) 7%,#fff);border-color:color-mix(in srgb,var(--fc,var(--ok)) 45%,#fff)}
+.dz-flow-step.done .fs-ic{background:var(--fc,var(--ok));color:#fff;font-weight:800}
+.dz-flow-step.now{border-color:var(--fc,var(--pri));box-shadow:0 0 0 3px color-mix(in srgb,var(--fc,var(--pri)) 14%,transparent)}
+.dz-flow-step.now .fs-body b{color:var(--fc,var(--pri))}
+
+/* 상태 칩 */
+.dz-chip{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;border-radius:999px;padding:3px 10px;border:1px solid transparent}
+.dz-chip.ok{background:var(--ok-l);color:#0a7d4e}
+.dz-chip.warn{background:var(--warn-l);color:#b45309}
+.dz-chip.err{background:var(--err-l);color:#c02653}
+.dz-chip.info{background:var(--pri-l);color:var(--pri-d)}
+.dz-chip.muted{background:var(--surface2);color:var(--muted)}
+.dz-chip.click{cursor:pointer}
+.dz-count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:999px;font-size:.72rem;font-weight:800;padding:0 7px}
+.dz-count.err{background:var(--err);color:#fff}
+
+/* 명부 테이블 */
+.dz-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r-sm)}
+.dz-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.dz-table th{background:var(--surface2);color:var(--sub);font-weight:700;text-align:left;padding:9px 12px;white-space:nowrap;border-bottom:2px solid var(--border);font-size:.75rem}
+.dz-table td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+.dz-table tbody tr:last-child td{border-bottom:none}
+.dz-table tbody tr:hover{background:var(--pri-soft)}
+.dz-table td.strong{font-weight:800;color:var(--text);white-space:nowrap}
+.dz-table td.click{cursor:pointer}
+.dz-table .dim{font-size:.7rem;color:var(--muted);margin-top:2px}
+
+/* 검토 필요 목록 */
+.dz-review{list-style:none;display:flex;flex-direction:column;gap:8px}
+.dz-review-item{display:flex;align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px}
+.dz-review-item .ri-dot{width:9px;height:9px;border-radius:50%;margin-top:6px;flex-shrink:0}
+.dz-review-item.err .ri-dot{background:var(--err)}
+.dz-review-item.warn .ri-dot{background:var(--warn)}
+.dz-review-item.ok .ri-dot{background:var(--ok)}
+.dz-review-item .ri-body{flex:1;min-width:0}
+.dz-review-item .ri-t{font-size:.82rem;font-weight:700;color:var(--text)}
+.dz-review-item .ri-s{font-size:.73rem;color:var(--muted);margin-top:2px;line-height:1.5}
+.dz-review-empty{font-size:.82rem;color:var(--muted);background:var(--surface2);border-radius:var(--r-sm);padding:14px;text-align:center}
+
+/* Tier1 목표/보상 */
+.dz-goal{font-size:.95rem;font-weight:800;color:var(--text);margin-bottom:10px;line-height:1.5}
+.dz-bar{height:12px;background:var(--surface2);border-radius:999px;overflow:hidden}
+.dz-bar-fill{height:100%;border-radius:999px;transition:width .4s}
+.dz-bar-meta{display:flex;justify-content:space-between;font-size:.74rem;color:var(--sub);margin-top:5px;font-weight:600}
+.dz-rewards{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+
+/* === gridstack 위젯 대시보드 (2026-08-14) ===
+   위젯(.dw)이 카드 역할. 잠금 상태가 기본이고 '위젯 편집'에서만 드래그/리사이즈.
+   위치·크기는 init 이후 gridstack이 소유(사용자별 user_dash_layouts에 저장). */
+.dz-gridbar{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.dz-gridhint{font-size:.75rem;color:var(--muted);margin-right:auto}
+.dz-grid{margin:0 -8px}                    /* gridstack margin 보정 — 카드 좌우 라인 맞춤 */
+/* sizeToContent: 위젯 높이 = 내용 높이. 내부 스크롤 금지 —
+   gridstack 기본 CSS(.grid-stack-item-content{overflow-y:auto})를 덮어쓴다. */
+.dz-grid .grid-stack-item-content{overflow:hidden!important}
+.dw{background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh-card)}
+.dw-head{display:flex;align-items:center;gap:7px;padding:10px 14px 8px;font-size:.85rem;font-weight:800;color:var(--text);border-bottom:1px solid var(--surface2);border-left:4px solid var(--wc,var(--pri));border-top-left-radius:var(--r)}
+.dw-grip{display:none;color:var(--muted);cursor:grab;font-size:.9rem;letter-spacing:-1px}
+.dw-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dw-body{padding:12px 14px}                /* 높이 제한·스크롤 없음 — 위젯이 내용만큼 자란다 */
+.dw-sub{font-size:.72rem;color:var(--muted);margin-bottom:8px}
+/* 편집 모드 표시 */
+.dz-grid.editing .dw{border-style:dashed;border-color:var(--wc,var(--pri))}
+.dz-grid.editing .dw-head{cursor:grab;background:color-mix(in srgb,var(--wc,var(--pri)) 6%,#fff)}
+.dz-grid.editing .dw-grip{display:inline}
+.dz-grid.editing .dw-body{pointer-events:none;opacity:.75}   /* 편집 중 오클릭 방지 */
+.grid-stack-item.ui-draggable-dragging .dw{box-shadow:var(--sh-lg)}
+/* KPI 위젯 본문(상자 없는 KPI) */
+.dz-kpib{height:100%;display:flex;flex-direction:column;justify-content:center}
+.dz-kpib.click{cursor:pointer}
+.dz-kpib.click:hover .dz-kpi-label{color:var(--pri)}

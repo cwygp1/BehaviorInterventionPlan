@@ -40,6 +40,7 @@ export function StudentProvider({ children }) {
   const { user } = useAuth();
   const [allStudents, setAllStudents] = useState([]); // every student for the user
   const [classes, setClasses] = useState([]);         // every class for the user
+  const [classesLoaded, setClassesLoaded] = useState(false); // 서버에서 학급 목록을 받아왔는가
   const [curYear, setCurYear] = useState(DEFAULT_YEAR);
   const [curSemester, setCurSemester] = useState(DEFAULT_SEMESTER); // 1 | 2
   const [curClassId, setCurClassId] = useState(null);
@@ -55,6 +56,7 @@ export function StudentProvider({ children }) {
     if (!user) {
       setAllStudents([]);
       setClasses([]);
+      setClassesLoaded(false);
       setCurYear(DEFAULT_YEAR);
       setCurSemester(DEFAULT_SEMESTER);
       setCurClassId(null);
@@ -83,6 +85,7 @@ export function StudentProvider({ children }) {
       const data = await fetchClasses();
       const list = data.classes || [];
       setClasses(list);
+      setClassesLoaded(true); // 이 시점 이후에만 자동 시드 판단(아래) — 로드 전 409 방지
       return list;
     } catch (_e) {
       return [];
@@ -216,8 +219,10 @@ export function StudentProvider({ children }) {
 
   // Auto-seed a default class for brand-new users so there is always somewhere
   // to add students. Runs once when the user has loaded classes and has none.
+  // ⚠ classesLoaded 게이트(0814): 목록을 받아오기 전(빈 배열)에 시드가 먼저 돌면
+  //   기존 사용자도 매 로그인마다 POST /api/classes 409(중복)를 냈다.
   useEffect(() => {
-    if (!user) return;
+    if (!user || !classesLoaded) return;
     if (classes.length > 0) return;
     if (seedingRef.current) return;
     seedingRef.current = true;
@@ -230,7 +235,7 @@ export function StudentProvider({ children }) {
         seedingRef.current = false;
       }
     })();
-  }, [user, classes.length, addClass]);
+  }, [user, classesLoaded, classes.length, addClass]);
 
   // Derived: the set of school years present, newest first.
   const years = useMemo(() => {

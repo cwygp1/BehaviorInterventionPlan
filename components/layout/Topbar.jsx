@@ -1,11 +1,17 @@
 import LLMIndicator from './LLMIndicator';
 import { useStudents } from '../../contexts/StudentContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { SECTIONS, PAGE_SECTION, parseUsedTiers, sectionEnabled } from '../../lib/tiers';
 
 // 사이드바의 모든 페이지 키에 제목이 있어야 한다. 빠지면 상단 제목이 빈칸으로
 // 뜬다(0720: pbssurvey·classcheck·generator·startpoint·iep 계열이 그랬음).
 const TITLES = {
   home: '홈',
   students: '학생 관리',
+  dash1: 'Tier 1 대시보드 · 학급 전체',
+  dash2: 'Tier 2 대시보드 · 소그룹',
+  dash3: 'Tier 3 대시보드 · 한 학생 집중',
+  dashIep: 'IEP 대시보드 · 개별화교육',
   observe: '학생 관찰 및 이해',
   qabf: '기능평가 (QABF)',
   bip: '행동중재계획 (BIP)',
@@ -28,19 +34,47 @@ const TITLES = {
   videos: 'PBS 영상 강의실',
 };
 
-export default function Topbar({ activePage, onMenu, onOpenLLMSettings, onAddStudent, onManageClasses }) {
+export default function Topbar({ activePage, onNavigate, onMenu, onOpenLLMSettings, onAddStudent, onManageClasses }) {
   const {
     students, curStuId, selectStudent,
     years, curYear, selectYear,
     curSemester, selectSemester,
     yearClasses, curClassId, selectClass,
   } = useStudents();
+  const { user } = useAuth();
+
+  // 워크스페이스에 있을 때만 영역 전환 칩 표시(시안 B).
+  const curSection = PAGE_SECTION[activePage] || null;
+  const usedTiers = parseUsedTiers(user?.used_tiers);
+  const chips = curSection
+    ? Object.values(SECTIONS).filter((s) => sectionEnabled(usedTiers, s.key))
+    : [];
 
   return (
     <div className="topbar">
       <div className="topbar-left">
         <button className="mobile-toggle" onClick={onMenu}>☰</button>
         <h1>{TITLES[activePage] || ''}</h1>
+        {chips.length > 0 && (
+          <div className="tb-chips" role="tablist" aria-label="지원 영역 전환">
+            {chips.map((s) => {
+              const on = s.key === curSection;
+              return (
+                <button
+                  key={s.key}
+                  className={'tb-chip' + (on ? ' on' : '')}
+                  style={on ? { background: s.color, borderColor: s.color } : undefined}
+                  onClick={() => onNavigate && onNavigate(s.dash)}
+                  title={s.label}
+                  role="tab"
+                  aria-selected={on}
+                >
+                  {s.key === 'iep' ? 'IEP' : 'T' + s.tier}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
       <div className="topbar-right">
         <LLMIndicator onClick={onOpenLLMSettings} />

@@ -3,14 +3,20 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { useUIActions } from '../../contexts/UIActionsContext';
 import { stuColor } from '../../lib/utils/colors';
+import { ALL_TIERS, TIER_META, IEP_META, parseUsedTiers } from '../../lib/tiers';
 
 export default function HomePage({ onNavigate }) {
   const { user } = useAuth();
   const { students, homeSummary, studentDataCache, selectStudent, curStuId } = useStudents();
   const { status: llmStatus } = useLLM();
-  const { openAddStudent, openAISettings } = useUIActions();
+  const { openAddStudent, openAISettings, openTierSetup } = useUIActions();
   const today = new Date();
   const wd = ['일', '월', '화', '수', '목', '금', '토'][today.getDay()];
+
+  // 사용 단계 설정 — null이면 아직 미설정(전체 표시 + 설정 유도 배너).
+  const usedTiers = parseUsedTiers(user?.used_tiers);
+  const tiersToShow = usedTiers || ALL_TIERS;
+  const tier3On = tiersToShow.includes(3);
 
   function getMetrics(s) {
     const dc = studentDataCache[s.id];
@@ -43,10 +49,36 @@ export default function HomePage({ onNavigate }) {
     { key: 'stu', done: hasStudent, icon: '👤', t: '학생 추가하기', d: '이름 없이 학생 코드로 등록해요.', cta: '학생 추가', action: openAddStudent },
     { key: 'ai', done: aiOn, icon: '🤖', t: 'AI 어시스턴트 연결하기 (선택)', d: '연결하면 BIP·IEP 초안을 자동으로 만들어줘요.', cta: aiOn ? null : 'AI 연결', action: openAISettings },
     { key: 'obs', done: hasObs, icon: '🔍', t: '첫 ABC 관찰 기록하기', d: '학생을 고르고 첫 행동 관찰을 남겨보세요.', cta: '관찰 시작', action: () => onNavigate('observe') },
-  ];
+  ].filter((s) => s.key !== 'obs' || tier3On); // Tier 3을 안 쓰면 ABC 관찰 단계는 안내하지 않는다.
   // 학생을 추가하고 첫 관찰까지 마치면 온보딩 카드를 숨긴다(필수 단계 기준).
-  const showOnboarding = !(hasStudent && hasObs);
+  const showOnboarding = !(hasStudent && (hasObs || !tier3On));
   const nextStep = onboardSteps.find((s) => !s.done && s.cta);
+
+  // ── Tier 진입 허브 — 각 카드의 바로가기 목록 ──────────────────
+  const tierEntries = {
+    1: [
+      { id: 'classpbs', icon: '🏫', label: '학급 차원 PBS' },
+      { id: 'pbssurvey', icon: '📋', label: 'PBS 기초 설문조사' },
+      { id: 'classcheck', icon: '✅', label: '학급관리 체크리스트' },
+    ],
+    2: [
+      { id: 'tier2', icon: '👥', label: 'CICO / DPR 운영' },
+    ],
+    3: [
+      { id: 'tier3', icon: '🎯', label: '개요 / 5단계 안내' },
+      { id: 'observe', step: 1, label: '학생 관찰 / ABC' },
+      { id: 'qabf', step: 2, label: '기능평가 (QABF)' },
+      { id: 'bip', step: 3, label: '중재계획 (BIP)' },
+      { id: 'monitor', step: 4, label: '행동 데이터' },
+      { id: 'eval', step: 5, label: '결과 평가' },
+    ],
+  };
+  const iepEntries = [
+    { id: 'priorIep', icon: '🗓', label: '전년도 IEP' },
+    { id: 'startpoint', icon: '🧭', label: '출발점 분석' },
+    { id: 'iep', icon: '📋', label: 'IEP 목표 생성' },
+    { id: 'iepReport', icon: '📄', label: '계획서 완성·출력' },
+  ];
 
   return (
     <>
@@ -54,6 +86,20 @@ export default function HomePage({ onNavigate }) {
         <h2>안녕하세요, {user?.name} 선생님 <span className="wave">👋</span></h2>
         <p>{today.getFullYear()}년 {today.getMonth() + 1}월 {today.getDate()}일 ({wd}) · 오늘도 따뜻한 하루 보내세요.</p>
       </div>
+
+      {/* 사용 단계 미설정 — 메뉴 정리를 유도한다(선택 전에는 전체 표시). */}
+      {!usedTiers && (
+        <div className="card tier-setup-banner">
+          <div className="tsb-body">
+            <div className="card-title" style={{ marginBottom: 4 }}>🧩 메뉴를 선생님께 맞게 정리해드려요</div>
+            <div className="card-subtitle" style={{ marginBottom: 0 }}>
+              학급 전체(Tier 1)·소그룹(Tier 2)·개별 학생(Tier 3) 중 실제로 운영하는 단계만 고르면,
+              안 쓰는 메뉴는 숨겨져 화면이 깔끔해져요.
+            </div>
+          </div>
+          <button className="btn btn-pri" onClick={openTierSetup}>사용 단계 선택하기</button>
+        </div>
+      )}
 
       {showOnboarding && (
         <div className="card" style={{ borderColor: 'var(--pri-l)', background: 'linear-gradient(135deg,#fff 0%,var(--pri-soft) 100%)' }}>
@@ -77,6 +123,71 @@ export default function HomePage({ onNavigate }) {
           </div>
         </div>
       )}
+
+      {/* ── Tier 진입 허브: 사용 중인 단계만 카드로 표시 ────────────── */}
+      <div className="tier-hub-head">
+        <h3>🧭 어디서 시작할까요?</h3>
+        <button className="btn btn-sm btn-ghost" onClick={openTierSetup} title="사용하는 지원 단계를 선택해 메뉴를 정리해요">
+          ⚙ 사용 단계 설정
+        </button>
+      </div>
+      <div className="tier-hub">
+        {tiersToShow.map((n) => {
+          const m = TIER_META[n];
+          const entries = tierEntries[n];
+          return (
+            <div
+              key={n}
+              className={'tier-card' + (n === 3 ? ' span' : '')}
+              style={{ '--tc': m.color, '--tc-soft': m.soft }}
+            >
+              <div className="tier-card-head">
+                <span className="tier-badge" style={{ background: m.color }}>{m.badge}</span>
+                <span className="tier-card-title">{m.icon} {m.title}</span>
+                <span className="tier-card-short">{m.short}</span>
+              </div>
+              <div className="tier-card-desc">{m.desc}</div>
+              <div className="tier-entries">
+                {entries.map((e) => (
+                  <button key={e.id} className="tier-entry" onClick={() => onNavigate(e.id)}>
+                    {e.step ? <span className="te-step">{e.step}</span> : <span aria-hidden="true">{e.icon}</span>}
+                    {e.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Tier → IEP 연결 표시: IEP는 별도 영역이지만 Tier 1·2·3 운영 내용이 반영된다. */}
+        <div className="tier-iep-bridge">
+          <span className="tib-arrow" aria-hidden="true">⬇</span>
+          운영 중인 Tier의 기록이 아래 개별화교육계획(IEP)에 반영돼요
+        </div>
+
+        {/* IEP — Tier와 별개의 독립 영역, 설정과 무관하게 항상 표시. */}
+        <div className="tier-card span" style={{ '--tc': IEP_META.color, '--tc-soft': IEP_META.soft }}>
+          <div className="tier-card-head">
+            <span className="tier-badge" style={{ background: IEP_META.color }}>{IEP_META.badge}</span>
+            <span className="tier-card-title">{IEP_META.icon} {IEP_META.title}</span>
+            <span className="tier-card-short">{IEP_META.short}</span>
+          </div>
+          <div className="tier-card-desc">{IEP_META.desc}</div>
+          {tier3On && (
+            <div className="tier-card-hint">
+              💡 Tier 3 중재계획(BIP)의 <b>행동목표</b>는 <b>개별화 목표로 가져가거나 교과 목표에 녹일 수</b> 있어요 — BIP 화면에서 선택합니다.
+            </div>
+          )}
+          <div className="tier-entries">
+            {iepEntries.map((e) => (
+              <button key={e.id} className="tier-entry" onClick={() => onNavigate(e.id)}>
+                <span aria-hidden="true">{e.icon}</span>
+                {e.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       <div className="dash-stats">
         <div className="stat-card"><div className="stat-icon pri">👥</div><div><div className="stat-val">{students.length}</div><div className="stat-label">등록 학생</div></div></div>
@@ -112,7 +223,8 @@ export default function HomePage({ onNavigate }) {
                   className="stu-mini"
                   onClick={async () => {
                     await selectStudent(s.id);
-                    onNavigate('observe');
+                    // Tier 3 미사용이면 관찰(Tier 3) 대신 학생 관리로 보낸다.
+                    onNavigate(tier3On ? 'observe' : 'students');
                   }}
                 >
                   <div className="stu-mini-head">
@@ -135,32 +247,6 @@ export default function HomePage({ onNavigate }) {
             })}
           </div>
         )}
-      </div>
-
-      <div className="card">
-        <div className="card-title">🧭 개별 중재 5단계 워크플로</div>
-        <div className="card-subtitle">
-          {curStuId
-            ? '1번부터 순서대로 진행하세요. 각 단계 아래의 "다음 단계" 버튼으로도 이동할 수 있어요.'
-            : '⚠ 먼저 학생을 선택하세요. 단계를 누르면 학생 선택 창이 자동으로 열립니다.'}
-        </div>
-        <div className="flow-strip">
-          {[
-            { id: 'observe', n: 1, icon: '🔍', t: '학생 관찰 / ABC', d: '행동 관찰 기록' },
-            { id: 'qabf', n: 2, icon: '📊', t: '기능평가 (QABF)', d: '행동 기능 분석' },
-            { id: 'bip', n: 3, icon: '📝', t: '중재계획 (BIP)', d: '중재 전략 수립' },
-            { id: 'monitor', n: 4, icon: '📈', t: '행동 데이터', d: '일일 데이터 기록' },
-            { id: 'eval', n: 5, icon: '✅', t: '결과 평가', d: '차트로 효과 확인' },
-          ].map((s) => (
-            <div className="flow-step" key={s.id} onClick={() => onNavigate(s.id)}>
-              <div className="flow-num">{s.n}</div>
-              <div className="flow-body">
-                <div className="flow-t">{s.icon} {s.t}</div>
-                <div className="flow-d">{s.d}</div>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       <div className="card">

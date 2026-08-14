@@ -48,6 +48,9 @@ export default function BipPage() {
   const [reinf, setReinf] = useState('');
   const [resp, setResp] = useState('');
   const [bgoal, setBgoal] = useState(''); // 0719: 중재계획 다음 단계 — 메이거식 행동목표
+  // 0814 전문가 자문: 행동목표의 IEP 반영 방식은 선생님의 선택 —
+  // 'iep'(개별화 목표로 가져감) | 'subject'(교과 목표에 녹임) | ''(미선택).
+  const [bgoalDest, setBgoalDest] = useState('');
   const [opdefBusy, setOpdefBusy] = useState(false);
   const [bgoalBusy, setBgoalBusy] = useState(false);
 
@@ -65,7 +68,7 @@ export default function BipPage() {
     const b = curStuData?.bip || {};
     setAlt(b.alt || ''); setFct(b.fct || ''); setCrit(b.crit || '');
     setPrev(b.prev || ''); setTeach(b.teach || ''); setReinf(b.reinf || ''); setResp(b.resp || '');
-    setOpdef(b.opdef || ''); setBgoal(b.bgoal || '');
+    setOpdef(b.opdef || ''); setBgoal(b.bgoal || ''); setBgoalDest(b.bgoal_dest || '');
   }, [curStuId, curStuData?.bip]);
 
   if (!curStu) return <><StuHero /><NoStudentHint /></>;
@@ -76,7 +79,7 @@ export default function BipPage() {
     if (!curStuId) return;
     setBusy(true);
     try {
-      const body = { alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal };
+      const body = { alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest: bgoalDest };
       await apiSaveBIP(curStuId, body);
       updateStudentData(curStuId, (cur) => ({ ...cur, bip: body }));
       toast('BIP 저장 완료');
@@ -292,8 +295,38 @@ export default function BipPage() {
         </div>
         <textarea className="form-textarea" rows={2} value={bgoal} onChange={(e) => setBgoal(e.target.value)}
           placeholder='예: 과제가 어려울 때(조건), "도와주세요" 카드를 들어 도움을 요청하기를(행동) 2주 연속 하루 3회 이상 한다(기준).' />
+
+        {/* 0814 전문가 자문: 행동목표를 IEP에 어떻게 반영할지는 '선택의 문제' —
+            개별화 목표로 그대로 가져갈지, 교과 목표에 녹일지 선생님이 정한다.
+            저장 시 AI 생성(tierContext)도 이 선택을 따른다. */}
+        <div className="bgoal-dest">
+          <div className="bgoal-dest-label">🔀 이 행동목표, IEP에 어떻게 반영할까요? <span className="bgoal-dest-sub">(선택 사항 — AI 초안 생성이 이 선택을 따라요)</span></div>
+          <div className="bgoal-dest-opts" role="radiogroup" aria-label="행동목표 IEP 반영 방식">
+            {[
+              { v: 'iep', icon: '📘', t: '개별화 목표로 가져가기', d: 'IEP의 행동·사회성 학기목표로 그대로 사용' },
+              { v: 'subject', icon: '📚', t: '교과 목표에 녹이기', d: '교과 학기목표·평가계획 안에 행동 지원을 통합' },
+              { v: '', icon: '⏳', t: '아직 결정 안 함', d: '행동 지원 참고용으로만 활용' },
+            ].map((o) => (
+              <button
+                key={o.v || 'none'}
+                type="button"
+                role="radio"
+                aria-checked={bgoalDest === o.v}
+                className={'bgoal-dest-opt' + (bgoalDest === o.v ? ' on' : '')}
+                onClick={() => setBgoalDest(o.v)}
+              >
+                <span aria-hidden="true">{o.icon}</span>
+                <span className="bdo-body"><b>{o.t}</b><small>{o.d}</small></span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div style={{ fontSize: '.76rem', color: 'var(--muted)', marginTop: 6 }}>
-          이 행동목표는 <strong>개별화교육(IEP) → 학기목표 먼저(경로 B)</strong>에 붙여넣어 개별화 학기목표로 그대로 쓸 수 있어요. 저장하면 Tier 3 통합 문서·AI 생성에도 반영됩니다.
+          {bgoalDest === 'subject'
+            ? <>교과에 녹이기를 선택했어요 — IEP의 <strong>교과 학기목표·평가계획</strong>을 만들 때 이 행동 지원 요소가 교과 맥락 안에 통합돼요.</>
+            : <>이 행동목표는 <strong>개별화교육(IEP) → 학기목표 먼저(경로 B)</strong>에 붙여넣어 개별화 학기목표로 그대로 쓸 수 있어요.</>}
+          {' '}저장하면 Tier 3 통합 문서·AI 생성에도 반영됩니다.
         </div>
       </div>
 
