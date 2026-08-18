@@ -1,8 +1,7 @@
 import LLMIndicator from './LLMIndicator';
 import HelpMenu from '../guide/HelpMenu';
 import { useStudents } from '../../contexts/StudentContext';
-import { useAuth } from '../../contexts/AuthContext';
-import { SECTIONS, PAGE_SECTION, parseUsedTiers, sectionEnabled } from '../../lib/tiers';
+import { SECTIONS, PAGE_SECTION } from '../../lib/tiers';
 
 // 사이드바의 모든 페이지 키에 제목이 있어야 한다. 빠지면 상단 제목이 빈칸으로
 // 뜬다(0720: pbssurvey·classcheck·generator·startpoint·iep 계열이 그랬음).
@@ -42,14 +41,11 @@ export default function Topbar({ activePage, onNavigate, canGoBack, onBack, onMe
     curSemester, selectSemester,
     yearClasses, curClassId, selectClass,
   } = useStudents();
-  const { user } = useAuth();
 
   // 워크스페이스에 있을 때만 영역 전환 칩 표시(시안 B).
   const curSection = PAGE_SECTION[activePage] || null;
-  const usedTiers = parseUsedTiers(user?.used_tiers);
-  const chips = curSection
-    ? Object.values(SECTIONS).filter((s) => sectionEnabled(usedTiers, s.key))
-    : [];
+  // Tier 1·2·3 + IEP는 항상 전부 표시(2026-08-14: '사용 단계 설정' 숨김 기능 폐지).
+  const chips = curSection ? Object.values(SECTIONS) : [];
 
   return (
     <div className="topbar">

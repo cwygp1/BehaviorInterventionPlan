@@ -8,11 +8,9 @@ import AddStudentModal from '../modals/AddStudentModal';
 import PickStudentModal from '../modals/PickStudentModal';
 import EditStudentModal from '../modals/EditStudentModal';
 import ManageClassesModal from '../modals/ManageClassesModal';
-import TierSetupModal from '../modals/TierSetupModal';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { UIActionsProvider } from '../../contexts/UIActionsContext';
-import { parseUsedTiers, pageVisible } from '../../lib/tiers';
 import { GuideProvider } from '../guide/GuideContext';
 import SpotlightTour from '../guide/SpotlightTour';
 import GlossaryModal from '../guide/GlossaryModal';
@@ -27,7 +25,6 @@ export default function Layout({ children, activePage, onNavigate, canGoBack, on
   const [pickOpen, setPickOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [classesOpen, setClassesOpen] = useState(false);
-  const [tierSetupOpen, setTierSetupOpen] = useState(false);
   const [pendingPage, setPendingPage] = useState(null);
 
   // 페이지를 바꾸면 스크롤을 맨 위로 되돌린다. 스크롤 컨테이너가 window가 아니라
@@ -87,7 +84,6 @@ export default function Layout({ children, activePage, onNavigate, canGoBack, on
           openAddStudent: () => setAddOpen(true),
           openAISettings: () => setAISettingsOpen(true),
           openManageClasses: () => setClassesOpen(true),
-          openTierSetup: () => setTierSetupOpen(true),
         }}>
           <div className="content" ref={contentRef}>{children}</div>
         </UIActionsProvider>
@@ -115,14 +111,6 @@ export default function Layout({ children, activePage, onNavigate, canGoBack, on
       />
       <EditStudentModal open={editOpen} onClose={() => setEditOpen(false)} />
       <ManageClassesModal open={classesOpen} onClose={() => setClassesOpen(false)} />
-      <TierSetupModal
-        open={tierSetupOpen}
-        onClose={() => setTierSetupOpen(false)}
-        onSaved={(csv) => {
-          // 지금 보고 있는 페이지가 방금 숨긴 Tier 소속이면 홈으로 되돌린다.
-          if (!pageVisible(parseUsedTiers(csv), activePage)) onNavigate('home');
-        }}
-      />
     </div>
 
     {/* 안내 레이어 — 화면 투어(스포트라이트) + 용어 사전 (mds/23 기능③) */}
