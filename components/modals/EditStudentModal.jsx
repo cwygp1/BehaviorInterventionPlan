@@ -3,9 +3,9 @@ import Modal from '../ui/Modal';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { splitNote, composeNote, decomposeNote } from '../../lib/utils/splitNote';
+import { DISABILITIES, DIS_NONE, joinDisability, splitDisability } from '../../lib/disability';
 
 const LEVELS = ['초등', '중등', '고등'];
-const DISABILITIES = ['지적장애', '자폐스펙트럼(ASD)', '지체장애', '청각장애', '시각장애', '정서행동장애', '학습장애', 'ADHD', '발달지연', '중복중증'];
 
 // student prop을 주면 그 학생을, 없으면 현재 선택된 학생(curStu)을 수정한다.
 export default function EditStudentModal({ open, onClose, student }) {
@@ -14,6 +14,7 @@ export default function EditStudentModal({ open, onClose, student }) {
   const toast = useToast();
   const [level, setLevel] = useState('');
   const [dis, setDis] = useState('');
+  const [dis2, setDis2] = useState(DIS_NONE); // 중복장애: 추가 장애 영역(선택)
   const [strengths, setStrengths] = useState('');
   const [difficulties, setDifficulties] = useState('');
   const [extra, setExtra] = useState('');
@@ -26,7 +27,10 @@ export default function EditStudentModal({ open, onClose, student }) {
   useEffect(() => {
     if (open && target) {
       setLevel(target.level || LEVELS[0]);
-      setDis(target.disability || DISABILITIES[0]);
+      // 결합값 "지적장애·ADHD" → 주/추가로 분해해 각 select에 채운다.
+      const dparts = splitDisability(target.disability);
+      setDis(dparts[0] || DISABILITIES[0]);
+      setDis2(dparts[1] || DIS_NONE);
       // note를 [강점]/[어려움]/기타로 되돌려 각 칸에 채운다. 분리 컬럼이 있으면 우선.
       const dec = decomposeNote(target.note || '');
       setStrengths(target.strengths || dec.strengths || '');
@@ -55,7 +59,7 @@ export default function EditStudentModal({ open, onClose, student }) {
     if (!target) return;
     setBusy(true);
     try {
-      await editStudent({ id: target.id, level, disability: dis, note, strengths, difficulties, class_id: classId ? Number(classId) : undefined });
+      await editStudent({ id: target.id, level, disability: joinDisability(dis, dis2), note, strengths, difficulties, class_id: classId ? Number(classId) : undefined });
       toast('프로필 수정 완료');
       onClose();
     } catch (e) {
@@ -77,10 +81,17 @@ export default function EditStudentModal({ open, onClose, student }) {
         </div>
         <div className="form-group">
           <label className="form-label">주요 장애 영역</label>
-          <select className="form-select" value={dis} onChange={(e) => setDis(e.target.value)}>
+          <select className="form-select" value={dis} onChange={(e) => { const v = e.target.value; setDis(v); if (dis2 === v) setDis2(DIS_NONE); }}>
             {DISABILITIES.map((d) => <option key={d}>{d}</option>)}
           </select>
         </div>
+      </div>
+      <div className="form-group">
+        <label className="form-label">추가 장애 영역 (선택)</label>
+        <select className="form-select" value={dis2} onChange={(e) => setDis2(e.target.value)}>
+          {[DIS_NONE, ...DISABILITIES.filter((d) => d !== dis)].map((d) => <option key={d}>{d}</option>)}
+        </select>
+        <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 4 }}>※ 중복장애·장애특성 2가지일 때 선택 — 배지·문서에는 "주요·추가"가 함께 표시됩니다.</div>
       </div>
       <div className="form-group">
         <label className="form-label">소속 학급</label>

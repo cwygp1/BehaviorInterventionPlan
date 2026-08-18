@@ -4,9 +4,9 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { EditableChipGroup, makeAppender } from '../ui/QChip';
 import { composeNote } from '../../lib/utils/splitNote';
+import { DISABILITIES, DIS_NONE, joinDisability } from '../../lib/disability';
 
 const LEVELS = ['초등', '중등', '고등'];
-const DISABILITIES = ['지적장애', '자폐스펙트럼(ASD)', '지체장애', '청각장애', '시각장애', '정서행동장애', '학습장애', 'ADHD', '발달지연', '중복중증'];
 const STEPS = ['기본 정보', '프로파일·현행수준', '확인'];
 
 const STRENGTH_CHIPS = ['시각자료 이해 우수', '규칙 준수 양호', '또래 관심 있음', '특정 주제 흥미 높음', '모방 능력 좋음', '신체활동 선호'];
@@ -19,6 +19,7 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
   const [code, setCode] = useState('');
   const [level, setLevel] = useState(LEVELS[0]);
   const [dis, setDis] = useState(DISABILITIES[0]);
+  const [dis2, setDis2] = useState(DIS_NONE); // 중복장애: 추가 장애 영역(선택)
   const [strengths, setStrengths] = useState('');
   const [difficulties, setDifficulties] = useState('');
   const [extra, setExtra] = useState('');
@@ -41,7 +42,7 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
     if (!curClass) { toast('먼저 학급을 선택하거나 추가해주세요. (상단 ⚙ 학급 관리)'); return; }
     setBusy(true);
     try {
-      const created = await addStudent({ student_code: c, level, disability: dis, note, strengths, difficulties });
+      const created = await addStudent({ student_code: c, level, disability: joinDisability(dis, dis2), note, strengths, difficulties });
       toast(c + ' 등록 완료');
       setCode(''); setStrengths(''); setDifficulties(''); setExtra(''); setStep(0);
       if (created?.id) await selectStudent(created.id);
@@ -87,7 +88,16 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
             </div>
             <div className="form-group">
               <label className="form-label">주요 장애 영역</label>
-              <select className="form-select" value={dis} onChange={(e) => setDis(e.target.value)}>{DISABILITIES.map((d) => <option key={d}>{d}</option>)}</select>
+              <select className="form-select" value={dis} onChange={(e) => { const v = e.target.value; setDis(v); if (dis2 === v) setDis2(DIS_NONE); }}>{DISABILITIES.map((d) => <option key={d}>{d}</option>)}</select>
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">추가 장애 영역 (선택)</label>
+            <select className="form-select" value={dis2} onChange={(e) => setDis2(e.target.value)}>
+              {[DIS_NONE, ...DISABILITIES.filter((d) => d !== dis)].map((d) => <option key={d}>{d}</option>)}
+            </select>
+            <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 4 }}>
+              ※ 중복장애이거나 장애특성이 2가지면 선택하세요. 두 유형을 각각 남기고 싶을 때 쓰며, '중복중증'은 그 자체로 하나의 범주입니다.
             </div>
           </div>
           <div style={{ fontSize: 11.5, color: '#6b7280' }}>※ 전년도 IEP는 등록 후 "IEP 계획서" 화면에서 업로드하면 AI가 목표로 파싱합니다.</div>
@@ -121,7 +131,7 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
           <div style={{ fontWeight: 700, marginBottom: 8 }}>입력 내용 확인</div>
           <Row k="익명 ID" v={code || '(미입력)'} />
           <Row k="학교급" v={level} />
-          <Row k="주요 장애 영역" v={dis} />
+          <Row k="장애 영역" v={joinDisability(dis, dis2)} />
           <Row k="강점" v={strengths || '(없음)'} />
           <Row k="어려움" v={difficulties || '(없음)'} />
           <Row k="비식별 요약" v={note || '(없음)'} />

@@ -203,7 +203,7 @@ export default function ObservePage() {
     <>
       <StuHero />
 
-      <div className="card">
+      <div className="card" data-tour="ob-profile">
         <div className="card-title">👤 학생 프로필</div>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '.88rem', color: 'var(--sub)' }}>
           <span><strong>ID:</strong> {curStu.code}</span>
@@ -226,7 +226,7 @@ export default function ObservePage() {
         </div>
 
         {/* ⚡ 빠른 입력 — 한 문장(또는 음성) → A·B·C 자동 분배 */}
-        <div className="quick-capture">
+        <div className="quick-capture" data-tour="ob-quick">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
             <strong style={{ fontSize: '.88rem', color: 'var(--pri-d)' }}>⚡ 빠른 입력 — 상황을 한 문장으로 적으면 A·B·C로 자동 분배해 드려요</strong>
             {abc.length > 0 && (
@@ -257,7 +257,7 @@ export default function ObservePage() {
           )}
         </div>
 
-        <div className="form-row">
+        <div className="form-row" data-tour="ob-when">
           <div className="form-group">
             <label className="form-label">날짜</label>
             <input type="date" className="form-input" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -269,15 +269,15 @@ export default function ObservePage() {
             <EditableChipGroup label="장소" storageKey="abc_place" defaults={ABC_PLACES} mode="set" target={placeVal} onChange={setPlaceVal} />
           </div>
         </div>
-        <div className="form-group">
+        <div className="form-group" data-tour="ob-a">
           <label className="form-label">A (선행사건, Antecedent)</label>
           <TokenField value={a} onChange={setA} options={A_CHIPS} storageKey="abc_a" editPlaceholder="행동 직전에 어떤 상황이 있었나요?" />
         </div>
-        <div className="form-group">
+        <div className="form-group" data-tour="ob-b">
           <label className="form-label">B (행동, Behavior)</label>
           <TokenField value={b} onChange={setB} options={B_CHIPS} storageKey="abc_b" editPlaceholder="학생이 정확히 어떤 행동을 했나요?" />
         </div>
-        <div className="form-group">
+        <div className="form-group" data-tour="ob-c">
           <label className="form-label">C (결과, Consequence)</label>
           <TokenField value={c} onChange={setC} options={C_CHIPS} storageKey="abc_c" editPlaceholder="행동 직후 어떤 결과가 발생했나요?" />
         </div>
@@ -286,7 +286,7 @@ export default function ObservePage() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" data-tour="ob-list">
         <div className="card-title">📄 누적 ABC 기록 <span className="badge badge-pri">{abc.length}건</span></div>
         {abc.length === 0 ? (
           <div className="empty-state"><span className="emoji">📄</span>저장된 기록이 없습니다.</div>

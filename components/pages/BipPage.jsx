@@ -185,14 +185,14 @@ export default function BipPage() {
       <StuHero />
 
       {/* 0719 피드백: ABC → ① 조작적 정의 → ② 중재계획 → ③ 행동목표 순서를 화면에 드러냄 */}
-      <div className="card" style={{ background: 'var(--pri-soft)', borderColor: 'var(--pri-l)', fontSize: '.84rem', lineHeight: 1.6 }}>
+      <div className="card" style={{ background: 'var(--pri-soft)', borderColor: 'var(--pri-l)', fontSize: '.84rem', lineHeight: 1.6 }} data-tour="bip-order">
         🧭 <strong>작성 순서</strong> — ABC 관찰 뒤 ① <strong>표적행동 조작적 정의</strong>를 쓰고, ② 대체행동·중재 전략(BIP)을 세운 다음, ③ <strong>행동목표(메이거식)</strong>를 만들어 마무리합니다. 행동목표는 IEP의 개별화 학기목표로도 쓸 수 있어요.
       </div>
 
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div>
-            <div className="card-title" style={{ marginBottom: 0 }}>🪄 ① 표적행동(문제행동) 조작적 정의</div>
+            <div className="card-title" style={{ marginBottom: 0 }} data-tour="bip-opdef">🪄 ① 표적행동(문제행동) 조작적 정의</div>
             <div className="card-subtitle">ABC 기록을 근거로, 눈으로 보고 셀 수 있는 구체적 행동으로 정의합니다.</div>
           </div>
           {aiOn && <button className="btn btn-ghost btn-sm" onClick={aiOpdef} disabled={opdefBusy}>{opdefBusy ? '생성 중…' : '✨ ABC 기록으로 AI 초안'}</button>}
@@ -201,7 +201,7 @@ export default function BipPage() {
           placeholder='예: 과제를 제시받으면 3초 이내에 "싫어"라고 소리치며 책상 위 물건을 바닥으로 던진다.' />
       </div>
 
-      <div className="card">
+      <div className="card" data-tour="bip-alt">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div>
             <div className="card-title" style={{ marginBottom: 0 }}>🎯 ② 목표 행동(대체 행동) 설정</div>
@@ -228,7 +228,7 @@ export default function BipPage() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" data-tour="bip-strategy">
         <div className="card-title">📜 중재 전략 (예방-교수-강화-반응)</div>
         <div className="form-group">
           <label className="form-label">🛡 예방 전략</label>
@@ -282,7 +282,7 @@ export default function BipPage() {
       </div>
 
       {/* 0719 피드백(A-3): ③ 행동목표 — 중재계획을 참고해 메이거식으로 작성, IEP 학기목표로 연계 */}
-      <div className="card" style={{ borderColor: '#c7b9f0' }}>
+      <div className="card" style={{ borderColor: '#c7b9f0' }} data-tour="bip-goal">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div>
             <div className="card-title" style={{ marginBottom: 0 }}>🏁 ③ 행동목표 (메이거식: 조건 + 행동 + 기준)</div>
@@ -332,7 +332,7 @@ export default function BipPage() {
 
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <div className="card-title" style={{ marginBottom: 0 }}>✍ 행동 계약서</div>
+          <div className="card-title" style={{ marginBottom: 0 }} data-tour="bip-contract">✍ 행동 계약서</div>
           <button className="btn btn-ghost btn-sm" onClick={copyBIPToContract}>📋 BIP에서 가져오기</button>
         </div>
         <div className="form-group">

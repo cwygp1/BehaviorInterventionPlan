@@ -4,6 +4,7 @@ import { useLLM } from '../../contexts/LLMContext';
 import { useStudents } from '../../contexts/StudentContext';
 import PromptResultBlock from '../modals/PromptResultBlock';
 import AIActionBar from '../ui/AIActionBar';
+import { splitDisability } from '../../lib/disability';
 
 // ──────────────────────────────────────────────────────────────────────
 // CATEGORIES — Full Prompt Studio V2 chip system, organized by tab
@@ -155,11 +156,13 @@ const AI_WARNINGS = [
 // ──────────────────────────────────────────────────────────────────────
 // Auto-fill student profile from currently selected student
 // ──────────────────────────────────────────────────────────────────────
-function findDisabilityChip(disability) {
-  if (!disability) return null;
+// 중복장애("지적장애·ADHD" 결합값) 지원 — 각 유형을 칩에 매칭해 배열로 반환.
+function findDisabilityChips(disability) {
   const items = CATEGORIES[0].groups[0].items; // 장애 chips
-  // Match by inclusion of disability text in chip text
-  return items.find((it) => it.includes(disability)) || null;
+  const chips = splitDisability(disability)
+    .map((d) => items.find((it) => it.includes(d)) || null)
+    .filter(Boolean);
+  return [...new Set(chips)];
 }
 
 function inferGradeChip(student) {
@@ -213,14 +216,14 @@ export default function BuilderPage() {
     if (lastStuIdRef.current === curStu.id) return;
     lastStuIdRef.current = curStu.id;
 
-    const disChip = findDisabilityChip(curStu.disability);
+    const disChips = findDisabilityChips(curStu.disability); // 중복장애면 칩 2개
     const gradeChip = inferGradeChip(curStu);
     const envChip = '🏠 특수학급'; // default for special-ed platform
 
     setSelected((prev) => {
       const next = { ...prev };
       // Replace 장애 with this student's value
-      if (disChip) next['장애'] = new Set([disChip]);
+      if (disChips.length) next['장애'] = new Set(disChips);
       else delete next['장애'];
       // Replace 학년군 if we can infer (otherwise keep user's choice)
       if (gradeChip) next['학년군'] = new Set([gradeChip]);
@@ -230,7 +233,7 @@ export default function BuilderPage() {
       }
       return next;
     });
-    setAutoSet({ 장애: disChip, 학년군: gradeChip, 학급환경: envChip });
+    setAutoSet({ 장애: disChips.length ? disChips : null, 학년군: gradeChip, 학급환경: envChip });
   }, [curStu]);
 
   function toggle(cat, item) {
@@ -439,7 +442,13 @@ function BuilderTab({ curStu, autoSet, selected, isSelected, toggle, topic, setT
   const [showPreview, setShowPreview] = useState(false);
 
   // Quick visibility: which auto-selected chips are still active
-  const autoActive = autoSet ? Object.entries(autoSet).filter(([cat, val]) => val && selected[cat]?.has(val)) : [];
+  // (장애는 중복장애 지원으로 배열일 수 있음 → 값 단위로 펼쳐 확인)
+  const autoActive = autoSet
+    ? Object.entries(autoSet).flatMap(([cat, val]) =>
+        (Array.isArray(val) ? val : [val])
+          .filter((v) => v && selected[cat]?.has(v))
+          .map((v) => [cat, v]))
+    : [];
 
   return (
     <>

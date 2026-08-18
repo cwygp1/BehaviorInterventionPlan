@@ -188,7 +188,7 @@ export default function StartPointPage() {
       <StuHero />
 
       {/* 핵심 질문 배너 */}
-      <div className="card" style={{ background: 'linear-gradient(135deg,#eef4ff 0%,#e6eeff 100%)', borderColor: '#b9cdf0' }}>
+      <div className="card" style={{ background: 'linear-gradient(135deg,#eef4ff 0%,#e6eeff 100%)', borderColor: '#b9cdf0' }} data-tour="sp-intro">
         <div className="card-title" style={{ marginBottom: 4 }}>🧭 모듈1 · 출발점 (학습자 분석)</div>
         <p style={{ fontSize: '.92rem', color: '#274690', lineHeight: 1.6, margin: 0 }}>
           핵심 질문 — <strong>"이 학생은 지금 삶에서 무엇이 어려운가?"</strong><br />
@@ -198,10 +198,10 @@ export default function StartPointPage() {
       </div>
 
       {/* 입력 5블록 */}
-      <div className="card">
+      <div className="card" data-tour="sp-input">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div className="card-title" style={{ marginBottom: 0 }}>📥 학습자 분석 입력</div>
-          <button className="btn btn-ghost btn-sm" onClick={syncFromData}>🔄 프로필(강점/어려움)·관찰·FBA 자동 연동</button>
+          <button className="btn btn-ghost btn-sm" onClick={syncFromData} data-tour="sp-sync">🔄 프로필(강점/어려움)·관찰·FBA 자동 연동</button>
         </div>
 
         {/* 기존 학생 안내 — 강/약점 분리 저장 전이면 규칙 분리로 연동됨을 알린다. */}
@@ -259,7 +259,7 @@ export default function StartPointPage() {
       </div>
 
       {/* 산출물 3블록 */}
-      <div className="card">
+      <div className="card" data-tour="sp-output">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div>
             <div className="card-title" style={{ marginBottom: 0 }}>📤 산출물 (출발점 결과)</div>

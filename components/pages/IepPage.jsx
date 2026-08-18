@@ -16,6 +16,7 @@ import { findHanja } from '../../lib/utils/aiText';
 import { ebpBlockForGoal } from '../../lib/ebp';
 import { FORMAT_EX_MATH, FORMAT_EX_MOTOR, findExampleEchoes } from '../../lib/exampleGuard';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
+import { splitDisability } from '../../lib/disability';
 
 const GRADE = { 0: '일상생활(공통)', 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
 const GORDER = [2, 4, 6, 9, 12];
@@ -56,12 +57,22 @@ function toActivityPhrase(s) {
 }
 const CONTENT_SUFFIX = ['탐색·모방 활동', '구조화된 연습 활동', '실제 상황 적용 연습', '모의·실제 상황 일반화 활동'];
 
-function methodsForType(disability) {
-  const d = disability || '';
+// 유형 1개의 기본 교육방법. 매칭 없으면 null(호출부에서 기본 세트 처리).
+function methodsForOne(d) {
   if (d.includes('자폐')) return ['시각적 지원', '구조화 교수', '사회적 이야기', '과제분석'];
   if (d.includes('주의') || d.toUpperCase().includes('ADHD')) return ['짧은 활동', '즉각 강화', '자기점검', '시각적 일정'];
   if (d.includes('지적')) return ['직접교수', '모델링', '과제분석', '반복연습', '즉각 강화'];
-  return ['모델링', '직접교수', '과제분석', '즉각 강화'];
+  return null;
+}
+// 중복장애("지적장애·ADHD" 결합값)면 각 유형의 방법을 합집합으로(주 장애 순서 우선).
+function methodsForType(disability) {
+  const out = [];
+  for (const p of splitDisability(disability)) {
+    const m = methodsForOne(p);
+    if (m) out.push(...m);
+  }
+  if (!out.length) return ['모델링', '직접교수', '과제분석', '즉각 강화'];
+  return [...new Set(out)];
 }
 // 과제 분석 — 교수 순서(연쇄)·촉진 체계 라벨 및 서술 도우미.
 const CHAIN_LABEL = { forward: '전진형', backward: '후진형', total: '전체과제 제시형' };
@@ -1787,7 +1798,7 @@ export default function IepPage() {
 
       {/* 학기목표 작성 경로 선택 (0719 피드백: 학기목표 선행 — 두 경로 중 선택) */}
       <div className="card">
-        <div className="card-title">🧭 학기목표 작성 경로</div>
+        <div className="card-title" data-tour="iep-flow">🧭 학기목표 작성 경로</div>
         <div className="card-subtitle">학기목표를 먼저 확정하고, 평가초점·월별 계획은 학기목표에서 나옵니다. 어떤 순서로 학기목표를 만들지 선택하세요.</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 8 }}>
           {[

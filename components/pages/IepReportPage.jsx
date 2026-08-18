@@ -195,7 +195,7 @@ export default function IepReportPage() {
     <>
       <StuHero />
 
-      <div className="card">
+      <div className="card" data-tour="ir-head">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div>
             <div className="card-title" style={{ marginBottom: 0 }}>📄 IEP 계획서 (편집 · 출력)</div>
@@ -224,7 +224,7 @@ export default function IepReportPage() {
       {!loading && list.length === 0 && <div className="card"><div className="empty-state">이 학년도·학기에 저장된 목표가 없습니다. "IEP 목표 생성"에서 만들거나 "전년도 IEP"에서 불러오세요.</div></div>}
 
       {!loading && list.map((g) => (
-        <div className="card" key={g.id}>
+        <div className="card" key={g.id} data-tour="ir-goal">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>📘 {g.subject}{g.area ? ' · ' + g.area : ''} <span style={{ fontWeight: 400, fontSize: 12, color: '#6b7280' }}>· {g.school_year || '-'}학년도 {g.semester}학기 · {GRADE[g.grade_code] || ''}</span></div>
             <div style={{ display: 'flex', gap: 8 }}>

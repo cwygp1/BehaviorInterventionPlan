@@ -198,7 +198,7 @@ ${bText}
       <StuHero />
 
       {/* B3 Phase A/B 명시적 전환 + B4 관찰 기간 */}
-      <div className="card" style={{ background: phase === 'A' ? '#fff5f5' : '#f0f7ff' }}>
+      <div className="card" style={{ background: phase === 'A' ? '#fff5f5' : '#f0f7ff' }} data-tour="mon-phase">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div>
             <div className="card-title" style={{ marginBottom: 0 }}>📍 현재 관찰 단계 (Phase)</div>
@@ -289,7 +289,7 @@ ${bText}
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" data-tour="mon-fid">
         <div className="card-title">📋 BIP 실행 충실도 (오늘)
           {todayFid && (
             <span style={{ marginLeft: 8, fontSize: '.72rem', fontWeight: 700, color: 'var(--ok)', background: 'var(--ok-l)', padding: '2px 8px', borderRadius: 99 }}>
@@ -317,14 +317,14 @@ ${bText}
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" data-tour="mon-ai">
         <div className="card-title">✨ AI 추세 분석</div>
         <div className="card-subtitle">기초선(A)과 중재(B) 데이터를 비교해 행동 추세와 다음 단계(지속·조정·강화)를 제안합니다. (학생 코드만 사용 · 비식별)</div>
         <AIActionBar prompt={buildTrendPrompt()} onCallAI={runTrend} busy={aiBusy} callLabel="✨ AI 추세 분석" />
         {(aiOutput || aiBusy) && <PromptResultBlock prompt={buildTrendPrompt()} output={aiOutput} busy={aiBusy} onChange={setAiOutput} />}
       </div>
 
-      <div className="card">
+      <div className="card" data-tour="mon-list">
         <div className="card-title">📄 기록 목록 <span className="badge badge-pri">{monRecords.length}건</span></div>
         <div className="card-subtitle">앞의 날짜가 <strong>기록 해당일(관찰일)</strong>입니다. 항목을 누르면 위 입력 폼으로 불러와 바로 수정할 수 있어요.</div>
         {monRecords.length === 0 ? (

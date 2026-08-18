@@ -132,7 +132,7 @@ export default function PriorIepPage() {
     <>
       <StuHero />
 
-      <div className="card">
+      <div className="card" data-tour="pi-year">
         <div className="card-title">🗓 전년도 IEP 관리</div>
         <div className="card-subtitle">과거 학년도의 IEP를 업로드 파싱하거나 직접 입력·수정합니다. 올해 IEP 목표 생성 시 이 자료를 근거로 활용합니다.</div>
         <div className="form-row">
@@ -148,7 +148,7 @@ export default function PriorIepPage() {
       </div>
 
       {/* 업로드 파싱 */}
-      <div className="card">
+      <div className="card" data-tour="pi-upload">
         <div className="card-title">📥 파일 업로드 → AI 파싱</div>
         <div className="card-subtitle">.pdf · .docx · 이미지 · .txt 지원. 스캔본/이미지는 AI 비전이 읽습니다.{!aiOn && ' (AI 연결 필요)'} 위에서 고른 {year}학년도로 저장됩니다.</div>
         <div className="form-row" style={{ alignItems: 'flex-end' }}>
@@ -188,7 +188,7 @@ export default function PriorIepPage() {
       </div>
 
       {/* 수동 입력 / 수정 */}
-      <div className="card">
+      <div className="card" data-tour="pi-manual">
         <div className="card-title">✍ 직접 입력 / 수정 {editingId && <span className="badge badge-purple">수정 중</span>}</div>
         <div className="form-row">
           <div className="form-group"><label className="form-label">교과</label><input className="form-input" value={fSubject} onChange={(e) => setFSubject(e.target.value)} placeholder="예: 국어" /></div>
@@ -204,7 +204,7 @@ export default function PriorIepPage() {
       </div>
 
       {/* 목록 */}
-      <div className="card">
+      <div className="card" data-tour="pi-list">
         <div className="card-title">📋 {year}학년도 IEP 목록 ({yearGoals.length})</div>
         {loading && <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 2px', color: '#6b7280' }}><span style={spinner} /> 불러오는 중…</div>}
         {!loading && yearGoals.length === 0 && <div className="empty-state">{year}학년도에 저장된 IEP가 없습니다. 위에서 업로드 파싱하거나 직접 입력하세요.</div>}

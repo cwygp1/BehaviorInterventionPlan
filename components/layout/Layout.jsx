@@ -13,8 +13,11 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { UIActionsProvider } from '../../contexts/UIActionsContext';
 import { parseUsedTiers, pageVisible } from '../../lib/tiers';
+import { GuideProvider } from '../guide/GuideContext';
+import SpotlightTour from '../guide/SpotlightTour';
+import GlossaryModal from '../guide/GlossaryModal';
 
-export default function Layout({ children, activePage, onNavigate }) {
+export default function Layout({ children, activePage, onNavigate, canGoBack, onBack }) {
   const { students, curStuId, selectStudent } = useStudents();
   const toast = useToast();
 
@@ -59,6 +62,7 @@ export default function Layout({ children, activePage, onNavigate }) {
   }
 
   return (
+    <GuideProvider activePage={activePage} onNavigate={tryNavigate}>
     <div className="app show">
       <Sidebar
         activePage={activePage}
@@ -72,6 +76,8 @@ export default function Layout({ children, activePage, onNavigate }) {
         <Topbar
           activePage={activePage}
           onNavigate={tryNavigate}
+          canGoBack={canGoBack}
+          onBack={onBack}
           onMenu={() => setSidebarOpen(true)}
           onOpenLLMSettings={() => setAISettingsOpen(true)}
           onAddStudent={() => setAddOpen(true)}
@@ -118,5 +124,10 @@ export default function Layout({ children, activePage, onNavigate }) {
         }}
       />
     </div>
+
+    {/* 안내 레이어 — 화면 투어(스포트라이트) + 용어 사전 (mds/23 기능③) */}
+    <SpotlightTour />
+    <GlossaryModal />
+    </GuideProvider>
   );
 }

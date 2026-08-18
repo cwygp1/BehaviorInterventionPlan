@@ -571,6 +571,18 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 .tb-chip.on{color:#fff}
 @media(max-width:900px){.tb-chips{display:none}}
 
+/* ── 상단바 뒤로가기(←) — 히스토리 한 칸 뒤로, 모바일에서도 항상 표시 ── */
+.tb-back{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;min-width:34px;min-height:32px;padding:2px 10px;border:1px solid var(--border);background:#fff;border-radius:10px;font-size:1.05rem;font-weight:800;color:var(--sub);transition:.13s;cursor:pointer}
+.tb-back:hover{border-color:var(--pri);color:var(--pri);background:var(--pri-soft)}
+
+/* ── 홈: 숨겨진 Tier 다시 켜기 줄(런처 카드 아래) ───────────────── */
+.tier-restore{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 2px;padding:10px 14px;border:1.5px dashed var(--border);border-radius:12px;background:var(--surface2,#f8f9fb)}
+.tier-restore .tr-label{font-size:.78rem;font-weight:800;color:var(--sub)}
+.tier-restore .tr-chip{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:5px 13px;border:1.5px dashed var(--tc,var(--pri));color:var(--tc,var(--pri));background:#fff;border-radius:999px;font-size:.78rem;font-weight:700;transition:.13s;cursor:pointer}
+.tier-restore .tr-chip:hover{background:var(--tc,var(--pri));border-style:solid;color:#fff}
+.tier-restore .tr-chip:disabled{opacity:.55;cursor:default}
+.tier-restore .tr-hint{font-size:.72rem;color:var(--muted)}
+
 /* ── 대시보드 공용 (dz-*) ── */
 .dz-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px}
 .dz-kpi{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--sh-card);transition:.15s;border-top:4px solid var(--kc,var(--pri))}
@@ -665,3 +677,58 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 .dz-kpib{height:100%;display:flex;flex-direction:column;justify-content:center}
 .dz-kpib.click{cursor:pointer}
 .dz-kpib.click:hover .dz-kpi-label{color:var(--pri)}
+
+/* ═══ 안내 레이어 (mds/23 기능③) — 화면 투어·용어 사전·도움 버튼·다음 할 일 ═══ */
+
+/* ── 스포트라이트 투어 ── */
+.tour-dim{position:fixed;inset:0;background:rgba(15,20,35,.55);z-index:3000;backdrop-filter:blur(1px)}
+.tour-hole{position:fixed;z-index:3000;border-radius:12px;box-shadow:0 0 0 9999px rgba(15,20,35,.55);border:2px solid rgba(255,255,255,.95);pointer-events:none;transition:top .25s ease,left .25s ease,width .25s ease,height .25s ease}
+.tour-shield{position:fixed;inset:0;z-index:3001;background:transparent}
+.tour-pop{position:fixed;z-index:3002;background:var(--surface,#fff);border-radius:14px;padding:16px 18px 12px;box-shadow:0 18px 50px rgba(15,20,35,.35);border:1px solid var(--border,#e3e6eb)}
+.tour-count{font-size:.72rem;font-weight:800;color:var(--pri,#4f6bed);letter-spacing:1px;margin-bottom:4px}
+.tour-title{font-size:1.02rem;font-weight:800;color:var(--text,#1f2430);margin-bottom:6px;line-height:1.4}
+.tour-desc{font-size:.88rem;color:var(--sub,#4b5563);line-height:1.65;word-break:keep-all}
+.tour-term{display:inline-flex;align-items:center;gap:4px;margin-top:10px;padding:6px 12px;border-radius:99px;border:1px dashed var(--pri,#4f6bed);background:var(--pri-soft,#eef2ff);color:var(--pri-d,#3a54cf);font-size:.8rem;font-weight:700;cursor:pointer;transition:.15s}
+.tour-term:hover{background:var(--pri-l,#dbe4ff)}
+.tour-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:14px}
+.tour-nav{display:flex;gap:6px}
+.tour-hint{font-size:.68rem;color:var(--muted,#9aa1ad);text-align:right;margin-top:6px}
+@media (max-width:480px){.tour-pop{padding:14px 14px 10px}.tour-hint{display:none}}
+
+/* ── ❓ 도움 버튼 (Topbar) ── */
+.help-menu{position:relative;flex-shrink:0}
+.help-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border,#e3e6eb);background:var(--surface,#fff);font-size:.95rem;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center}
+.help-btn:hover{background:var(--pri-soft,#eef2ff);border-color:var(--pri-l,#c9d6ff)}
+.help-backdrop{position:fixed;inset:0;z-index:1198;background:transparent}
+.help-drop{position:absolute;top:calc(100% + 8px);right:0;z-index:1199;background:var(--surface,#fff);border:1px solid var(--border,#e3e6eb);border-radius:12px;box-shadow:0 12px 34px rgba(15,20,35,.18);padding:6px;min-width:230px;display:flex;flex-direction:column}
+.help-drop button{border:none;background:transparent;text-align:left;padding:10px 12px;border-radius:8px;font-size:.86rem;font-weight:600;color:var(--text,#1f2430);cursor:pointer;transition:.12s;white-space:nowrap}
+.help-drop button:hover{background:var(--pri-soft,#eef2ff);color:var(--pri-d,#3a54cf)}
+
+/* ── 🔦 다음 할 일 배너 (홈 포털) ── */
+.next-step-banner{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-color:#ffd591;background:linear-gradient(135deg,#fff 0%,#fff7e6 100%)}
+.next-step-banner .nsb-body{flex:1;min-width:220px}
+.next-step-banner .nsb-k{font-size:.74rem;font-weight:800;color:#a76200;letter-spacing:1px;margin-bottom:3px}
+.next-step-banner .nsb-t{font-size:.95rem;font-weight:700;color:var(--text,#1f2430);line-height:1.5;word-break:keep-all}
+.next-step-banner .nsb-s{font-size:.8rem;color:var(--sub,#4b5563);margin-top:3px;line-height:1.55;word-break:keep-all}
+.pulse-dot{width:12px;height:12px;border-radius:50%;background:#f59f00;flex-shrink:0;animation:beaconPulse 1.6s ease-out infinite}
+@keyframes beaconPulse{0%{box-shadow:0 0 0 0 rgba(245,159,0,.55)}70%{box-shadow:0 0 0 12px rgba(245,159,0,0)}100%{box-shadow:0 0 0 0 rgba(245,159,0,0)}}
+
+/* ── 📖 용어 사전 모달 ── */
+.gl-list{margin-top:12px;max-height:56vh;overflow-y:auto;padding-right:4px}
+.gl-group{margin-bottom:14px}
+.gl-group-name{font-size:.74rem;font-weight:800;color:var(--muted,#9aa1ad);letter-spacing:1px;margin:4px 0 6px;position:sticky;top:0;background:var(--surface,#fff);padding:4px 0}
+.gl-item{border:1px solid var(--border,#e3e6eb);border-radius:10px;padding:10px 12px;margin-bottom:8px;transition:.15s}
+.gl-item.on{border-color:var(--pri-l,#c9d6ff);background:var(--pri-soft,#eef2ff)}
+.gl-head{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;border:none;background:transparent;padding:0;cursor:pointer;text-align:left}
+.gl-term{font-size:.9rem;font-weight:800;color:var(--text,#1f2430)}
+.gl-arrow{color:var(--muted,#9aa1ad);font-size:.8rem}
+.gl-short{font-size:.83rem;color:var(--sub,#4b5563);line-height:1.6;margin-top:4px;word-break:keep-all}
+.gl-more{font-size:.82rem;color:var(--text,#1f2430);line-height:1.65;margin-top:8px;padding:9px 11px;background:var(--surface,#fff);border-radius:8px;border:1px dashed var(--pri-l,#c9d6ff);word-break:keep-all}
+/* 투어 도중 열린 용어 사전 — 안내로 돌아가기 안내줄 */
+.gl-resume{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:6px 0 12px;padding:9px 12px;border-radius:10px;background:var(--pri-soft,#eef2ff);border:1px solid var(--pri-l,#c9d6ff);font-size:.83rem;color:var(--pri-d,#3a54cf);font-weight:600}
+
+/* ── 접근성: 움직임 줄이기 설정 존중 ── */
+@media (prefers-reduced-motion:reduce){
+  .pulse-dot{animation:none}
+  .tour-hole{transition:none}
+}

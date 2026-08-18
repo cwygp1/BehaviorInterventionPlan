@@ -39,7 +39,7 @@ export default function Tier3Dashboard({ onNavigate }) {
   ) : (
     <>
       <div className="dw-sub">칸을 누르면 그 학생·그 단계로 바로 이동해요</div>
-      <div className="dz-table-wrap">
+      <div className="dz-table-wrap" data-tour="t3-roster">
         <table className="dz-table">
           <thead>
             <tr><th>학생</th><th>① 관찰(ABC)</th><th>② 기능평가</th><th>③ BIP</th><th>행동목표 → IEP</th><th>④ 데이터</th><th>⑤ 평가</th></tr>
@@ -108,7 +108,7 @@ export default function Tier3Dashboard({ onNavigate }) {
     { id: 'kpi-review', title: '검토 필요', x: 9, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="🔎" value={reviews.length} label="검토 필요" hint={reviews.length ? '검토 위젯을 확인하세요' : '모두 정상'} /> ) },
     { id: 'roster', title: '🗂 학생별 진행 명부', x: 0, y: 2, w: 12, h: 7, minW: 6, minH: 4, body: roster },
-    { id: 'reviews', title: `🔎 검토가 필요한 항목${reviews.length ? ` (${reviews.length})` : ''}`, x: 0, y: 9, w: 6, h: 6, minW: 3, minH: 3, body: <ReviewList items={reviews} /> },
+    { id: 'reviews', title: `🔎 검토가 필요한 항목${reviews.length ? ` (${reviews.length})` : ''}`, x: 0, y: 9, w: 6, h: 6, minW: 3, minH: 3, body: <div data-tour="t3-reviews"><ReviewList items={reviews} /></div> },
     { id: 'recent', title: '🕒 최근 관찰 기록', x: 6, y: 9, w: 6, h: 6, minW: 3, minH: 3, body: recentList },
   ];
 

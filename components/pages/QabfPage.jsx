@@ -194,7 +194,7 @@ ${profile}
   return (
     <>
       <StuHero />
-      <div className="card">
+      <div className="card" data-tour="qb-intro">
         <div className="card-title">📊 QABF 척도 (Questions About Behavioral Function · 행동기능설문지)</div>
         <div className="card-subtitle">
           공식 QABF 25문항 — <strong>0 전혀 아님 ~ 3 자주</strong> 4점 척도 + <strong>X 해당없음</strong>(관찰 기회가 없던 문항)으로 행동의 기능을 정량화합니다. 진행: <strong>{completed}/25</strong>
@@ -220,7 +220,7 @@ ${profile}
       </div>
 
       {/* 0719 피드백: 가지고 있는 QABF 자료 업로드 */}
-      <div className="card">
+      <div className="card" data-tour="qb-import">
         <div className="card-title">📎 기존 QABF 자료 불러오기</div>
         <div className="card-subtitle">이미 작성해 둔 QABF가 있으면 다시 입력할 필요 없이 불러올 수 있어요. 불러온 뒤 아래 체크리스트에서 확인·수정하고 저장하세요.</div>
         <div className="form-row">
@@ -240,20 +240,20 @@ ${profile}
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" data-tour="qb-ai">
         <div className="card-title">✨ AI 기능 해석</div>
         <div className="card-subtitle">현재 입력된 QABF 기능·심각도 프로필을 바탕으로 추정 기능과 PBS 중재 방향을 제안합니다. (학생 코드만 사용 · 비식별)</div>
         <AIActionBar prompt={buildInterpretPrompt()} onCallAI={runInterpret} busy={aiBusy} callLabel="✨ AI 기능 해석" />
         {(aiOutput || aiBusy) && <PromptResultBlock prompt={buildInterpretPrompt()} output={aiOutput} busy={aiBusy} onChange={setAiOutput} />}
       </div>
 
-      <div className="card">
+      <div className="card" data-tour="qb-chart">
         <div className="card-title">📈 QABF 기능·심각도 그래프</div>
         <div className="card-subtitle">공식 QABF 양식의 그래프 — 5개 기능별 <strong>기능(0~5, 응답 문항 수)</strong>과 <strong>심각도(0~15, 점수 합)</strong>를 함께 보여줍니다.</div>
         <QabfFnChart responses={responses} />
       </div>
 
-      <div className="card">
+      <div className="card" data-tour="qb-list">
         <div className="card-title">✅ 25문항 체크리스트</div>
         {QUESTIONS.map((item, i) => (
           <div key={i} style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>

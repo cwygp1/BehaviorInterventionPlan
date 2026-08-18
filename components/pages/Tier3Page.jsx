@@ -165,7 +165,7 @@ export default function Tier3Page({ onNavigate }) {
       <StuHero />
 
       {/* Tier 3 통합 문서 — 흩어진 모듈을 한 양식으로 */}
-      <div className="card" style={{ background: 'linear-gradient(135deg,#fff1f4 0%,#ffe7ee 100%)', borderColor: '#f4a8be' }}>
+      <div className="card" style={{ background: 'linear-gradient(135deg,#fff1f4 0%,#ffe7ee 100%)', borderColor: '#f4a8be' }} data-tour="t3-export">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 220 }}>
             <div className="card-title" style={{ marginBottom: 4, color: '#c43653' }}>📄 Tier 3 통합 문서</div>
@@ -181,7 +181,7 @@ export default function Tier3Page({ onNavigate }) {
       </div>
 
       {/* 5단계 워크플로 */}
-      <div className="card">
+      <div className="card" data-tour="t3-steps">
         <div className="card-title">📋 5단계 개별 중재 워크플로</div>
         <div className="card-subtitle">현재 학생 <strong>{curStu.code}</strong>의 진행 상황입니다. 카드를 클릭하면 해당 단계로 이동합니다.</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
@@ -260,7 +260,7 @@ export default function Tier3Page({ onNavigate }) {
       </div>
 
       {/* 빠른 작업 */}
-      <div className="card" style={{ background: 'var(--pri-soft)', borderColor: 'var(--pri-l)' }}>
+      <div className="card" style={{ background: 'var(--pri-soft)', borderColor: 'var(--pri-l)' }} data-tour="t3-quick">
         <div className="card-title">⚡ 빠른 시작</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 10 }}>
           <button className="btn btn-pri btn-sm" onClick={() => onNavigate?.('observe')}>🔍 ABC 기록 시작</button>

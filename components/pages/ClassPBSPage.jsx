@@ -172,7 +172,7 @@ ${question}
   return (
     <>
       {/* Scope banner — Tier 1은 학년도·학기·반 단위 */}
-      <div style={{
+      <div data-tour="cp-scope" style={{
         display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
         padding: '8px 14px', marginBottom: 12, borderRadius: 8,
         background: 'var(--pri-soft)', border: '1px solid var(--pri-l)', fontSize: '.84rem',
@@ -199,6 +199,7 @@ ${question}
 
           <input
             type="text"
+            data-tour="cp-goal"
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
             placeholder="학급 공동 목표 (예: 모두가 행복한 교실)"
@@ -236,7 +237,7 @@ ${question}
           )}
 
           {/* Point control buttons */}
-          <div style={{ display: 'flex', gap: 8, marginTop: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div data-tour="cp-points" style={{ display: 'flex', gap: 8, marginTop: 18, flexWrap: 'wrap', alignItems: 'center' }}>
             {[1, 5, 10].map((n) => (
               <button
                 key={n}
@@ -260,7 +261,7 @@ ${question}
       </div>
 
       {/* Goal config card */}
-      <div className="card">
+      <div className="card" data-tour="cp-target">
         <div className="card-title">⚙ 목표 포인트 설정</div>
         <div className="form-row">
           <div className="form-group">
@@ -275,7 +276,7 @@ ${question}
       </div>
 
       {/* Rewards card */}
-      <div className="card">
+      <div className="card" data-tour="cp-rewards">
         <div className="card-title">🎁 보상 항목</div>
         <div className="card-subtitle">목표 달성 시 학급에 제공할 보상을 등록하세요. 작은 보상부터 큰 보상까지 단계별로 구성하면 좋습니다.</div>
 
@@ -361,13 +362,15 @@ ${question}
         </div>
       </div>
 
-      <ResourceDownloads
-        title="📎 Tier 1 자료실 (예시 문서)"
-        subtitle="기대행동 매트릭스·월별 기대행동·충실도 체크 예시를 내려받아 활용하세요."
-        files={TIER1_DOCS}
-      />
+      <div data-tour="cp-docs">
+        <ResourceDownloads
+          title="📎 Tier 1 자료실 (예시 문서)"
+          subtitle="기대행동 매트릭스·월별 기대행동·충실도 체크 예시를 내려받아 활용하세요."
+          files={TIER1_DOCS}
+        />
+      </div>
 
-      <div className="card" style={{ background: '#e8eefb', borderColor: '#c4d3f1' }}>
+      <div className="card" style={{ background: '#e8eefb', borderColor: '#c4d3f1' }} data-tour="cp-ratio">
         <div className="card-title">💡 4:1 긍정 비율 — 핵심 원칙</div>
         <p style={{ fontSize: '.92rem', lineHeight: 1.7, color: 'var(--sub)', marginTop: 6 }}>
           바람직한 행동에 대한 피드백 vs 재지도 비율을 <strong>4:1 이상</strong>으로 유지합니다.
@@ -375,7 +378,7 @@ ${question}
         </p>
       </div>
 
-      <div className="card">
+      <div className="card" data-tour="cp-coach">
         <div className="card-title">💡 AI 학급 운영 코칭</div>
         <div className="form-group">
           <label className="form-label">교사 질문</label>

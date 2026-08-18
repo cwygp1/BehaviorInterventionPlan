@@ -1,4 +1,5 @@
 import LLMIndicator from './LLMIndicator';
+import HelpMenu from '../guide/HelpMenu';
 import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { SECTIONS, PAGE_SECTION, parseUsedTiers, sectionEnabled } from '../../lib/tiers';
@@ -34,7 +35,7 @@ const TITLES = {
   videos: 'PBS 영상 강의실',
 };
 
-export default function Topbar({ activePage, onNavigate, onMenu, onOpenLLMSettings, onAddStudent, onManageClasses }) {
+export default function Topbar({ activePage, onNavigate, canGoBack, onBack, onMenu, onOpenLLMSettings, onAddStudent, onManageClasses }) {
   const {
     students, curStuId, selectStudent,
     years, curYear, selectYear,
@@ -54,9 +55,21 @@ export default function Topbar({ activePage, onNavigate, onMenu, onOpenLLMSettin
     <div className="topbar">
       <div className="topbar-left">
         <button className="mobile-toggle" onClick={onMenu}>☰</button>
+        {/* 이전 화면으로 — 브라우저 뒤로가기와 동일(히스토리 한 칸 뒤로). */}
+        {canGoBack && (
+          <button className="tb-back" onClick={onBack} title="이전 화면으로 (브라우저 뒤로가기와 동일)" aria-label="이전 화면으로 돌아가기">←</button>
+        )}
         <h1>{TITLES[activePage] || ''}</h1>
         {chips.length > 0 && (
-          <div className="tb-chips" role="tablist" aria-label="지원 영역 전환">
+          <div className="tb-chips" role="tablist" aria-label="지원 영역 전환" data-tour="tb-chips">
+            {/* 워크스페이스 어디서든 한 번에 홈(영역 선택)으로. */}
+            <button
+              className="tb-chip tb-home"
+              onClick={() => onNavigate && onNavigate('home')}
+              title="홈 (영역 선택)"
+            >
+              ⌂ 홈
+            </button>
             {chips.map((s) => {
               const on = s.key === curSection;
               return (
@@ -77,8 +90,9 @@ export default function Topbar({ activePage, onNavigate, onMenu, onOpenLLMSettin
         )}
       </div>
       <div className="topbar-right">
+        <HelpMenu />
         <LLMIndicator onClick={onOpenLLMSettings} />
-        <div className="stu-bar">
+        <div className="stu-bar" data-tour="stu-bar">
           {/* 년도 선택 */}
           <select
             className="stu-select"
@@ -124,7 +138,7 @@ export default function Topbar({ activePage, onNavigate, onMenu, onOpenLLMSettin
               <option key={s.id} value={s.id}>{s.code}</option>
             ))}
           </select>
-          <button className="stu-add" onClick={onAddStudent} title="학생 추가" disabled={!curClassId}>+</button>
+          <button className="stu-add" onClick={onAddStudent} title="학생 추가" disabled={!curClassId} data-tour="add-student">+</button>
         </div>
       </div>
     </div>

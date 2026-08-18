@@ -208,7 +208,7 @@ export default function PbsSurveyPage() {
 
   return (
     <>
-      <div className="card" style={{ background: 'linear-gradient(135deg,#eef4ff 0%,#e6eeff 100%)', borderColor: '#b9cdf0' }}>
+      <div className="card" style={{ background: 'linear-gradient(135deg,#eef4ff 0%,#e6eeff 100%)', borderColor: '#b9cdf0' }} data-tour="ps-intro">
         <div className="card-title" style={{ marginBottom: 4 }}>📋 PBS 실행을 위한 기초 설문조사</div>
         <p style={{ fontSize: '.9rem', color: '#274690', margin: 0, lineHeight: 1.6 }}>
           학생 문제행동 실태 파악 및 학교 규칙(기대행동) 수립을 위한 Tier 1 기초조사입니다.
@@ -231,7 +231,7 @@ export default function PbsSurveyPage() {
       </div>
 
       {/* Q2 */}
-      <div className="card">
+      <div className="card" data-tour="ps-q2">
         <div style={qTitle}>2. 문제행동별 학생 수 + 순위(1~5)</div>
         <p style={qHint}>각 행동을 보이는 <strong>학생 수(명)</strong>를 − / + 로 조절하고, 순위 칸을 <strong>심각한 행동부터 순서대로 탭</strong>하면 1~5위가 자동으로 매겨집니다. 다시 탭하면 해제됩니다.</p>
         <div style={{ overflowX: 'auto' }}>
@@ -264,7 +264,7 @@ export default function PbsSurveyPage() {
       </div>
 
       {/* Q3 */}
-      <div className="card">
+      <div className="card" data-tour="ps-q3">
         <div style={qTitle}>3. 문제행동 강도(순위)</div>
         <p style={qHint}>우리 반 문제행동에 <strong>가장 가까운 강도부터 순서대로 탭</strong>하면 1~4위가 자동으로 매겨집니다. 다시 탭하면 해제됩니다.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
@@ -376,7 +376,7 @@ export default function PbsSurveyPage() {
       </div>
 
       {/* Q10 */}
-      <div className="card">
+      <div className="card" data-tour="ps-q10">
         <div style={qTitle}>10. 학교 규칙(기대행동) 후보 — 꼭 필요한 5가지 순위</div>
         <p style={qHint}>16개 표현 중 <strong>꼭 필요한 것부터 순서대로 탭</strong>하면 1~5위가 자동으로 매겨집니다. 다시 탭하면 해제됩니다. (최대 5개)</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -399,7 +399,7 @@ export default function PbsSurveyPage() {
       </div>
 
       {/* Q12 */}
-      <div className="card">
+      <div className="card" data-tour="ps-q12">
         <div style={qTitle}>12. 기대행동 × 장소 매트릭스(생활규칙)</div>
         <p style={{ fontSize: '.82rem', color: '#64748b', marginTop: -2, marginBottom: 10 }}>10번 1~3위를 기대행동에, 11번 1~3위를 장소에 적고 각 칸에 규칙을 작성하세요.</p>
         {r.q12.map((row, ri) => (
@@ -421,7 +421,7 @@ export default function PbsSurveyPage() {
       </div>
 
       {/* 저장 + AI */}
-      <div className="card">
+      <div className="card" data-tour="ps-save">
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <button className="btn btn-ok" onClick={onAISummary} disabled={aiBusy}>{aiBusy ? '⏳ 분석 중…' : '✨ AI 실행계획 요약'}</button>
           <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 설문 저장</button>

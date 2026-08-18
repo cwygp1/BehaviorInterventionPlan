@@ -260,7 +260,9 @@ ${lines || '  (기록 없음)'}
   return (
     <>
       {/* 1) 첫 화면 = 소그룹 관리. 그룹 선택 후 구성원 → CICO로 진행. */}
-      <Tier2GroupPanel selectedGroupId={groupId} onSelectGroup={setGroupId} />
+      <div data-tour="t2-group">
+        <Tier2GroupPanel selectedGroupId={groupId} onSelectGroup={setGroupId} />
+      </div>
 
       {!groupId ? null : !curStu ? (
         <div className="card">
@@ -294,7 +296,7 @@ ${lines || '  (기록 없음)'}
       <StuHero />
 
       {/* 일일 입력 폼 */}
-      <div className="card">
+      <div className="card" data-tour="t2-daily">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div className="card-title" style={{ marginBottom: 0 }}>📋 오늘의 CICO 기록</div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -315,7 +317,7 @@ ${lines || '  (기록 없음)'}
 
         {/* 오늘의 목표 */}
         <div className="form-group">
-          <label className="form-label">🎯 오늘의 목표 행동 <span style={{ color: 'var(--muted)', fontSize: '.74rem', fontWeight: 500 }}>(1~3개 권장)</span></label>
+          <label className="form-label" data-tour="t2-goals">🎯 오늘의 목표 행동 <span style={{ color: 'var(--muted)', fontSize: '.74rem', fontWeight: 500 }}>(1~3개 권장)</span></label>
           <EditableChipGroup storageKey="tier2_goals" defaults={COMMON_GOALS} onPick={(g) => addGoal(g)} />
           <div style={{ display: 'flex', gap: 8 }}>
             <input
@@ -341,7 +343,7 @@ ${lines || '  (기록 없음)'}
         </div>
 
         {/* 교시 구성 + 점수 + 코멘트 */}
-        <div className="form-group">
+        <div className="form-group" data-tour="t2-periods">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
             <label className="form-label" style={{ marginBottom: 0 }}>📊 교시별 점수 + 코멘트</label>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -424,7 +426,7 @@ ${lines || '  (기록 없음)'}
 
         {/* 종합 코멘트 */}
         <div className="form-group">
-          <label className="form-label">💬 하교 종합 코멘트 <span style={{ color: 'var(--muted)', fontSize: '.74rem', fontWeight: 500 }}>(가정에 전달)</span></label>
+          <label className="form-label" data-tour="t2-comment">💬 하교 종합 코멘트 <span style={{ color: 'var(--muted)', fontSize: '.74rem', fontWeight: 500 }}>(가정에 전달)</span></label>
           <textarea className="form-textarea" rows={2} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="예: 오늘 자리이탈 횟수가 줄었어요. 가정에서도 칭찬해 주세요." />
         </div>
 
@@ -434,7 +436,7 @@ ${lines || '  (기록 없음)'}
       </div>
 
       {/* 이력 */}
-      <div className="card">
+      <div className="card" data-tour="t2-history">
         <div className="card-title">📜 CICO 이력 <span className="badge badge-pri">{cicoRecords.length}일</span></div>
         {cicoRecords.length === 0 ? (
           <div className="empty-state"><span className="emoji">📅</span>아직 기록된 CICO가 없습니다.</div>
@@ -526,7 +528,7 @@ ${lines || '  (기록 없음)'}
       </div>
 
       {/* AI 진전 요약 (선택된 학생) */}
-      <div className="card">
+      <div className="card" data-tour="t2-ai">
         <div className="card-title">✨ AI 진전 요약</div>
         <div className="card-subtitle">선택된 학생({curStu.code})의 최근 CICO 기록을 요약하고 Tier 3 개별 중재 검토가 필요한지 표시합니다. (학생 코드만 사용 · 비식별)</div>
         <AIActionBar prompt={buildProgressPrompt()} onCallAI={runProgress} busy={aiBusy} callLabel="✨ AI 진전 요약" />

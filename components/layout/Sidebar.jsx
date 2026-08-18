@@ -71,6 +71,7 @@ function NavItem({ item, activePage, onNavigate, hasStudent }) {
   return (
     <button
       className={'nav-item' + (activePage === item.id ? ' active' : '') + (locked ? ' locked' : '')}
+      data-tour={'nav-' + item.id}
       onClick={() => onNavigate(item.id)}
       title={locked ? '학생을 먼저 선택해야 열려요 (누르면 학생 선택 창이 열립니다)' : undefined}
       aria-label={locked ? `${item.label} — 학생 선택 필요` : undefined}
@@ -98,7 +99,7 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
               <span aria-hidden="true">{section.icon}</span> {section.label}
             </div>
             <button className="ws-back" onClick={() => onNavigate('home')}>⌂ 전체 메뉴로 (홈)</button>
-            <div className="nav-section">
+            <div className="nav-section" data-tour="ws-menu">
               {SECTION_ITEMS[sectionKey].map((item) => (
                 <NavItem key={item.id} item={item} activePage={activePage} onNavigate={onNavigate} hasStudent={hasStudent} />
               ))}

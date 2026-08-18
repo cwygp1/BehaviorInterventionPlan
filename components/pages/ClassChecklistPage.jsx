@@ -171,7 +171,7 @@ ${low(SOLVE_ITEMS, r.solve, 4)}
 
   return (
     <>
-      <div className="card" style={{ background: 'linear-gradient(135deg,#eef4ff 0%,#e6eeff 100%)', borderColor: '#b9cdf0' }}>
+      <div className="card" style={{ background: 'linear-gradient(135deg,#eef4ff 0%,#e6eeff 100%)', borderColor: '#b9cdf0' }} data-tour="cc-intro">
         <div className="card-title" style={{ marginBottom: 4 }}>✅ 학급관리 체크리스트 (Tier 1 자가진단)</div>
         <p style={{ fontSize: '.9rem', color: '#274690', margin: 0, lineHeight: 1.6 }}>
           교사의 <strong>학급관리 실행(CWPBS)</strong>과 <strong>학급 내 행동문제해결력</strong>을 스스로 점검하는 도구입니다.
@@ -181,7 +181,7 @@ ${low(SOLVE_ITEMS, r.solve, 4)}
       </div>
 
       {/* 요약 배지 + 상단 저장 */}
-      <div className="card" style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="card" style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }} data-tour="cc-summary">
         <div>
           <div style={{ fontSize: '.78rem', color: 'var(--muted)', fontWeight: 700 }}>① 학급관리실행 검사지</div>
           <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--pri)' }}>{stats.cwpbs.score} <span style={{ fontSize: '.9rem', color: 'var(--muted)' }}>/ {stats.cwpbs.max}점 ({pct(stats.cwpbs)}%)</span></div>
@@ -200,7 +200,7 @@ ${low(SOLVE_ITEMS, r.solve, 4)}
       </div>
 
       {/* 부록2 — CWPBS self-assessment */}
-      <div className="card">
+      <div className="card" data-tour="cc-t1">
         <div className="card-title">① 학급관리실행 검사지 (CWPBS self-assessment)</div>
         <div className="card-subtitle">
           학생의 참여나 성취를 최대화하는 교수활동·예방적 행동관리로 구성된 교실관리전략의 실행 정도를 점검합니다.
@@ -212,7 +212,7 @@ ${low(SOLVE_ITEMS, r.solve, 4)}
       </div>
 
       {/* 부록3 — 행동문제해결력 척도 */}
-      <div className="card">
+      <div className="card" data-tour="cc-t2">
         <div className="card-title">② 행동문제해결력 척도</div>
         <div className="card-subtitle">
           학급에서 발생하는 복잡하고 예측할 수 없는 행동문제에 효과적으로 대응하고 최선의 해결책을 이끌어내는
@@ -250,7 +250,7 @@ ${low(SOLVE_ITEMS, r.solve, 4)}
       </div>
 
       {/* 저장 + AI 해석 */}
-      <div className="card">
+      <div className="card" data-tour="cc-save">
         <div className="card-title">💾 저장 · ✨ AI 해석</div>
         <div className="card-subtitle">체크 결과를 저장하고, AI로 강점·개선 영역과 실행 전략을 받아보세요. (학급 정보만 사용 · 비식별)</div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12, flexWrap: 'wrap' }}>

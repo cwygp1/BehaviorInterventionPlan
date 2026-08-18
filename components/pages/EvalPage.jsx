@@ -209,13 +209,13 @@ export default function EvalPage() {
     <>
       <StuHero />
 
-      <div style={{ marginBottom: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ marginBottom: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }} data-tour="ev-actions">
         <button className="btn btn-pri" onClick={() => setAiOpen(true)}>💡 AI 성과 분석</button>
         <button className="btn btn-ok" onClick={() => setReportOpen(true)}>📊 결과 보고서 생성</button>
         <span style={{ fontSize: '.78rem', color: 'var(--muted)' }}>차트·표·BIP·교사 의견을 통합한 A4 PDF</span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 14 }} data-tour="ev-func">
         <div className="card">
           <div className="card-title">🕸 QABF 행동 기능 분석 (레이더)</div>
           <div style={{ position: 'relative', height: 280 }}><canvas ref={radarRef} /></div>
@@ -230,7 +230,7 @@ export default function EvalPage() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" data-tour="ev-trend">
         <div className="card-title">📈 행동 변화 추이 (기초선 A vs 중재 B)</div>
         <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
           {[['freq', '빈도'], ['dur', '지속'], ['int', '강도'], ['dbr', '일일 행동 평정(DBR)']].map(([k, l]) => (
@@ -240,7 +240,7 @@ export default function EvalPage() {
         <div style={{ position: 'relative', height: 320 }}><canvas ref={behRef} /></div>
       </div>
 
-      <div className="card">
+      <div className="card" data-tour="ev-fid">
         <div className="card-title">📋 BIP 실행 충실도 추이</div>
         <div style={{ position: 'relative', height: 250 }}><canvas ref={fidRef} /></div>
       </div>
@@ -250,7 +250,7 @@ export default function EvalPage() {
         <div style={{ position: 'relative', height: 240 }}><canvas ref={szBarRef} /></div>
       </div>
 
-      <div className="card">
+      <div className="card" data-tour="ev-compare">
         <div className="card-title">⚖ 기간별 비교 (효과크기 포함)</div>
         <div className="card-subtitle">
           <strong>기간 A(기초선)</strong>와 <strong>기간 B(중재)</strong>의 시작·종료 날짜를 각각 고르면, 두 구간의 행동 데이터를 비교합니다.

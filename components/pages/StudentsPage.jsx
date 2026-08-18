@@ -5,11 +5,13 @@ import { useUIActions } from '../../contexts/UIActionsContext';
 import EditStudentModal from '../modals/EditStudentModal';
 
 // 학생 관리 — 현재 선택된 학년도·학급의 학생을 목록으로 보고
-// 추가 / 프로필 수정 / 삭제할 수 있는 페이지.
+// 추가 / 프로필 수정 / 삭제하는 순수 관리 페이지.
+// (작업할 학생 '선택'은 여기서 하지 않는다 — 상단 학생 셀렉트와
+//  각 대시보드 명부에서 학생을 누르면 선택+이동이 한 번에 된다.)
 export default function StudentsPage() {
   const {
     students, allStudents, curClass, curYear,
-    curStuId, selectStudent, removeStudent, studentTier,
+    removeStudent, studentTier,
   } = useStudents();
   const toast = useToast();
   const { openAddStudent, openManageClasses } = useUIActions();
@@ -68,14 +70,12 @@ export default function StudentsPage() {
           ) : (
             students.map((s) => {
               const code = s.code || s.student_code;
-              const selected = s.id === curStuId;
               return (
                 <div
                   key={s.id}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
                     borderBottom: '1px solid var(--border)',
-                    background: selected ? 'var(--surface2, #f6f7f9)' : 'transparent',
                   }}
                 >
                   <div
@@ -92,17 +92,11 @@ export default function StudentsPage() {
                     <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       {code}
                       {tierBadge(s.id)}
-                      {selected && <span className="badge badge-pri">선택됨</span>}
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
                       {[s.level, s.disability].filter(Boolean).join(' · ') || '프로필 미입력'}
                     </div>
                   </div>
-                  {!selected && (
-                    <button className="btn btn-ghost btn-sm" disabled={busyId != null} onClick={() => selectStudent(s.id)}>
-                      선택
-                    </button>
-                  )}
                   <button className="btn btn-ghost btn-sm" disabled={busyId != null} onClick={() => setEditTarget(s)}>
                     ✏ 수정
                   </button>
