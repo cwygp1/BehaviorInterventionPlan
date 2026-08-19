@@ -285,16 +285,16 @@ export default function ObservePage({ onNavigate }) {
           <label className="form-label">C (결과, Consequence)</label>
           <TokenField value={c} onChange={setC} options={C_CHIPS} storageKey="abc_c" editPlaceholder="행동 직후 어떤 결과가 발생했나요?" />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 ABC 기록 저장</button>
+          <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
+          <button className={'btn ' + (savedOk ? 'btn-pri' : 'btn-ghost')} onClick={() => onNavigate?.('qabf')}>📊 기능평가(QABF) →</button>
         </div>
-        {/* 0819 피드백: 저장 후 다음 단계로 바로 이동 CTA (기록을 더 쌓아도 되고, 바로 넘어가도 됨) */}
         <NextStepBanner
           show={savedOk}
           message="✅ ABC 기록 저장 완료"
-          hint="기록이 충분히 쌓였다면 행동의 기능을 평가해보세요"
-          nextLabel="📊 기능평가(QABF)로 이동"
-          onGo={() => onNavigate?.('qabf')}
+          hint="기록이 충분히 쌓였다면 오른쪽 버튼(기능평가)으로 행동의 기능을 평가해보세요"
         />
       </div>
 

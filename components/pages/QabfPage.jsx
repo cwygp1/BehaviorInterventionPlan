@@ -294,19 +294,19 @@ ${profile}
             </div>
           </div>
         ))}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+        {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
           <button className="btn btn-ghost" onClick={() => downloadQabfExcel(responses, curStu)}>⬇ 엑셀 다운로드</button>
           <button className="btn btn-pri" onClick={onSave} disabled={busy}>
             💾 QABF 저장
           </button>
+          <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
+          <button className={'btn ' + (savedOk ? 'btn-pri' : 'btn-ghost')} onClick={() => onNavigate?.('bip')}>📝 중재계획(BIP) →</button>
         </div>
-        {/* 0819 피드백: 저장 후 다음 단계로 바로 이동 CTA */}
         <NextStepBanner
           show={savedOk}
           message="✅ QABF 저장 완료"
-          hint="평가된 행동 기능을 바탕으로 중재계획을 세워보세요"
-          nextLabel="📝 중재계획(BIP)으로 이동"
-          onGo={() => onNavigate?.('bip')}
+          hint="평가된 행동 기능을 바탕으로 오른쪽 버튼(중재계획)에서 계획을 세워보세요"
         />
       </div>
     </>

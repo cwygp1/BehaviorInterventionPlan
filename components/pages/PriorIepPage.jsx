@@ -203,17 +203,17 @@ export default function PriorIepPage({ onNavigate }) {
         <div className="form-group"><label className="form-label">학기목표</label><textarea className="form-textarea" rows={2} value={fGoal} onChange={(e) => setFGoal(e.target.value)} /></div>
         <div className="form-group"><label className="form-label">현행수준</label><textarea className="form-textarea" rows={2} value={fPlop} onChange={(e) => setFPlop(e.target.value)} /></div>
         <div className="form-group"><label className="form-label">평가</label><textarea className="form-textarea" rows={2} value={fEval} onChange={(e) => setFEval(e.target.value)} /></div>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
           {editingId && <button className="btn btn-ghost" onClick={resetForm}>새 입력</button>}
           <button className="btn btn-pri" onClick={saveForm} disabled={busy}>{busy ? '저장 중…' : editingId ? '수정 저장' : `${year}학년도 ${semester}학기로 추가`}</button>
+          <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
+          <button className={'btn ' + (savedOk ? 'btn-pri' : 'btn-ghost')} onClick={() => onNavigate?.('startpoint')}>🧭 출발점 분석 →</button>
         </div>
-        {/* 0819 피드백: 저장(파싱 추가·직접 입력) 후 다음 단계로 바로 이동 CTA */}
         <NextStepBanner
           show={savedOk}
           message="✅ 전년도 IEP 저장 완료"
-          hint="올해 IEP를 만들려면 출발점 분석(현행수준)부터 시작해요"
-          nextLabel="🧭 출발점 분석으로 이동"
-          onGo={() => onNavigate?.('startpoint')}
+          hint="올해 IEP를 만들려면 오른쪽 버튼(출발점 분석)부터 시작해요"
         />
       </div>
 

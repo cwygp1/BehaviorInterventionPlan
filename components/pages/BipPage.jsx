@@ -279,17 +279,17 @@ export default function BipPage({ onNavigate }) {
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+        {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
           <button className="btn btn-ghost" onClick={onPrintBIP}>🖨 BIP 인쇄/PDF</button>
           <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 BIP 저장</button>
+          <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
+          <button className={'btn ' + (savedOk ? 'btn-pri' : 'btn-ghost')} onClick={() => onNavigate?.('monitor')}>📈 행동 데이터 →</button>
         </div>
-        {/* 0819 피드백: 저장 후 다음 단계로 바로 이동 CTA */}
         <NextStepBanner
           show={savedOk}
           message="✅ BIP 저장 완료"
-          hint="중재를 실행하며 행동 변화를 매일 숫자로 기록해보세요"
-          nextLabel="📈 행동 데이터로 이동"
-          onGo={() => onNavigate?.('monitor')}
+          hint="중재를 실행하며 오른쪽 버튼(행동 데이터)에서 변화를 매일 기록해보세요"
         />
       </div>
 

@@ -264,18 +264,9 @@ export default function StartPointPage({ onNavigate }) {
 
       {/* 산출물 3블록 */}
       <div className="card" data-tour="sp-output">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <div>
-            <div className="card-title" style={{ marginBottom: 0 }}>📤 산출물 (출발점 결과)</div>
-            <div className="card-subtitle">생활지원 요구 · 기능의 목록화 · 수행 가능 수준 — IEP 목표의 출발점</div>
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button className="btn btn-pri btn-sm" onClick={onAIDerive} disabled={aiBusy}>
-              {aiBusy ? '⏳ 도출 중…' : '✨ AI로 산출물 도출'}
-            </button>
-            {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
-            <button className="btn btn-ghost btn-sm" onClick={() => { if (!hasDeriveInput()) { toast('입력 블록을 먼저 채워주세요.'); return; } setExtOpen(true); }} title="외부 AI(클로드 등)로 산출물 도출">🌐 외부AI</button> */}
-          </div>
+        <div>
+          <div className="card-title" style={{ marginBottom: 0 }}>📤 산출물 (출발점 결과)</div>
+          <div className="card-subtitle">생활지원 요구 · 기능의 목록화 · 수행 가능 수준 — IEP 목표의 출발점 (버튼은 아래 ①→②→③ 순서로 누르세요)</div>
         </div>
 
         <div className="form-group">
@@ -310,16 +301,29 @@ export default function StartPointPage({ onNavigate }) {
           }}
         />
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-          <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 출발점 저장</button>
+        {/* 0819 피드백: 도출→저장→다음 단계 버튼이 흩어져 있어 "어디 누르지?" 하게 됨 →
+            한 줄 흐름(①→②→③)으로 모은다. ③은 저장 전엔 옅게, 저장 후엔 강조. */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+          <button className="btn btn-pri" onClick={onAIDerive} disabled={aiBusy}>
+            {aiBusy ? '⏳ 도출 중…' : '① ✨ AI로 산출물 도출'}
+          </button>
+          {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
+          <button className="btn btn-ghost btn-sm" onClick={() => { if (!hasDeriveInput()) { toast('입력 블록을 먼저 채워주세요.'); return; } setExtOpen(true); }} title="외부 AI(클로드 등)로 산출물 도출">🌐 외부AI</button> */}
+          <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
+          <button className="btn btn-pri" onClick={onSave} disabled={busy}>② 💾 출발점 저장</button>
+          <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
+          <button
+            className={'btn ' + (savedOk ? 'btn-pri' : 'btn-ghost')}
+            onClick={() => onNavigate?.('iep')}
+            title={savedOk ? undefined : '저장을 마친 뒤 이동하는 것을 추천해요'}
+          >
+            ③ 📋 IEP 목표 생성 →
+          </button>
         </div>
-        {/* 0819 피드백: 저장 후 왼쪽 탭을 못 찾는 문제 → 저장 성공 시 다음 단계로 바로 이동 CTA */}
         <NextStepBanner
           show={savedOk}
           message="✅ 출발점 저장 완료"
-          hint="이 산출물(생활지원 요구)이 IEP 목표(모듈2)의 출발점이 됩니다"
-          nextLabel="📋 IEP 목표 생성으로 이동"
-          onGo={() => onNavigate?.('iep')}
+          hint="이 산출물이 IEP 목표(모듈2)의 출발점이 됩니다 — ③ 버튼으로 바로 이어가세요"
         />
       </div>
     </>

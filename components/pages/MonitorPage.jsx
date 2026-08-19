@@ -288,17 +288,17 @@ ${bText}
             DBR(Daily Behavior Rating·일일 행동 평정) — 오늘 하루 행동 전반을 0(전혀 좋지 않음)~10(매우 좋음)으로 매기는 <strong>종합 점수</strong>예요. 강화(차별강화)가 아니라 평정 척도입니다.
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+        {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
           {editingId && <button className="btn btn-ghost" onClick={cancelEdit}>취소 (새 기록으로)</button>}
           <button className="btn btn-pri" onClick={onSaveMon} disabled={busy}>{editingId ? '💾 수정 저장' : '💾 데이터 저장'}</button>
+          <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
+          <button className={'btn ' + (savedOk ? 'btn-pri' : 'btn-ghost')} onClick={() => onNavigate?.('eval')}>✅ 결과 평가 →</button>
         </div>
-        {/* 0819 피드백: 저장 후 다음 단계로 바로 이동 CTA (매일 기록을 이어가도 되고, 평가로 넘어가도 됨) */}
         <NextStepBanner
           show={savedOk}
           message="✅ 행동 데이터 저장 완료"
-          hint="데이터가 쌓였다면 중재 효과를 그래프로 평가해보세요"
-          nextLabel="✅ 결과 평가로 이동"
-          onGo={() => onNavigate?.('eval')}
+          hint="데이터가 쌓였다면 오른쪽 버튼(결과 평가)에서 중재 효과를 그래프로 확인해보세요"
         />
       </div>
 

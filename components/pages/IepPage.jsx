@@ -2397,16 +2397,19 @@ export default function IepPage({ onNavigate }) {
                 </table>
               </div>
               <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">학기말 종합 평가 (서술형)</label><textarea className="form-textarea" value={semEval} onChange={(e) => setSemEval(e.target.value)} /></div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn btn-pri" onClick={save} disabled={busy}>{editingId ? '💾 수정 저장' : '💾 IEP 목표 저장'}</button>
+                <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
+                <button className={'btn ' + (savedOk ? 'btn-pri' : 'btn-ghost')} onClick={() => onNavigate?.('iepReport')}
+                  title={savedOk ? undefined : '저장을 마친 뒤 이동하는 것을 추천해요'}>
+                  📄 IEP 계획서(완성·출력) →
+                </button>
               </div>
-              {/* 0819 피드백: 저장 후 다음 단계로 바로 이동 CTA */}
               <NextStepBanner
                 show={savedOk}
                 message="✅ IEP 목표 저장 완료"
-                hint="저장된 목표는 IEP 계획서에서 완성·출력할 수 있어요"
-                nextLabel="📄 IEP 계획서(완성·출력)로 이동"
-                onGo={() => onNavigate?.('iepReport')}
+                hint="저장된 목표는 오른쪽 버튼(IEP 계획서)에서 완성·출력할 수 있어요"
               />
             </>
           )}
