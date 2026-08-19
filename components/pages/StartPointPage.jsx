@@ -5,6 +5,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { EditableChipGroup, makeAppender } from '../ui/QChip';
 import ExternalAIModal from '../ui/ExternalAIModal';
+import NextStepBanner, { useSavedFlag } from '../ui/NextStepBanner';
 import { fetchStartpoint, saveStartpoint } from '../../lib/api/students';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
 import { studentProfileParts, sanitizeStrengths, RISK_RE } from '../../lib/utils/splitNote';
@@ -45,12 +46,14 @@ function extractJSON(text) {
   } catch (_) { return null; }
 }
 
-export default function StartPointPage() {
+export default function StartPointPage({ onNavigate }) {
   const { curStu, curStuId, curStuData } = useStudents();
   const { callDetailed, status: llmStatus } = useLLM();
   const toast = useToast();
 
   const [f, setF] = useState(EMPTY);
+  // 0819 피드백: 저장 성공 후 "다음 단계(IEP 목표 생성)로 이동" 배너 — 다시 수정하면 숨김.
+  const [savedOk, markSaved] = useSavedFlag([f]);
   const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [extOpen, setExtOpen] = useState(false); // 🌐 외부AI 연동 모달
@@ -115,6 +118,7 @@ export default function StartPointPage() {
     try {
       await saveStartpoint(curStuId, f);
       toast('출발점(모듈1) 저장 완료');
+      markSaved();
     } catch (e) {
       toast('저장 실패: ' + e.message);
     } finally {
@@ -309,9 +313,14 @@ export default function StartPointPage() {
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
           <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 출발점 저장</button>
         </div>
-        <p style={{ fontSize: '.8rem', color: 'var(--muted, #888)', marginTop: 10 }}>
-          다음 단계 → 이 산출물(생활지원 요구)이 <strong>모듈2(IEP 목표 생성)</strong>의 출발점으로 연결될 예정입니다.
-        </p>
+        {/* 0819 피드백: 저장 후 왼쪽 탭을 못 찾는 문제 → 저장 성공 시 다음 단계로 바로 이동 CTA */}
+        <NextStepBanner
+          show={savedOk}
+          message="✅ 출발점 저장 완료"
+          hint="이 산출물(생활지원 요구)이 IEP 목표(모듈2)의 출발점이 됩니다"
+          nextLabel="📋 IEP 목표 생성으로 이동"
+          onGo={() => onNavigate?.('iep')}
+        />
       </div>
     </>
   );

@@ -207,15 +207,16 @@ function PageRouter({ activePage, onNavigate }) {
     case 'dash3': return <Tier3Dashboard onNavigate={onNavigate} />;
     case 'dashIep': return <IepDashboard onNavigate={onNavigate} />;
     case 'students': return <StudentsPage />;
-    case 'startpoint': return <StartPointPage />;
-    case 'observe': return <><ObservePage /><StepNav cur="observe" onNavigate={onNavigate} /></>;
-    case 'qabf': return <><QabfPage /><StepNav cur="qabf" onNavigate={onNavigate} /></>;
-    case 'bip': return <><BipPage /><StepNav cur="bip" onNavigate={onNavigate} /></>;
-    case 'monitor': return <><MonitorPage /><StepNav cur="monitor" onNavigate={onNavigate} /></>;
-    case 'eval': return <><EvalPage /><StepNav cur="eval" onNavigate={onNavigate} /></>;
-    case 'iep': return <IepPage />;
-    case 'priorIep': return <PriorIepPage />;
-    case 'iepReport': return <IepReportPage />;
+    // 0819 피드백: 저장 후 다음 단계로 바로 이동 — IEP 영역에도 StepNav + 페이지 내 CTA 배너 적용.
+    case 'startpoint': return <><StartPointPage onNavigate={onNavigate} /><StepNav flow="iep" cur="startpoint" onNavigate={onNavigate} /></>;
+    case 'observe': return <><ObservePage onNavigate={onNavigate} /><StepNav flow="tier3" cur="observe" onNavigate={onNavigate} /></>;
+    case 'qabf': return <><QabfPage onNavigate={onNavigate} /><StepNav flow="tier3" cur="qabf" onNavigate={onNavigate} /></>;
+    case 'bip': return <><BipPage onNavigate={onNavigate} /><StepNav flow="tier3" cur="bip" onNavigate={onNavigate} /></>;
+    case 'monitor': return <><MonitorPage onNavigate={onNavigate} /><StepNav flow="tier3" cur="monitor" onNavigate={onNavigate} /></>;
+    case 'eval': return <><EvalPage /><StepNav flow="tier3" cur="eval" onNavigate={onNavigate} /></>;
+    case 'iep': return <><IepPage onNavigate={onNavigate} /><StepNav flow="iep" cur="iep" onNavigate={onNavigate} /></>;
+    case 'priorIep': return <><PriorIepPage onNavigate={onNavigate} /><StepNav flow="iep" cur="priorIep" onNavigate={onNavigate} /></>;
+    case 'iepReport': return <><IepReportPage /><StepNav flow="iep" cur="iepReport" onNavigate={onNavigate} /></>;
     case 'builder': return <BuilderPage />;
     case 'crisis': return <CrisisPage />;
     case 'support': return <SupportPage />;

@@ -10,6 +10,7 @@ import AIActionBar from '../ui/AIActionBar';
 import Modal from '../ui/Modal';
 import EditStudentModal from '../modals/EditStudentModal';
 import RAISDModal from '../modals/RAISDModal';
+import NextStepBanner, { useSavedFlag } from '../ui/NextStepBanner';
 import PriorityChecklistModal from '../modals/PriorityChecklistModal';
 import DeadMansModal from '../modals/DeadMansModal';
 import { createABC as apiCreateABC, deleteABC as apiDeleteABC } from '../../lib/api/students';
@@ -51,7 +52,7 @@ function parseLooseJSON(raw) {
   }
 }
 
-export default function ObservePage() {
+export default function ObservePage({ onNavigate }) {
   const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData } = useStudents();
   const toast = useToast();
   const { callDetailed, status: llmStatus } = useLLM();
@@ -64,6 +65,8 @@ export default function ObservePage() {
   const [b, setB] = useState('');
   const [c, setC] = useState('');
   const [busy, setBusy] = useState(false);
+  // 0819 피드백: 저장 성공 후 "다음 단계(기능평가)로 이동" 배너 — 새 기록을 입력하면 숨김.
+  const [savedOk, markSaved] = useSavedFlag([a, b, c]);
 
   // 빠른 입력(한 문장 → A·B·C 분배)
   const [quickText, setQuickText] = useState('');
@@ -182,6 +185,7 @@ export default function ObservePage() {
       setA(''); setB(''); setC(''); setTimeVal(''); setPlaceVal('');
       try { if (draftKey) sessionStorage.removeItem(draftKey); } catch (_) { /* ignore */ }
       toast('ABC 기록 저장 완료', 'success');
+      markSaved();
     } catch (e) {
       toast('저장 실패: ' + e.message);
     } finally {
@@ -284,6 +288,14 @@ export default function ObservePage() {
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 ABC 기록 저장</button>
         </div>
+        {/* 0819 피드백: 저장 후 다음 단계로 바로 이동 CTA (기록을 더 쌓아도 되고, 바로 넘어가도 됨) */}
+        <NextStepBanner
+          show={savedOk}
+          message="✅ ABC 기록 저장 완료"
+          hint="기록이 충분히 쌓였다면 행동의 기능을 평가해보세요"
+          nextLabel="📊 기능평가(QABF)로 이동"
+          onGo={() => onNavigate?.('qabf')}
+        />
       </div>
 
       <div className="card" data-tour="ob-list">

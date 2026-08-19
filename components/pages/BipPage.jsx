@@ -10,6 +10,7 @@ import TokenField from '../ui/TokenField';
 import BIPPromptModal from '../modals/BIPPromptModal';
 import FamilyLetterModal from '../modals/FamilyLetterModal';
 import { saveBIP as apiSaveBIP } from '../../lib/api/students';
+import NextStepBanner, { useSavedFlag } from '../ui/NextStepBanner';
 import { printBehaviorContract } from '../../lib/utils/printContract';
 import { printBIP } from '../../lib/utils/printBIP';
 
@@ -32,7 +33,7 @@ const REINF_CHIPS = ['차별강화 DRA(대체행동)', '차별강화 DRO(부재 
 const RESP_CHIPS = ['계획적 무시 10초', '대체행동 즉각 촉진', '안전 거리 확보', '심리안정실 이동', '위기관리팀 호출', '보호자 연락', '그라운딩 5-4-3-2-1', '신체적 개입(최후 수단)'];
 const REWARD_CHIPS = ['스티커 5개당 작은 선물', '특별 활동 시간', '선택 시간', '또래 칭찬 카드', '보호자 칭찬 통신문', '자리 선택권'];
 
-export default function BipPage() {
+export default function BipPage({ onNavigate }) {
   const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData } = useStudents();
   const { user } = useAuth();
   const toast = useToast();
@@ -51,6 +52,8 @@ export default function BipPage() {
   // 0814 전문가 자문: 행동목표의 IEP 반영 방식은 선생님의 선택 —
   // 'iep'(개별화 목표로 가져감) | 'subject'(교과 목표에 녹임) | ''(미선택).
   const [bgoalDest, setBgoalDest] = useState('');
+  // 0819 피드백: 저장 성공 후 "다음 단계(행동 데이터)로 이동" 배너 — 내용을 다시 수정하면 숨김.
+  const [savedOk, markSaved] = useSavedFlag([alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoalDest]);
   const [opdefBusy, setOpdefBusy] = useState(false);
   const [bgoalBusy, setBgoalBusy] = useState(false);
 
@@ -83,6 +86,7 @@ export default function BipPage() {
       await apiSaveBIP(curStuId, body);
       updateStudentData(curStuId, (cur) => ({ ...cur, bip: body }));
       toast('BIP 저장 완료');
+      markSaved();
     } catch (e) {
       toast('저장 실패: ' + e.message);
     } finally {
@@ -279,6 +283,14 @@ export default function BipPage() {
           <button className="btn btn-ghost" onClick={onPrintBIP}>🖨 BIP 인쇄/PDF</button>
           <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 BIP 저장</button>
         </div>
+        {/* 0819 피드백: 저장 후 다음 단계로 바로 이동 CTA */}
+        <NextStepBanner
+          show={savedOk}
+          message="✅ BIP 저장 완료"
+          hint="중재를 실행하며 행동 변화를 매일 숫자로 기록해보세요"
+          nextLabel="📈 행동 데이터로 이동"
+          onGo={() => onNavigate?.('monitor')}
+        />
       </div>
 
       {/* 0719 피드백(A-3): ③ 행동목표 — 중재계획을 참고해 메이거식으로 작성, IEP 학기목표로 연계 */}

@@ -17,6 +17,7 @@ import { ebpBlockForGoal } from '../../lib/ebp';
 import { FORMAT_EX_MATH, FORMAT_EX_MOTOR, findExampleEchoes } from '../../lib/exampleGuard';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
 import { splitDisability } from '../../lib/disability';
+import NextStepBanner, { useSavedFlag } from '../ui/NextStepBanner';
 
 const GRADE = { 0: '일상생활(공통)', 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
 const GORDER = [2, 4, 6, 9, 12];
@@ -103,6 +104,76 @@ function promptDesc(promptSystem, i, n, supFn) {
   if (promptSystem === 'sim') return `동시촉진 — 교수 회기엔 촉진과 동시 수행, 매일 점검(probe)으로 독립 수준 평가`;
   return `최대-최소촉진 — ${supFn(i).trim()} 수준에서 촉진을 점차 줄여 독립으로`;
 }
+// 0819 피드백(구병모): 월별 교육방법의 지원수준·강화 스케줄이 매달 같은 문장으로 반복됨 →
+// 구간마다 "그 구간의 단계"만 서술하는 점증 사다리. 시작 단계는 출발점(모듈1)의
+// '수행 가능 수준'(없으면 현행수준) 텍스트에서 앵커링해 학생 수준을 반영한다.
+// 같은 단계가 여러 구간 이어질 때는 단계 내 위치(pos)별 변형 문안으로 대기 시간·강화 비율을
+// 점증시켜, 인접 구간의 문장이 항상 최소 1가지 이상 달라지게 한다(학기 최대 6구간 기준 3변형).
+const FADE_STAGES = [
+  { label: '습득 초기', short: '최대-최소 촉진', descs: [
+    '최대-최소 촉진 — 신체·시범 촉진으로 정확한 수행을 만들고, 회기 안에서 촉진 강도를 한 단계씩 낮춤',
+    '최대-최소 촉진 계속 — 신체 촉진은 어려운 부분에서만 쓰고, 시범·몸짓 촉진 위주로 낮춤',
+    '몸짓·언어 촉진까지 낮추기 — 스스로 시작하는지 잠깐 기다려보며 시간지연으로 넘어갈 준비',
+  ] },
+  { label: '습득 후기', short: '시간지연 도입', descs: [
+    '언어·몸짓 촉진 위주로 낮추고 시간지연 도입 — 촉진 전 2초 기다려 스스로 시작할 기회 제공',
+    '시간지연 3초로 확대 — 언어 촉진은 간접 단서("다음은 뭘까?")로 약화',
+    '시간지연 3~4초 유지 — 촉진 없이 시작한 횟수를 세어 대기 확대 단계 준비',
+  ] },
+  { label: '유지', short: '시간지연 확대', descs: [
+    '시간지연 확대(4초 대기) — 스스로 수행을 기본으로 하고, 막힐 때만 최소 촉진 제공',
+    '시간지연 5초 대기 — 촉진 없이 수행한 횟수를 기록하며 최소 촉진도 점차 제거',
+    '대기 후에도 촉진이 거의 필요 없는지 확인 — 자료·상황이 바뀌어도 스스로 하는지 살펴보기',
+  ] },
+  { label: '일반화', short: '독립 수행 확인', descs: [
+    '촉진 없이 독립 수행 확인 — 익숙한 수업 장면에서 스스로 수행하는지 점검',
+    '다른 장소·사람·자료로 바꿔도 독립 수행이 유지되는지 확인 — 필요할 때만 짧게 지원',
+    '유지 점검 — 일과 속에서 자연스럽게 수행하는지 간헐적으로만 확인하고 스스로 하기를 격려',
+  ] },
+];
+const fadeDesc = (stage, pos) => {
+  const d = FADE_STAGES[stage].descs;
+  return d[Math.min(pos, d.length - 1)];
+};
+// 강화 스케줄 — 촉구 단계와 같은 축으로 전환(0·1=습득 즉시강화, 2=유지 간헐강화, 3=일반화 자연적 강화).
+// pos = 같은 강화 묶음(습득/유지/일반화)이 이어지는 구간 내 위치 — 비율·방식을 점증.
+function reinforceStage(stage, pos, topReinf) {
+  const pick = (arr) => arr[Math.min(pos, arr.length - 1)];
+  if (stage <= 1) return '습득 단계 — ' + pick([
+    `연속강화(CRF): 정반응마다 즉시 칭찬·선호 강화물${topReinf ? `(예: ${topReinf})` : ''} 제공`,
+    '연속강화 유지 — 칭찬은 구체적으로("스스로 했네!") 하고, 강화물은 수행 직후 잠깐 뒤에 주어 지연에 익숙해지기',
+    '고정비율(FR2)로 늘리기 — 2회 정반응마다 강화하며 간헐강화로 넘어갈 준비',
+  ]);
+  if (stage === 2) return '유지 단계 — ' + pick([
+    '간헐강화 전환(고정비율 FR2~FR3): 2~3회에 한 번 강화하며 강화물 의존 줄이기',
+    '변동비율(VR3)로 불규칙하게 강화 — 언제 받을지 모르게 하여 수행 유지력 높이기',
+    '변동비율 확대(VR4~VR5) — 자연적 칭찬·성취감 비중을 늘리고 강화물은 가끔만',
+  ]);
+  return '일반화 단계 — ' + pick([
+    '자연적 강화 중심: 활동 자체의 성취감·또래 인정으로 전환하고, 강화물은 확인 차원에서만 사용',
+    '자연적 강화 정착 — 강화물 없이도 수행이 유지되는지 확인하고, 이따금 칭찬으로만 인정',
+    '자기강화로 확장 — 스스로 잘했는지 표시(스티커·체크)하게 하고 교사는 간헐적으로만 확인',
+  ]);
+}
+// 출발점 '수행 가능 수준'·현행수준 텍스트 → 시작 촉구 단계. 강한 지원 키워드부터 검사
+// (여러 촉진이 섞여 있으면 가장 강한 지원 기준). 키워드가 없으면 시작/도달 기준 비율로 추정.
+function fadeStartStage(perfText, cStart, cEnd) {
+  const t = String(perfText || '');
+  // "신체적·언어적 촉진"류는 '신체적'이 먼저 걸려 0단계(가장 강한 지원 기준). "신체활동"은 매칭 안 됨.
+  if (/신체\s*촉진|신체적|전적\s*도움|손\s*위\s*손|전반적\s*도움|1\s*[대:]\s*1\s*촉진|일대일\s*촉진/.test(t)) return 0;
+  if (/시범|모델링|부분\s*도움|부분적/.test(t)) return 0;
+  if (/언어\s*촉진|구어\s*촉진|시각\s*촉진|그림\s*촉진|몸짓|시각적?\s*(지원|단서|구조화|일정표)|그림\s*카드/.test(t)) return 1;
+  if (/교사\s*감독|단서만|지켜보/.test(t)) return 2;
+  const ratio = +cEnd > 0 ? +cStart / +cEnd : 0;
+  return ratio >= 0.8 ? 2 : ratio >= 0.6 ? 1 : 0;
+}
+// 구간 phase(탐색→연습→적용→일반화)별 지도전략 중점 — 지도전략 줄이 매달 똑같지 않게.
+const PHASE_STRATEGY = [
+  '교사 시범·모델링을 보고 따라 하기 중심',
+  '직접교수·반복연습으로 정확도 높이기 중심',
+  '촉진을 줄이며 자기점검(스스로 확인하기) 활용 중심',
+  '장소·자료·사람을 바꿔 적용하기 중심',
+];
 const monthsOf = (sem) => (String(sem) === '2' ? [9, 10, 11, 12, 1] : [3, 4, 5, 6, 7]);
 // 학기에 넣을 수 있는 월 후보(학사일정 순서). 교사가 이 중에서 실제 운영 월을 고른다.
 const MONTH_POOL = (sem) => (String(sem) === '2' ? [9, 10, 11, 12, 1, 2] : [3, 4, 5, 6, 7, 8]);
@@ -245,7 +316,7 @@ function parseLooseJSON(raw) {
   }
 }
 
-export default function IepPage() {
+export default function IepPage({ onNavigate }) {
   const { curStu, curStuId, curStuData, ensureStudentData, curYear, curSemester, studentTier, tier2Groups } = useStudents();
   const { user } = useAuth();
   const toast = useToast();
@@ -343,6 +414,8 @@ export default function IepPage() {
 
   const [savedGoals, setSavedGoals] = useState([]);
   const [busy, setBusy] = useState(false);
+  // 0819 피드백: 저장 성공 후 "다음 단계(IEP 계획서)로 이동" 배너 — 내용을 다시 수정하면 숨김.
+  const [savedOk, markSaved] = useSavedFlag([goal, plop, monthly, semEval]);
   const [aiDecBusy, setAiDecBusy] = useState(false);
   const [verbBusy, setVerbBusy] = useState(false); // 같은 의미 동사 펼치기 진행 상태
   const [aiGenBusy, setAiGenBusy] = useState(false);
@@ -646,20 +719,46 @@ export default function IepPage() {
     const support = (i) => SUP[Math.min(SUP.length - 1, Math.round(frac(i) * (SUP.length - 1)))];
     const stem = (verb || sel.verb || '').replace(/하기$|기$/, '');
     const obj = (descriptor || base).trim();
-    const phase = (i) => CONTENT_SUFFIX[Math.min(CONTENT_SUFFIX.length - 1, Math.floor(i / (n / CONTENT_SUFFIX.length)))];
+    const phaseIdx = (i) => Math.min(CONTENT_SUFFIX.length - 1, Math.floor(i / (n / CONTENT_SUFFIX.length)));
+    const phase = (i) => CONTENT_SUFFIX[phaseIdx(i)];
     // 평가초점을 구간에 고르게 배분(질적 평가 서술의 기준점)
     const fociFor = (i) => (foci.length ? foci.filter((_, k) => k % n === i || (foci.length <= n && k === i)) : []);
-    // 교육방법 3구조(피드백1): 지도전략 · 지원수준(촉구·용암) · 강화 스케줄
-    const reinforceFor = (i) => (frac(i) < 0.5
-      ? '습득 단계 — 연속강화(CRF): 정반응마다 즉시 칭찬·선호 강화물 제공'
-      : '유지 단계 — 간헐강화(VR2~VR3): 2~3회에 한 번 불규칙하게 강화하며 자연적 칭찬·성취감으로 전환');
-    const methodsFor = (i) => [
-      // P15: 교사가 학기 교육방법에 적은 지도전략을 우선 반영.
-      `지도전략: ${semStrategy || methods.join(', ')}`,
-      // 0720: "부분적으로 수준에서" 비문 → "'부분적으로' 수행하는 수준에서"로 교정.
-      `지원수준(촉구·용암): ${isTask ? promptDesc(promptSystem, i, n, support) : `'${support(i).trim()}' 수행하는 수준에서 촉구를 점차 줄여(최대-최소 촉진→시간지연) 독립 수행으로`}`,
-      `강화 스케줄: ${reinforceFor(i)}`,
-    ];
+    // 교육방법 3구조(피드백1) + 구간별 점증(0819 피드백): 지도전략 · 지원수준(촉구·용암) · 강화 스케줄.
+    // 매달 같은 문장이 반복되지 않도록 구간마다 "그 구간의 단계"만 서술한다.
+    // 시작 단계는 출발점(모듈1) '수행 가능 수준'(없으면 현행수준)에서 앵커링, 마지막 구간은 항상 독립·일반화.
+    const startStage = fadeStartStage(startpoint?.perfLevel || plop, s, e);
+    const stageFor = (i) => (n <= 1
+      ? FADE_STAGES.length - 1
+      : Math.min(FADE_STAGES.length - 1, startStage + Math.round((i / (n - 1)) * (FADE_STAGES.length - 1 - startStage))));
+    const stagesArr = groups.map((_, i) => stageFor(i));
+    // 같은 단계가 여러 구간 이어질 때의 위치(0,1,2…) — 변형 문안 선택용(인접 구간 문장 중복 방지).
+    const runPos = stagesArr.map((st, i) => { let p = 0; for (let k = i - 1; k >= 0 && stagesArr[k] === st; k--) p++; return p; });
+    const reinfGroupOf = (st) => (st <= 1 ? 0 : st === 2 ? 1 : 2); // 습득/유지/일반화 묶음
+    const reinfPos = stagesArr.map((st, i) => { let p = 0; for (let k = i - 1; k >= 0 && reinfGroupOf(stagesArr[k]) === reinfGroupOf(st); k--) p++; return p; });
+    const raisdMeta = curStuData?.raisd?.responses?._meta || {};
+    const topReinf = Array.isArray(raisdMeta.ranking) ? (raisdMeta.ranking.filter(Boolean)[0] || '') : '';
+    const methodsFor = (i) => {
+      const stg = stagesArr[i];
+      const nxt = i < n - 1 ? stagesArr[i + 1] : stg;
+      // 과제분석 목표는 교사가 고른 촉진 체계(promptDesc)가 점증을 담당 — 그대로 둔다.
+      // 구간이 1개뿐이면(전체 월을 한 구간으로 묶음) 단계 서술 대신 학기 전체 흐름을 쓴다.
+      const fadeLine = isTask
+        ? promptDesc(promptSystem, i, n, support)
+        : n <= 1
+        ? `${FADE_STAGES.slice(startStage).map((x) => x.short).join(' → ')} 순서로 촉구를 점차 줄여 독립 수행으로 (학기 전체 흐름 — 월을 구간으로 나누면 단계별로 서술됩니다)`
+        : `[${FADE_STAGES[stg].label}] ${fadeDesc(stg, runPos[i])}${nxt !== stg ? ` (다음 구간: ${FADE_STAGES[nxt].short})` : ''}`;
+      const reinfLine = n <= 1
+        ? (startStage >= 2
+          ? `간헐강화(변동비율)에서 자연적 강화·자기강화로 전환 (학기 전체 흐름)`
+          : `습득 단계 즉시(연속)강화 → 유지 단계 간헐강화 → 자연적 강화로 전환 (학기 전체 흐름)`)
+        : reinforceStage(stg, reinfPos[i], topReinf);
+      return [
+        // P15: 교사가 학기 교육방법에 적은 지도전략을 우선 반영 + 구간별 중점을 문두에.
+        `지도전략: (이번 구간 중점) ${PHASE_STRATEGY[phaseIdx(i)]} — 기본 전략: ${semStrategy || methods.join(', ')}`,
+        `지원수준(촉구·용암): ${fadeLine}`,
+        `강화 스케줄: ${reinfLine}`,
+      ];
+    };
     const list = groups.map((grp, i) => {
       const m = monthGroupLabel(grp, sem);
       // 이 달에 배분된 평가초점 — 교육내용·평가가 평가초점에서 출발하도록 공유.
@@ -1271,6 +1370,8 @@ export default function IepPage() {
       `   ② 지원수준(촉구·용암) — 무엇을 촉구하고 언제 어떻게 줄이는지, 이 학생의 현행수준에 맞는 촉구 체계와 용암 계획을 서술.\n` +
       `   ③ 강화 스케줄 — 습득 단계와 유지 단계의 강화 계획을 서술하고, 학생 자료에 나온 이 학생이 실제 좋아하는 것을 강화물로 연결.\n` +
       `   ※ 3구조의 틀은 구간마다 일관되게 유지하되, 내용은 매 구간 이 학생·이 교육내용에서 출발해 새로 쓸 것.\n` +
+      `   ※ [구간별 점증 — 중요] ②지원수준과 ③강화 스케줄은 그 구간에서 실제로 쓰는 단계만 서술할 것. 전체 용암 흐름(최대-최소 촉진→시간지연→독립)을 매 구간 반복해 쓰지 말 것. 첫 구간은 [모듈1 출발점]의 수행 가능 수준(없으면 현행수준)에 적힌 촉진 수준에서 시작하고, 구간이 지날수록 최대-최소 촉진→시간지연→독립 수행, 즉시(연속)강화→간헐강화→자연적 강화로 점증해 마지막 구간은 독립 수행·자연적 강화에 도달할 것.\n` +
+      `   ※ 인접 구간과 같거나 거의 같은 문장 금지 — 구간마다 촉진 종류·대기 시간·강화 비율 중 최소 1가지를 명시적으로 다르게 쓸 것.\n` +
       `6) [평가초점 연결 — 핵심] 평가초점이 교육목표·교육내용·교육방법·평가를 하나로 꿰는 축이다. 교육목표는 평가초점이 가리키는 능력에 도달하도록 진술하고, 교육내용은 그 평가초점을 배우는 구체적 학습내용·활동으로, 교육방법은 그 내용을 가르치는 방법으로, 평가는 평가초점을 기준으로 작성한다(평가초점이 비어 있으면 성취기준을 먼저 분석해 세운다). 교육목표·평가는 "- "로 시작하는 항목 2~3개로 쓴다.\n` +
       `7) [평가계획(eval_plan)] 구간마다 교육목표·교육내용에 근거한 "~는가?" 질문형 항목 2~4개. 반드시 서로 다른 측면을 다각적으로 다룰 것 — (a) 수행·도달, (b) 참여 태도, (c) 지속성(시간·횟수), (d) 독립·모방 수준, (e) 일반화(다른 상황·자료·사람) 중 2~4개 측면을 골라 한 측면당 1개 질문. 같은 측면 반복 금지. 질문은 이 구간의 교육내용에 나온 실제 활동·재료를 담아 구체적으로 쓸 것.\n` +
       `8) 평가(eval)는 ${isQual ? '평가초점을 중심으로, 수업 맥락·학생 반응·성장 변곡점을 담은 내러티브(서술형)로만 작성(수치 금지).' : isTask ? '전체 N단계 중 독립 수행 단계 수와 단계별 촉진 수준(전신→부분→시범→독립)의 변화를 함께 기록하는 과제분석 체크리스트형 서술로 작성.' : '양적 기준 도달 여부와 함께 평가초점 중심의 질적 서술을 함께 포함.'}\n` +
@@ -1446,6 +1547,7 @@ export default function IepPage() {
       if (editingId) body.id = editingId;
       const r = await saveIEPGoal(curStuId, body);
       toast(editingId ? 'IEP 목표 수정 완료' : 'IEP 목표 저장 완료');
+      markSaved();
       if (r?.goal?.id) setEditingId(r.goal.id);
       const d = await fetchIEP(curStuId);
       setSavedGoals(d.goals || []);
@@ -2298,6 +2400,14 @@ export default function IepPage() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                 <button className="btn btn-pri" onClick={save} disabled={busy}>{editingId ? '💾 수정 저장' : '💾 IEP 목표 저장'}</button>
               </div>
+              {/* 0819 피드백: 저장 후 다음 단계로 바로 이동 CTA */}
+              <NextStepBanner
+                show={savedOk}
+                message="✅ IEP 목표 저장 완료"
+                hint="저장된 목표는 IEP 계획서에서 완성·출력할 수 있어요"
+                nextLabel="📄 IEP 계획서(완성·출력)로 이동"
+                onGo={() => onNavigate?.('iepReport')}
+              />
             </>
           )}
         </div>

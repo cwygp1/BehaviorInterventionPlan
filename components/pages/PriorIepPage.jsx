@@ -6,10 +6,11 @@ import { useLLM } from '../../contexts/LLMContext';
 import { fetchIEP, saveIEPGoal, deleteIEPGoal } from '../../lib/api/students';
 import { extractFromFile } from '../../lib/utils/extractText';
 import ExternalAIModal from '../ui/ExternalAIModal';
+import NextStepBanner, { useSavedFlag } from '../ui/NextStepBanner';
 
 const gradeFromLevel = (lv) => (lv?.includes('고') ? 12 : lv?.includes('중') ? 9 : 6);
 
-export default function PriorIepPage() {
+export default function PriorIepPage({ onNavigate }) {
   const { curStu, curStuId } = useStudents();
   const toast = useToast();
   const { callDetailed, callVisionDetailed, status: llmStatus } = useLLM();
@@ -37,6 +38,8 @@ export default function PriorIepPage() {
   const [fPlop, setFPlop] = useState('');
   const [fEval, setFEval] = useState('');
   const [busy, setBusy] = useState(false);
+  // 0819 피드백: 저장 성공 후 "다음 단계(출발점 분석)로 이동" 배너 — 폼·파싱 입력을 다시 수정하면 숨김.
+  const [savedOk, markSaved] = useSavedFlag([fSubject, fArea, fGoal, fPlop, fEval, impText, impImages.length]);
 
   function reload() {
     if (!curStuId) { setGoals([]); return; }
@@ -67,6 +70,7 @@ export default function PriorIepPage() {
       };
       await saveIEPGoal(curStuId, body);
       toast(editingId ? '수정 완료' : '추가 완료');
+      markSaved();
       resetForm(); reload();
     } catch (e) { toast('저장 실패: ' + e.message); } finally { setBusy(false); }
   }
@@ -123,6 +127,7 @@ export default function PriorIepPage() {
       const n = await saveParsedGoals(arr);
       setImpText(''); setImpImages([]);
       toast(`${year}학년도 IEP에서 ${n}개 목표를 불러왔어요.`);
+      markSaved();
       reload();
     } catch (e) { toast('파싱 실패: ' + e.message + (impImages.length ? ' (이미지 분석은 비전 모델 필요)' : '')); }
     finally { setImpBusy(false); }
@@ -180,6 +185,7 @@ export default function PriorIepPage() {
             saveParsedGoals(arr).then((n) => {
               setImpText(''); setImpImages([]);
               toast(`${year}학년도 IEP에서 ${n}개 목표를 불러왔어요.`);
+              markSaved();
               reload();
             }).catch((e) => toast('저장 실패: ' + e.message));
             return true;
@@ -201,6 +207,14 @@ export default function PriorIepPage() {
           {editingId && <button className="btn btn-ghost" onClick={resetForm}>새 입력</button>}
           <button className="btn btn-pri" onClick={saveForm} disabled={busy}>{busy ? '저장 중…' : editingId ? '수정 저장' : `${year}학년도 ${semester}학기로 추가`}</button>
         </div>
+        {/* 0819 피드백: 저장(파싱 추가·직접 입력) 후 다음 단계로 바로 이동 CTA */}
+        <NextStepBanner
+          show={savedOk}
+          message="✅ 전년도 IEP 저장 완료"
+          hint="올해 IEP를 만들려면 출발점 분석(현행수준)부터 시작해요"
+          nextLabel="🧭 출발점 분석으로 이동"
+          onGo={() => onNavigate?.('startpoint')}
+        />
       </div>
 
       {/* 목록 */}

@@ -9,10 +9,11 @@ import AIActionBar from '../ui/AIActionBar';
 import PromptResultBlock from '../modals/PromptResultBlock';
 import { createMonitor, updateMonitor, deleteMonitor as apiDelMon, createFidelity } from '../../lib/api/students';
 import ObservationPeriodModal from '../modals/ObservationPeriodModal';
+import NextStepBanner, { useSavedFlag } from '../ui/NextStepBanner';
 
 const STD_BEHS = ['자리 이탈', '소리 지르기', '자해', '공격 행동', '거부', '회피', '반복 행동', '울기', '물건 던지기', '도주'];
 
-export default function MonitorPage() {
+export default function MonitorPage({ onNavigate }) {
   const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData } = useStudents();
   const toast = useToast();
   const { call, status: llmStatus } = useLLM();
@@ -31,6 +32,8 @@ export default function MonitorPage() {
   const [lat, setLat] = useState(0);
   const [dbr, setDbr] = useState(5);
   const [editingId, setEditingId] = useState(null); // 0719: 기록 목록에서 불러와 수정
+  // 0819 피드백: 저장 성공 후 "다음 단계(결과 평가)로 이동" 배너 — 새 기록을 입력하면 숨김.
+  const [savedOk, markSaved] = useSavedFlag([date, beh, freq, dur, intensity, alt, altFreq, lat, dbr]);
   // 기본값은 A(기초선). 학생별로 한 번, 데이터가 있으면 가장 최근 기록의 단계를 이어받는다.
   const [phase, setPhase] = useState('A');
   const phaseInitedFor = useRef(null);
@@ -93,10 +96,12 @@ export default function MonitorPage() {
         updateStudentData(curStuId, (cur) => ({ ...cur, mon: cur.mon.map((r) => (r.id === editingId ? res.record : r)) }));
         setEditingId(null);
         toast('기록을 수정했어요.');
+        markSaved();
       } else {
         const res = await createMonitor(curStuId, body);
         updateStudentData(curStuId, (cur) => ({ ...cur, mon: [res.record, ...cur.mon] }));
         toast('데이터 저장 완료');
+        markSaved();
       }
     } catch (e) {
       toast('저장 실패: ' + e.message);
@@ -287,6 +292,14 @@ ${bText}
           {editingId && <button className="btn btn-ghost" onClick={cancelEdit}>취소 (새 기록으로)</button>}
           <button className="btn btn-pri" onClick={onSaveMon} disabled={busy}>{editingId ? '💾 수정 저장' : '💾 데이터 저장'}</button>
         </div>
+        {/* 0819 피드백: 저장 후 다음 단계로 바로 이동 CTA (매일 기록을 이어가도 되고, 평가로 넘어가도 됨) */}
+        <NextStepBanner
+          show={savedOk}
+          message="✅ 행동 데이터 저장 완료"
+          hint="데이터가 쌓였다면 중재 효과를 그래프로 평가해보세요"
+          nextLabel="✅ 결과 평가로 이동"
+          onGo={() => onNavigate?.('eval')}
+        />
       </div>
 
       <div className="card" data-tour="mon-fid">

@@ -9,6 +9,7 @@ import AIActionBar from '../ui/AIActionBar';
 import PromptResultBlock from '../modals/PromptResultBlock';
 import { downloadQabfExcel } from '../../lib/utils/exportQabf';
 import { FormLoading } from '../../lib/hooks/useFormLoad';
+import NextStepBanner, { useSavedFlag } from '../ui/NextStepBanner';
 import {
   QABF_QUESTIONS as QUESTIONS,
   QABF_FUNCTION_LABELS as FUNCTION_LABELS,
@@ -22,12 +23,14 @@ import {
   qabfScores,
 } from '../../lib/qabf';
 
-export default function QabfPage() {
+export default function QabfPage({ onNavigate }) {
   const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData } = useStudents();
   const toast = useToast();
   const { call, callVisionDetailed, status: llmStatus } = useLLM();
   const [responses, setResponses] = useState(new Array(25).fill(-1));
   const [busy, setBusy] = useState(false);
+  // 0819 피드백: 저장 성공 후 "다음 단계(중재계획)로 이동" 배너 — 응답을 다시 수정하면 숨김.
+  const [savedOk, markSaved] = useSavedFlag([responses]);
   // 0719: 기존 QABF 자료 불러오기 (사진 AI 판독 / 응답 붙여넣기)
   const [impBusy, setImpBusy] = useState(false);
   const [impPaste, setImpPaste] = useState('');
@@ -94,6 +97,7 @@ export default function QabfPage() {
       updateStudentData(curStuId, (cur) => ({ ...cur, qabf: responses }));
       try { if (qabfDraftKey) sessionStorage.removeItem(qabfDraftKey); } catch (_) { /* ignore */ }
       toast('QABF 저장 완료', 'success');
+      markSaved();
     } catch (e) {
       toast('저장 실패: ' + e.message);
     } finally {
@@ -296,6 +300,14 @@ ${profile}
             💾 QABF 저장
           </button>
         </div>
+        {/* 0819 피드백: 저장 후 다음 단계로 바로 이동 CTA */}
+        <NextStepBanner
+          show={savedOk}
+          message="✅ QABF 저장 완료"
+          hint="평가된 행동 기능을 바탕으로 중재계획을 세워보세요"
+          nextLabel="📝 중재계획(BIP)으로 이동"
+          onGo={() => onNavigate?.('bip')}
+        />
       </div>
     </>
   );
