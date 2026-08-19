@@ -10,7 +10,7 @@ import TokenField from '../ui/TokenField';
 import BIPPromptModal from '../modals/BIPPromptModal';
 import FamilyLetterModal from '../modals/FamilyLetterModal';
 import { saveBIP as apiSaveBIP } from '../../lib/api/students';
-import NextStepBanner, { useSavedFlag } from '../ui/NextStepBanner';
+import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import { printBehaviorContract } from '../../lib/utils/printContract';
 import { printBIP } from '../../lib/utils/printBIP';
 
@@ -86,7 +86,7 @@ export default function BipPage({ onNavigate }) {
       await apiSaveBIP(curStuId, body);
       updateStudentData(curStuId, (cur) => ({ ...cur, bip: body }));
       toast('BIP 저장 완료');
-      markSaved();
+      markSaved(); hintNextStep('monitor'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
     } catch (e) {
       toast('저장 실패: ' + e.message);
     } finally {

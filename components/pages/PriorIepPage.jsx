@@ -6,7 +6,7 @@ import { useLLM } from '../../contexts/LLMContext';
 import { fetchIEP, saveIEPGoal, deleteIEPGoal } from '../../lib/api/students';
 import { extractFromFile } from '../../lib/utils/extractText';
 import ExternalAIModal from '../ui/ExternalAIModal';
-import NextStepBanner, { useSavedFlag } from '../ui/NextStepBanner';
+import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 
 const gradeFromLevel = (lv) => (lv?.includes('고') ? 12 : lv?.includes('중') ? 9 : 6);
 
@@ -70,7 +70,7 @@ export default function PriorIepPage({ onNavigate }) {
       };
       await saveIEPGoal(curStuId, body);
       toast(editingId ? '수정 완료' : '추가 완료');
-      markSaved();
+      markSaved(); hintNextStep('startpoint'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
       resetForm(); reload();
     } catch (e) { toast('저장 실패: ' + e.message); } finally { setBusy(false); }
   }
@@ -127,7 +127,7 @@ export default function PriorIepPage({ onNavigate }) {
       const n = await saveParsedGoals(arr);
       setImpText(''); setImpImages([]);
       toast(`${year}학년도 IEP에서 ${n}개 목표를 불러왔어요.`);
-      markSaved();
+      markSaved(); hintNextStep('startpoint'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
       reload();
     } catch (e) { toast('파싱 실패: ' + e.message + (impImages.length ? ' (이미지 분석은 비전 모델 필요)' : '')); }
     finally { setImpBusy(false); }
@@ -185,7 +185,7 @@ export default function PriorIepPage({ onNavigate }) {
             saveParsedGoals(arr).then((n) => {
               setImpText(''); setImpImages([]);
               toast(`${year}학년도 IEP에서 ${n}개 목표를 불러왔어요.`);
-              markSaved();
+              markSaved(); hintNextStep('startpoint'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
               reload();
             }).catch((e) => toast('저장 실패: ' + e.message));
             return true;

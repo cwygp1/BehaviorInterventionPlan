@@ -17,7 +17,7 @@ import { ebpBlockForGoal } from '../../lib/ebp';
 import { FORMAT_EX_MATH, FORMAT_EX_MOTOR, findExampleEchoes } from '../../lib/exampleGuard';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
 import { splitDisability } from '../../lib/disability';
-import NextStepBanner, { useSavedFlag } from '../ui/NextStepBanner';
+import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 
 const GRADE = { 0: '일상생활(공통)', 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
 const GORDER = [2, 4, 6, 9, 12];
@@ -1402,20 +1402,62 @@ export default function IepPage({ onNavigate }) {
   function normItemList(s) {
     return String(s || '').replace(/\s*,\s*(?=-\s)/g, '\n');
   }
+  // 0819(2차 피드백 — 구병모: "요건 유사하게 계속 나오는 듯"): 프롬프트로 점증을 지시해도
+  // 모델이 구간별 지원수준·강화를 거의 같은 문장으로 반복할 수 있다 → 결정적 안전망.
+  // 인접 구간에 같은 문장이 있으면 그 항목 전체를 규칙 점증 사다리로 대체한다(지도전략·기타 줄은 AI 문장 유지).
+  // 과제분석 목표는 교사가 고른 촉진 체계가 축이므로 건드리지 않는다.
+  function fixAiMethodRepetition(list) {
+    if (critType === 'task' || !Array.isArray(list) || list.length < 2) return { list, fixed: false };
+    const n = list.length;
+    const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+    const catLine = (m, re) => (m.methods || []).find((x) => re.test(String(x)));
+    const hasAdjDup = (re) => list.some((m, i) => {
+      if (i === 0) return false;
+      const a = norm(catLine(m, re)), b = norm(catLine(list[i - 1], re));
+      return !!a && a === b;
+    });
+    const fadeDup = hasAdjDup(/^지원수준/);
+    const reinfDup = hasAdjDup(/^강화/);
+    if (!fadeDup && !reinfDup) return { list, fixed: false };
+    const startStage = fadeStartStage(startpoint?.perfLevel || plop, +cStart, +cEnd);
+    const stageFor = (i) => Math.min(FADE_STAGES.length - 1, startStage + Math.round((i / (n - 1)) * (FADE_STAGES.length - 1 - startStage)));
+    const stagesArr = list.map((_, i) => stageFor(i));
+    const runPos = stagesArr.map((st, i) => { let p = 0; for (let k = i - 1; k >= 0 && stagesArr[k] === st; k--) p++; return p; });
+    const rg = (st) => (st <= 1 ? 0 : st === 2 ? 1 : 2);
+    const reinfPos = stagesArr.map((st, i) => { let p = 0; for (let k = i - 1; k >= 0 && rg(stagesArr[k]) === rg(st); k--) p++; return p; });
+    const raisdMeta = curStuData?.raisd?.responses?._meta || {};
+    const topReinf = Array.isArray(raisdMeta.ranking) ? (raisdMeta.ranking.filter(Boolean)[0] || '') : '';
+    const fixedList = list.map((m, i) => ({
+      ...m,
+      methods: (m.methods || []).map((line) => {
+        if (fadeDup && /^지원수준/.test(String(line))) {
+          const stg = stagesArr[i]; const nxt = i < n - 1 ? stagesArr[i + 1] : stg;
+          return `지원수준(촉구·용암): [${FADE_STAGES[stg].label}] ${fadeDesc(stg, runPos[i])}${nxt !== stg ? ` (다음 구간: ${FADE_STAGES[nxt].short})` : ''}`;
+        }
+        if (reinfDup && /^강화/.test(String(line))) return `강화 스케줄: ${reinforceStage(stagesArr[i], reinfPos[i], topReinf)}`;
+        return line;
+      }),
+    }));
+    return { list: fixedList, fixed: true };
+  }
+
   function applyGen(j) {
     const ms = parseMonthGroups(monthGroups, months, sem).map((g) => monthGroupLabel(g, sem));
     if (j && (j.standard_code || j.standardCode)) warnUnknownStandard(j.standard_code || j.standardCode);
     if (j.semester_goal || j.semesterGoal) setGoal(String(j.semester_goal || j.semesterGoal));
     if (j.plop) setPlop(String(j.plop));
     if (Array.isArray(j.monthly) && j.monthly.length) {
-      setMonthly(j.monthly.map((x, i) => ({
+      const mapped = j.monthly.map((x, i) => ({
         month: String(x.month || ms[i] || ms[ms.length - 1]),
         goal: normItemList(x.goal),
         content: normItemList(x.content),
         methods: Array.isArray(x.methods) ? x.methods.map(String) : String(x.methods || '').split(/\n|,/).map((s) => s.replace(/^\s*[-•·]\s*/, '').trim()).filter(Boolean),
         eval: normItemList(x.eval || x.evaluation),
         eval_plan: normItemList(x.eval_plan || x.evalPlan),
-      })));
+      }));
+      const { list, fixed } = fixAiMethodRepetition(mapped);
+      setMonthly(list);
+      if (fixed) toast('AI가 구간별 지원수준·강화를 비슷하게 반복해, 구간별 점증(촉구 줄이기·강화 전환)으로 자동 보정했어요.');
     }
     if (j.semestral_eval || j.semestralEval) setSemEval(String(j.semestral_eval || j.semestralEval));
     if (Array.isArray(j.task_steps) && j.task_steps.length) setTaskSteps(j.task_steps.map((s) => String(s).trim()).filter(Boolean));
@@ -1547,7 +1589,7 @@ export default function IepPage({ onNavigate }) {
       if (editingId) body.id = editingId;
       const r = await saveIEPGoal(curStuId, body);
       toast(editingId ? 'IEP 목표 수정 완료' : 'IEP 목표 저장 완료');
-      markSaved();
+      markSaved(); hintNextStep('iepReport'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
       if (r?.goal?.id) setEditingId(r.goal.id);
       const d = await fetchIEP(curStuId);
       setSavedGoals(d.goals || []);

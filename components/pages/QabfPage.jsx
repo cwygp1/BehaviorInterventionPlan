@@ -9,7 +9,7 @@ import AIActionBar from '../ui/AIActionBar';
 import PromptResultBlock from '../modals/PromptResultBlock';
 import { downloadQabfExcel } from '../../lib/utils/exportQabf';
 import { FormLoading } from '../../lib/hooks/useFormLoad';
-import NextStepBanner, { useSavedFlag } from '../ui/NextStepBanner';
+import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import {
   QABF_QUESTIONS as QUESTIONS,
   QABF_FUNCTION_LABELS as FUNCTION_LABELS,
@@ -97,7 +97,7 @@ export default function QabfPage({ onNavigate }) {
       updateStudentData(curStuId, (cur) => ({ ...cur, qabf: responses }));
       try { if (qabfDraftKey) sessionStorage.removeItem(qabfDraftKey); } catch (_) { /* ignore */ }
       toast('QABF 저장 완료', 'success');
-      markSaved();
+      markSaved(); hintNextStep('bip'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
     } catch (e) {
       toast('저장 실패: ' + e.message);
     } finally {

@@ -25,6 +25,13 @@ export function useSavedFlag(deps) {
   return [saved, mark];
 }
 
+// 0819(2차 피드백 — 구병모): "다음 탭에 불 반짝이는 것도 좋을듯" — 저장 직후 사이드바의
+// 다음 단계 메뉴를 몇 초간 반짝이게 하는 신호. Sidebar가 수신해 해당 메뉴에 애니메이션을 건다.
+export function hintNextStep(pageId) {
+  if (typeof window === 'undefined' || !pageId) return;
+  try { window.dispatchEvent(new CustomEvent('kkobak-next-hint', { detail: { page: pageId } })); } catch (_e) { /* noop */ }
+}
+
 export default function NextStepBanner({ show, message, hint, nextLabel, onGo }) {
   if (!show) return null;
   return (

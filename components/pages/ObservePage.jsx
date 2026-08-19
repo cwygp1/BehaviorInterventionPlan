@@ -10,7 +10,7 @@ import AIActionBar from '../ui/AIActionBar';
 import Modal from '../ui/Modal';
 import EditStudentModal from '../modals/EditStudentModal';
 import RAISDModal from '../modals/RAISDModal';
-import NextStepBanner, { useSavedFlag } from '../ui/NextStepBanner';
+import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import PriorityChecklistModal from '../modals/PriorityChecklistModal';
 import DeadMansModal from '../modals/DeadMansModal';
 import { createABC as apiCreateABC, deleteABC as apiDeleteABC } from '../../lib/api/students';
@@ -185,7 +185,7 @@ export default function ObservePage({ onNavigate }) {
       setA(''); setB(''); setC(''); setTimeVal(''); setPlaceVal('');
       try { if (draftKey) sessionStorage.removeItem(draftKey); } catch (_) { /* ignore */ }
       toast('ABC 기록 저장 완료', 'success');
-      markSaved();
+      markSaved(); hintNextStep('qabf'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
     } catch (e) {
       toast('저장 실패: ' + e.message);
     } finally {

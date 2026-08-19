@@ -9,7 +9,7 @@ import AIActionBar from '../ui/AIActionBar';
 import PromptResultBlock from '../modals/PromptResultBlock';
 import { createMonitor, updateMonitor, deleteMonitor as apiDelMon, createFidelity } from '../../lib/api/students';
 import ObservationPeriodModal from '../modals/ObservationPeriodModal';
-import NextStepBanner, { useSavedFlag } from '../ui/NextStepBanner';
+import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 
 const STD_BEHS = ['자리 이탈', '소리 지르기', '자해', '공격 행동', '거부', '회피', '반복 행동', '울기', '물건 던지기', '도주'];
 
@@ -96,12 +96,12 @@ export default function MonitorPage({ onNavigate }) {
         updateStudentData(curStuId, (cur) => ({ ...cur, mon: cur.mon.map((r) => (r.id === editingId ? res.record : r)) }));
         setEditingId(null);
         toast('기록을 수정했어요.');
-        markSaved();
+        markSaved(); hintNextStep('eval'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
       } else {
         const res = await createMonitor(curStuId, body);
         updateStudentData(curStuId, (cur) => ({ ...cur, mon: [res.record, ...cur.mon] }));
         toast('데이터 저장 완료');
-        markSaved();
+        markSaved(); hintNextStep('eval'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
       }
     } catch (e) {
       toast('저장 실패: ' + e.message);

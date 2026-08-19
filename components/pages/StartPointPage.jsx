@@ -5,7 +5,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { EditableChipGroup, makeAppender } from '../ui/QChip';
 import ExternalAIModal from '../ui/ExternalAIModal';
-import NextStepBanner, { useSavedFlag } from '../ui/NextStepBanner';
+import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import { fetchStartpoint, saveStartpoint } from '../../lib/api/students';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
 import { studentProfileParts, sanitizeStrengths, RISK_RE } from '../../lib/utils/splitNote';
@@ -118,7 +118,7 @@ export default function StartPointPage({ onNavigate }) {
     try {
       await saveStartpoint(curStuId, f);
       toast('출발점(모듈1) 저장 완료');
-      markSaved();
+      markSaved(); hintNextStep('iep'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
     } catch (e) {
       toast('저장 실패: ' + e.message);
     } finally {

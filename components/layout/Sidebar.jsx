@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { SECTIONS, PAGE_SECTION } from '../../lib/tiers';
 
@@ -66,11 +67,11 @@ const WORKSPACE_COMMON = [
 // 학생 선택이 필요한 페이지 목록(Layout의 학생 선택 가드가 사용).
 export const PBS_PAGES = Object.values(SECTION_ITEMS).flat().filter((i) => i.requiresStudent).map((i) => i.id);
 
-function NavItem({ item, activePage, onNavigate, hasStudent }) {
+function NavItem({ item, activePage, onNavigate, hasStudent, hint }) {
   const locked = item.requiresStudent && !hasStudent;
   return (
     <button
-      className={'nav-item' + (activePage === item.id ? ' active' : '') + (locked ? ' locked' : '')}
+      className={'nav-item' + (activePage === item.id ? ' active' : '') + (locked ? ' locked' : '') + (hint ? ' next-hint' : '')}
       data-tour={'nav-' + item.id}
       onClick={() => onNavigate(item.id)}
       title={locked ? '학생을 먼저 선택해야 열려요 (누르면 학생 선택 창이 열립니다)' : undefined}
@@ -88,6 +89,24 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
   const sectionKey = PAGE_SECTION[activePage] || null;
   const section = sectionKey ? SECTIONS[sectionKey] : null;
 
+  // 0819(2차 피드백): 저장 직후 다음 단계 메뉴가 몇 초간 반짝여 위치를 알려준다.
+  // 페이지가 hintNextStep(pageId)로 쏘는 이벤트를 받아 해당 메뉴에 next-hint 클래스를 건다.
+  const [hintId, setHintId] = useState('');
+  useEffect(() => {
+    let timer;
+    const onHint = (e) => {
+      const page = e?.detail?.page;
+      if (!page) return;
+      setHintId(page);
+      clearTimeout(timer);
+      timer = setTimeout(() => setHintId(''), 10000);
+    };
+    window.addEventListener('kkobak-next-hint', onHint);
+    return () => { clearTimeout(timer); window.removeEventListener('kkobak-next-hint', onHint); };
+  }, []);
+  // 그 메뉴로 실제 이동하면 반짝임 종료.
+  useEffect(() => { if (hintId && activePage === hintId) setHintId(''); }, [activePage, hintId]);
+
   return (
     <>
       <div className={'overlay' + (open ? ' show' : '')} onClick={onClose} />
@@ -101,13 +120,13 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
             <button className="ws-back" onClick={() => onNavigate('home')}>⌂ 전체 메뉴로 (홈)</button>
             <div className="nav-section" data-tour="ws-menu">
               {SECTION_ITEMS[sectionKey].map((item) => (
-                <NavItem key={item.id} item={item} activePage={activePage} onNavigate={onNavigate} hasStudent={hasStudent} />
+                <NavItem key={item.id} item={item} activePage={activePage} onNavigate={onNavigate} hasStudent={hasStudent} hint={hintId === item.id} />
               ))}
             </div>
             <div className="nav-section ws-common">
               <div className="nav-label">공통</div>
               {WORKSPACE_COMMON.map((item) => (
-                <NavItem key={item.id} item={item} activePage={activePage} onNavigate={onNavigate} hasStudent={hasStudent} />
+                <NavItem key={item.id} item={item} activePage={activePage} onNavigate={onNavigate} hasStudent={hasStudent} hint={hintId === item.id} />
               ))}
             </div>
           </>
@@ -127,7 +146,7 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
               <div className="nav-section" key={g.group}>
                 <div className="nav-label">{g.group}</div>
                 {g.items.map((item) => (
-                  <NavItem key={item.id} item={item} activePage={activePage} onNavigate={onNavigate} hasStudent={hasStudent} />
+                  <NavItem key={item.id} item={item} activePage={activePage} onNavigate={onNavigate} hasStudent={hasStudent} hint={hintId === item.id} />
                 ))}
               </div>
             ))}

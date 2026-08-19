@@ -100,6 +100,10 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 .nav-item.locked:hover{opacity:.75;background:var(--surface2);color:var(--sub)}
 .nav-item.locked .nav-step{background:var(--muted)}
 .nav-lock{flex-shrink:0;font-size:.7rem;opacity:.8}
+/* 0819(2차 피드백): 저장 직후 사이드바의 다음 단계 메뉴 반짝임 — 위치 안내 */
+.nav-item.next-hint{animation:nav-hint 1.1s ease-in-out 6}
+@keyframes nav-hint{0%,100%{background:transparent;box-shadow:none}50%{background:var(--pri-soft);box-shadow:inset 0 0 0 2px var(--pri)}}
+@media (prefers-reduced-motion: reduce){.nav-item.next-hint{animation:none;background:var(--pri-soft);box-shadow:inset 0 0 0 2px var(--pri)}}
 
 /* 5단계 진행 스트립 (모든 단계를 한눈에 + 클릭 이동) */
 .stepnav-progress{display:flex;gap:6px;margin-top:18px;overflow-x:auto;padding-bottom:2px}
