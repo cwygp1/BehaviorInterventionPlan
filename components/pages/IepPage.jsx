@@ -135,6 +135,33 @@ const fadeDesc = (stage, pos) => {
   const d = FADE_STAGES[stage].descs;
   return d[Math.min(pos, d.length - 1)];
 };
+// 0819(4차 피드백 — 구병모): "학기 교육방법과 월별 교육방법이 연결되는 느낌이 없다" →
+// 학기 교육방법의 "→" 단계 흐름(교사 작성·시드·AI 생성)을 월별 구간에 배분해,
+// 월별 지원수준·강화가 "[학기 계획 k/m단계] …"로 학기 방향을 펼친 것임이 보이게 한다.
+function methodChain(line) {
+  const body = String(line || '').replace(/^[\s•·-]+/, '').replace(/^[^:：→]*[:：]\s*/, '');
+  const segs = body.split(/\s*→\s*/).map((s) => s.trim()).filter(Boolean);
+  if (segs.length < 2) return [];
+  // 시드 문장 정리: 첫 단계의 "현행 … 수준에서 시작해" 접두, 마지막 단계의 "순서로 …"/"…로 전환" 꼬리 제거.
+  segs[0] = segs[0].replace(/^.*시작해\s+/, '');
+  segs[segs.length - 1] = segs[segs.length - 1].replace(/\s*순서로.*$/, '').replace(/(으로|로)\s*전환\s*$/, '');
+  return segs.map((s) => s.trim()).filter(Boolean);
+}
+// 구간 i(전체 n)가 체인의 몇 번째 단계인지. 같은 단계가 이어지는 구간은 "계속" 표기 +
+// 변형 꼬리(extras)로 인접 구간 문장이 겹치지 않게 한다.
+function chainStageIdx(len, i, n) {
+  return Math.min(len - 1, Math.round((n <= 1 ? 1 : i / (n - 1)) * (len - 1)));
+}
+function chainLine(segs, i, n, extras) {
+  const len = segs.length;
+  const k = chainStageIdx(len, i, n);
+  let contPos = 0;
+  for (let b = i - 1; b >= 0 && chainStageIdx(len, b, n) === k; b--) contPos++;
+  const extra = contPos ? ` — ${extras[Math.min(contPos - 1, extras.length - 1)]}` : '';
+  return `[학기 계획 ${k + 1}/${len}단계${contPos ? ' 계속' : ''}] ${segs[k]}${extra}`;
+}
+const SUP_CHAIN_EXTRAS = ['촉진 빈도·강도를 지난 구간보다 한 단계 줄이기', '거의 촉진 없이 되는지 확인하며 필요할 때만 짧게 지원'];
+const REINF_CHAIN_EXTRAS = ['강화 간격(비율)을 지난 구간보다 늘리기', '자연적 칭찬 비중을 늘리고 강화물은 가끔만 사용'];
 // 강화 스케줄 — 촉구 단계와 같은 축으로 전환(0·1=습득 즉시강화, 2=유지 간헐강화, 3=일반화 자연적 강화).
 // pos = 같은 강화 묶음(습득/유지/일반화)이 이어지는 구간 내 위치 — 비율·방식을 점증.
 function reinforceStage(stage, pos, topReinf) {
@@ -737,20 +764,31 @@ export default function IepPage({ onNavigate }) {
     const reinfPos = stagesArr.map((st, i) => { let p = 0; for (let k = i - 1; k >= 0 && reinfGroupOf(stagesArr[k]) === reinfGroupOf(st); k--) p++; return p; });
     const raisdMeta = curStuData?.raisd?.responses?._meta || {};
     const topReinf = Array.isArray(raisdMeta.ranking) ? (raisdMeta.ranking.filter(Boolean)[0] || '') : '';
+    // 0819(4차): 학기 교육방법에 "→" 단계 흐름이 있으면 그 체인을 월별 구간에 배분(학기↔월별 연결).
+    // 없으면 종전대로 학생 수준 앵커링 점증 사다리. 과제분석 목표는 교사 선택 촉진 체계 유지.
+    const semSupChain = isTask ? [] : methodChain(semMLines.find((l) => /^지원\s*수준/.test(l)) || '');
+    const semReinfChain = methodChain(semMLines.find((l) => /^강화/.test(l)) || '');
     const methodsFor = (i) => {
       const stg = stagesArr[i];
       const nxt = i < n - 1 ? stagesArr[i + 1] : stg;
-      // 과제분석 목표는 교사가 고른 촉진 체계(promptDesc)가 점증을 담당 — 그대로 둔다.
       // 구간이 1개뿐이면(전체 월을 한 구간으로 묶음) 단계 서술 대신 학기 전체 흐름을 쓴다.
       const fadeLine = isTask
         ? promptDesc(promptSystem, i, n, support)
         : n <= 1
-        ? `${FADE_STAGES.slice(startStage).map((x) => x.short).join(' → ')} 순서로 촉구를 점차 줄여 독립 수행으로 (학기 전체 흐름 — 월을 구간으로 나누면 단계별로 서술됩니다)`
+        ? (semSupChain.length
+          ? `${semSupChain.join(' → ')} (학기 전체 흐름)`
+          : `${FADE_STAGES.slice(startStage).map((x) => x.short).join(' → ')} 순서로 촉구를 점차 줄여 독립 수행으로 (학기 전체 흐름 — 월을 구간으로 나누면 단계별로 서술됩니다)`)
+        : semSupChain.length
+        ? chainLine(semSupChain, i, n, SUP_CHAIN_EXTRAS)
         : `[${FADE_STAGES[stg].label}] ${fadeDesc(stg, runPos[i])}${nxt !== stg ? ` (다음 구간: ${FADE_STAGES[nxt].short})` : ''}`;
       const reinfLine = n <= 1
-        ? (startStage >= 2
+        ? (semReinfChain.length
+          ? `${semReinfChain.join(' → ')} (학기 전체 흐름)`
+          : startStage >= 2
           ? `간헐강화(변동비율)에서 자연적 강화·자기강화로 전환 (학기 전체 흐름)`
           : `습득 단계 즉시(연속)강화 → 유지 단계 간헐강화 → 자연적 강화로 전환 (학기 전체 흐름)`)
+        : semReinfChain.length
+        ? chainLine(semReinfChain, i, n, REINF_CHAIN_EXTRAS)
         : reinforceStage(stg, reinfPos[i], topReinf);
       return [
         // P15: 교사가 학기 교육방법에 적은 지도전략을 우선 반영 + 구간별 중점을 문두에.
@@ -1355,7 +1393,7 @@ export default function IepPage({ onNavigate }) {
         ? `[학기 교육내용(교사 방향)]\n${String(semContent).trim()}\n  → 월별 교육내용(content)은 이 방향의 활동을 월 순서에 맞게 나누어 구체화·심화할 것(방향에 없는 활동을 새로 만들 수 있으나, 위 방향과 어긋나지 않게).\n`
         : '') +
       (String(semMethods || '').trim()
-        ? `[학기 교육방법(교사 방향)]\n${String(semMethods).trim()}\n  → 월별 교육방법(methods)의 지도전략은 이 방향을 우선 반영하고, 구간별 촉구·강화 계획을 이 방향 위에서 점증 설계할 것.\n`
+        ? `[학기 교육방법(교사 방향)]\n${String(semMethods).trim()}\n  → 월별 교육방법(methods)의 지도전략은 이 방향을 우선 반영할 것. 이 방향에 "→"로 이어진 단계 흐름이 있으면 무관한 새 흐름을 만들지 말고 그 단계들을 구간 순서대로 배분할 것 — 각 구간의 ②지원수준·③강화 스케줄 문장 앞에 "[학기 계획 n/m단계]"를 붙여 학기 방향의 몇 번째 단계인지 표시하고, 그 단계를 이 구간의 교육내용 활동·자료에 맞게 구체화할 것(학기 방향 문장을 그대로 복사하지 말 것).\n`
         : '') +
       `[대상 월(구간)] ${ms.map((x) => x + '월').join(', ')} (총 ${ms.length}구간 — 월을 묶은 구간은 한 행으로 작성)\n` +
       critLine + tierLine + ebpBlock +
@@ -1421,6 +1459,11 @@ export default function IepPage({ onNavigate }) {
     const fadeDup = hasAdjDup(/^지원수준/);
     const reinfDup = hasAdjDup(/^강화/);
     if (!fadeDup && !reinfDup) return { list, fixed: false };
+    // 0819(4차): 학기 교육방법에 "→" 체인이 있으면 그 체인 배분으로 대체(학기↔월별 연결 유지),
+    // 없으면 학생 수준 앵커링 점증 사다리로 대체.
+    const semML = String(semMethods || '').split(/\n/).map((s) => s.replace(/^\s*[-•·]\s*/, '').trim()).filter(Boolean);
+    const semSupChain = methodChain(semML.find((l) => /^지원\s*수준/.test(l)) || '');
+    const semReinfChain = methodChain(semML.find((l) => /^강화/.test(l)) || '');
     const startStage = fadeStartStage(startpoint?.perfLevel || plop, +cStart, +cEnd);
     const stageFor = (i) => Math.min(FADE_STAGES.length - 1, startStage + Math.round((i / (n - 1)) * (FADE_STAGES.length - 1 - startStage)));
     const stagesArr = list.map((_, i) => stageFor(i));
@@ -1433,10 +1476,14 @@ export default function IepPage({ onNavigate }) {
       ...m,
       methods: (m.methods || []).map((line) => {
         if (fadeDup && /^지원수준/.test(String(line))) {
+          if (semSupChain.length) return `지원수준(촉구·용암): ${chainLine(semSupChain, i, n, SUP_CHAIN_EXTRAS)}`;
           const stg = stagesArr[i]; const nxt = i < n - 1 ? stagesArr[i + 1] : stg;
           return `지원수준(촉구·용암): [${FADE_STAGES[stg].label}] ${fadeDesc(stg, runPos[i])}${nxt !== stg ? ` (다음 구간: ${FADE_STAGES[nxt].short})` : ''}`;
         }
-        if (reinfDup && /^강화/.test(String(line))) return `강화 스케줄: ${reinforceStage(stagesArr[i], reinfPos[i], topReinf)}`;
+        if (reinfDup && /^강화/.test(String(line))) {
+          if (semReinfChain.length) return `강화 스케줄: ${chainLine(semReinfChain, i, n, REINF_CHAIN_EXTRAS)}`;
+          return `강화 스케줄: ${reinforceStage(stagesArr[i], reinfPos[i], topReinf)}`;
+        }
         return line;
       }),
     }));
@@ -1834,7 +1881,7 @@ export default function IepPage({ onNavigate }) {
                   ? `- 지원수준: 현행 '${START_DESC[startStage]}' 수준에서 시작해 ${PROMPT_LABEL[promptSystem]}로 촉구를 점차 줄여, 학기말 독립 수행으로`
                   : `- 지원수준: 현행 '${START_DESC[startStage]}' 수준에서 시작해 ${fadeChain} 순서로 촉구를 점차 줄여, 학기말 독립 수행으로`;
                 const reinfLine = startStage >= 2
-                  ? `- 강화: 간헐 강화(변동비율)${topReinf ? ` — 선호 강화물(${topReinf}) 활용` : ''}에서 자연적 강화·스스로 확인하기로 전환`
+                  ? `- 강화: 간헐 강화(변동비율)${topReinf ? ` — 선호 강화물(${topReinf}) 활용` : ''} → 자연적 강화 → 스스로 확인하기(자기강화)로 전환`
                   : `- 강화: 습득 단계 즉시(연속) 강화${topReinf ? `(선호: ${topReinf})` : ''} → 유지 단계 간헐 강화 → 자연적 강화로 전환`;
                 setSemMethods([`- 지도전략: ${ms.join(', ')}`, supLine, reinfLine].join('\n'));
                 toast('출발점 수행 수준을 반영해 학기 교육방법 초안을 채웠어요 — 학생·과목에 맞게 다듬어 쓰세요.');
@@ -2212,7 +2259,7 @@ export default function IepPage({ onNavigate }) {
             <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: '.82rem', color: 'var(--sub)' }}>
               {String(semContent || '').trim() && <div><strong>학기 교육내용</strong> — {String(semContent).replace(/\n/g, ' / ').replace(/-\s*/g, '')} </div>}
               {String(semMethods || '').trim() && <div style={{ marginTop: 2 }}><strong>학기 교육방법</strong> — {String(semMethods).replace(/\n/g, ' / ').replace(/-\s*/g, '')} </div>}
-              <span style={{ color: 'var(--muted)' }}>(수정은 위 {stepNo.goal} 학기목표 설정 카드에서 · 아래 월별 생성에 반영됩니다)</span>
+              <span style={{ color: 'var(--muted)' }}>(수정은 위 {stepNo.goal} 학기목표 설정 카드에서 · 교육방법의 "→" 단계 흐름은 아래 월별 교육방법에 "[학기 계획 n/m단계]"로 구간별 배분됩니다)</span>
             </div>
           )}
           <div className="form-row">
