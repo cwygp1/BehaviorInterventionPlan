@@ -11,6 +11,7 @@ import BIPPromptModal from '../modals/BIPPromptModal';
 import FamilyLetterModal from '../modals/FamilyLetterModal';
 import { saveBIP as apiSaveBIP } from '../../lib/api/students';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
+import { skillsForQabf } from '../../lib/functionSkills';
 import { printBehaviorContract } from '../../lib/utils/printContract';
 import { printBIP } from '../../lib/utils/printBIP';
 
@@ -215,6 +216,27 @@ export default function BipPage({ onNavigate }) {
         </div>
         <div className="form-group">
           <label className="form-label">대체 행동</label>
+          {/* 기능기반 IEPBS(0819): QABF 최상위 기능에 맞는 대체 핵심기술을 추천 칩으로 — 기능과 무관한 고정 칩 보완. */}
+          {(() => {
+            const rec = skillsForQabf(curStuData?.qabf);
+            if (!rec || !rec.func || !rec.skills.length) return null;
+            return (
+              <div style={{ background: '#fff8e8', border: '1px solid #f2dfad', borderRadius: 8, padding: '7px 10px', marginBottom: 6 }}>
+                <div style={{ fontSize: '.78rem', color: '#8a6100', fontWeight: 700, marginBottom: 4 }}>
+                  ⭐ QABF 추정 기능 '{rec.qabfLabel}' 추천 대체 핵심기술 (기능기반 IEPBS)
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {rec.skills.map((s) => (
+                    <button key={s.name} type="button" className="btn btn-ghost btn-sm" style={{ borderColor: '#e5c76a' }}
+                      title={`목표 예: ${s.goal}\n이럴 때: ${s.when}`}
+                      onClick={() => makeAppender(alt, setAlt, true)(s.name)}>
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
           <EditableChipGroup storageKey="bip_alt" defaults={ALT_CHIPS} onPick={makeAppender(alt, setAlt, true)} />
           <input className="form-input" value={alt} onChange={(e) => setAlt(e.target.value)} placeholder="문제행동 대신 할 바람직한 행동" />
         </div>

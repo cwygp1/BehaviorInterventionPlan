@@ -8,6 +8,7 @@ import AIActionBar from '../ui/AIActionBar';
 import { buildFullStudentContext, raisdLines } from '../../lib/tierContext';
 import { studentProfileParts } from '../../lib/utils/splitNote';
 import { ebpBlockForBehavior } from '../../lib/ebp';
+import { functionSkillsBlock } from '../../lib/functionSkills';
 
 // QABF 5기능 합계에서 최대 기능 라벨(EBP 매핑용). 없으면 ''.
 function topQabfFunction(data) {
@@ -97,6 +98,10 @@ export default function BIPPromptModal({ open, onClose, onApply }) {
       } catch (_) { /* best-effort */ }
       const ebp = ebpBlockForBehavior({ qabfFunction: topQabfFunction(curStuData), behaviorText: curStuData?.abc?.[0]?.b || '' });
       if (ebp) full += '\n\n' + ebp;
+      // 기능기반 IEPBS(0819): 추정 기능의 대체 핵심기술 + PBS 3전략(선행·교수·후속결과) 예시 주입 —
+      // [ALT]/[FCT]는 이 핵심기술에서, [PREV]/[TEACH]/[REINF]는 해당 전략을 학생에 맞게 구체화하도록.
+      const fs = functionSkillsBlock(topQabfFunction(curStuData));
+      if (fs) full += '\n\n' + fs;
       if (!cancelled) setPrompt(full);
     })();
     return () => { cancelled = true; };

@@ -14,7 +14,8 @@ import { buildStudentSummary as tcBuildStudentSummary, buildTierLinkage as tcBui
 import { profileNarrative } from '../../lib/utils/splitNote';
 import { findHanja } from '../../lib/utils/aiText';
 import { ebpBlockForGoal } from '../../lib/ebp';
-import { FORMAT_EX_MATH, FORMAT_EX_MOTOR, findExampleEchoes } from '../../lib/exampleGuard';
+import { functionSkillsBlock } from '../../lib/functionSkills';
+import { FORMAT_EX_MATH, FORMAT_EX_COMM, findExampleEchoes } from '../../lib/exampleGuard';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
 import { splitDisability } from '../../lib/disability';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
@@ -1117,6 +1118,7 @@ export default function IepPage({ onNavigate }) {
         '너는 특수교육 IEP 작성 전문가다. 아래 성취기준과 학생 자료를 근거로, 한 학기 동안 도달할 "학기목표"를 1문장으로 작성하라.\n' +
         '- [가장 중요] 목표의 소재는 반드시 위 성취기준에서 나와야 한다. 학생 자료의 행동중재 내용(대체행동·의사소통 카드·안정실 등)을 목표의 소재로 삼지 말 것 — 그 정보는 지원 강도·난이도 조정 참고로만 쓴다.\n' +
         '- 성취기준을 학생의 현행수준에 맞게 재구성하되, 관찰·측정 가능한 행동으로 진술할 것.\n' +
+        '- [목표 수준 선정] 학생이 언어적 촉구만으로 이미 수행하는 내용은 목표로 삼지 말 것(그건 현행수준). 신체적 지원·촉진이 필요한 수준의 내용에서 목표를 잡을 것.\n' +
         '- [단일 행동 원칙] 목표의 핵심 행동(동사)은 1개만 쓸 것. "~하거나 ~하며" 같은 선택형·병렬형으로 여러 행동을 묶으면 달성 판정이 불가능해진다. 도달 기준(예: 5회 중 4회)도 그 행동 1개에만 걸 것.\n' +
         '- 교수전략·지도방법 이름은 넣지 말 것. 영어 단어·어려운 한자어 없이 쉬운 우리말로 쓸 것.\n' +
         `[성취기준] ${[sel, ...selExtra].map((x) => `[${x.code}] ${x.text}`).join(' / ')} (교과 ${sel.subject}${sel.area ? ' · ' + sel.area : ''})\n` +
@@ -1396,6 +1398,8 @@ export default function IepPage({ onNavigate }) {
       goalText: goal || sel?.text || '',
       qabfFunction: behaviorRelated ? topQabfLabel(data) : '',
     });
+    // 기능기반 IEPBS(0819): 행동·사회성 목표일 때 추정 기능의 대체 핵심기술 + PBS 3전략 예시 주입.
+    const funcSkillsB = behaviorRelated ? functionSkillsBlock(topQabfLabel(data)) : '';
     return (
       `너는 특수교육 IEP 작성 전문가다. 아래 "학생 자료"와 "전년도 IEP"를 실제로 반영해, 선택한 성취기준에 대한 개별화교육계획을 작성하라.\n\n` +
       `[학생 자료]\n${summary}\n${priorBlock}\n` +
@@ -1415,10 +1419,10 @@ export default function IepPage({ onNavigate }) {
         ? `[학기 교육방법(교사 방향)]\n${String(semMethods).trim()}\n  → 월별 교육방법(methods)의 지도전략은 이 방향을 우선 반영할 것. 이 방향에 "→"로 이어진 단계 흐름이 있으면 무관한 새 흐름을 만들지 말고 그 단계들을 구간 순서대로 배분할 것 — 각 구간의 ②지원수준·③강화 스케줄 문장 앞에 "[학기 계획 n/m단계]"를 붙여 학기 방향의 몇 번째 단계인지 표시하고, 그 단계를 이 구간의 교육내용 활동·자료에 맞게 구체화할 것(학기 방향 문장을 그대로 복사하지 말 것).\n`
         : '') +
       `[대상 월(구간)] ${ms.map((x) => x + '월').join(', ')} (총 ${ms.length}구간 — 월을 묶은 구간은 한 행으로 작성)\n` +
-      critLine + tierLine + ebpBlock +
+      critLine + tierLine + ebpBlock + funcSkillsB +
       `\n[형식 본보기 — 일부러 고른 "다른 교과"의 한 구간 예시]\n` +
       `아래 예시는 지금 작성하는 교과(${sel.subject})와 무관하다. 구조(개조식 content, methods 3구조, 질문형 eval_plan의 측면 구성)와 어미만 본보기로 삼을 것. 예시의 소재·활동·문장은 이 교과와 맞지 않으므로 가져다 쓰지 말 것.\n` +
-      `${/수학|과학/.test(sel.subject || '') ? FORMAT_EX_MOTOR : FORMAT_EX_MATH}\n\n` +
+      `${/수학|과학/.test(sel.subject || '') ? FORMAT_EX_COMM : FORMAT_EX_MATH}\n\n` +
       `요구사항:\n` +
       `1) 현행수준(plop)은 이 성취기준·평가초점에 대한 학생의 현재 수행 수준(무엇을 어디까지 하는지)을 중심으로 쓰고, 행동·지원 정보(ABC·BIP·안정실 등)는 학습에 영향을 주는 범위에서만 보조적으로 덧붙인다.\n` +
       `2) 구간이 지날수록 지원 수준을 점차 줄이며(도움받아→부분→독립→적용) 목표를 점증시킬 것.\n` +

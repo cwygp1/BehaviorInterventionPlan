@@ -8,6 +8,7 @@ import ExternalAIModal from '../ui/ExternalAIModal';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import { fetchStartpoint, saveStartpoint } from '../../lib/api/students';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
+import { skillsForQabf } from '../../lib/functionSkills';
 import { studentProfileParts, sanitizeStrengths, RISK_RE } from '../../lib/utils/splitNote';
 
 // 입력 5블록 / 산출물 3블록 빠른입력 칩
@@ -77,6 +78,9 @@ export default function StartPointPage({ onNavigate }) {
     if (!list.length) return '';
     return `최근 ABC 관찰 ${list.length}건 기록됨 (관찰 페이지 참조)`;
   }, [curStuData?.abc]);
+
+  // 기능기반 IEPBS(0819): QABF 최상위 기능 → 가르칠 대체 핵심기술 추천(기능의 목록화용).
+  const funcRec = useMemo(() => skillsForQabf(curStuData?.qabf), [curStuData?.qabf]);
 
   // 학생 프로필의 강점/어려움 — 분리 저장된 값이 없으면(기존 학생) note를 규칙으로 분리.
   // P2: studentProfileParts가 강점 칸의 위험 정보("자해 위험", "안정실 이용 이력")를
@@ -276,6 +280,28 @@ export default function StartPointPage({ onNavigate }) {
         </div>
         <div className="form-group">
           <label className="form-label">🧩 기능의 목록화</label>
+          {/* 기능기반 IEPBS(0819): QABF 최상위 기능에 맞는 대체 핵심기술 추천 — 누르면 목표 문장이 들어간다. */}
+          {funcRec && funcRec.func && funcRec.skills.length > 0 && (
+            <div style={{ background: '#fff8e8', border: '1px solid #f2dfad', borderRadius: 8, padding: '7px 10px', marginBottom: 6 }}>
+              <div style={{ fontSize: '.78rem', color: '#8a6100', fontWeight: 700, marginBottom: 4 }}>
+                ⭐ 기능평가(QABF) 기반 추천 — 추정 기능 '{funcRec.qabfLabel}'의 대체 핵심기술 (기능기반 IEPBS)
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {funcRec.skills.map((s) => (
+                  <button key={s.name} type="button" className="btn btn-ghost btn-sm" style={{ borderColor: '#e5c76a' }}
+                    title={`이럴 때: ${s.when}`}
+                    onClick={() => makeAppender(f.functions, set('functions'), false)(`${s.name}: ${s.goal}`)}>
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {funcRec && !funcRec.func && (
+            <div style={{ fontSize: '.78rem', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px', marginBottom: 6 }}>
+              ⚠ QABF 최상위 기능이 '신체(통증)'예요 — 대체기술 교수보다 건강·의료적 요인 확인(보건교사·보호자 협의)을 먼저 진행하세요.
+            </div>
+          )}
           <EditableChipGroup storageKey="sp_func" defaults={FUNC_CHIPS} onPick={makeAppender(f.functions, set('functions'), false)} />
           <textarea className="form-textarea" rows={3} value={f.functions} onChange={(e) => set('functions')(e.target.value)} placeholder="가르치거나 강화할 기능적 기술(대체기술 포함)" />
         </div>
@@ -283,6 +309,10 @@ export default function StartPointPage({ onNavigate }) {
           <label className="form-label">📈 수행 가능 수준</label>
           <EditableChipGroup storageKey="sp_perf" defaults={PERF_CHIPS} onPick={makeAppender(f.perfLevel, set('perfLevel'), false)} />
           <textarea className="form-textarea" rows={3} value={f.perfLevel} onChange={(e) => set('perfLevel')(e.target.value)} placeholder="현재 독립/촉진 수준과 가능한 수행 범위" />
+          {/* 의사소통 작성방법 안내(0819): 지원수준 체크 → 교육목표 선정 규칙 */}
+          <div style={{ fontSize: '.76rem', color: 'var(--muted)', marginTop: 3 }}>
+            💡 언어적 촉구만으로 되는 활동은 현행수준으로 적고 가볍게 지도하며, <strong>신체적 지원이 필요한 활동부터 교육목표</strong>로 삼는 것을 권장해요.
+          </div>
         </div>
 
         {/* 🌐 외부AI — 산출물 도출 */}
