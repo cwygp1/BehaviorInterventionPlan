@@ -1117,12 +1117,14 @@ export default function IepPage({ onNavigate }) {
         `[학기목표] ${goal}\n` +
         (stds ? `[성취기준] ${stds}\n` : '') +
         (String(plop || '').trim() ? `[현행수준] ${String(plop).trim()}\n` : '') +
+        (String(startpoint?.perfLevel || '').trim() ? `[출발점 — 수행 가능 수준] ${String(startpoint.perfLevel).replace(/\n/g, ' / ').trim()}\n` : '') +
         (curStu?.disability ? `[장애영역] ${curStu.disability}\n` : '') +
         '\n작성 규칙:\n' +
         '1) content(교육내용): 학기목표에 도달하기 위한 구체 활동을 "~하기" 명사형으로 4~7개. 활동을 잘게 쪼개고 실제 자료·상황을 담을 것. 학기목표에 여러 요소(예: 읽기와 대화)가 있으면 모든 요소를 고르게 다룰 것. "~하기"는 항목 끝에 1번만 쓸 것("돌리기하기"처럼 겹치면 안 됨).\n' +
         '   (서술 방식 예 — 내용은 베끼지 말 것: "화재경보기 소리와 다른 유사한 소리 구별하기" / "혼자서 버스 타기" / "버스 타고 내리기 순서 익히기")\n' +
         '2) methods(교육방법): 교사가 실제로 어떻게 가르치는지 2~4개 항목. 그중 1개 이상은 지원을 점차 줄여 독립 수행으로 가는 단계 흐름을 "→"로 이어 서술할 것.\n' +
         '   (서술 방식 예 — 내용은 베끼지 말 것: "교사가 학생의 손을 잡고 대피하기 → 대피 방법을 말로 설명하며 반복하기 → 설명 없이 함께 대피하기 → 교사가 한 걸음 뒤에서 지켜보기 → 학생이 머뭇거릴 때만 촉구 제공하며 스스로 대피하기")\n' +
+        '   [중요] "→" 단계 흐름의 첫 단계는 위 [현행수준]·[출발점 — 수행 가능 수준]에 적힌 이 학생의 실제 촉진 수준(예: 신체 촉진, 언어·시각 촉진, 시간지연)에서 시작할 것. "최대-최소 촉진에서 시간지연으로 촉구를 점차 줄여 독립 수행으로" 같은 일반 문구를 그대로 쓰지 말고, 이 학기목표의 실제 활동·자료·촉진 방법을 담아 이 학생만의 문장으로 쓸 것.\n' +
         '3) 각 항목은 "- "로 시작하는 한 줄. 쉬운 우리말, 학생 실명·영어 단어 금지.\n\n' +
         '반드시 JSON만 출력: {"content":"- ...하기\\n- ...하기","methods":"- ...\\n- ... → ... → ..."}';
       const j = await llmJSON('학기 교육내용·방법 생성(연수자료 방식)', prompt, { tier: 'fast', temperature: 0.5 });
@@ -1817,15 +1819,25 @@ export default function IepPage({ onNavigate }) {
         <div className="form-group" style={{ marginBottom: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
             <label className="form-label" style={{ margin: 0 }}>교육방법 (학기 방향 · 여러 줄 "-")</label>
-            <button type="button" className="btn btn-ghost btn-sm" title="장애유형·촉진체계 기본값으로 학기 교육방법 초안을 만듭니다"
+            <button type="button" className="btn btn-ghost btn-sm" title="장애유형·촉진체계와 출발점 수행 수준을 반영해 학기 교육방법 초안을 만듭니다"
               onClick={() => {
                 const ms = critType === 'task' ? methodsForTask(curStu?.disability, promptSystem) : methodsForType(curStu?.disability);
-                setSemMethods([
-                  `- 지도전략: ${ms.join(', ')}`,
-                  `- 지원수준: ${critType === 'task' ? PROMPT_LABEL[promptSystem] : '최대-최소 촉진에서 시간지연으로'} 촉구를 점차 줄여 독립 수행으로`,
-                  '- 강화: 습득 단계 즉시 강화 → 유지 단계 간헐 강화로 전환',
-                ].join('\n'));
-                toast('기본 전략으로 학기 교육방법 초안을 채웠어요 — 학생에 맞게 다듬어 쓰세요.');
+                // 0819(3차 피드백 — 구병모): 지원수준·강화 줄이 학생과 무관한 고정 문장이라
+                // 모든 학생·과목에서 똑같이 반복됨 → 출발점 '수행 가능 수준'(없으면 현행수준)에서
+                // 시작 단계를 앵커링해, 이 학생이 지금 어디서 출발하는지가 문장에 드러나게 한다.
+                const startStage = fadeStartStage(startpoint?.perfLevel || plop, +cStart, +cEnd);
+                const START_DESC = ['신체·시범 촉진이 필요한', '언어·시각 촉진이 필요한', '시간지연·최소 촉진으로 수행하는'];
+                const fadeChain = FADE_STAGES.slice(startStage).map((x) => x.short).join(' → ');
+                const raisdMeta = curStuData?.raisd?.responses?._meta || {};
+                const topReinf = Array.isArray(raisdMeta.ranking) ? (raisdMeta.ranking.filter(Boolean)[0] || '') : '';
+                const supLine = critType === 'task'
+                  ? `- 지원수준: 현행 '${START_DESC[startStage]}' 수준에서 시작해 ${PROMPT_LABEL[promptSystem]}로 촉구를 점차 줄여, 학기말 독립 수행으로`
+                  : `- 지원수준: 현행 '${START_DESC[startStage]}' 수준에서 시작해 ${fadeChain} 순서로 촉구를 점차 줄여, 학기말 독립 수행으로`;
+                const reinfLine = startStage >= 2
+                  ? `- 강화: 간헐 강화(변동비율)${topReinf ? ` — 선호 강화물(${topReinf}) 활용` : ''}에서 자연적 강화·스스로 확인하기로 전환`
+                  : `- 강화: 습득 단계 즉시(연속) 강화${topReinf ? `(선호: ${topReinf})` : ''} → 유지 단계 간헐 강화 → 자연적 강화로 전환`;
+                setSemMethods([`- 지도전략: ${ms.join(', ')}`, supLine, reinfLine].join('\n'));
+                toast('출발점 수행 수준을 반영해 학기 교육방법 초안을 채웠어요 — 학생·과목에 맞게 다듬어 쓰세요.');
               }}>↻ 기본 전략으로 채우기</button>
           </div>
           <textarea className="form-textarea" rows={3} style={{ marginTop: 6 }} value={semMethods} onChange={(e) => setSemMethods(e.target.value)}
