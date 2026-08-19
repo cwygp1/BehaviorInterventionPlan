@@ -56,12 +56,26 @@ export default function AISettingsModal({ open, onClose }) {
         endpoint.trim(),
         (m || '').trim(),
         [{ role: 'user', content: '한 줄로 "연결 성공"이라고만 답해주세요.' }],
-        { timeout: 60000, max_tokens: 200 }
+        // thinking이 켜진 모델은 사고과정으로만 수백 토큰을 쓴다. 200이면 content가
+        // 나오기도 전에 length로 잘려 "빈 응답"으로 오인되므로 넉넉히 준다.
+        { timeout: 60000, max_tokens: 1200 }
       );
       const trimmed = (reply?.content || '').trim();
-      return `${label}: ` + (trimmed
-        ? '✅ "' + trimmed.slice(0, 60) + (trimmed.length > 60 ? '…' : '') + '"'
-        : '⚠️ 빈 응답 (LM Studio에서 모델 Load 확인)');
+      if (trimmed) {
+        return `${label}: ✅ "` + trimmed.slice(0, 60) + (trimmed.length > 60 ? '…' : '') + '"';
+      }
+      // content는 비었지만 reasoning_content가 왔다면 서버·모델은 정상이다.
+      // (Qwen3.5/3.6 계열은 MLX 런타임에서 enable_thinking API 파라미터를 무시한다.)
+      const think = (reply?.reasoning || '').trim();
+      if (think) {
+        return `${label}: ✅ 연결됨 <small>(모델이 <strong>thinking(사고과정) 모드</strong>라 답변 대신 사고과정만 왔어요. `
+          + '앱은 사고과정도 읽어 쓰므로 사용에는 문제가 없지만, 속도를 위해 LM Studio 모델 설정 → '
+          + 'Prompt Template(Jinja)에서 <code>enable_thinking=false</code>로 고정하는 걸 권합니다.)</small>';
+      }
+      if (reply?.finish_reason === 'length') {
+        return `${label}: ⚠️ 응답이 길이 제한에서 잘렸어요 (모델 설정의 최대 출력 토큰을 늘려보세요)`;
+      }
+      return `${label}: ⚠️ 빈 응답 (LM Studio에서 모델 Load 확인)`;
     } catch (e) {
       if (e.name === 'AbortError' || /Failed to fetch|NetworkError/i.test(e.message || '')) throw e;
       return `${label}: ❌ ${e.message}`;
