@@ -1231,17 +1231,28 @@ export default function IepPage({ onNavigate }) {
   }
 
   // 경로B: 학기목표 문장으로 관련 성취기준 후보를 찾는다(키워드 점수 선별).
-  function keywordStdCandidates(text, limit) {
+  function keywordStdCandidates(text, limit, allowGrades) {
+    // 0819(5차 피드백): 학생 학교급과 무관한 학년(초1·중학 등) 기준이 추천되던 문제 —
+    // allowGrades가 있으면 그 학년군의 성취기준만 후보로 삼는다.
+    const pool = allowGrades ? rows.filter((r) => allowGrades.includes(r.gradeCode)) : rows;
     const tokens = [...new Set(String(text).replace(/[^가-힣a-zA-Z0-9\s]/g, ' ').split(/\s+/)
       .map((t) => t.trim()).filter((t) => t.length >= 2)
       .flatMap((t) => (t.length >= 3 ? [t, t.slice(0, 2), t.slice(0, 3)] : [t])))]; // 조사 붙은 어절 대응
-    const scored = rows.map((r) => {
+    const scored = pool.map((r) => {
       const hay = `${r.subject} ${r.area} ${r.text}`;
       let s = 0;
       tokens.forEach((t) => { if (hay.includes(t)) s += t.length; });
       return { r, s };
     }).filter((x) => x.s > 0).sort((a, b) => b.s - a.s);
     return scored.slice(0, limit).map((x) => x.r);
+  }
+  // 학생 학교급이 허용하는 학년군 코드. 일상생활 활동(공통, 0)은 학년 구분이 없어 항상 포함.
+  function allowedGradeCodes() {
+    const lv = String(curStu?.level || '');
+    if (lv.includes('중')) return [0, 9];
+    if (lv.includes('고')) return [0, 12];
+    if (lv.includes('초')) return [0, 2, 4, 6];
+    return null; // 학교급 미상 → 제한 없음
   }
   // 키워드 후보 → (AI 연결 시) AI 재정렬로 상위 추천. AI 없이도 키워드 순으로 동작.
   async function aiRecommendStandards() {
@@ -1250,15 +1261,21 @@ export default function IepPage({ onNavigate }) {
     if (!rows.length) { toast('성취기준 데이터가 아직 로드되지 않았어요.'); return; }
     setStdRecBusy(true);
     try {
-      const cands = keywordStdCandidates(g, 30);
+      // 0819(5차 피드백): 후보를 학생 학교급으로 제한 — 학교급 안에서 못 찾으면 전체로 확장(안내).
+      const allow = allowedGradeCodes();
+      let cands = keywordStdCandidates(g, 30, allow);
+      let widened = false;
+      if (!cands.length && allow) { cands = keywordStdCandidates(g, 30, null); widened = !!cands.length; }
       if (!cands.length) { setStdRecs([]); toast('학기목표와 닿는 성취기준을 찾지 못했어요. 아래 목록에서 직접 선택하세요.'); return; }
       let picked = cands.slice(0, 8);
       if (aiOn) {
         try {
           const prompt =
             '아래 학기목표와 가장 관련 있는 성취기준을 후보 중에서 5개 고르라(관련이 큰 순).\n' +
+            (curStu?.level ? `[학생] 학교급 ${curStu.level}${curStu?.disability ? ` · 장애영역 ${curStu.disability}` : ''}\n` +
+              '  → 학생의 학교급·학기목표 난이도에 맞는 학년군을 고를 것. 같은 관련도라면 학기목표 수준에 가까운 학년군을 우선.\n' : '') +
             `[학기목표] ${g}\n[후보]\n` +
-            cands.map((r) => `${r.code} | ${r.subject}${r.area ? '·' + r.area : ''} | ${r.text}`).join('\n') +
+            cands.map((r) => `${r.code} | ${r.subject}${r.area ? '·' + r.area : ''} | ${GRADE[r.gradeCode] || ''} | ${r.text}`).join('\n') +
             '\n반드시 JSON만 출력: {"codes":["코드1","코드2","코드3","코드4","코드5"]}';
           const j = await llmJSON('성취기준 추천', prompt, { tier: 'fast', temperature: 0.2 });
           const codes = Array.isArray(j.codes) ? j.codes.map((c) => String(c).trim()) : [];
@@ -1267,7 +1284,9 @@ export default function IepPage({ onNavigate }) {
         } catch (_) { /* AI 실패 시 키워드 순 유지 */ }
       }
       setStdRecs(picked);
-      toast(`학기목표와 관련된 성취기준 ${picked.length}개를 추천했어요. 눌러서 연결하세요.`);
+      toast(widened
+        ? `이 학교급(${curStu?.level}) 성취기준에서는 관련 후보가 없어 전체 학년에서 추천했어요 — 학년군을 확인하고 고르세요.`
+        : `학기목표와 관련된 성취기준 ${picked.length}개를 추천했어요${curStu?.level ? ` (${curStu.level} 학년군 기준)` : ''}. 눌러서 연결하세요.`);
     } finally { setStdRecBusy(false); }
   }
 
