@@ -202,6 +202,15 @@ const PHASE_STRATEGY = [
   '촉진을 줄이며 자기점검(스스로 확인하기) 활용 중심',
   '장소·자료·사람을 바꿔 적용하기 중심',
 ];
+// 0819(동료 피드백): 학기목표 문장은 "~할 수 있다."로 끝맺는다. '~한다'로 끝나는 문장만 안전 변환
+// (다른 어미는 형태 변형이 위험해 그대로 두고, AI 프롬프트 지시로 보완).
+function toCanDo(s) {
+  const t = String(s || '').trim().replace(/\.+\s*$/, '');
+  if (!t) return '';
+  if (/있다$/.test(t)) return t + '.';
+  if (/한다$/.test(t)) return t.replace(/한다$/, '할 수 있다') + '.';
+  return t + '.';
+}
 const monthsOf = (sem) => (String(sem) === '2' ? [9, 10, 11, 12, 1] : [3, 4, 5, 6, 7]);
 // 학기에 넣을 수 있는 월 후보(학사일정 순서). 교사가 이 중에서 실제 운영 월을 고른다.
 const MONTH_POOL = (sem) => (String(sem) === '2' ? [9, 10, 11, 12, 1, 2] : [3, 4, 5, 6, 7, 8]);
@@ -479,6 +488,23 @@ export default function IepPage({ onNavigate }) {
     fetchIEP(curStuId).then((d) => setSavedGoals(d.goals || [])).catch(() => {}).finally(() => setGoalsLoading(false));
   }, [curStuId]);
 
+  // 0819(동료 피드백): 학생을 바꾸면 이전 학생의 편집 내용(학기목표·월별·성취기준 선택 등)이
+  // 화면에 그대로 남던 문제 — 학생 전환 시 편집 상태를 전부 초기화한다(저장된 자료는 위 효과가 다시 로드).
+  const editStuRef = useRef(curStuId);
+  useEffect(() => {
+    if (editStuRef.current === curStuId) return;
+    editStuRef.current = curStuId;
+    setSel(null); setSelExtra([]); setStdRecs([]);
+    setVerb(''); setVerbAlts([]); setIntent(''); setDescriptor(''); setEvalFoci([]);
+    setGoal(''); setSemContent(''); setSemMethods('');
+    setMonthly([]); setSemEval(''); setTaskSteps([]);
+    setCritType('rate'); setCStart(30); setCEnd(80);
+    setChainType('forward'); setPromptSystem('mtl'); setMonthGroups('');
+    setSupportTier(''); setEditingId(null);
+    setDrafts([]); setCurDraft(-1); aiSeq.current = 0;
+    if (curStuId) toast('학생이 바뀌어 편집 중이던 IEP 내용을 비웠어요. 저장된 목표는 아래 목록에서 불러올 수 있어요.');
+  }, [curStuId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 모듈1 출발점 산출물 로드 (모듈2 목표 생성의 출발점으로 연동).
   useEffect(() => {
     if (!curStuId) { setStartpoint(null); return; }
@@ -550,7 +576,7 @@ export default function IepPage({ onNavigate }) {
       // 경로A: 성취기준 → 학기목표. 성취기준 문장을 학기목표 초안 시드로 넣는다.
       // 평가초점은 여기서 만들지 않는다 — 학기목표 확정 후 "학기목표 쪼개기"로 개발(0719 피드백:
       // 성취기준을 바로 평가초점으로 나누던 방식 교정).
-      setGoal('스스로 ' + r.text.replace(/\s*\.?$/, '') + '.');
+      setGoal(toCanDo('스스로 ' + r.text.replace(/\s*\.?$/, ''))); // 0819: "~할 수 있다." 서술형
       setEvalFoci([]);
     }
     // 경로B(학기목표 먼저): 교사가 쓴 학기목표·평가초점을 유지한 채 성취기준만 연결한다.
@@ -617,7 +643,7 @@ export default function IepPage({ onNavigate }) {
     const s = { subject: g.subject, gradeCode: g.grade_code, area: g.area, code: g.standard_code || 'PRIOR', text: g.semester_goal || g.standard_text || '', verb: '', intent: '', descriptor: '' };
     setSel(s); setSelExtra([]); setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setTaskSteps([]);
     setChainType('forward'); setPromptSystem('mtl');
-    setGoal(g.semester_goal || ('스스로 ' + (s.text || '').replace(/\s*\.?$/, '') + '.'));
+    setGoal(g.semester_goal || toCanDo('스스로 ' + (s.text || '').replace(/\s*\.?$/, '')));
     if (g.plop) setPlop(g.plop);
     setEditingId(null); setMonthly([]); setSemEval('');
     toast(`${g.school_year} ${g.subject} 목표를 기준으로 불러왔어요. "✨ AI 생성"으로 올해 목표를 만드세요.`);
@@ -1119,6 +1145,7 @@ export default function IepPage({ onNavigate }) {
         '- [가장 중요] 목표의 소재는 반드시 위 성취기준에서 나와야 한다. 학생 자료의 행동중재 내용(대체행동·의사소통 카드·안정실 등)을 목표의 소재로 삼지 말 것 — 그 정보는 지원 강도·난이도 조정 참고로만 쓴다.\n' +
         '- 성취기준을 학생의 현행수준에 맞게 재구성하되, 관찰·측정 가능한 행동으로 진술할 것.\n' +
         '- [목표 수준 선정] 학생이 언어적 촉구만으로 이미 수행하는 내용은 목표로 삼지 말 것(그건 현행수준). 신체적 지원·촉진이 필요한 수준의 내용에서 목표를 잡을 것.\n' +
+        '- [서술형] 문장은 반드시 "~할 수 있다."로 끝맺을 것(예: "…을 스스로 가리킬 수 있다.").\n' +
         '- [단일 행동 원칙] 목표의 핵심 행동(동사)은 1개만 쓸 것. "~하거나 ~하며" 같은 선택형·병렬형으로 여러 행동을 묶으면 달성 판정이 불가능해진다. 도달 기준(예: 5회 중 4회)도 그 행동 1개에만 걸 것.\n' +
         '- 교수전략·지도방법 이름은 넣지 말 것. 영어 단어·어려운 한자어 없이 쉬운 우리말로 쓸 것.\n' +
         `[성취기준] ${[sel, ...selExtra].map((x) => `[${x.code}] ${x.text}`).join(' / ')} (교과 ${sel.subject}${sel.area ? ' · ' + sel.area : ''})\n` +
@@ -1134,7 +1161,7 @@ export default function IepPage({ onNavigate }) {
         toast('AI가 성취기준과 무관한 목표를 만들어 적용하지 않았어요. 다시 시도해 주세요.');
         return;
       }
-      setGoal(g);
+      setGoal(toCanDo(g)); // 0819: "~할 수 있다." 서술형 보정
       const hanja = findHanja(g);
       if (hanja.length) toast(`⚠ 학기목표에 한자 혼입(${hanja.join(', ')})이 있어요 — 수정해 주세요.`);
       toast('성취기준·학생 자료를 반영한 학기목표 초안을 만들었어요. 문장을 다듬어 확정하세요.');
@@ -1206,7 +1233,8 @@ export default function IepPage({ onNavigate }) {
         '1) [가장 중요] 초안의 소재·활동을 그대로 유지한다. 초안에 없는 행동·장소·물건(예: 의사소통 카드, 안정실, 대체행동 등)을 절대 새로 만들지 않는다.\n' +
         '2) 의미는 그대로 두고, 조건(어디서/무엇으로) + 행동(무엇을 한다) + 기준(얼마나)이 드러나는 한 문장으로만 정련한다.\n' +
         '3) 교수전략 이름 금지. 영어 단어 없이 쉬운 우리말. 초안이 이미 좋으면 표현만 자연스럽게 손본다.\n' +
-        '예) 초안 "점심 먹기 전에 손을 씻는다." → "급식 전과 화장실 이용 후, 비누를 사용해 손 씻기 6단계를 10회 기회 중 8회 이상 스스로 수행한다."\n' +
+        '4) 문장은 반드시 "~할 수 있다."로 끝맺는다.\n' +
+        '예) 초안 "점심 먹기 전에 손을 씻는다." → "급식 전과 화장실 이용 후, 비누를 사용해 손 씻기 6단계를 10회 기회 중 8회 이상 스스로 수행할 수 있다."\n' +
         (strict ? '※ 직전 답변이 초안과 무관한 내용이었다. 이번에는 반드시 초안의 소재(단어)를 그대로 사용해 다듬기만 하라.\n' : '') +
         (curStu?.disability ? `(참고 — 장애유형 ${curStu.disability}: 문장 난이도 조정에만 사용, 소재 변경 금지)\n` : '') +
         `[교사 초안] ${draft}\n` +
@@ -1226,7 +1254,7 @@ export default function IepPage({ onNavigate }) {
         toast('AI가 초안과 다른 내용을 만들어 적용하지 않았어요. 초안을 그대로 두었습니다 — 다시 시도하거나 직접 다듬어 주세요.');
         return;
       }
-      setGoal(g);
+      setGoal(toCanDo(g)); // 0819: "~할 수 있다." 서술형 보정
       toast('학기목표 문장을 다듬었어요.');
     } catch (e) { toast('학기목표 다듬기 실패: ' + e.message); }
     finally { setGoalAiBusy(false); }
@@ -1406,7 +1434,7 @@ export default function IepPage({ onNavigate }) {
       tierLinkage +
       `[성취기준] ${[sel, ...selExtra].map((x) => `[${x.code}] ${x.text}`).join(' / ')} (교과 ${sel.subject}${sel.area ? ' · ' + sel.area : ''})\n` +
       (selExtra.length
-        ? `  → 성취기준이 여러 개다. 학기목표와 월별 교육내용이 선택된 성취기준들을 통합적으로 다루도록 반영할 것.\n`
+        ? `  → 성취기준이 여러 개다. 학기목표와 월별 교육내용이 선택된 성취기준들을 통합적으로 다루도록 반영할 것. [크로스체크 — 중요] 각 성취기준의 핵심 내용이 최소 1개 구간의 교육내용(content)에 구체 활동으로 나타나야 한다. 출력 전에 성취기준별로 "어느 구간에 반영했는지" 스스로 점검하고, 빠진 성취기준이 있으면 해당 구간 교육내용에 활동을 보탤 것.\n`
         : '') +
       fociBlock + stepsBlock +
       `[학기목표(확정)] ${goal}\n` +
@@ -1530,6 +1558,15 @@ export default function IepPage({ onNavigate }) {
       const { list, fixed } = fixAiMethodRepetition(mapped);
       setMonthly(list);
       if (fixed) toast('AI가 구간별 지원수준·강화를 비슷하게 반복해, 구간별 점증(촉구 줄이기·강화 전환)으로 자동 보정했어요.');
+      // 0819(동료 피드백): 성취기준을 2~3개 골랐을 때 각 성취기준이 교육내용에 실제로
+      // 반영됐는지 크로스체크 — 핵심 단어가 학기목표·월별 어디에도 없으면 경고.
+      if (selExtra.length) {
+        const allText = [String(j.semester_goal || goal || ''), ...list.map((m) => `${m.goal || ''}\n${m.content || ''}`)].join('\n');
+        const missed = [sel, ...selExtra].filter(Boolean).filter((x) => !topicOverlap(x.text, allText));
+        if (missed.length) {
+          toast(`⚠ 성취기준 ${missed.map((x) => `[${x.code}]`).join(' ')}의 내용이 교육내용에 충분히 반영되지 않은 것 같아요 — 해당 활동을 보태거나 다시 생성해 보세요.`);
+        }
+      }
     }
     if (j.semestral_eval || j.semestralEval) setSemEval(String(j.semestral_eval || j.semestralEval));
     if (Array.isArray(j.task_steps) && j.task_steps.length) setTaskSteps(j.task_steps.map((s) => String(s).trim()).filter(Boolean));
@@ -1848,8 +1885,8 @@ export default function IepPage({ onNavigate }) {
       </div>
       <div className="card-subtitle">
         {flowMode === 'goal'
-          ? '학생에게 지금 필요한 기술·내용 중심으로 한 학기 동안 도달할 목표를 먼저 적으세요. 다음 단계에서 관련 성취기준을 연결합니다.'
-          : '선택한 성취기준을 학생의 현행수준에 맞게 재구성해 학기목표를 확정하세요.'}
+          ? '학생에게 지금 필요한 기술·내용 중심으로 한 학기 동안 도달할 목표를 먼저 적으세요. 다음 단계에서 관련 성취기준을 연결합니다. (생활 지원 중심)'
+          : '선택한 성취기준을 학생의 현행수준에 맞게 재구성해 학기목표를 확정하세요. (교과 중심)'}
         {' '}학기목표를 먼저 확정하면 평가초점과 월별 계획이 이 목표에서 나옵니다.
       </div>
       <div className="form-group">
@@ -2029,7 +2066,7 @@ export default function IepPage({ onNavigate }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 8 }}>
           {[
             { key: 'std', t: 'A. 성취기준 먼저 → 학기목표', d: '교과 성취기준을 먼저 고르고, 학생에 맞게 재구성해 학기목표를 만듭니다. (교과 중심)' },
-            { key: 'goal', t: 'B. 학기목표 먼저 → 성취기준', d: '학생에게 필요한 기술·내용 중심으로 학기목표를 먼저 쓰고, 관련 성취기준을 연결합니다.' },
+            { key: 'goal', t: 'B. 학기목표 먼저 → 성취기준', d: '학생에게 필요한 기술·내용 중심으로 학기목표를 먼저 쓰고, 관련 성취기준을 연결합니다. (생활 지원 중심)' },
           ].map((m) => (
             <button key={m.key} type="button" onClick={() => { setFlowMode(m.key); setStdRecs([]); }}
               aria-pressed={flowMode === m.key}

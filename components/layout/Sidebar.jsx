@@ -67,6 +67,16 @@ const WORKSPACE_COMMON = [
 // 학생 선택이 필요한 페이지 목록(Layout의 학생 선택 가드가 사용).
 export const PBS_PAGES = Object.values(SECTION_ITEMS).flat().filter((i) => i.requiresStudent).map((i) => i.id);
 
+// 0819: 빌드(배포) 시각 라벨 — "수정이 반영된 버전인지" 확인용. 빌드 시점에 고정된다.
+const BUILD_LABEL = (() => {
+  const t = process.env.NEXT_PUBLIC_BUILD_TIME;
+  if (!t) return '';
+  const d = new Date(t);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+})();
+
 function NavItem({ item, activePage, onNavigate, hasStudent, hint }) {
   const locked = item.requiresStudent && !hasStudent;
   return (
@@ -161,6 +171,11 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
           <div className="user-info">
             <div className="name">{user?.name || '선생님'}</div>
             <div className="role">{user?.school || '로그인됨'}</div>
+            {BUILD_LABEL && (
+              <div className="role" style={{ fontSize: 10, opacity: 0.65 }} title="이 화면이 언제 배포된 버전인지 — 수정 반영 여부를 확인할 때 보세요 (새로고침 후에도 같으면 아직 새 배포 전)">
+                빌드 {BUILD_LABEL}
+              </div>
+            )}
           </div>
           <button className="logout-btn" onClick={logout} title="로그아웃">↪</button>
         </div>
