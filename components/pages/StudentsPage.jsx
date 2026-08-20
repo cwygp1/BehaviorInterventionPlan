@@ -94,7 +94,7 @@ export default function StudentsPage() {
                       {tierBadge(s.id)}
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-                      {[s.level, s.disability].filter(Boolean).join(' · ') || '프로필 미입력'}
+                      {[s.level ? `${s.level}${s.grade ? ` ${s.grade}학년` : ''}` : '', s.disability].filter(Boolean).join(' · ') || '프로필 미입력'}
                     </div>
                   </div>
                   <button className="btn btn-ghost btn-sm" disabled={busyId != null} onClick={() => setEditTarget(s)}>

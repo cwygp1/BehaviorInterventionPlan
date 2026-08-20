@@ -31,7 +31,7 @@ export default requireAuth(async function handler(req, res) {
       }
 
       case 'POST': {
-        const { student_code, level, disability, note, strengths, difficulties, class_id } = req.body || {};
+        const { student_code, level, grade, disability, note, strengths, difficulties, class_id } = req.body || {};
         if (!student_code) {
           return res.status(400).json({ error: 'student_code is required' });
         }
@@ -46,15 +46,15 @@ export default requireAuth(async function handler(req, res) {
           return res.status(403).json({ error: 'Forbidden' });
         }
         const result = await sql`
-          INSERT INTO students (user_id, class_id, student_code, level, disability, note, strengths, difficulties)
-          VALUES (${userId}, ${Number(class_id)}, ${student_code}, ${level || ''}, ${disability || ''}, ${note || ''}, ${strengths || ''}, ${difficulties || ''})
+          INSERT INTO students (user_id, class_id, student_code, level, grade, disability, note, strengths, difficulties)
+          VALUES (${userId}, ${Number(class_id)}, ${student_code}, ${level || ''}, ${grade || ''}, ${disability || ''}, ${note || ''}, ${strengths || ''}, ${difficulties || ''})
           RETURNING *
         `;
         return res.status(201).json({ student: result.rows[0] });
       }
 
       case 'PUT': {
-        const { id, level, disability, note, strengths, difficulties, class_id } = req.body || {};
+        const { id, level, grade, disability, note, strengths, difficulties, class_id } = req.body || {};
         if (!id) {
           return res.status(400).json({ error: 'id is required' });
         }
@@ -73,14 +73,14 @@ export default requireAuth(async function handler(req, res) {
         const result = class_id != null
           ? await sql`
               UPDATE students
-              SET level = ${level || ''}, disability = ${disability || ''}, note = ${note || ''},
+              SET level = ${level || ''}, grade = ${grade || ''}, disability = ${disability || ''}, note = ${note || ''},
                   strengths = COALESCE(${strengths ?? null}, strengths), difficulties = COALESCE(${difficulties ?? null}, difficulties), class_id = ${Number(class_id)}
               WHERE id = ${id} AND user_id = ${userId}
               RETURNING *
             `
           : await sql`
               UPDATE students
-              SET level = ${level || ''}, disability = ${disability || ''}, note = ${note || ''},
+              SET level = ${level || ''}, grade = ${grade || ''}, disability = ${disability || ''}, note = ${note || ''},
                   strengths = COALESCE(${strengths ?? null}, strengths), difficulties = COALESCE(${difficulties ?? null}, difficulties)
               WHERE id = ${id} AND user_id = ${userId}
               RETURNING *

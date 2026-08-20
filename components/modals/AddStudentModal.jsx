@@ -5,6 +5,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { EditableChipGroup, makeAppender } from '../ui/QChip';
 import { composeNote } from '../../lib/utils/splitNote';
 import { DISABILITIES, DIS_NONE, joinDisability } from '../../lib/disability';
+import { GRADES_BY_LEVEL } from './EditStudentModal';
 
 const LEVELS = ['초등', '중등', '고등'];
 const STEPS = ['기본 정보', '프로파일·현행수준', '확인'];
@@ -18,6 +19,7 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
   const [step, setStep] = useState(0);
   const [code, setCode] = useState('');
   const [level, setLevel] = useState(LEVELS[0]);
+  const [grade, setGrade] = useState(''); // 0819: 세부 학년(선택) — 성취기준 추천 학년군에 반영
   const [dis, setDis] = useState(DISABILITIES[0]);
   const [dis2, setDis2] = useState(DIS_NONE); // 중복장애: 추가 장애 영역(선택)
   const [strengths, setStrengths] = useState('');
@@ -42,7 +44,7 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
     if (!curClass) { toast('먼저 학급을 선택하거나 추가해주세요. (상단 ⚙ 학급 관리)'); return; }
     setBusy(true);
     try {
-      const created = await addStudent({ student_code: c, level, disability: joinDisability(dis, dis2), note, strengths, difficulties });
+      const created = await addStudent({ student_code: c, level, grade, disability: joinDisability(dis, dis2), note, strengths, difficulties });
       toast(c + ' 등록 완료');
       setCode(''); setStrengths(''); setDifficulties(''); setExtra(''); setStep(0);
       if (created?.id) await selectStudent(created.id);
@@ -84,7 +86,14 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">학교급</label>
-              <select className="form-select" value={level} onChange={(e) => setLevel(e.target.value)}>{LEVELS.map((l) => <option key={l}>{l}</option>)}</select>
+              <select className="form-select" value={level} onChange={(e) => { setLevel(e.target.value); setGrade(''); }}>{LEVELS.map((l) => <option key={l}>{l}</option>)}</select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">학년 (선택)</label>
+              <select className="form-select" value={grade} onChange={(e) => setGrade(e.target.value)}>
+                <option value="">미지정</option>
+                {GRADES_BY_LEVEL(level).map((g) => <option key={g} value={g}>{g}학년</option>)}
+              </select>
             </div>
             <div className="form-group">
               <label className="form-label">주요 장애 영역</label>
@@ -130,7 +139,7 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
         <div style={{ border: '1px solid #e3e6eb', borderRadius: 10, padding: 14 }}>
           <div style={{ fontWeight: 700, marginBottom: 8 }}>입력 내용 확인</div>
           <Row k="익명 ID" v={code || '(미입력)'} />
-          <Row k="학교급" v={level} />
+          <Row k="학교급" v={level + (grade ? ` ${grade}학년` : '')} />
           <Row k="장애 영역" v={joinDisability(dis, dis2)} />
           <Row k="강점" v={strengths || '(없음)'} />
           <Row k="어려움" v={difficulties || '(없음)'} />

@@ -1276,14 +1276,22 @@ export default function IepPage({ onNavigate }) {
     }).filter((x) => x.s > 0).sort((a, b) => b.s - a.s);
     return scored.slice(0, limit).map((x) => x.r);
   }
-  // 학생 학교급이 허용하는 학년군 코드. 일상생활 활동(공통, 0)은 학년 구분이 없어 항상 포함.
+  // 학생 학교급·학년이 허용하는 학년군 코드. 일상생활 활동(공통, 0)은 학년 구분이 없어 항상 포함.
+  // 0819(동료 피드백): 프로필에 세부 학년(초1~6)이 있으면 해당 학년군까지 좁힌다
+  // (초1~2→2, 초3~4→4, 초5~6→6). 학년 미지정이면 종전대로 학교급 전체.
   function allowedGradeCodes() {
     const lv = String(curStu?.level || '');
+    const gr = parseInt(String(curStu?.grade || '').replace(/[^0-9]/g, ''), 10);
     if (lv.includes('중')) return [0, 9];
     if (lv.includes('고')) return [0, 12];
-    if (lv.includes('초')) return [0, 2, 4, 6];
+    if (lv.includes('초')) {
+      if (gr >= 1 && gr <= 6) return [0, gr <= 2 ? 2 : gr <= 4 ? 4 : 6];
+      return [0, 2, 4, 6];
+    }
     return null; // 학교급 미상 → 제한 없음
   }
+  // 추천 안내에 쓸 학년 표기(예: '초등 3학년').
+  const levelLabel = `${curStu?.level || ''}${curStu?.grade ? ` ${curStu.grade}학년` : ''}`.trim();
   // 키워드 후보 → (AI 연결 시) AI 재정렬로 상위 추천. AI 없이도 키워드 순으로 동작.
   async function aiRecommendStandards() {
     const g = String(goal || '').trim();
@@ -1302,7 +1310,7 @@ export default function IepPage({ onNavigate }) {
         try {
           const prompt =
             '아래 학기목표와 가장 관련 있는 성취기준을 후보 중에서 5개 고르라(관련이 큰 순).\n' +
-            (curStu?.level ? `[학생] 학교급 ${curStu.level}${curStu?.disability ? ` · 장애영역 ${curStu.disability}` : ''}\n` +
+            (curStu?.level ? `[학생] 학교급 ${levelLabel}${curStu?.disability ? ` · 장애영역 ${curStu.disability}` : ''}\n` +
               '  → 학생의 학교급·학기목표 난이도에 맞는 학년군을 고를 것. 같은 관련도라면 학기목표 수준에 가까운 학년군을 우선.\n' : '') +
             `[학기목표] ${g}\n[후보]\n` +
             cands.map((r) => `${r.code} | ${r.subject}${r.area ? '·' + r.area : ''} | ${GRADE[r.gradeCode] || ''} | ${r.text}`).join('\n') +
@@ -1316,7 +1324,7 @@ export default function IepPage({ onNavigate }) {
       setStdRecs(picked);
       toast(widened
         ? `이 학교급(${curStu?.level}) 성취기준에서는 관련 후보가 없어 전체 학년에서 추천했어요 — 학년군을 확인하고 고르세요.`
-        : `학기목표와 관련된 성취기준 ${picked.length}개를 추천했어요${curStu?.level ? ` (${curStu.level} 학년군 기준)` : ''}. 눌러서 연결하세요.`);
+        : `학기목표와 관련된 성취기준 ${picked.length}개를 추천했어요${levelLabel ? ` (${levelLabel} 학년군 기준)` : ''}. 눌러서 연결하세요.`);
     } finally { setStdRecBusy(false); }
   }
 

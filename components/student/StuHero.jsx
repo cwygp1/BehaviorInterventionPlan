@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
+import EditStudentModal from '../modals/EditStudentModal';
 import { stuColor } from '../../lib/utils/colors';
 import { studentProfileParts, decomposeNote, dedupeExtra } from '../../lib/utils/splitNote';
 
@@ -32,8 +34,11 @@ export function ProfileSummary({ stu, style }) {
   );
 }
 
+// 0819(동료 피드백): 프로필을 고치려고 매번 '학생 관리' 탭으로 돌아가야 하는 번거로움 →
+// 학생 머리표(모든 IEP·Tier 페이지 상단)에서 바로 수정할 수 있게 ✏ 버튼을 둔다.
 export default function StuHero() {
   const { curStu, curStuData } = useStudents();
+  const [editOpen, setEditOpen] = useState(false);
   if (!curStu) return null;
   const c = stuColor(curStu.code);
   const abc = curStuData?.abc?.length || 0;
@@ -47,10 +52,15 @@ export default function StuHero() {
       </div>
       <div className="stu-hero-main">
         <div className="stu-hero-name">{curStu.code}
-          <span className="badge badge-pri">{curStu.level}</span>
+          <span className="badge badge-pri">{curStu.level}{curStu.grade ? ` ${curStu.grade}학년` : ''}</span>
           <span className="badge badge-purple">{curStu.disability}</span>
+          <button type="button" className="btn btn-ghost btn-sm" style={{ marginLeft: 6, padding: '2px 8px', fontSize: '.74rem' }}
+            onClick={() => setEditOpen(true)} title="이 화면에서 바로 학생 프로필(학년·장애·강점/어려움) 수정">
+            ✏ 프로필 수정
+          </button>
         </div>
         <ProfileSummary stu={curStu} />
+        <EditStudentModal open={editOpen} onClose={() => setEditOpen(false)} />
       </div>
       <div className="stu-hero-meta">
         <div className="m"><div className="v">{abc}</div><div className="l">ABC</div></div>
