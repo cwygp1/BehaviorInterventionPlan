@@ -3,6 +3,8 @@ import Modal from '../ui/Modal';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { saveRAISD } from '../../lib/api/students';
+// 2026-08: 두 번째 선호도 평가 도구(강화제 체크리스트) 추가 — 같은 모달의 탭으로 제공한다.
+import { RC_CATEGORIES, RC_WORK_ACTIVITIES, RC_SCALE, RC_SCALE_LABELS, RC_NA, RC_NA_LABEL, rcKey, rcTopPreferred } from '../../lib/reinforcerChecklist';
 
 // 원문: 장애학생을 위한 강화제 평가 (RAISD, Fisher et al.)
 // 0719 피드백 반영: 긴 설명문 대신 입력칸 예시(placeholder)로 안내하고,
@@ -59,6 +61,10 @@ export default function RAISDModal({ open, onClose }) {
   const [sec, setSec] = useState({ qs: true, rank: false, limits: false });
   const toggleSec = (k) => setSec((s) => ({ ...s, [k]: !s[k] }));
 
+  // 탭: 'raisd'(구조화 면담) | 'checklist'(강화제 체크리스트 · 항목별 1~5 평정)
+  const [tab, setTab] = useState('raisd');
+  const [checklist, setChecklist] = useState({ ratings: {}, etcItems: {}, work: [], workEtc: '' });
+
   const draftKey = curStuId ? `raisd_draft_${curStuId}` : null;
   const dirtyRef = useRef(false); // 사용자가 실제로 수정했을 때만 임시 저장.
 
@@ -74,7 +80,7 @@ export default function RAISDModal({ open, onClose }) {
       const draft = draftKey && JSON.parse(localStorage.getItem(draftKey) || 'null');
       if (draft && draft.responses) {
         resp = { ...draft.responses };
-        meta = { ranking: draft.ranking, banned: draft.banned, unlimited: draft.unlimited };
+        meta = { ranking: draft.ranking, banned: draft.banned, unlimited: draft.unlimited, checklist: draft.checklist };
         delete resp._meta;
         toast('작성 중이던 임시 저장본을 불러왔어요. (저장을 눌러야 확정됩니다)');
       }
@@ -88,6 +94,13 @@ export default function RAISDModal({ open, onClose }) {
     setRanking([...rk, ...new Array(RANK_COUNT)].slice(0, RANK_COUNT).map((v) => v || ''));
     setBanned(meta.banned || '');
     setUnlimited(meta.unlimited || '');
+    setChecklist({
+      ratings: (meta.checklist && meta.checklist.ratings) || {},
+      etcItems: (meta.checklist && meta.checklist.etcItems) || {},
+      work: Array.isArray(meta.checklist?.work) ? meta.checklist.work : [],
+      workEtc: (meta.checklist && meta.checklist.workEtc) || '',
+    });
+    setTab('raisd');
     setSec({ qs: true, rank: false, limits: false });
     dirtyRef.current = false;
   }, [open, curStuData]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -96,9 +109,9 @@ export default function RAISDModal({ open, onClose }) {
   useEffect(() => {
     if (!open || !draftKey || !dirtyRef.current) return;
     try {
-      localStorage.setItem(draftKey, JSON.stringify({ responses, ranking, banned, unlimited, t: Date.now() }));
+      localStorage.setItem(draftKey, JSON.stringify({ responses, ranking, banned, unlimited, checklist, t: Date.now() }));
     } catch (_) { /* ignore quota */ }
-  }, [open, draftKey, responses, ranking, banned, unlimited]);
+  }, [open, draftKey, responses, ranking, banned, unlimited, checklist]);
 
   function update(key, field, value) {
     dirtyRef.current = true;
@@ -116,12 +129,34 @@ export default function RAISDModal({ open, onClose }) {
   const setBannedDirty = (v) => { dirtyRef.current = true; setBanned(v); };
   const setUnlimitedDirty = (v) => { dirtyRef.current = true; setUnlimited(v); };
 
+  // ── 강화제 체크리스트 조작 ──
+  function setRating(cat, item, v) {
+    dirtyRef.current = true;
+    setChecklist((c) => {
+      const k = rcKey(cat, item);
+      const next = { ...(c.ratings || {}) };
+      if (next[k] === v) delete next[k]; else next[k] = v; // 같은 값 재클릭 = 해제
+      return { ...c, ratings: next };
+    });
+  }
+  function setEtcItem(cat, v) {
+    dirtyRef.current = true;
+    setChecklist((c) => ({ ...c, etcItems: { ...(c.etcItems || {}), [cat]: v } }));
+  }
+  function toggleWork(w) {
+    dirtyRef.current = true;
+    setChecklist((c) => {
+      const cur = Array.isArray(c.work) ? c.work : [];
+      return { ...c, work: cur.includes(w) ? cur.filter((x) => x !== w) : [...cur, w] };
+    });
+  }
+
   async function onSave() {
     if (!curStuId) return;
     setBusy(true);
     try {
       const data = await saveRAISD(curStuId, {
-        responses: { ...responses, _meta: { ranking, banned, unlimited } },
+        responses: { ...responses, _meta: { ranking, banned, unlimited, checklist } },
       });
       updateStudentData(curStuId, (cur) => ({ ...cur, raisd: data.data }));
       if (draftKey) { try { localStorage.removeItem(draftKey); } catch (_) { /* ignore */ } }
@@ -134,6 +169,9 @@ export default function RAISDModal({ open, onClose }) {
       setBusy(false);
     }
   }
+
+  const rcCount = Object.keys(checklist.ratings || {}).length;
+  const rcTop = rcTopPreferred(checklist, 6);
 
   // 0719 피드백: 좌 '자극' / 우 '강화제' 묶음 표시용.
   const renderCat = (cat, idx) => (
@@ -179,9 +217,24 @@ export default function RAISDModal({ open, onClose }) {
         <h3 style={{ margin: 0 }}>💡 선호/강화물 탐색 (RAISD)</h3>
         <button className="btn btn-pri btn-sm" onClick={onSave} disabled={busy}>💾 저장</button>
       </div>
-      <p style={{ fontSize: '.84rem', color: 'var(--sub)', margin: '6px 0 14px', lineHeight: 1.6 }}>
-        장애학생을 위한 강화제 평가 (Reinforcer Assessment for Individuals with Severe Disabilities).
-        학생이 좋아하는 <strong>자극</strong>(왼쪽)과 <strong>강화제</strong>(오른쪽)를 예시처럼 적고, 범주별 강도(1~5)를 체크하세요.
+      {/* 2026-08: 두 가지 평가 도구를 탭으로 — ① 구조화 면담(RAISD) ② 항목별 선호도 평정(강화제 체크리스트) */}
+      <div style={{ display: 'flex', gap: 6, margin: '10px 0 12px', flexWrap: 'wrap' }}>
+        {[
+          { k: 'raisd', t: '① 구조화 면담 (RAISD)', d: '보호자·교사 면담으로 선호 자극을 구체적으로 수집' },
+          { k: 'checklist', t: `② 강화제 체크리스트${rcCount ? ` (${rcCount}개 평정)` : ''}`, d: '항목별로 얼마나 좋아하는지 1~5점 평정' },
+        ].map((x) => (
+          <button key={x.k} type="button" className={'btn btn-sm ' + (tab === x.k ? 'btn-pri' : 'btn-ghost')} onClick={() => setTab(x.k)} title={x.d}>
+            {x.t}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'raisd' && (
+      <>
+      <p style={{ fontSize: '.84rem', color: 'var(--sub)', margin: '0 0 14px', lineHeight: 1.6 }}>
+        중도 장애인을 위한 강화제 평가 (Reinforcer Assessment for Individuals with Severe Disabilities).
+        정보 제공자(교사·부모·보호자)에게 물어 학생이 좋아하는 <strong>자극</strong>(왼쪽)과 <strong>강화제</strong>(오른쪽)를 예시처럼 적고, 범주별 강도(1~5)를 체크하세요.
+        <span style={{ color: 'var(--muted)' }}> · Fisher, Piazza, Bowman &amp; Amari(1996) · 최진혁 번역·수정</span>
       </p>
 
       <Section title="① 선호 자극·강화제" open={sec.qs} onToggle={() => toggleSec('qs')}>
@@ -227,6 +280,73 @@ export default function RAISDModal({ open, onClose }) {
         <input className="form-input" value={unlimited} onChange={(e) => setUnlimitedDirty(e.target.value)} placeholder="위 목록 중 제한 없이 사용해도 되는 것" />
       </div>
       </Section>
+
+      </>
+      )}
+
+      {tab === 'checklist' && (
+        <>
+          <p style={{ fontSize: '.84rem', color: 'var(--sub)', margin: '0 0 12px', lineHeight: 1.6 }}>
+            각 항목을 학생이 <strong>얼마나 좋아하는지</strong> 표시하세요.
+            <span style={{ color: 'var(--muted)' }}> — {RC_SCALE.map((v) => `${v} ${RC_SCALE_LABELS[v]}`).join(' · ')} · {RC_NA_LABEL}</span>
+            <br />
+            <span style={{ color: 'var(--muted)', fontSize: '.92em' }}>HANDS in Autism® “Reinforcer Checklist – Child” 기반 · 최진혁 번안·수정</span>
+          </p>
+          {rcTop.length > 0 && (
+            <div style={{ background: '#f7f3ff', border: '1px solid #d9c9f5', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: '.82rem' }}>
+              ⭐ <strong>가장 좋아하는 항목</strong>: {rcTop.map((t) => `${t.item}(${t.score}점)`).join(', ')}
+              <div style={{ color: 'var(--muted)', marginTop: 2 }}>저장하면 중재계획(BIP)의 강화 전략과 IEP 교육방법에 이 항목들이 반영됩니다.</div>
+            </div>
+          )}
+          {RC_CATEGORIES.map((cat) => (
+            <div key={cat.key} style={{ border: '1px solid var(--border)', borderRadius: 10, marginBottom: 10, overflow: 'hidden' }}>
+              <div style={{ background: '#2b2b2b', color: '#fff', padding: '6px 12px', fontWeight: 700, fontSize: '.86rem' }}>{cat.label}</div>
+              <div style={{ padding: '4px 10px' }}>
+                {cat.items.map((item, ii) => (
+                  <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '5px 0', borderTop: ii ? '1px solid var(--border)' : 'none' }}>
+                    <span style={{ flex: 1, minWidth: 150, fontSize: '.85rem' }}>{item}</span>
+                    <div className="qchip-area" style={{ margin: 0 }}>
+                      {RC_SCALE.map((v) => (
+                        <span key={v} className={'qchip' + (checklist.ratings?.[rcKey(cat.key, item)] === v ? ' on' : '')}
+                          title={RC_SCALE_LABELS[v]} onClick={() => setRating(cat.key, item, v)}>{v}</span>
+                      ))}
+                      <span className={'qchip' + (checklist.ratings?.[rcKey(cat.key, item)] === RC_NA ? ' on' : '')}
+                        title={RC_NA_LABEL} onClick={() => setRating(cat.key, item, RC_NA)}>N</span>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '5px 0', borderTop: '1px solid var(--border)' }}>
+                  <span style={{ minWidth: 40, fontSize: '.85rem', color: 'var(--muted)' }}>기타:</span>
+                  <input className="form-input" style={{ flex: 1, minWidth: 150, height: 30 }}
+                    value={checklist.etcItems?.[cat.key] || ''} onChange={(e) => setEtcItem(cat.key, e.target.value)}
+                    placeholder="이 범주에서 학생이 좋아하는 다른 항목" />
+                  {String(checklist.etcItems?.[cat.key] || '').trim() && (
+                    <div className="qchip-area" style={{ margin: 0 }}>
+                      {RC_SCALE.map((v) => (
+                        <span key={v} className={'qchip' + (checklist.ratings?.[rcKey(cat.key, String(checklist.etcItems[cat.key]).trim())] === v ? ' on' : '')}
+                          title={RC_SCALE_LABELS[v]} onClick={() => setRating(cat.key, String(checklist.etcItems[cat.key]).trim(), v)}>{v}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+          <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 10 }}>
+            <div style={{ background: '#2b2b2b', color: '#fff', padding: '6px 12px', fontWeight: 700, fontSize: '.86rem' }}>12. 선호하는 작업 활동 (해당되는 것에 모두 표시)</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px 12px' }}>
+              {RC_WORK_ACTIVITIES.map((w) => (
+                <span key={w} className={'qchip' + ((checklist.work || []).includes(w) ? ' on' : '')} onClick={() => toggleWork(w)}>{w}</span>
+              ))}
+            </div>
+            <div style={{ padding: '0 12px 10px' }}>
+              <input className="form-input" value={checklist.workEtc || ''}
+                onChange={(e) => { dirtyRef.current = true; setChecklist((c) => ({ ...c, workEtc: e.target.value })); }}
+                placeholder="기타 작업 활동" />
+            </div>
+          </div>
+        </>
+      )}
 
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
         <button className="btn btn-ghost" onClick={onClose}>취소</button>

@@ -9,9 +9,8 @@ import TokenField from '../ui/TokenField';
 import AIActionBar from '../ui/AIActionBar';
 import Modal from '../ui/Modal';
 import EditStudentModal from '../modals/EditStudentModal';
-import RAISDModal from '../modals/RAISDModal';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
-import PriorityChecklistModal from '../modals/PriorityChecklistModal';
+import AssessmentLauncher from '../student/AssessmentLauncher';
 import DeadMansModal from '../modals/DeadMansModal';
 import { createABC as apiCreateABC, deleteABC as apiDeleteABC } from '../../lib/api/students';
 
@@ -76,8 +75,6 @@ export default function ObservePage({ onNavigate }) {
 
   const [exOpen, setExOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [raisdOpen, setRaisdOpen] = useState(false);
-  const [priorityOpen, setPriorityOpen] = useState(false);
   const [deadOpen, setDeadOpen] = useState(false);
 
   // Sync time+place into the abcTime field display
@@ -217,11 +214,12 @@ export default function ObservePage({ onNavigate }) {
         <ProfileSummary stu={curStu} style={{ marginTop: 8 }} />
         <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
           <button className="btn btn-ghost btn-sm" onClick={() => setEditOpen(true)}>프로필 수정</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setRaisdOpen(true)}>💡 선호/강화물 (RAISD)</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setPriorityOpen(true)}>📋 문제행동 우선순위</button>
           <button className="btn btn-ghost btn-sm" onClick={() => setDeadOpen(true)}>🪄 조작적 정의 도우미</button>
         </div>
       </div>
+
+      {/* 0821: 강화제 평가·표적행동 우선순위를 큰 카드로 — 프로필 하단 작은 버튼이라 잘 안 쓰이던 문제 */}
+      <AssessmentLauncher />
 
       <div className="card">
         <div className="card-title">📋 ABC 행동 관찰 기록 작성</div>
@@ -354,8 +352,6 @@ export default function ObservePage({ onNavigate }) {
       </Modal>
 
       <EditStudentModal open={editOpen} onClose={() => setEditOpen(false)} />
-      <RAISDModal open={raisdOpen} onClose={() => setRaisdOpen(false)} />
-      <PriorityChecklistModal open={priorityOpen} onClose={() => setPriorityOpen(false)} />
       <DeadMansModal open={deadOpen} onClose={() => setDeadOpen(false)} />
     </>
   );

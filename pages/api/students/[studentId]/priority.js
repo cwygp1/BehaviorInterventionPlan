@@ -11,7 +11,13 @@ export default requireStudentAccess(async function handler(req, res) {
     if (req.method === 'POST' || req.method === 'PUT') {
       const { responses } = req.body || {};
       const arr = Array.isArray(responses) ? responses : [];
-      const total = arr.reduce((a, b) => a + (Number(b) || 0), 0);
+      // 2026-08: 여러 행동을 평정하는 구조([{name, responses[9]}])로 확장.
+      // total 컬럼에는 '가장 높은 행동의 총점'(=중재 우선순위 1순위 점수)을 넣는다.
+      // 구버전(숫자 9칸 배열)도 그대로 저장·집계되도록 두 형태를 모두 처리한다.
+      const sum = (a) => (Array.isArray(a) ? a.reduce((x, y) => x + (Number(y) || 0), 0) : 0);
+      const total = (arr.length && typeof arr[0] === 'object' && arr[0] !== null)
+        ? Math.max(0, ...arr.map((b) => sum(b?.responses)))
+        : sum(arr);
       const json = JSON.stringify(arr);
       const r = await sql`
         INSERT INTO priority_checklist (student_id, responses, total, updated_at)

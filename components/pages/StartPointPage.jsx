@@ -9,6 +9,8 @@ import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner
 import { fetchStartpoint, saveStartpoint } from '../../lib/api/students';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
 import { skillsForQabf } from '../../lib/functionSkills';
+import { normalizePriority, priorityRank, PRIORITY_MAX } from '../../lib/priority';
+import { raisdLines } from '../../lib/tierContext';
 import { studentProfileParts, sanitizeStrengths, RISK_RE } from '../../lib/utils/splitNote';
 
 // 입력 5블록 / 산출물 3블록 빠른입력 칩
@@ -81,6 +83,12 @@ export default function StartPointPage({ onNavigate }) {
 
   // 기능기반 IEPBS(0819): QABF 최상위 기능 → 가르칠 대체 핵심기술 추천(기능의 목록화용).
   const funcRec = useMemo(() => skillsForQabf(curStuData?.qabf), [curStuData?.qabf]);
+  // 0821: 표적행동 우선순위 1순위 — 어떤 행동부터 다룰지의 근거로 함께 보여준다.
+  const topPriority = useMemo(() => {
+    const r = priorityRank(normalizePriority(curStuData?.priority?.responses));
+    return r.length && r[0].total > 0 ? r[0] : null;
+  }, [curStuData?.priority]);
+  const prefLines = useMemo(() => raisdLines(curStuData), [curStuData]);
 
   // 학생 프로필의 강점/어려움 — 분리 저장된 값이 없으면(기존 학생) note를 규칙으로 분리.
   // P2: studentProfileParts가 강점 칸의 위험 정보("자해 위험", "안정실 이용 이력")를
@@ -151,7 +159,11 @@ export default function StartPointPage({ onNavigate }) {
       `[행동특성(교사관찰)] ${f.observation || '-'}\n` +
       `[기능평가 FBA] ${f.fba || '-'}\n` +
       `[학생 강점] ${f.strengths || '-'}\n` +
-      `[생태학적환경 및 기타사항] ${f.eco || '-'}\n\n` +
+      `[생태학적환경 및 기타사항] ${f.eco || '-'}\n` +
+      // 0821: 표적행동 우선순위·선호도 평가를 산출물 도출에도 반영(BIP·IEP와 같은 근거를 공유).
+      (topPriority ? `[표적행동 우선순위 1순위] ${topPriority.name || '(이름 미입력)'} (${topPriority.total}/${PRIORITY_MAX}점) — '기능의 목록화'는 이 행동을 대체할 기술을 우선 포함할 것\n` : '') +
+      (prefLines.length ? `[선호/강화물 평가]\n${prefLines.map((l) => `- ${l}`).join('\n')}\n  → 수행 가능 수준·기능 목록화에서 동기를 끌어낼 자료로 활용\n` : '') +
+      '\n' +
       '아래 JSON만 출력하라(설명 금지). 각 값은 "- "로 시작하는 항목 2~4개를 줄바꿈으로 묶은 문자열:\n' +
       '{\n' +
       '  "supportNeeds": "생활지원 요구(일상생활에서 무엇이 어렵고 무엇을 지원해야 하는가)",\n' +
@@ -281,6 +293,11 @@ export default function StartPointPage({ onNavigate }) {
         <div className="form-group">
           <label className="form-label">🧩 기능의 목록화</label>
           {/* 기능기반 IEPBS(0819): QABF 최상위 기능에 맞는 대체 핵심기술 추천 — 누르면 목표 문장이 들어간다. */}
+          {topPriority && (
+            <div style={{ fontSize: '.8rem', color: '#8a6100', background: '#fff8e8', border: '1px solid #f2dfad', borderRadius: 8, padding: '6px 10px', marginBottom: 6 }}>
+              📋 표적행동 우선순위 1순위: <strong>{topPriority.name || '(이름 미입력)'}</strong> ({topPriority.total}/{PRIORITY_MAX}점) — 이 행동의 대체기술을 먼저 목록화하세요.
+            </div>
+          )}
           {funcRec && funcRec.func && funcRec.skills.length > 0 && (
             <div style={{ background: '#fff8e8', border: '1px solid #f2dfad', borderRadius: 8, padding: '7px 10px', marginBottom: 6 }}>
               <div style={{ fontSize: '.78rem', color: '#8a6100', fontWeight: 700, marginBottom: 4 }}>

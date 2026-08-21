@@ -15,6 +15,7 @@ import { profileNarrative } from '../../lib/utils/splitNote';
 import { findHanja } from '../../lib/utils/aiText';
 import { ebpBlockForGoal } from '../../lib/ebp';
 import { functionSkillsBlock } from '../../lib/functionSkills';
+import AssessmentLauncher from '../student/AssessmentLauncher';
 import { FORMAT_EX_MATH, FORMAT_EX_COMM, findExampleEchoes } from '../../lib/exampleGuard';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
 import { splitDisability } from '../../lib/disability';
@@ -1990,6 +1991,8 @@ export default function IepPage({ onNavigate }) {
   return (
     <>
       <StuHero />
+      {/* 0821: IEP 교육방법(강화 전략)·목표 선정에 쓰이는 기초 평가 — 여기서 바로 작성·수정 */}
+      <AssessmentLauncher compact />
 
       {/* Tier 구성 참고 — IEP는 Tier 1·2·3 데이터를 조합해 목표를 세운다 */}
       <div style={{

@@ -3,57 +3,42 @@ import Modal from '../ui/Modal';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { savePriority } from '../../lib/api/students';
+import { PRIORITY_CRITERIA, PRIORITY_SCALE, PRIORITY_MAX, priorityRank, normalizePriority } from '../../lib/priority';
 
-const QUESTIONS = [
-  '본인의 안전을 위협하는 정도',
-  '타인의 안전을 위협하는 정도',
-  '학습 참여를 방해하는 정도',
-  '또래 관계에 부정적 영향을 주는 정도',
-  '발생 빈도(자주 일어나는가)',
-  '지속 시간(오래 지속되는가)',
-  '강도(심한가)',
-  '환경 변화(다른 학생들에게 미치는 영향)',
-  '교사/학부모 우려 정도',
-];
-
-const SCALE = [
-  { v: 0, label: '0 · 전혀 아님' },
-  { v: 1, label: '1 · 약간' },
-  { v: 2, label: '2 · 보통' },
-  { v: 3, label: '3 · 많이' },
-  { v: 4, label: '4 · 매우 그렇다' },
-];
-
+// 표적행동 우선순위 체크리스트 (Checklist for Prioritizing Target Behaviors)
+// 2026-08 최신화: Dardig & Heward(1981) 우선순위화 절차 + Cooper, Heron & Heward(2020)
+// 'Nine Questions to Ask When Prioritizing Target Behaviors' 기반 최진혁(2026) 번역·수정본 반영.
+// 여러 잠재적 문제행동(최대 4개)을 같은 9기준으로 평정해 총점이 가장 높은 행동을 중재 목표로 고른다.
 export default function PriorityChecklistModal({ open, onClose }) {
   const { curStuId, curStuData, updateStudentData } = useStudents();
   const toast = useToast();
-  const [responses, setResponses] = useState(new Array(QUESTIONS.length).fill(0));
+  const [behaviors, setBehaviors] = useState([]);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (open && curStuData?.priority?.responses) {
-      const arr = curStuData.priority.responses;
-      setResponses(Array.isArray(arr) ? arr.concat(new Array(Math.max(0, QUESTIONS.length - arr.length)).fill(0)).slice(0, QUESTIONS.length) : new Array(QUESTIONS.length).fill(0));
-    } else if (open) {
-      setResponses(new Array(QUESTIONS.length).fill(0));
-    }
+    if (!open) return;
+    setBehaviors(normalizePriority(curStuData?.priority?.responses));
   }, [open, curStuData]);
 
-  function setVal(i, v) {
-    setResponses((prev) => prev.map((x, idx) => (idx === i ? v : x)));
-  }
+  const setName = (bi, v) => setBehaviors((p) => p.map((b, i) => (i === bi ? { ...b, name: v } : b)));
+  const setVal = (bi, qi, v) => setBehaviors((p) => p.map((b, i) => (
+    i === bi ? { ...b, responses: b.responses.map((x, k) => (k === qi ? v : x)) } : b
+  )));
+  const addBehavior = () => setBehaviors((p) => (p.length >= 4 ? p : [...p, { name: '', responses: new Array(PRIORITY_CRITERIA.length).fill(0) }]));
+  const removeBehavior = (bi) => setBehaviors((p) => (p.length <= 1 ? p : p.filter((_, i) => i !== bi)));
 
-  const total = responses.reduce((a, b) => a + b, 0);
-  const max = QUESTIONS.length * 4;
-  const pct = Math.round((total / max) * 100);
+  const ranked = priorityRank(behaviors);
+  const top = ranked[0];
 
   async function onSave() {
     if (!curStuId) return;
     setBusy(true);
     try {
-      const data = await savePriority(curStuId, { responses });
+      const data = await savePriority(curStuId, { responses: behaviors });
       updateStudentData(curStuId, (cur) => ({ ...cur, priority: data.data }));
-      toast(`저장 완료 — 총점 ${total}/${max}`);
+      toast(top?.name
+        ? `저장 완료 — 우선순위 1순위: ${top.name} (${top.total}/${PRIORITY_MAX}점)`
+        : `저장 완료 — 총점 ${top?.total ?? 0}/${PRIORITY_MAX}`);
       onClose();
     } catch (e) {
       toast('저장 실패: ' + e.message);
@@ -63,34 +48,65 @@ export default function PriorityChecklistModal({ open, onClose }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} maxWidth={640}>
-      <h3>📋 문제행동 우선순위 체크리스트</h3>
-      <p style={{ fontSize: '.84rem', color: 'var(--sub)', margin: '6px 0 14px' }}>
-        총점이 높을수록 중재 우선순위가 높습니다. 4점 척도(0~4) × 9문항 = 0~36점.
+    <Modal open={open} onClose={onClose} maxWidth={860}>
+      <h3>📋 표적행동 우선순위 체크리스트</h3>
+      <p style={{ fontSize: '.84rem', color: 'var(--sub)', margin: '6px 0 12px', lineHeight: 1.6 }}>
+        여러 잠재적 문제행동 가운데 <strong>어떤 행동을 먼저 중재할지</strong> 정하는 도구입니다.
+        행동마다 9가지 기준을 0~4점으로 평정하고, <strong>총점이 가장 높은 행동</strong>을 우선 중재 목표로 선정합니다. (행동당 최대 {PRIORITY_MAX}점)
+        <br /><span style={{ color: 'var(--muted)', fontSize: '.92em' }}>
+          척도 — {PRIORITY_SCALE.map((s) => `${s.v} ${s.label}`).join(' · ')}
+        </span>
       </p>
-      {QUESTIONS.map((q, i) => (
-        <div key={i} className="form-group" style={{ marginBottom: 12 }}>
-          <label className="form-label">{i + 1}. {q}</label>
-          <div className="qchip-area">
-            {SCALE.map((s) => (
-              <span key={s.v} className={'qchip' + (responses[i] === s.v ? ' on' : '')} onClick={() => setVal(i, s.v)}>
-                {s.label}
-              </span>
+
+      {behaviors.map((b, bi) => {
+        const total = b.responses.reduce((a, c) => a + (Number(c) || 0), 0);
+        const isTop = ranked.length > 1 && top && top.index === bi && total > 0;
+        return (
+          <div key={bi} style={{ border: '1px solid ' + (isTop ? '#3b6ef5' : 'var(--border)'), background: isTop ? '#f3f6ff' : 'transparent', borderRadius: 10, padding: '10px 12px', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+              <strong style={{ fontSize: '.86rem', color: 'var(--pri-d)' }}>({bi + 1})</strong>
+              <input
+                className="form-input"
+                style={{ flex: 1, minWidth: 200 }}
+                value={b.name}
+                onChange={(e) => setName(bi, e.target.value)}
+                placeholder="잠재적 문제행동 (관찰 가능하게 — 예: 옆 친구의 팔을 손으로 때린다)"
+              />
+              <span style={{ fontWeight: 800, color: isTop ? '#3b6ef5' : 'var(--sub)', whiteSpace: 'nowrap' }}>{total}/{PRIORITY_MAX}점</span>
+              {isTop && <span className="badge badge-pri">1순위</span>}
+              {behaviors.length > 1 && (
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => removeBehavior(bi)}>삭제</button>
+              )}
+            </div>
+            {PRIORITY_CRITERIA.map((q, qi) => (
+              <div key={qi} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '5px 0', borderTop: qi ? '1px solid var(--border)' : 'none' }}>
+                <span style={{ flex: 1, minWidth: 220, fontSize: '.84rem' }}>{qi + 1}. {q}</span>
+                <div className="qchip-area" style={{ margin: 0 }}>
+                  {PRIORITY_SCALE.map((s) => (
+                    <span key={s.v} className={'qchip' + (b.responses[qi] === s.v ? ' on' : '')} onClick={() => setVal(bi, qi, s.v)} title={s.label}>
+                      {s.v}
+                    </span>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
-        </div>
-      ))}
-      <div style={{ background: 'var(--pri-soft)', padding: 14, borderRadius: 8, textAlign: 'center', marginTop: 14 }}>
-        <div style={{ fontSize: '.8rem', color: 'var(--muted)' }}>총점</div>
-        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--pri)' }}>{total} / {max}</div>
-        <div style={{ fontSize: '.85rem', color: 'var(--sub)', marginTop: 4 }}>
-          {pct >= 75 ? '🔴 매우 높음 (즉각 중재 필요)' : pct >= 50 ? '🟠 높음 (집중 중재 권장)' : pct >= 25 ? '🟡 보통 (관찰 강화)' : '🟢 낮음 (예방 중심)'}
+        );
+      })}
+
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={addBehavior} disabled={behaviors.length >= 4}>
+          + 행동 추가 ({behaviors.length}/4)
+        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={onClose}>취소</button>
+          <button className="btn btn-pri" onClick={onSave} disabled={busy}>{busy ? '저장 중…' : '저장'}</button>
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-        <button className="btn btn-ghost" onClick={onClose}>취소</button>
-        <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 저장</button>
-      </div>
+      <p style={{ fontSize: '.72rem', color: 'var(--muted)', marginTop: 10 }}>
+        ※ Dardig와 Heward(1981)의 우선순위화 절차를 토대로 하고, Cooper, Heron, and Heward(2020)의 ‘Nine Questions to Ask When
+        Prioritizing Target Behaviors’를 바탕으로 최진혁(2026)이 번역·수정함. 저장하면 <strong>중재계획(BIP)·IEP 목표 생성</strong>에 자동 반영됩니다.
+      </p>
     </Modal>
   );
 }

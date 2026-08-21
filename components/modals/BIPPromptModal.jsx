@@ -6,6 +6,7 @@ import { useLLM } from '../../contexts/LLMContext';
 import { useToast } from '../../contexts/ToastContext';
 import AIActionBar from '../ui/AIActionBar';
 import { buildFullStudentContext, raisdLines } from '../../lib/tierContext';
+import { priorityLines } from '../../lib/priority';
 import { studentProfileParts } from '../../lib/utils/splitNote';
 import { ebpBlockForBehavior } from '../../lib/ebp';
 import { functionSkillsBlock } from '../../lib/functionSkills';
@@ -42,6 +43,9 @@ function buildPrompt(stu, data) {
 - 강점: ${studentProfileParts(stu).strengths || '(미입력)'}
 - 어려움(지원 요구): ${studentProfileParts(stu).difficulties || '(미입력)'}${raisdLines(data).length ? '\n' + raisdLines(data).map((l) => `- ${l}`).join('\n') + '\n※ [REINF] 강화 전략은 위 선호/강화물을 우선 활용하고, 사용 금지 항목은 절대 포함하지 마세요.' : ''}
 
+## 표적행동 우선순위 (교사가 체크리스트로 선정)
+${priorityLines(data?.priority?.responses).join('\n') || '(미작성 — 관찰된 행동 중 가장 시급한 것을 기준으로 작성)'}
+
 ## ABC 관찰 누적 (최근 ${(data?.abc || []).slice(0, 8).length}건)
 ${abc || '(기록 없음)'}
 
@@ -55,6 +59,8 @@ ${abc || '(기록 없음)'}
 ## 작성 요구사항
 2024 서울시교육청 PBS 가이드북 기반으로 다음 7개 항목을 한국어로 작성합니다.
 각 항목은 정확히 다음 형식으로 표시해주세요 (자동 파싱):
+
+※ 위 우선순위 1순위 행동이 있으면 그 행동을 표적행동으로 삼아 작성하세요.
 
 [ALT] (대체 행동 — 한 문장)
 [FCT] (FCT 기능적 의사소통 기술)

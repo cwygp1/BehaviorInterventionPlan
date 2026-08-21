@@ -12,6 +12,7 @@ import FamilyLetterModal from '../modals/FamilyLetterModal';
 import { saveBIP as apiSaveBIP } from '../../lib/api/students';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import { skillsForQabf } from '../../lib/functionSkills';
+import AssessmentLauncher from '../student/AssessmentLauncher';
 import { printBehaviorContract } from '../../lib/utils/printContract';
 import { printBIP } from '../../lib/utils/printBIP';
 
@@ -188,6 +189,8 @@ export default function BipPage({ onNavigate }) {
   return (
     <>
       <StuHero />
+      {/* 0821: BIP는 선호/강화물·표적행동 우선순위를 재료로 쓴다 — 여기서 바로 작성·수정 */}
+      <AssessmentLauncher compact />
 
       {/* 0719 피드백: ABC → ① 조작적 정의 → ② 중재계획 → ③ 행동목표 순서를 화면에 드러냄 */}
       <div className="card" style={{ background: 'var(--pri-soft)', borderColor: 'var(--pri-l)', fontSize: '.84rem', lineHeight: 1.6 }} data-tour="bip-order">

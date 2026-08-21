@@ -19,6 +19,9 @@ import {
   QABF_SHORT_LABELS,
   QABF_NA,
   QABF_NA_LABEL,
+  QABF_QUESTION_PREFIX,
+  QABF_INSTRUCTION,
+  QABF_CITATION,
   qabfAnswered,
   qabfScores,
 } from '../../lib/qabf';
@@ -105,7 +108,9 @@ export default function QabfPage({ onNavigate }) {
     }
   }
 
-  const completed = responses.filter(qabfAnswered).length; // X(해당없음)도 응답으로 집계
+  const completed = responses.filter(qabfAnswered).length; // X(해당 없음)도 응답으로 집계
+  // 목표행동 — BIP의 표적행동 조작적 정의를 그대로 인용(문서 지시문: 한 가지 목표행동을 구체적으로).
+  const targetBeh = String(curStuData?.bip?.opdef || '').trim();
 
   // ── 0719: 기존 QABF 자료 불러오기 ─────────────────────────────
   // (a) 25개 응답 붙여넣기 — "0 1 2 3 X ..." / 쉼표·줄바꿈 구분 모두 허용. AI 불필요.
@@ -133,7 +138,7 @@ export default function QabfPage({ onNavigate }) {
       })));
       const prompt =
         '/no_think\n다음 이미지는 작성 완료된 QABF(행동기능설문지) 25문항 응답지다. 각 문항(1~25번)에 표시된 응답을 읽어라.\n' +
-        '- 응답 값: 0(전혀 아님), 1(가끔), 2(종종), 3(자주), "X"(해당없음). 알아볼 수 없거나 빈 문항은 -1.\n' +
+        '- 응답 값: 0(전혀 없음), 1(드물게 나타남), 2(때때로 나타남), 3(자주 나타남), "X"(해당 없음). 알아볼 수 없거나 빈 문항은 -1.\n' +
         '반드시 JSON만 출력: {"responses":[25개 값 배열, 예: 0,1,"X",3,...]}';
       const r = await callVisionDetailed(prompt, images, { temperature: 0.1, tier: 'fast', label: 'QABF 사진 판독' });
       const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
@@ -201,7 +206,14 @@ ${profile}
       <div className="card" data-tour="qb-intro">
         <div className="card-title">📊 QABF 척도 (Questions About Behavioral Function · 행동기능설문지)</div>
         <div className="card-subtitle">
-          공식 QABF 25문항 — <strong>0 전혀 아님 ~ 3 자주</strong> 4점 척도 + <strong>X 해당없음</strong>(관찰 기회가 없던 문항)으로 행동의 기능을 정량화합니다. 진행: <strong>{completed}/25</strong>
+          공식 QABF 25문항 — <strong>0 전혀 없음 ~ 3 자주 나타남</strong> 4점 척도 + <strong>X 해당 없음</strong>(관찰 기회가 없던 문항)으로 행동의 기능을 정량화합니다. 진행: <strong>{completed}/25</strong>
+          <span style={{ color: 'var(--muted)' }}> · {QABF_CITATION}</span>
+        </div>
+        {/* 2026-08 최신화: 문서 지시문 반영 — 목표행동을 먼저 구체적으로 정하도록 안내 */}
+        <div style={{ fontSize: '.8rem', color: 'var(--sub)', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', marginTop: 10, lineHeight: 1.6 }}>
+          {QABF_INSTRUCTION}
+          {targetBeh && <div style={{ marginTop: 6, color: 'var(--pri-d)', fontWeight: 700 }}>🎯 목표행동: {targetBeh}</div>}
+          {!targetBeh && <div style={{ marginTop: 6, color: '#b45309' }}>⚠ 목표행동이 아직 정해지지 않았어요 — 중재계획(BIP)의 “표적행동 조작적 정의”를 먼저 적으면 여기에 표시됩니다.</div>}
         </div>
         <div className="qabf-results" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginTop: 12 }}>
           {Object.keys(totals).map((f) => {
@@ -263,7 +275,7 @@ ${profile}
           <div key={i} style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'flex-start' }}>
               <span style={{ fontSize: '.92rem', flex: 1 }}>
-                <strong style={{ color: FUNCTION_COLORS[item.f] }}>{i + 1}.</strong> {item.q}
+                <strong style={{ color: FUNCTION_COLORS[item.f] }}>{i + 1}.</strong> <span style={{ color: 'var(--muted)' }}>{QABF_QUESTION_PREFIX}</span> {item.q}
               </span>
               <span style={{ fontSize: '.74rem', color: FUNCTION_COLORS[item.f], fontWeight: 600, marginLeft: 8, whiteSpace: 'nowrap' }}>
                 {FUNCTION_LABELS[item.f]}
