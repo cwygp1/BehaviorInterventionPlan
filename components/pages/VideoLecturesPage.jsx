@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+// 0819 감사: 기관 포털 링크가 교사 지원 탭과 각각 하드코딩되어 있었음 → 공용 카탈로그 사용.
+import { ORG_PORTALS } from '../../lib/officialDocs';
 
 // Each topic has a curated list of search queries / direct links to multiple
 // reliable Korean PBS resources. Specific URLs from external sites tend to
@@ -63,50 +65,6 @@ const TOPICS = [
 ];
 
 // Reliable Korean PBS resource portals. (2026-07 확인)
-const RESOURCE_PORTALS = [
-  {
-    name: '서울긍정적행동지원(서울PBS)',
-    url: 'https://www.sen.go.kr/www/eduinfo/seoulpbs/seoulpbs_1.jsp',
-    desc: '서울시교육청 학교차원 긍정적행동지원(SWPBS) — 보편적·표적집단·개별 지원 안내',
-    icon: '🏛',
-    color: '#4f6bed',
-  },
-  {
-    name: '발달장애인의 도전적 행동 중재 매뉴얼',
-    url: 'https://jbp.or.kr/customer03/?bmode=view&idx=8852600',
-    desc: 'NISE 국가장애인평생교육진흥센터 발행 — PDF 전문 다운로드',
-    icon: '📥',
-    color: '#1098ad',
-  },
-  {
-    name: '국립특수교육원 (NISE)',
-    url: 'https://www.nise.go.kr/',
-    desc: '특수교육 국가 표준 자료·연구보고서·연수',
-    icon: '🏫',
-    color: '#0a7d4e',
-  },
-  {
-    name: '에듀에이블 (NISE)',
-    url: 'https://www.nise.go.kr/main.do?s=eduable',
-    desc: '특수교육 교수·학습자료, 진로직업·장애이해 자료, 에듀테크',
-    icon: '🎓',
-    color: '#9c36b5',
-  },
-  {
-    name: '장애학생 인권보호 지원센터',
-    url: 'https://www.nise.go.kr/hright/',
-    desc: '인권침해 신고·인권보호 지원 (NISE 운영)',
-    icon: '🛡',
-    color: '#ef476f',
-  },
-  {
-    name: '온맘 — 장애자녀 부모지원 (NISE)',
-    url: 'https://www.nise.go.kr/onmam/',
-    desc: '장애자녀 부모 지원 종합시스템 — 가정 연계 안내에 활용',
-    icon: '👨‍👩‍👧',
-    color: '#a76200',
-  },
-];
 
 const TIPS = [
   { n: 1, t: '필요한 주제 선택', d: '학급에서 겪고 있는 가장 시급한 문제와 관련된 영상부터 시청하세요.' },
@@ -172,9 +130,9 @@ export default function VideoLecturesPage({ onNavigate }) {
       {/* 공식 자료 포털 */}
       <div className="card">
         <div className="card-title">🏛 공식 PBS 자료 포털</div>
-        <div className="card-subtitle">한국 특수교육·PBS 관련 신뢰할 수 있는 공식 사이트입니다.</div>
+        <div className="card-subtitle">한국 특수교육·PBS 관련 신뢰할 수 있는 공식 <strong>사이트</strong>입니다. 가이드라인·매뉴얼 같은 <strong>문서 자료</strong>는 <strong>교사 지원 → 공식 가이드라인·매뉴얼</strong>에 출처와 함께 모아 두었어요.</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginTop: 12 }}>
-          {RESOURCE_PORTALS.map((p) => (
+          {ORG_PORTALS.filter((p) => p.video).map((p) => (
             <a
               key={p.url}
               href={p.url}
