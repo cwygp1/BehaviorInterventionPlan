@@ -19,6 +19,7 @@ import { FORMAT_EX_MATH, FORMAT_EX_COMM, findExampleEchoes } from '../../lib/exa
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
 import { splitDisability } from '../../lib/disability';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
+import { GRADES_BY_LEVEL } from '../modals/EditStudentModal';
 
 const GRADE = { 0: '일상생활(공통)', 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
 const GORDER = [2, 4, 6, 9, 12];
@@ -354,7 +355,7 @@ function parseLooseJSON(raw) {
 }
 
 export default function IepPage({ onNavigate }) {
-  const { curStu, curStuId, curStuData, ensureStudentData, curYear, curSemester, studentTier, tier2Groups } = useStudents();
+  const { curStu, curStuId, curStuData, ensureStudentData, editStudent, curYear, curSemester, studentTier, tier2Groups } = useStudents();
   const { user } = useAuth();
   const toast = useToast();
   const { callDetailed, config, status: llmStatus, pushLog } = useLLM();
@@ -1292,6 +1293,27 @@ export default function IepPage({ onNavigate }) {
   }
   // 추천 안내에 쓸 학년 표기(예: '초등 3학년').
   const levelLabel = `${curStu?.level || ''}${curStu?.grade ? ` ${curStu.grade}학년` : ''}`.trim();
+  // 0819(동료 재요청): 학년이 비어 있으면 조용히 학교급 전체로 돌아가 "학년이 반영 안 된다"고 느껴졌다
+  //   → 추천 박스에 지금 적용 중인 기준을 항상 보여주고, 학년을 그 자리에서 바로 입력하게 한다.
+  const gradeBasisLabel = (() => {
+    const codes = allowedGradeCodes();
+    if (!codes) return '학교급 미지정 — 전체 학년 성취기준에서 추천';
+    const names = codes.filter((c) => c !== 0).map((c) => GRADE[c] || '').filter(Boolean);
+    return `${levelLabel || '학생'} · ${names.join(', ')} + 일상생활(공통) 성취기준에서 추천`;
+  })();
+  // 학년 인라인 저장 — 프로필의 다른 값이 지워지지 않도록 현재 값을 함께 보낸다.
+  async function saveGradeInline(g) {
+    if (!curStu) return;
+    try {
+      await editStudent({
+        id: curStu.id, level: curStu.level || '', grade: g,
+        disability: curStu.disability || '', note: curStu.note || '',
+        class_id: curStu.class_id || undefined,
+      });
+      toast(g ? `학년을 ${g}학년으로 저장했어요 — 이 학년군 성취기준으로 추천합니다.` : '학년을 지웠어요(학교급 전체 기준).');
+      setStdRecs([]);
+    } catch (e) { toast('학년 저장 실패: ' + e.message); }
+  }
   // 키워드 후보 → (AI 연결 시) AI 재정렬로 상위 추천. AI 없이도 키워드 순으로 동작.
   async function aiRecommendStandards() {
     const g = String(goal || '').trim();
@@ -2117,6 +2139,27 @@ export default function IepPage({ onNavigate }) {
                 {stdRecBusy ? '추천 중…' : (aiOn ? '✨ 관련 성취기준 추천 (AI)' : '🔎 키워드로 관련 기준 찾기')}
               </button>
               {sel && <span style={{ fontSize: 12, color: '#15803d', fontWeight: 700 }}>✓ 연결됨: [{sel.code}]{selExtra.length ? ` 외 ${selExtra.length}개` : ''}</span>}
+            </div>
+            {/* 0819: 지금 어떤 학년 기준으로 추천되는지 항상 표시 + 학년 없으면 그 자리에서 입력 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 6, fontSize: '.78rem', color: '#274690' }}>
+              <span>🎓 추천 기준: <strong>{gradeBasisLabel}</strong></span>
+              {curStu?.level && (
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ color: 'var(--muted)' }}>학년</span>
+                  <select
+                    className="form-select"
+                    style={{ height: 28, padding: '0 6px', fontSize: '.78rem', width: 'auto' }}
+                    value={curStu.grade || ''}
+                    onChange={(e) => saveGradeInline(e.target.value)}
+                  >
+                    <option value="">미지정</option>
+                    {GRADES_BY_LEVEL(curStu.level).map((g) => <option key={g} value={g}>{g}학년</option>)}
+                  </select>
+                </label>
+              )}
+              {curStu?.level && !curStu?.grade && (
+                <span style={{ color: '#b45309' }}>← 학년을 고르면 그 학년군 성취기준만 추천해요</span>
+              )}
             </div>
             {stdRecs.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 6, marginTop: 8 }}>
