@@ -1,3 +1,4 @@
+import { OFFICIAL_DOCS } from '../../lib/officialDocs';
 const VIDEOS = [
   { title: '문제행동의 이해와 기능 평가', desc: 'FBA·QABF의 기초', tag: '🟦 PBS 기초' },
   { title: '학급 차원의 보편적 지원 (Tier 1)', desc: '4:1 비율, 학급 강화 시스템', tag: '🟩 Tier 1' },
@@ -74,34 +75,6 @@ const EBP_GROUPS = [
 ];
 const EBP_TOTAL = EBP_GROUPS.reduce((s, g) => s + g.items.length, 0);
 
-// 공식 가이드라인·매뉴얼 외부 링크 (2026-07 확인 · 게시글 URL은 변경될 수 있음)
-const OFFICIAL_DOCS = [
-  {
-    n: '장애학생 행동중재 가이드라인 (교육부, 2023.12)',
-    d: '문제행동 중재 전략·계획 수립 절차와 방법 — 행동중재 지원계획·개별 행동중재 프로그램의 국가 기준',
-    link: 'https://www.jne.go.kr/spedu/na/ntt/selectNttInfo.do?mi=804&nttSn=5077791',
-    src: '전남교육청 게시글(PDF 첨부)',
-  },
-  {
-    n: '발달장애인의 도전적 행동 중재 매뉴얼 (국립특수교육원)',
-    d: '도전적 행동의 이해와 행동지원 체계 구축 안내 — NISE 국가장애인평생교육진흥센터 발행',
-    link: 'https://jbp.or.kr/customer03/?bmode=view&idx=8852600',
-    src: '전남동부권발달장애인평생교육지원센터 자료실(PDF 첨부)',
-  },
-  {
-    n: '장애학생의 문제행동 사례별 중재 가이드북 (부산시교육청)',
-    d: '현장 사례 중심의 문제행동 유형별 중재 방법 안내',
-    link: 'https://www.rehab21.or.kr/bbs/board.php?bo_table=B16&wr_id=54',
-    src: '자료 게시글(PDF 첨부)',
-  },
-  {
-    n: '서울긍정적행동지원(서울PBS) 안내 (서울시교육청)',
-    d: '학교차원 긍정적행동지원(SWPBS) — 보편적·표적집단·개별 지원 안내',
-    link: 'https://www.sen.go.kr/www/eduinfo/seoulpbs/seoulpbs_1.jsp',
-    src: 'sen.go.kr 교육정보',
-  },
-];
-
 export default function SupportPage() {
   return (
     <>
@@ -170,28 +143,36 @@ export default function SupportPage() {
 
       <div className="card">
         <div className="card-title">📥 공식 가이드라인 · 매뉴얼</div>
-        <div className="card-subtitle">교육부·국립특수교육원·시도교육청이 배포한 행동중재 공식 문서입니다. (2026-07 확인)</div>
+        <div className="card-subtitle">교육부·국립특수교육원·시도교육청이 배포한 행동중재 공식 문서입니다. <strong>앱에 탑재</strong> 표시가 있는 자료는 파일을 바로 볼 수 있고, 모든 자료에 발행처 출처를 함께 표기했습니다. (2026-08 확인)</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+          {/* 0819: 앱에 탑재된 자료(📥 바로 보기)와 링크만 있는 자료를 한 목록에서 구분해 보여주고,
+              탑재 자료에도 발행처 출처 링크를 함께 표기한다. */}
           {OFFICIAL_DOCS.map((d) => (
-            <a
-              key={d.link}
-              href={d.link}
-              target="_blank"
-              rel="noreferrer"
+            <div
+              key={d.id}
               style={{
-                display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
-                background: 'var(--surface2)', border: '1px solid var(--border)',
-                borderRadius: 10, textDecoration: 'none', color: 'inherit',
+                display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 14px',
+                background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10,
               }}
             >
               <span style={{ fontSize: '1.3rem' }}>📄</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: '.9rem' }}>{d.n}</div>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontWeight: 700, fontSize: '.9rem' }}>
+                  {d.n}
+                  {d.file && <span className="badge badge-pri" style={{ marginLeft: 6, fontSize: '.68rem' }}>앱에 탑재</span>}
+                </div>
                 <div style={{ fontSize: '.78rem', color: 'var(--sub)', marginTop: 2 }}>{d.d}</div>
-                <div style={{ fontSize: '.72rem', color: 'var(--muted)', marginTop: 2 }}>{d.src}</div>
+                <div style={{ fontSize: '.72rem', color: 'var(--muted)', marginTop: 2 }}>출처: {d.pub} — {d.srcNote}</div>
               </div>
-              <span style={{ color: 'var(--muted)' }}>↗</span>
-            </a>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {d.file && (
+                  <a className="btn btn-pri btn-sm" href={encodeURI(d.file)} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>📥 파일 보기</a>
+                )}
+                {d.link && (
+                  <a className="btn btn-ghost btn-sm" href={d.link} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>↗ 출처</a>
+                )}
+              </div>
+            </div>
           ))}
         </div>
         <div style={{ marginTop: 10, padding: 10, background: 'var(--warn-l)', borderRadius: 6, fontSize: '.78rem', color: '#92400e' }}>

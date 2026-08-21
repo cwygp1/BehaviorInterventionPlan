@@ -6,7 +6,10 @@ import { EditableChipGroup, makeAppender } from '../ui/QChip';
 import CrisisPromptModal from '../modals/CrisisPromptModal';
 import ResourceDownloads from '../ui/ResourceDownloads';
 import { createSZ, deleteSZ as apiDelSz } from '../../lib/api/students';
+import { CRISIS_OFFICIAL_DOCS, CRISIS_SUPPORT_LINKS } from '../../lib/officialDocs';
 
+// 0819(동료 피드백): 공식 가이드북·매뉴얼은 lib/officialDocs 카탈로그가 단일 출처 —
+// 여기(자료실)에는 '학교에서 고쳐 쓰는 예시 양식'만 두어 중복을 없앤다.
 // 위기관리 예시 문서 (public/docs/crisis/) — 다운로드해 학교 상황에 맞게 수정 사용.
 const CRISIS_DOCS = [
   {
@@ -32,21 +35,6 @@ const CRISIS_DOCS = [
       { label: 'HWPX', href: '/docs/crisis/위기행동에_따른_대응전략.hwpx' },
       { label: 'PDF', href: '/docs/crisis/위기행동에_따른_대응전략.pdf' },
     ],
-  },
-  {
-    name: '장애학생 행동중재를 위한 가이드북 (일반학교용)',
-    desc: '통합학급·일반학교 상황의 행동중재 절차와 전략 안내',
-    links: [{ label: 'PDF', href: '/docs/crisis/장애학생_행동중재_가이드북_일반학교용.pdf' }],
-  },
-  {
-    name: '장애학생 행동중재를 위한 가이드북 (특수학교용)',
-    desc: '특수학교 상황의 행동중재 절차와 전략 안내',
-    links: [{ label: 'PDF', href: '/docs/crisis/장애학생_행동중재_가이드북_특수학교용.pdf' }],
-  },
-  {
-    name: '영유아를 위한 맞춤형 행동중재 매뉴얼',
-    desc: '영유아기 문제행동의 이해와 맞춤형 중재 방법',
-    links: [{ label: 'PDF', href: '/docs/crisis/영유아를_위한_맞춤형_행동중재_매뉴얼.pdf' }],
   },
 ];
 
@@ -163,18 +151,42 @@ export default function CrisisPage() {
 
       <ResourceDownloads
         title="📎 위기관리 자료실 (예시 문서)"
-        subtitle="위기관리계획·사후보고서·대응전략 예시를 내려받아 학교 상황에 맞게 수정해 사용하세요. HWPX는 한글(호환 프로그램)에서 편집할 수 있습니다."
+        subtitle="위기관리계획·사후보고서·대응전략 「예시 양식」을 내려받아 학교 상황에 맞게 수정해 사용하세요. HWPX는 한글(호환 프로그램)에서 편집할 수 있습니다. (공식 매뉴얼·가이드북은 아래 목록에 있어요)"
         files={CRISIS_DOCS}
       />
 
-      {/* 공식 외부 자료 — 교육부·NISE (2026-07 확인) */}
+      {/* 공식 자료 — lib/officialDocs 카탈로그(교사 지원 탭과 동일 데이터)에서 위기 관련만 표시 */}
       <div className="card">
-        <div className="card-title">🏛 공식 매뉴얼 · 지원 체계 (외부)</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10, fontSize: '.88rem' }}>
-          <a href="https://www.jne.go.kr/spedu/na/ntt/selectNttInfo.do?mi=804&nttSn=5077791" target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--pri)' }}>↗ 장애학생 행동중재 가이드라인 (교육부, 2023.12)</a>
-          <a href="https://jbp.or.kr/customer03/?bmode=view&idx=8852600" target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--pri)' }}>↗ 발달장애인의 도전적 행동 중재 매뉴얼 (국립특수교육원 발행)</a>
-          <a href="https://www.nise.go.kr/hright/" target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--pri)' }}>↗ 장애학생 인권보호 지원센터 (신고·지원)</a>
-          <a href="https://sp.cbe.go.kr/home/sub.php?menukey=832" target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--pri)' }}>↗ 거점 행동중재 지원센터 운영 (충북특수교육원) — 행동중재·심리안정실·전문가 지원단 운영 사례</a>
+        <div className="card-title">🏛 공식 매뉴얼 · 가이드북 (위기행동 관련)</div>
+        <div className="card-subtitle">
+          <strong>앱에 탑재</strong> 표시가 있는 자료는 파일을 바로 볼 수 있어요. 전체 목록은 <strong>교사 지원 → 공식 가이드라인·매뉴얼</strong>에 있습니다.
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+          {CRISIS_OFFICIAL_DOCS.map((d) => (
+            <div key={d.id} style={{
+              display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 14px',
+              background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10,
+            }}>
+              <span style={{ fontSize: '1.3rem' }}>📄</span>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontWeight: 700, fontSize: '.9rem' }}>
+                  {d.n}
+                  {d.file && <span className="badge badge-pri" style={{ marginLeft: 6, fontSize: '.68rem' }}>앱에 탑재</span>}
+                </div>
+                <div style={{ fontSize: '.78rem', color: 'var(--sub)', marginTop: 2 }}>{d.d}</div>
+                <div style={{ fontSize: '.72rem', color: 'var(--muted)', marginTop: 2 }}>출처: {d.pub} — {d.srcNote}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {d.file && <a className="btn btn-pri btn-sm" href={encodeURI(d.file)} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>📥 파일 보기</a>}
+                {d.link && <a className="btn btn-ghost btn-sm" href={d.link} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>↗ 출처</a>}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12, fontSize: '.88rem' }}>
+          {CRISIS_SUPPORT_LINKS.map((l) => (
+            <a key={l.link} href={l.link} target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--pri)' }}>↗ {l.n}</a>
+          ))}
         </div>
         <p style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 8 }}>
           위기행동이 반복되면 소속 교육(지원)청 <strong>행동중재지원단·특수교육지원센터</strong>에 전문가 지원을 요청할 수 있습니다. 외부 URL은 변경될 수 있습니다.
