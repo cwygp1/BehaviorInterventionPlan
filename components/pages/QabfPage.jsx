@@ -213,7 +213,7 @@ ${profile}
         <div style={{ fontSize: '.8rem', color: 'var(--sub)', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', marginTop: 10, lineHeight: 1.6 }}>
           {QABF_INSTRUCTION}
           {targetBeh && <div style={{ marginTop: 6, color: 'var(--pri-d)', fontWeight: 700 }}>🎯 목표행동: {targetBeh}</div>}
-          {!targetBeh && <div style={{ marginTop: 6, color: '#b45309' }}>⚠ 목표행동이 아직 정해지지 않았어요 — 중재계획(BIP)의 “표적행동 조작적 정의”를 먼저 적으면 여기에 표시됩니다.</div>}
+          {!targetBeh && <div style={{ marginTop: 6, color: '#b45309' }}>💡 관찰(ABC) 기록의 행동(B)을 참고해 <strong>한 가지 행동</strong>을 마음에 정하고 평정하세요. 이후 중재계획(BIP)에서 “표적행동 조작적 정의”를 적으면 여기에 자동 표시됩니다.</div>}
         </div>
         <div className="qabf-results" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginTop: 12 }}>
           {Object.keys(totals).map((f) => {

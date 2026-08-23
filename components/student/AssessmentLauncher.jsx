@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import RAISDModal from '../modals/RAISDModal';
 import PriorityChecklistModal from '../modals/PriorityChecklistModal';
-import { normalizePriority, priorityRank, PRIORITY_MAX } from '../../lib/priority';
+import { normalizePriority, priorityRank, PRIORITY_MAX, isLegacyPriority } from '../../lib/priority';
 import { rcTopPreferred } from '../../lib/reinforcerChecklist';
 
 // 0821(동료 피드백): "강화제 평가·표적행동 우선순위가 프로필 하단에 작은 버튼으로 있어 잘 안 하게 된다.
@@ -23,11 +23,12 @@ export default function AssessmentLauncher({ compact = false }) {
     ? `선호 순위: ${ranked.slice(0, 3).join(' > ')}`
     : rcTop.length ? `선호도 상위: ${rcTop.map((t) => t.item).join(', ')}` : '';
 
+  const prioLegacy = isLegacyPriority(curStuData?.priority?.responses);
   const prio = priorityRank(normalizePriority(curStuData?.priority?.responses));
   const prioDone = prio.length > 0 && prio[0].total > 0;
   const prioSummary = prioDone
     ? `1순위: ${prio[0].name || '(이름 미입력)'} — ${prio[0].total}/${PRIORITY_MAX}점`
-    : '';
+    : prioLegacy ? '기준 개정 — 새 9기준으로 다시 평정해 주세요' : '';
 
   const cards = [
     {

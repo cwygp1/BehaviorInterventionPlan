@@ -3,7 +3,7 @@ import Modal from '../ui/Modal';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { savePriority } from '../../lib/api/students';
-import { PRIORITY_CRITERIA, PRIORITY_SCALE, PRIORITY_MAX, priorityRank, normalizePriority } from '../../lib/priority';
+import { PRIORITY_CRITERIA, PRIORITY_SCALE, PRIORITY_MAX, priorityRank, normalizePriority, isLegacyPriority } from '../../lib/priority';
 
 // 표적행동 우선순위 체크리스트 (Checklist for Prioritizing Target Behaviors)
 // 2026-08 최신화: Dardig & Heward(1981) 우선순위화 절차 + Cooper, Heron & Heward(2020)
@@ -14,10 +14,13 @@ export default function PriorityChecklistModal({ open, onClose }) {
   const toast = useToast();
   const [behaviors, setBehaviors] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [legacy, setLegacy] = useState(false); // 개정 전 응답이 있었는지 — 재작성 안내용
 
   useEffect(() => {
     if (!open) return;
-    setBehaviors(normalizePriority(curStuData?.priority?.responses));
+    const saved = curStuData?.priority?.responses;
+    setLegacy(isLegacyPriority(saved));
+    setBehaviors(normalizePriority(saved));
   }, [open, curStuData]);
 
   const setName = (bi, v) => setBehaviors((p) => p.map((b, i) => (i === bi ? { ...b, name: v } : b)));
@@ -58,6 +61,12 @@ export default function PriorityChecklistModal({ open, onClose }) {
         </span>
       </p>
 
+      {legacy && (
+        <div style={{ fontSize: '.8rem', color: '#92400e', background: '#fff7e6', border: '1px solid #fde7b8', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
+          ⚠ 이전 버전 체크리스트로 작성한 응답이 있었지만, <strong>기준이 공식 9문항으로 개정</strong>되어 그대로 가져오지 않았어요.
+          아래 새 기준으로 다시 평정한 뒤 저장해 주세요(저장하면 새 응답으로 교체됩니다).
+        </div>
+      )}
       {behaviors.map((b, bi) => {
         const total = b.responses.reduce((a, c) => a + (Number(c) || 0), 0);
         const isTop = ranked.length > 1 && top && top.index === bi && total > 0;
