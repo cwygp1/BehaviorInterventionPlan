@@ -58,6 +58,8 @@ function sanitizeLayout(raw) {
       y: num(n.y, 0, 200, 0),
       w: num(n.w, 1, 12, 3),
       h: num(n.h, 1, 40, 2),
+      // 0824: 숨긴 위젯 표시 — 위치는 보존한 채 hidden 플래그만 함께 저장.
+      ...(n.hidden === true ? { hidden: true } : {}),
     });
   }
   return clean;

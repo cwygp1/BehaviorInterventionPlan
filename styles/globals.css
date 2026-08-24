@@ -661,6 +661,11 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
    위치·크기는 init 이후 gridstack이 소유(사용자별 user_dash_layouts에 저장). */
 .dz-gridbar{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:10px;flex-wrap:wrap}
 .dz-gridhint{font-size:.75rem;color:var(--muted);margin-right:auto}
+/* 숨긴 위젯 복원 바 (편집 모드에서만 표시) */
+.dz-hiddenbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding:8px 12px;border:1px dashed var(--border);border-radius:var(--r);background:var(--surface2)}
+.dz-hiddenlabel{font-size:.75rem;font-weight:700;color:var(--sub)}
+.dz-hiddenchip{font-size:.76rem;font-weight:700;color:var(--text);background:#fff;border:1px solid var(--border);border-radius:999px;padding:3px 10px;cursor:pointer}
+.dz-hiddenchip:hover{border-color:var(--wc,var(--pri));color:var(--wc,var(--pri))}
 .dz-grid{margin:0 -8px}                    /* gridstack margin 보정 — 카드 좌우 라인 맞춤 */
 /* sizeToContent: 위젯 높이 = 내용 높이. 내부 스크롤 금지 —
    gridstack 기본 CSS(.grid-stack-item-content{overflow-y:auto})를 덮어쓴다. */
@@ -669,6 +674,9 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 .dw-head{display:flex;align-items:center;gap:7px;padding:10px 14px 8px;font-size:.85rem;font-weight:800;color:var(--text);border-bottom:1px solid var(--surface2);border-left:4px solid var(--wc,var(--pri));border-top-left-radius:var(--r)}
 .dw-grip{display:none;color:var(--muted);cursor:grab;font-size:.9rem;letter-spacing:-1px}
 .dw-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 위젯 숨기기 버튼 — 편집 모드에서만 렌더. gridstack은 button에서 드래그를 시작하지 않는다. */
+.dw-hide{margin-left:auto;flex:none;width:22px;height:22px;line-height:1;display:inline-flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;color:var(--muted);background:transparent;border:1px solid transparent;border-radius:6px;cursor:pointer}
+.dw-hide:hover{color:#dc2626;border-color:#fecaca;background:#fef2f2}
 .dw-body{padding:12px 14px}                /* 높이 제한·스크롤 없음 — 위젯이 내용만큼 자란다 */
 .dw-sub{font-size:.72rem;color:var(--muted);margin-bottom:8px}
 /* 편집 모드 표시 */
