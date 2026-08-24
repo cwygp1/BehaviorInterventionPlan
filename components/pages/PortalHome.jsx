@@ -7,6 +7,8 @@ import { useUIActions } from '../../contexts/UIActionsContext';
 import { useGuide } from '../guide/GuideContext';
 import { SECTIONS } from '../../lib/tiers';
 import { computeNextStep } from '../../lib/nextStep';
+import { reviewCounts } from '../../lib/dashReviews';
+import { useDashboard } from './dash/DashBits';
 
 // 홈 = 런처 포털(시안 B). 큰 카드로 영역(Tier 1·2·3·IEP)을 고르면
 // 그 영역의 대시보드로 들어가고, 사이드바에는 그 영역 메뉴만 남는다.
@@ -21,6 +23,10 @@ export default function PortalHome({ onNavigate }) {
   const { openAddStudent, openAISettings, openManageClasses } = useUIActions();
   const { startTour } = useGuide();
   const [sampleBusy, setSampleBusy] = useState(false);
+  const [aiMenuOpen, setAiMenuOpen] = useState(false); // 빠른 메뉴 'AI 도구' 묶음
+  // 영역 카드에 '검토 필요' 배지 — 대시보드 집계를 재사용(60초 캐시 공유라 추가 비용 미미).
+  const { data: dashData } = useDashboard();
+  const badges = dashData ? reviewCounts(dashData) : null;
 
   // 샘플 체험 시작 — 시드 후 첫 샘플 학생을 선택하고 Tier 3 대시보드로 이동해
   // '채워진 화면'(관찰→기능평가→BIP→데이터→평가)을 바로 보여준다.
@@ -154,7 +160,12 @@ export default function PortalHome({ onNavigate }) {
             <span className="bdg">{s.badge}</span>
             <h4>{s.title}</h4>
             <p>{s.desc}</p>
-            <span className="ph-hint">{hint[s.key]}</span>
+            <span className="ph-hint">
+              {hint[s.key]}
+              {badges && badges[s.key] > 0 && (
+                <span style={{ marginLeft: 6, color: '#c0392b', fontWeight: 700 }} title="이 영역의 '검토가 필요한 항목' 수 — 대시보드에서 확인하세요">🔎 검토 {badges[s.key]}건</span>
+              )}
+            </span>
             <span className="go">대시보드 열기 →</span>
           </button>
         ))}
@@ -164,7 +175,12 @@ export default function PortalHome({ onNavigate }) {
           <span className="bdg">IEP · Tier와 별개</span>
           <h4>{SECTIONS.iep.title}</h4>
           <p>{SECTIONS.iep.desc}</p>
-          <span className="ph-hint">{hint.iep}</span>
+          <span className="ph-hint">
+            {hint.iep}
+            {badges && badges.iep > 0 && (
+              <span style={{ marginLeft: 6, color: '#c0392b', fontWeight: 700 }} title="이 영역의 '검토가 필요한 항목' 수 — 대시보드에서 확인하세요">🔎 검토 {badges.iep}건</span>
+            )}
+          </span>
           <span className="go">대시보드 열기 →</span>
         </button>
       </div>
@@ -181,9 +197,39 @@ export default function PortalHome({ onNavigate }) {
         <button onClick={() => onNavigate('crisis')}>🚨 위기행동 대처</button>
         <button onClick={() => onNavigate('support')}>📚 교사 지원</button>
         <button onClick={() => onNavigate('videos')}>🎬 PBS 영상 강의</button>
-        <button onClick={() => onNavigate('generator')}>✨ AI 생성기</button>
-        <button onClick={() => onNavigate('builder')}>🤖 AI 어시스턴트</button>
-        <button onClick={() => onNavigate('qa')}>💬 PBS Q&A</button>
+        {/* AI 도구 3종(생성기·어시스턴트·Q&A)은 한 버튼으로 묶는다(0824 간결화②) */}
+        <span style={{ position: 'relative', display: 'inline-block' }}>
+          <button onClick={() => setAiMenuOpen((o) => !o)} aria-expanded={aiMenuOpen} aria-haspopup="menu">
+            ✨ AI 도구 {aiMenuOpen ? '▴' : '▾'}
+          </button>
+          {aiMenuOpen && (
+            <>
+              <span style={{ position: 'fixed', inset: 0, zIndex: 89 }} onClick={() => setAiMenuOpen(false)} aria-hidden="true" />
+              <span
+                role="menu"
+                style={{
+                  position: 'absolute', bottom: 'calc(100% + 6px)', left: 0, zIndex: 90,
+                  display: 'flex', flexDirection: 'column', minWidth: 170,
+                  background: '#fff', border: '1px solid var(--border, #e5e7eb)', borderRadius: 10,
+                  boxShadow: '0 8px 24px rgba(0,0,0,.12)', padding: 6, gap: 2,
+                }}
+              >
+                {[['generator', '✨ AI 생성기'], ['builder', '🤖 AI 어시스턴트'], ['qa', '💬 PBS Q&A']].map(([page, label]) => (
+                  <button
+                    key={page}
+                    role="menuitem"
+                    onClick={() => { setAiMenuOpen(false); onNavigate(page); }}
+                    style={{ textAlign: 'left', border: 'none', background: 'transparent', padding: '8px 10px', borderRadius: 8, cursor: 'pointer', font: 'inherit' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--pri-soft, #eef2ff)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </span>
+            </>
+          )}
+        </span>
       </div>
     </div>
   );

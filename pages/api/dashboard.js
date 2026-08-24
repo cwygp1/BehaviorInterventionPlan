@@ -42,17 +42,56 @@ async function runQueries(userId, classId, semester) {
            (SELECT COUNT(*)::int FROM monitor_records m WHERE m.student_id = s.id) AS mon,
            (SELECT MAX(m.date) FROM monitor_records m WHERE m.student_id = s.id) AS mon_last,
            (SELECT COUNT(*)::int FROM sz_records z WHERE z.student_id = s.id) AS sz,
+           (SELECT COUNT(*)::int FROM sz_records z WHERE z.student_id = s.id
+             AND z.date >= (NOW() AT TIME ZONE 'Asia/Seoul')::date - 30) AS sz30,
+           (SELECT MAX(z.date) FROM sz_records z WHERE z.student_id = s.id) AS sz_last,
+           m14.series AS mon14,
+           ph.cur_phase AS mon_phase,
+           phs.since AS phase_since,
+           fid.avg14 AS fid_avg14,
+           fid.cnt14 AS fid_cnt14,
            COALESCE(ig.goals, 0) AS iep_goals,
            COALESCE(ig.sem_goals, 0) AS iep_sem_goals,
-           COALESCE(ig.monthly_filled, 0) AS iep_monthly
+           COALESCE(ig.monthly_filled, 0) AS iep_monthly,
+           COALESCE(ig.month_eval_missing, 0) AS iep_month_eval_missing
     FROM students s
     LEFT JOIN bip_data b ON b.student_id = s.id
     LEFT JOIN qabf_data q ON q.student_id = s.id
     LEFT JOIN student_startpoint sp ON sp.student_id = s.id
+    -- 최근 14일 행동 데이터 시계열(스파크라인용): [{d, f(빈도), p(phase)}...]
+    LEFT JOIN LATERAL (
+      SELECT COALESCE(json_agg(json_build_object('d', m.date, 'f', m.frequency, 'p', m.phase) ORDER BY m.date), '[]'::json) AS series
+      FROM monitor_records m
+      WHERE m.student_id = s.id AND m.date >= (NOW() AT TIME ZONE 'Asia/Seoul')::date - 14
+    ) m14 ON true
+    -- 현재 phase(가장 최근 기록)와 그 phase가 시작된 날짜(직전 다른 phase 이후 최초 기록)
+    LEFT JOIN LATERAL (
+      SELECT m.phase AS cur_phase FROM monitor_records m
+      WHERE m.student_id = s.id ORDER BY m.date DESC, m.id DESC LIMIT 1
+    ) ph ON true
+    LEFT JOIN LATERAL (
+      SELECT MIN(m.date) AS since FROM monitor_records m
+      WHERE m.student_id = s.id AND m.phase = ph.cur_phase
+        AND m.date > COALESCE((SELECT MAX(m2.date) FROM monitor_records m2
+                               WHERE m2.student_id = s.id AND m2.phase <> ph.cur_phase), '1900-01-01'::date)
+    ) phs ON true
+    -- 최근 2주 BIP 실행 충실도 평균(0~1)과 기록 수
+    LEFT JOIN LATERAL (
+      SELECT AVG(CASE WHEN f.total > 0 THEN f.score::float / f.total END) AS avg14,
+             COUNT(*)::int AS cnt14
+      FROM fidelity_records f
+      WHERE f.student_id = s.id AND f.date >= (NOW() AT TIME ZONE 'Asia/Seoul')::date - 14
+    ) fid ON true
     LEFT JOIN LATERAL (
       SELECT COUNT(*)::int AS goals,
              COUNT(*) FILTER (WHERE g.semester = ${semester} AND COALESCE(g.semester_goal,'') <> '')::int AS sem_goals,
-             COUNT(*) FILTER (WHERE g.semester = ${semester} AND jsonb_array_length(COALESCE(g.monthly,'[]'::jsonb)) > 0)::int AS monthly_filled
+             COUNT(*) FILTER (WHERE g.semester = ${semester} AND jsonb_array_length(COALESCE(g.monthly,'[]'::jsonb)) > 0)::int AS monthly_filled,
+             -- 이번 달(KST) 월별 구간 중 평가(eval) 칸이 빈 목표 수 — 학기말 몰림 방지 알림용
+             COUNT(*) FILTER (WHERE g.semester = ${semester} AND EXISTS (
+               SELECT 1 FROM jsonb_array_elements(COALESCE(g.monthly,'[]'::jsonb)) e
+               WHERE e->>'month' = to_char(NOW() AT TIME ZONE 'Asia/Seoul', 'FMMM')
+                 AND COALESCE(e->>'eval','') = ''
+             ))::int AS month_eval_missing
       FROM iep_goals g
       WHERE g.student_id = s.id
         AND (g.school_year = (SELECT school_year FROM classes WHERE id = ${classId} AND user_id = ${userId})
@@ -109,7 +148,16 @@ async function runQueries(userId, classId, semester) {
         FROM abc_records a JOIN students s2 ON s2.id = a.student_id
         WHERE s2.class_id = ${classId} AND s2.user_id = ${userId}
         ORDER BY a.date DESC, a.id DESC LIMIT 6
-      ) x) AS recent_abc
+      ) x) AS recent_abc,
+      (SELECT COALESCE(json_agg(row_to_json(x)), '[]'::json) FROM (
+        SELECT c.date,
+               AVG(CASE WHEN c.max_score > 0 THEN c.total_score::float / c.max_score END) AS pct,
+               COUNT(*)::int AS n
+        FROM cico_records c
+        WHERE c.student_id IN (SELECT id FROM students WHERE class_id = ${classId} AND user_id = ${userId})
+          AND c.date >= (NOW() AT TIME ZONE 'Asia/Seoul')::date - 14
+        GROUP BY c.date ORDER BY c.date
+      ) x) AS cico_daily
   `;
 
   return Promise.all([qA, qB]); // 병렬 — 체감 왕복 1번
@@ -146,12 +194,19 @@ export default requireAuth(async function handler(req, res) {
       students.push({ id: r.id, code: r.code, level: r.level, disability: r.disability });
       const spData = r.sp_data || {};
       stu[r.id] = {
-        abc: r.abc || 0, abcLast: r.abc_last, mon: r.mon || 0, monLast: r.mon_last, sz: r.sz || 0,
+        abc: r.abc || 0, abcLast: r.abc_last, mon: r.mon || 0, monLast: r.mon_last,
+        sz: r.sz || 0, sz30: r.sz30 || 0, szLast: r.sz_last,
+        mon14: r.mon14 || [],                 // 최근 14일 [{d,f,p}] — 스파크라인용
+        phase: r.mon_phase || null,           // 현재 phase(A/B)
+        phaseSince: r.phase_since || null,    // 그 phase 시작일
+        fid14: r.fid_avg14 == null ? null : Math.round(Number(r.fid_avg14) * 100),
+        fid14Cnt: r.fid_cnt14 || 0,
         qabfDone: !!r.qabf_done,
         bipFilled: hasText(r.bip_alt) || hasText(r.bip_prev) || hasText(r.bip_teach) || hasText(r.bip_reinf),
         opdef: r.bip_opdef || '', bgoal: r.bip_bgoal || '', bgoalDest: r.bip_bgoal_dest || '',
         startpointDone: Object.values(spData).some((v) => hasText(String(v || ''))),
         iepGoals: r.iep_goals || 0, iepSemGoals: r.iep_sem_goals || 0, iepMonthly: r.iep_monthly || 0,
+        iepMonthEvalMissing: r.iep_month_eval_missing || 0,
       };
     });
 
@@ -181,7 +236,7 @@ export default requireAuth(async function handler(req, res) {
       students,
       stu,
       t1,
-      t2: { groups: Object.values(groupMap), cico, recent: row.cico_recent || [] },
+      t2: { groups: Object.values(groupMap), cico, recent: row.cico_recent || [], daily: row.cico_daily || [] },
       recentAbc: row.recent_abc || [],
     });
   } catch (error) {

@@ -100,7 +100,10 @@ export default function MonitorPage({ onNavigate }) {
       } else {
         const res = await createMonitor(curStuId, body);
         updateStudentData(curStuId, (cur) => ({ ...cur, mon: [res.record, ...cur.mon] }));
-        toast('데이터 저장 완료');
+        // 0824 간결화④: 충실도 체크가 바뀌어 있으면 같은 날짜로 함께 저장 — 클릭 1번 절약.
+        let withFid = false;
+        if (fidDirty()) { try { await fidSaveCore(); withFid = true; } catch (_e) { /* 본 저장은 성공 — 조용히 넘어감 */ } }
+        toast(withFid ? '데이터 저장 완료 (충실도 포함)' : '데이터 저장 완료');
         markSaved(); hintNextStep('eval'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
       }
     } catch (e) {
@@ -204,18 +207,30 @@ ${bText}
     }
   }
 
+  // 충실도 체크 상태가 저장본과 다른가 — 데이터 저장 시 함께 저장할지 판단(0824 간결화④).
+  function fidDirty() {
+    const items = [fidPrev, fidTeach, fidReinf, fidResp].map((b) => (b ? '1' : '0')).join('');
+    if (!todayFid) return items !== '0000'; // 저장본 없음 → 하나라도 체크했을 때만
+    return (todayFid.items || '0000') !== items;
+  }
+
+  async function fidSaveCore() {
+    const flags = [fidPrev, fidTeach, fidReinf, fidResp];
+    const score = flags.filter(Boolean).length;
+    const items = flags.map((b) => (b ? '1' : '0')).join('');
+    const res = await createFidelity(curStuId, { date, score, total: 4, items });
+    // 같은 날짜 기록은 교체 (서버에서 upsert되므로 캐시도 중복 제거)
+    updateStudentData(curStuId, (cur) => ({
+      ...cur,
+      fid: [res.record, ...cur.fid.filter((r) => r.date !== res.record.date)],
+    }));
+    return score;
+  }
+
   async function onSaveFid() {
     setBusy(true);
     try {
-      const flags = [fidPrev, fidTeach, fidReinf, fidResp];
-      const score = flags.filter(Boolean).length;
-      const items = flags.map((b) => (b ? '1' : '0')).join('');
-      const res = await createFidelity(curStuId, { date, score, total: 4, items });
-      // 같은 날짜 기록은 교체 (서버에서 upsert되므로 캐시도 중복 제거)
-      updateStudentData(curStuId, (cur) => ({
-        ...cur,
-        fid: [res.record, ...cur.fid.filter((r) => r.date !== res.record.date)],
-      }));
+      const score = await fidSaveCore();
       toast(`충실도 ${score}/4 저장`);
     } catch (e) { toast('저장 실패: ' + e.message); }
     finally { setBusy(false); }
@@ -339,7 +354,7 @@ ${bText}
             </span>
           )}
         </div>
-        <div className="card-subtitle">오늘 BIP를 얼마나 충실하게 실행했는지 체크하세요. 같은 날 다시 저장하면 기존 기록이 갱신됩니다.</div>
+        <div className="card-subtitle">오늘 BIP를 얼마나 충실하게 실행했는지 체크하세요. <strong>위의 [데이터 저장]을 누르면 함께 저장</strong>되고, 같은 날 다시 저장하면 기존 기록이 갱신됩니다.</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
             <input type="checkbox" checked={fidPrev} onChange={(e) => setFidPrev(e.target.checked)} /> 예방 전략 실행

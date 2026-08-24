@@ -1,7 +1,8 @@
 import { useStudents } from '../../../contexts/StudentContext';
 import { SECTIONS } from '../../../lib/tiers';
 import DashGrid from './DashGrid';
-import { useDashboard, KpiBody, Chip, ReviewList, DashLoading, DashError, agoLabel, daysAgo, fmtDate } from './DashBits';
+import { computeT2Reviews } from '../../../lib/dashReviews';
+import { useDashboard, KpiBody, Chip, ReviewList, DashLoading, DashError, agoLabel, fmtDate } from './DashBits';
 
 // Tier 2 대시보드 — 소그룹(CICO/DPR) 운영 현황 (gridstack 위젯 · 배치는 사용자별 저장)
 export default function Tier2Dashboard({ onNavigate }) {
@@ -20,20 +21,48 @@ export default function Tier2Dashboard({ onNavigate }) {
   const avgList = memberIds.map((sid) => t2.cico[sid]?.avg14).filter((v) => v != null);
   const avgAll = avgList.length ? Math.round(avgList.reduce((a, b) => a + b, 0) / avgList.length) : null;
 
-  const reviews = [];
-  if (t2.groups.length === 0) {
-    reviews.push({ level: 'err', text: '운영 중인 소그룹이 없어요', sub: '지원이 더 필요한 학생 몇 명을 소그룹으로 묶어보세요', cta: '그룹 만들기', onClick: () => onNavigate('tier2') });
+  // 검토 규칙은 lib/dashReviews.js 단일 출처 — 여기서 onClick만 입힌다.
+  const reviews = computeT2Reviews(data).map((it) => ({ ...it, onClick: () => onNavigate(it.page) }));
+
+  // 📊 최근 2주 요일 패턴 — 날짜별 학급 평균 수행률 막대 (기록 없는 날은 빈 칸)
+  const dailyMap = {};
+  (t2.daily || []).forEach((r) => { dailyMap[String(r.date).slice(0, 10)] = r; });
+  const days = [];
+  for (let i = 13; i >= 0; i -= 1) {
+    const dt = new Date(); dt.setDate(dt.getDate() - i);
+    const wd = dt.getDay();
+    if (wd === 0 || wd === 6) continue; // 주말 제외
+    const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    const rec = dailyMap[key];
+    days.push({
+      key,
+      label: `${dt.getMonth() + 1}/${dt.getDate()}`,
+      wd: '일월화수목금토'[wd],
+      pct: rec?.pct != null ? Math.round(Number(rec.pct) * 100) : null,
+      n: rec?.n || 0,
+    });
   }
-  const notToday = memberIds.filter((sid) => !t2.cico[sid]?.today);
-  if (memberIds.length > 0 && notToday.length > 0) {
-    reviews.push({ level: 'warn', text: `오늘 CICO 기록이 없는 학생 ${notToday.length}명`, sub: notToday.slice(0, 5).map(codeOf).join(', ') + (notToday.length > 5 ? ' 외' : ''), cta: '기록하기', onClick: () => onNavigate('tier2') });
-  }
-  memberIds.forEach((sid) => {
-    const c = t2.cico[sid];
-    const d = c?.last ? daysAgo(c.last) : null;
-    if (d != null && d >= 7) reviews.push({ level: 'err', text: `${codeOf(sid)} — ${d}일째 CICO 기록 없음`, sub: '중단됐다면 그룹 구성/목표를 다시 점검해보세요', cta: '열기', onClick: () => onNavigate('tier2') });
-    if (c && c.cnt14 >= 3 && c.avg14 != null && c.avg14 >= 80) reviews.push({ level: 'ok', text: `${codeOf(sid)} — 최근 2주 수행률 ${c.avg14}% 👏`, sub: '목표 상향 또는 Tier 축소(졸업)를 검토해볼 수 있어요', cta: '검토', onClick: () => onNavigate('tier2') });
-  });
+  const dailyBars = days.every((d) => d.pct == null) ? (
+    <div className="dz-review-empty">최근 2주 CICO 기록이 없어요. 기록이 쌓이면 요일 패턴이 보여요.</div>
+  ) : (
+    <>
+      <div className="dw-sub">날짜별 학급 평균 수행률 — 특정 요일이 유독 낮다면 그날의 일과·환경을 점검해보세요</div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 96, padding: '4px 2px' }}>
+        {days.map((d) => (
+          <div key={d.key} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }} title={d.pct != null ? `${d.label} · ${d.pct}% (${d.n}건)` : `${d.label} · 기록 없음`}>
+            <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{d.pct != null ? d.pct : ''}</div>
+            <div style={{
+              width: '70%', borderRadius: '3px 3px 0 0',
+              height: d.pct != null ? `${Math.max(4, Math.round(d.pct * 0.56))}px` : '3px',
+              background: d.pct == null ? 'var(--border, #e5e7eb)' : d.pct >= 80 ? C : d.pct >= 60 ? '#e8a23d' : '#d94b3f',
+              opacity: d.pct == null ? 0.7 : 1,
+            }} />
+            <div style={{ fontSize: 9.5, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{d.wd}</div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
 
   const groupsTable = t2.groups.length === 0 ? (
     <div className="dz-review-empty">아직 소그룹이 없어요. <button className="btn btn-sm btn-ghost" style={{ marginLeft: 6 }} onClick={() => onNavigate('tier2')}>＋ 소그룹 만들기</button></div>
@@ -92,8 +121,9 @@ export default function Tier2Dashboard({ onNavigate }) {
     { id: 'kpi-avg', title: '평균 수행률', x: 9, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="📈" value={avgAll != null ? `${avgAll}%` : '-'} label="최근 2주 평균 수행률" hint={avgList.length ? `기록 있는 학생 ${avgList.length}명 기준` : '기록이 쌓이면 표시돼요'} /> ) },
     { id: 'groups', title: '👥 소그룹 현황', x: 0, y: 2, w: 12, h: 5, minW: 4, minH: 3, body: groupsTable },
-    { id: 'reviews', title: `🔎 검토가 필요한 항목${reviews.filter((r) => r.level !== 'ok').length ? ` (${reviews.filter((r) => r.level !== 'ok').length})` : ''}`, x: 0, y: 7, w: 6, h: 5, minW: 3, minH: 3, body: <ReviewList items={reviews} /> },
-    { id: 'recent', title: '🕒 최근 CICO 기록', x: 6, y: 7, w: 6, h: 5, minW: 3, minH: 3, body: recentList },
+    { id: 'daily', title: '📊 최근 2주 수행률 — 요일 패턴', x: 0, y: 7, w: 12, h: 4, minW: 4, minH: 3, body: dailyBars },
+    { id: 'reviews', title: `🔎 검토가 필요한 항목${reviews.filter((r) => r.level !== 'ok').length ? ` (${reviews.filter((r) => r.level !== 'ok').length})` : ''}`, x: 0, y: 11, w: 6, h: 5, minW: 3, minH: 3, body: <ReviewList items={reviews} /> },
+    { id: 'recent', title: '🕒 최근 CICO 기록', x: 6, y: 11, w: 6, h: 5, minW: 3, minH: 3, body: recentList },
   ];
 
   return <DashGrid dashKey="dash2" color={C} widgets={widgets} />;

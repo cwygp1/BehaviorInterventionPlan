@@ -1,9 +1,12 @@
 import { useStudents } from '../../../contexts/StudentContext';
 import { SECTIONS } from '../../../lib/tiers';
 import DashGrid from './DashGrid';
+import Sparkline from '../../ui/Sparkline';
+import { computeT3Reviews } from '../../../lib/dashReviews';
 import { useDashboard, KpiBody, Chip, ReviewList, DashLoading, DashError, agoLabel, daysAgo, fmtDate } from './DashBits';
 
 // Tier 3 대시보드 — 학생별 5단계 진행 명부 (gridstack 위젯 · 배치는 사용자별 저장)
+// 0824 위젯 확장: 행동 추이 스파크라인 · Phase 현황 · 충실도 KPI · 심리안정실 위젯
 export default function Tier3Dashboard({ onNavigate }) {
   const { curClass, selectStudent, tier3Ids } = useStudents();
   const { data, loading, error, reload } = useDashboard();
@@ -20,29 +23,40 @@ export default function Tier3Dashboard({ onNavigate }) {
   const totalAbc = rows.reduce((a, r) => a + (r.d.abc || 0), 0);
   const totalMon = rows.reduce((a, r) => a + (r.d.mon || 0), 0);
 
-  const reviews = [];
-  rows.forEach((r) => {
-    const d = r.d;
-    if ((d.abc || 0) >= 3 && !d.qabfDone) reviews.push({ level: 'warn', text: `${r.code} — ABC ${d.abc}건인데 기능평가(QABF) 미실시`, sub: '관찰이 쌓였으니 행동 기능을 분석해볼 때예요', cta: 'QABF', onClick: () => go(r.id, 'qabf') });
-    if (d.qabfDone && !d.bipFilled) reviews.push({ level: 'err', text: `${r.code} — 기능평가는 했는데 BIP 미작성`, sub: '분석 결과를 중재계획으로 이어주세요', cta: 'BIP 작성', onClick: () => go(r.id, 'bip') });
-    if (d.bgoal && !d.bgoalDest) reviews.push({ level: 'warn', text: `${r.code} — 행동목표의 IEP 반영 방식 미선택`, sub: '개별화 목표로 가져갈지, 교과에 녹일지 골라주세요', cta: '선택하기', onClick: () => go(r.id, 'bip') });
-    const dm = d.monLast ? daysAgo(d.monLast) : null;
-    if (d.bipFilled && (d.mon || 0) > 0 && dm != null && dm >= 7) reviews.push({ level: 'err', text: `${r.code} — 행동 데이터가 ${dm}일째 없음`, sub: '중재 중이라면 데이터 기록을 이어가야 효과를 볼 수 있어요', cta: '기록', onClick: () => go(r.id, 'monitor') });
-    if (d.bipFilled && (d.mon || 0) === 0) reviews.push({ level: 'warn', text: `${r.code} — BIP는 있는데 행동 데이터가 0건`, sub: '기초선(A)부터 기록을 시작해보세요', cta: '기록 시작', onClick: () => go(r.id, 'monitor') });
-  });
+  // 검토 규칙은 lib/dashReviews.js 단일 출처 — 여기서 onClick만 입힌다.
+  const reviews = computeT3Reviews(data).map((it) => ({
+    ...it,
+    onClick: () => (it.sid ? go(it.sid, it.page) : onNavigate(it.page)),
+  }));
+
+  // 최근 2주 충실도 — 기록 있는 학생들의 평균
+  const fidList = rows.map((r) => r.d.fid14).filter((v) => v != null);
+  const fidAvg = fidList.length ? Math.round(fidList.reduce((a, b) => a + b, 0) / fidList.length) : null;
+
+  // 심리안정실 — 최근 30일 이용 학생(내림차순)
+  const szRows = rows.filter((r) => (r.d.sz30 || 0) > 0).sort((a, b) => (b.d.sz30 || 0) - (a.d.sz30 || 0));
+  const szTotal30 = szRows.reduce((a, r) => a + (r.d.sz30 || 0), 0);
 
   const stepChip = (done, activeLabel, doneLabel = '완료') =>
     done ? <Chip kind="ok">{doneLabel}</Chip> : <Chip kind="muted">{activeLabel}</Chip>;
+
+  // 현재 phase 칩 — A(기초선)는 회색/경고, B(중재)는 파랑 + 지속일
+  const phaseChip = (d) => {
+    if (!d.phase) return <span className="dim">-</span>;
+    const days = d.phaseSince ? daysAgo(d.phaseSince) + 1 : null;
+    if (d.phase === 'B') return <Chip kind="info">중재 B{days ? ` · ${days}일째` : ''}</Chip>;
+    return <Chip kind={days != null && days >= 14 && d.bipFilled ? 'warn' : 'muted'}>기초선 A{days ? ` · ${days}일째` : ''}</Chip>;
+  };
 
   const roster = rows.length === 0 ? (
     <div className="dz-review-empty">등록된 학생이 없어요. 상단 + 버튼으로 학생을 추가하세요.</div>
   ) : (
     <>
-      <div className="dw-sub">칸을 누르면 그 학생·그 단계로 바로 이동해요</div>
+      <div className="dw-sub">칸을 누르면 그 학생·그 단계로 바로 이동해요 · 추이: 실선=중재(B), 점선=기초선(A)</div>
       <div className="dz-table-wrap" data-tour="t3-roster">
         <table className="dz-table">
           <thead>
-            <tr><th>학생</th><th>① 관찰(ABC)</th><th>② 기능평가</th><th>③ BIP</th><th>행동목표 → IEP</th><th>④ 데이터</th><th>⑤ 평가</th></tr>
+            <tr><th>학생</th><th>① 관찰(ABC)</th><th>② 기능평가</th><th>③ BIP</th><th>행동목표 → IEP</th><th>④ 데이터</th><th>📉 추이(14일) · Phase</th><th>⑤ 평가</th></tr>
           </thead>
           <tbody>
             {rows.map((r) => {
@@ -68,6 +82,10 @@ export default function Tier3Dashboard({ onNavigate }) {
                   <td onClick={() => go(r.id, 'monitor')} className="click">
                     {(d.mon || 0) > 0 ? <Chip kind={daysAgo(d.monLast) >= 7 ? 'warn' : 'ok'}>{d.mon}건</Chip> : <Chip kind="muted">0건</Chip>}
                     <div className="dim">{d.monLast ? agoLabel(d.monLast) : ''}</div>
+                  </td>
+                  <td onClick={() => go(r.id, 'eval')} className="click">
+                    <Sparkline series={d.mon14} color={C} />
+                    <div style={{ marginTop: 2 }}>{phaseChip(d)}</div>
                   </td>
                   <td onClick={() => go(r.id, 'eval')} className="click">
                     {(d.mon || 0) >= 4 ? <Chip kind="ok">차트 보기</Chip> : <Chip kind="muted">데이터 부족</Chip>}
@@ -98,6 +116,24 @@ export default function Tier3Dashboard({ onNavigate }) {
     </ul>
   );
 
+  // 🧯 심리안정실 — 최근 30일 이용 현황 (위기 조기 신호)
+  const szList = szRows.length === 0 ? (
+    <div className="dz-review-empty">최근 30일 심리안정실 이용 기록이 없어요 👍</div>
+  ) : (
+    <ul className="recent-list">
+      {szRows.map((r) => (
+        <li key={r.id} className="recent-item click" onClick={() => go(r.id, 'crisis')} role="button">
+          <span className="recent-dot" style={{ background: (r.d.sz30 || 0) >= 3 ? '#d94b3f' : '#e8a23d' }} />
+          <div className="recent-body">
+            <div className="t">{r.code} · 최근 30일 {r.d.sz30}회</div>
+            <div className="d">누적 {r.d.sz}회 · 마지막 이용 {r.d.szLast ? agoLabel(r.d.szLast) : '-'}</div>
+          </div>
+          <Chip kind={(r.d.sz30 || 0) >= 3 ? 'err' : 'warn'}>{r.d.sz30}회</Chip>
+        </li>
+      ))}
+    </ul>
+  );
+
   const widgets = [
     { id: 'kpi-students', title: '학급 학생', x: 0, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="🧑‍🎓" value={`${rows.length}명`} label="학급 학생" hint={tier3Ids.size ? `이 중 Tier 3 지정 ${tier3Ids.size}명 🎯` : 'Tier 3 지정은 소그룹에서'} /> ) },
@@ -105,11 +141,12 @@ export default function Tier3Dashboard({ onNavigate }) {
       <KpiBody icon="🔍" value={totalAbc} label="ABC 관찰 누적" hint="다음: 관찰 → 기능평가" onClick={() => onNavigate('observe')} /> ) },
     { id: 'kpi-mon', title: '행동 데이터', x: 6, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="📈" value={totalMon} label="행동 데이터 누적" hint="중재 효과의 근거가 돼요" onClick={() => onNavigate('monitor')} /> ) },
-    { id: 'kpi-review', title: '검토 필요', x: 9, y: 0, w: 3, h: 2, body: (
-      <KpiBody icon="🔎" value={reviews.length} label="검토 필요" hint={reviews.length ? '검토 위젯을 확인하세요' : '모두 정상'} /> ) },
+    { id: 'kpi-fid', title: '충실도', x: 9, y: 0, w: 3, h: 2, body: (
+      <KpiBody icon="✅" value={fidAvg != null ? `${fidAvg}%` : '-'} label="최근 2주 BIP 실행 충실도" hint={fidList.length ? `기록 있는 학생 ${fidList.length}명 평균` : '행동 데이터 페이지에서 체크해요'} onClick={() => onNavigate('monitor')} /> ) },
     { id: 'roster', title: '🗂 학생별 진행 명부', x: 0, y: 2, w: 12, h: 7, minW: 6, minH: 4, body: roster },
     { id: 'reviews', title: `🔎 검토가 필요한 항목${reviews.length ? ` (${reviews.length})` : ''}`, x: 0, y: 9, w: 6, h: 6, minW: 3, minH: 3, body: <div data-tour="t3-reviews"><ReviewList items={reviews} /></div> },
-    { id: 'recent', title: '🕒 최근 관찰 기록', x: 6, y: 9, w: 6, h: 6, minW: 3, minH: 3, body: recentList },
+    { id: 'sz', title: `🧯 심리안정실 · 최근 30일${szTotal30 ? ` (${szTotal30}회)` : ''}`, x: 6, y: 9, w: 6, h: 6, minW: 3, minH: 3, body: szList },
+    { id: 'recent', title: '🕒 최근 관찰 기록', x: 0, y: 15, w: 12, h: 5, minW: 3, minH: 3, body: recentList },
   ];
 
   return <DashGrid dashKey="dash3" color={C} widgets={widgets} />;

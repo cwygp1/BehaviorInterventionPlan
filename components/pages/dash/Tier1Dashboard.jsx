@@ -1,6 +1,7 @@
 import { useStudents } from '../../../contexts/StudentContext';
 import { SECTIONS } from '../../../lib/tiers';
 import DashGrid from './DashGrid';
+import { computeT1Reviews } from '../../../lib/dashReviews';
 import { useDashboard, KpiBody, FlowStrip, ReviewList, DashLoading, DashError, agoLabel } from './DashBits';
 
 // Tier 1 대시보드 — 학급 전체 보편 지원 현황 (gridstack 위젯 · 배치는 사용자별 저장)
@@ -27,11 +28,8 @@ export default function Tier1Dashboard({ onNavigate }) {
     { key: 'check', icon: '✅', label: '학급관리 점검', state: t1.checklistDone ? 'done' : 'todo', hint: t1.checklistDone ? `점검 ${agoLabel(t1.checklistUpdated)}` : '체크리스트로 점검', onClick: () => onNavigate('classcheck') },
   ];
 
-  const reviews = [];
-  if (!t1.surveyDone) reviews.push({ level: 'err', text: 'PBS 기초 설문조사가 아직 없어요', sub: '학급 실태를 먼저 파악하면 규칙·목표 설정이 쉬워져요', cta: '설문 작성', onClick: () => onNavigate('pbssurvey') });
-  if (!pbs?.goal) reviews.push({ level: 'warn', text: '학급 공통 목표가 미설정 상태예요', sub: '이번 학기 우리 반의 기대행동/목표를 정해주세요', cta: '목표 설정', onClick: () => onNavigate('classpbs') });
-  if (pbs?.goal && rewards.length === 0) reviews.push({ level: 'warn', text: '보상 목록이 비어 있어요', sub: '포인트 달성 시 받을 보상을 학생들과 정해보세요', cta: '보상 추가', onClick: () => onNavigate('classpbs') });
-  if (!t1.checklistDone) reviews.push({ level: 'warn', text: '학급관리 체크리스트 점검 전이에요', sub: '학기 중 1회 이상 점검을 권장해요', cta: '점검하기', onClick: () => onNavigate('classcheck') });
+  // 검토 규칙은 lib/dashReviews.js 단일 출처 — 여기서 onClick만 입힌다.
+  const reviews = computeT1Reviews(data).map((it) => ({ ...it, onClick: () => onNavigate(it.page) }));
 
   const widgets = [
     { id: 'kpi-scope', title: '운영 범위', x: 0, y: 0, w: 3, h: 2, body: (

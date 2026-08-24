@@ -1,6 +1,7 @@
 import { useStudents } from '../../../contexts/StudentContext';
 import { SECTIONS } from '../../../lib/tiers';
 import DashGrid from './DashGrid';
+import { computeIepReviews } from '../../../lib/dashReviews';
 import { useDashboard, KpiBody, Chip, FlowStrip, ReviewList, DashLoading, DashError } from './DashBits';
 
 // IEP 대시보드 — 학생별 개별화교육계획 진행 (gridstack 위젯 · 배치는 사용자별 저장)
@@ -20,15 +21,16 @@ export default function IepDashboard({ onNavigate }) {
   const spDone = rows.filter((r) => r.d.startpointDone).length;
   const totalGoals = rows.reduce((a, r) => a + (r.d.iepGoals || 0), 0);
   const goalStudents = rows.filter((r) => (r.d.iepGoals || 0) > 0).length;
+  // 0824: 이번 달 월별 구간의 평가 칸이 빈 목표 수 — 학기말 몰림 방지 위젯용
+  const monthEvalMissing = rows.reduce((a, r) => a + (r.d.iepMonthEvalMissing || 0), 0);
+  const monthEvalStudents = rows.filter((r) => (r.d.iepMonthEvalMissing || 0) > 0);
+  const curMonth = new Date().getMonth() + 1;
 
-  const reviews = [];
-  rows.forEach((r) => {
-    const d = r.d;
-    if (!d.startpointDone) reviews.push({ level: 'warn', text: `${r.code} — 출발점 분석(현행수준) 미완료`, sub: 'IEP의 출발점 — 강점·요구를 먼저 정리해주세요', cta: '출발점', onClick: () => go(r.id, 'startpoint') });
-    if (d.startpointDone && (d.iepGoals || 0) === 0) reviews.push({ level: 'err', text: `${r.code} — IEP 목표가 아직 없어요`, sub: '출발점 분석이 끝났으니 학기목표를 세워볼 때예요', cta: '목표 생성', onClick: () => go(r.id, 'iep') });
-    if ((d.iepSemGoals || 0) > 0 && (d.iepMonthly || 0) === 0) reviews.push({ level: 'warn', text: `${r.code} — 학기목표만 있고 월별 계획이 비어 있어요`, sub: '월별 지도 계획까지 채우면 계획서가 완성돼요', cta: '월별 계획', onClick: () => go(r.id, 'iep') });
-    if (d.bgoal && d.bgoalDest === 'iep') reviews.push({ level: 'ok', text: `${r.code} — BIP 행동목표를 개별화 목표로 가져가기로 했어요`, sub: '학기목표 먼저(경로 B)에 붙여넣어 활용하세요', cta: '목표 생성', onClick: () => go(r.id, 'iep') });
-  });
+  // 검토 규칙은 lib/dashReviews.js 단일 출처 — 여기서 onClick만 입힌다.
+  const reviews = computeIepReviews(data).map((it) => ({
+    ...it,
+    onClick: () => (it.sid ? go(it.sid, it.page) : onNavigate(it.page)),
+  }));
 
   const flow = [
     { key: 'prior', icon: '🗓', label: '전년도 IEP', hint: '이력 확인·이어받기', state: 'todo', onClick: () => onNavigate('priorIep') },
@@ -77,8 +79,16 @@ export default function IepDashboard({ onNavigate }) {
       <KpiBody icon="🧭" value={rows.length ? `${spDone}/${rows.length}` : '-'} label="출발점 분석 완료" hint={spDone < rows.length ? '다음: 미완료 학생 분석' : '모두 완료!'} onClick={() => onNavigate('startpoint')} /> ) },
     { id: 'kpi-goals', title: 'IEP 목표', x: 6, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="📋" value={totalGoals} label="IEP 목표 (올해)" hint={goalStudents ? `목표 있는 학생 ${goalStudents}명` : '다음: 목표 생성'} onClick={() => onNavigate('iep')} /> ) },
-    { id: 'kpi-review', title: '검토 필요', x: 9, y: 0, w: 3, h: 2, body: (
-      <KpiBody icon="🔎" value={reviews.filter((r) => r.level !== 'ok').length} label="검토 필요" hint="검토 위젯 확인" /> ) },
+    { id: 'kpi-month-eval', title: '이번 달 평가', x: 9, y: 0, w: 3, h: 2, body: (
+      <KpiBody
+        icon="🗓"
+        value={monthEvalMissing ? `${monthEvalMissing}건` : '완료'}
+        label={`${curMonth}월 구간 평가 미작성`}
+        hint={monthEvalMissing
+          ? `${monthEvalStudents.slice(0, 3).map((r) => r.code).join(', ')}${monthEvalStudents.length > 3 ? ' 외' : ''} — 이 달이 가기 전에!`
+          : '이번 달 월별 평가 모두 작성됨 👏'}
+        onClick={() => onNavigate('iepReport')}
+      /> ) },
     { id: 'flow', title: '🧭 IEP 업무 흐름 — Tier 1·2·3 기록이 이 흐름의 재료가 돼요', x: 0, y: 2, w: 12, h: 3, minW: 4, body: (
       <FlowStrip color={C} steps={flow} /> ) },
     { id: 'roster', title: '🗂 학생별 IEP 진행', x: 0, y: 5, w: 12, h: 7, minW: 6, minH: 4, body: roster },

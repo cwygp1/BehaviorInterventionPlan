@@ -38,10 +38,23 @@ const TITLES = {
 export default function Topbar({ activePage, onNavigate, canGoBack, onBack, onMenu, onOpenLLMSettings, onAddStudent, onManageClasses }) {
   const {
     students, curStuId, selectStudent,
-    years, curYear, selectYear,
+    classes, years, curYear, selectYear,
     curSemester, selectSemester,
-    yearClasses, curClassId, selectClass,
+    curClassId, selectClass,
   } = useStudents();
+
+  // 0824 간결화①: 년도+학급을 "2026 · 1반" 통합 셀렉트 하나로.
+  // 학급은 년도에 소속되므로 학급을 고르면 년도가 함께 정해진다 — 조작 2번 → 1번.
+  const classesByYear = years.map((y) => ({
+    year: y,
+    list: classes.filter((c) => c.school_year === y).sort((a, b) => a.name.localeCompare(b.name, 'ko')),
+  })).filter((g) => g.list.length > 0);
+  const onPickClass = (cid) => {
+    const cls = classes.find((c) => c.id === Number(cid));
+    if (!cls) return;
+    if (cls.school_year !== curYear) selectYear(cls.school_year);
+    selectClass(cls.id);
+  };
 
   // 워크스페이스에 있을 때만 영역 전환 칩 표시(시안 B).
   const curSection = PAGE_SECTION[activePage] || null;
@@ -91,16 +104,25 @@ export default function Topbar({ activePage, onNavigate, canGoBack, onBack, onMe
         <HelpMenu />
         <LLMIndicator onClick={onOpenLLMSettings} />
         <div className="stu-bar" data-tour="stu-bar">
-          {/* 년도 선택 */}
+          {/* 년도·학급 통합 선택 — "2026 · 1반" 하나로 (년도가 여럿이면 그룹으로 표시) */}
           <select
             className="stu-select"
-            value={curYear}
-            onChange={(e) => selectYear(e.target.value)}
-            title="학년도"
+            value={curClassId || ''}
+            onChange={(e) => onPickClass(e.target.value)}
+            title="학년도·학급"
           >
-            {years.map((y) => (
-              <option key={y} value={y}>{y}년</option>
-            ))}
+            {classesByYear.length === 0 && <option value="">학급 없음</option>}
+            {classesByYear.length === 1
+              ? classesByYear[0].list.map((c) => (
+                  <option key={c.id} value={c.id}>{c.school_year} · {c.name}</option>
+                ))
+              : classesByYear.map((g) => (
+                  <optgroup key={g.year} label={`${g.year}학년도`}>
+                    {g.list.map((c) => (
+                      <option key={c.id} value={c.id}>{g.year} · {c.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
           </select>
           {/* 학기 선택 */}
           <select
@@ -112,19 +134,7 @@ export default function Topbar({ activePage, onNavigate, canGoBack, onBack, onMe
             <option value={1}>1학기</option>
             <option value={2}>2학기</option>
           </select>
-          {/* 학급 선택 */}
-          <select
-            className="stu-select"
-            value={curClassId || ''}
-            onChange={(e) => selectClass(e.target.value || null)}
-            title="학급"
-          >
-            {yearClasses.length === 0 && <option value="">학급 없음</option>}
-            {yearClasses.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-          <button className="stu-add" onClick={onManageClasses} title="학급 관리">⚙</button>
+          <button className="stu-add" onClick={onManageClasses} title="학급 관리 (새 학년도·학급 추가)">⚙</button>
           {/* 학생 선택 */}
           <select
             className="stu-select"
