@@ -65,7 +65,7 @@ export default function HomePage({ onNavigate }) {
       { id: 'tier2', icon: '👥', label: 'CICO / DPR 운영' },
     ],
     3: [
-      { id: 'tier3', icon: '🎯', label: '개요 / 5단계 안내' },
+      { id: 'tier3', icon: '🎯', label: '개요 / 8단계 안내' },
       { id: 'observe', step: 1, label: '학생 관찰 / ABC' },
       { id: 'qabf', step: 2, label: '기능평가 (QABF)' },
       { id: 'bip', step: 3, label: '중재계획 (BIP)' },

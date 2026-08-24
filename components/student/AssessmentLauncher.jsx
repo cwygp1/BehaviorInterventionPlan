@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import RAISDModal from '../modals/RAISDModal';
 import PriorityChecklistModal from '../modals/PriorityChecklistModal';
+import InitialInterviewModal, { interviewProgress } from '../modals/InitialInterviewModal';
 import { normalizePriority, priorityRank, PRIORITY_MAX, isLegacyPriority } from '../../lib/priority';
 import { rcTopPreferred } from '../../lib/reinforcerChecklist';
 
@@ -13,6 +14,7 @@ export default function AssessmentLauncher({ compact = false }) {
   const { curStu, curStuData } = useStudents();
   const [raisdOpen, setRaisdOpen] = useState(false);
   const [prioOpen, setPrioOpen] = useState(false);
+  const [interviewOpen, setInterviewOpen] = useState(false);
   if (!curStu) return null;
 
   const meta = curStuData?.raisd?.responses?._meta || {};
@@ -30,7 +32,16 @@ export default function AssessmentLauncher({ compact = false }) {
     ? `1순위: ${prio[0].name || '(이름 미입력)'} — ${prio[0].total}/${PRIORITY_MAX}점`
     : prioLegacy ? '기준 개정 — 새 9기준으로 다시 평정해 주세요' : '';
 
+  const iv = interviewProgress(curStuData?.bip?.interview);
+  const ivDone = iv.done > 0;
+
   const cards = [
+    {
+      key: 'interview', icon: '📝', title: '초기면담지 (행동·문제 상황 확인)',
+      desc: '보호자·담임 면담으로 문제 상황과 배경 정보를 모읍니다. 개별 중재의 첫 단계.',
+      done: ivDone, summary: ivDone ? `${iv.done}/${iv.total}개 항목 작성됨` : '', color: '#0a7d4e', bg: '#e7f7ee',
+      onClick: () => setInterviewOpen(true),
+    },
     {
       key: 'reinf', icon: '💡', title: '강화제 평가 (선호도 평가)',
       desc: '무엇을 좋아하는지 알아야 강화 전략을 세울 수 있어요. 구조화 면담(RAISD) + 항목별 선호도 체크리스트.',
@@ -86,6 +97,7 @@ export default function AssessmentLauncher({ compact = false }) {
       </div>
       <RAISDModal open={raisdOpen} onClose={() => setRaisdOpen(false)} />
       <PriorityChecklistModal open={prioOpen} onClose={() => setPrioOpen(false)} />
+      <InitialInterviewModal open={interviewOpen} onClose={() => setInterviewOpen(false)} />
     </>
   );
 }

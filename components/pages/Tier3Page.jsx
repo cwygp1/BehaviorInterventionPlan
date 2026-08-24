@@ -17,36 +17,63 @@ function qabfFunctionText(responses) {
   return Object.keys(totals).filter((f) => totals[f] === max).map((f) => QABF_FUNCTION_LABELS[f]).join(' · ');
 }
 
+// 0822(동료 피드백): 5단계 → 8단계 워크플로로 촘촘하게 재구성.
+// ① 확인·기본정보(초기면담지·표적행동 우선순위) → ② 표적행동 선정·조작적 정의 →
+// ③ 자료수집·기초선 측정(행동데이터) → ④ ABC·환경변인 분석(ABC 관찰·강화제 평가) →
+// ⑤ 행동기능 가설 설정(가설문 양식·예시) → ⑥ 기능평가(QABF) → ⑦ 기능에 근거한 중재계획 → ⑧ 실행·결과 평가
 const STEPS = [
   {
-    n: 1, page: 'observe', icon: '🔍', title: '학생 관찰 / ABC',
-    desc: '선행사건(A) → 행동(B) → 결과(C)를 관찰 가능한 사실로 기록. 기능평가의 원천 데이터.',
+    n: 1, page: 'observe', icon: '📝', title: '중재가 필요한 행동·문제 상황 확인 및 기본 정보',
+    desc: '초기면담지(보호자·담임 면담)와 표적행동 우선순위 체크리스트로 무엇부터 다룰지 정합니다. — 관찰 화면 상단 「학생 기초 평가」 카드에서 작성',
+    measure: (d) => {
+      const iv = d?.bip?.interview || {};
+      const ivDone = Object.keys(iv).some((k) => k !== 'date' && k !== 'interviewee' && String(iv[k] || '').trim());
+      const pr = Array.isArray(d?.priority?.responses) && d.priority.responses.length > 0 && typeof d.priority.responses[0] === 'object';
+      return (ivDone ? 1 : 0) + (pr ? 1 : 0);
+    },
+    measureLabel: (v) => (v >= 2 ? '면담지·우선순위 작성됨' : v === 1 ? '1/2 작성됨' : '미작성'),
+  },
+  {
+    n: 2, page: 'bip', icon: '🪄', title: '표적행동의 선정과 조작적 정의',
+    desc: '우선순위 1순위 행동을 눈으로 보고 셀 수 있는 구체적 행동으로 정의합니다. — 중재계획(BIP) 화면 ①번 칸',
+    measure: (d) => (d?.bip?.opdef ? 1 : 0),
+    measureLabel: (v) => (v ? '조작적 정의 작성됨' : '미작성'),
+  },
+  {
+    n: 3, page: 'monitor', icon: '📈', title: '자료수집·기초선 측정',
+    desc: '중재 전 상태(Phase A·기초선)를 행동 데이터로 기록합니다 — 빈도·지속·강도·DBR. — 행동 데이터 화면에서 입력',
+    measure: (d) => (d?.mon || []).filter((r) => (r.phase || 'A') === 'A').length,
+    measureLabel: '건의 기초선 기록',
+  },
+  {
+    n: 4, page: 'observe', icon: '🔍', title: 'ABC 및 관련 환경변인 분석',
+    desc: '선행사건(A)→행동(B)→결과(C) 관찰 + 강화제 평가(선호도)로 행동을 둘러싼 환경을 분석합니다. — 관찰 화면·강화제 평가 카드',
     measure: (d) => (d?.abc?.length || 0),
     measureLabel: '건의 ABC 기록',
   },
   {
-    n: 2, page: 'qabf', icon: '📊', title: '기능평가 (QABF)',
-    desc: '25문항 4점 척도로 문제행동의 기능을 정량화 (관심·회피·자동감각·신체·강화물).',
+    n: 5, page: 'bip', icon: '🧭', title: '행동기능에 대한 가설 설정',
+    desc: '「〔선행사건〕일 때 〔행동〕을 하며 그 결과 〔후속결과〕 — 기능은 ○○」 양식으로 가설문을 작성합니다(예시 제공). — 중재계획(BIP) 화면 가설 칸',
+    measure: (d) => (d?.bip?.hypothesis ? 1 : 0),
+    measureLabel: (v) => (v ? '가설문 작성됨' : '미작성'),
+  },
+  {
+    n: 6, page: 'qabf', icon: '📊', title: '기능평가 (QABF)',
+    desc: '25문항 4점 척도로 가설을 정량적으로 확인합니다 (관심·회피·자동감각·신체·강화물). — 기능평가 화면에서 입력',
     measure: (d) => (d?.qabf || []).filter((v) => v >= 0 || v === -2).length, // X(해당없음)도 응답으로 집계
     measureLabel: '/25 문항 응답',
   },
   {
-    n: 3, page: 'bip', icon: '📝', title: '중재계획 (BIP)',
-    desc: '예방·교수·강화·반응 4영역 + FCT 기능적 의사소통 + DRA 차별강화로 대체 행동 형성.',
+    n: 7, page: 'bip', icon: '🎯', title: '기능에 근거한 중재계획 수립',
+    desc: '가설·기능에 맞춰 예방·교수·강화·반응 4영역 + FCT·DRA로 대체행동을 형성합니다. — 중재계획(BIP) 화면에서 입력',
     measure: (d) => (d?.bip?.alt ? 1 : 0),
-    measureLabel: (v) => v ? '대체 행동 작성됨' : '미작성',
+    measureLabel: (v) => (v ? '대체 행동 작성됨' : '미작성'),
   },
   {
-    n: 4, page: 'monitor', icon: '📈', title: '행동 데이터',
-    desc: 'CICO·일일 행동 평정(DBR)·지연시간·강도. Phase A(기초선) vs Phase B(중재) 명시 전환으로 효과 측정.',
-    measure: (d) => (d?.mon?.length || 0),
-    measureLabel: '건의 모니터 기록',
-  },
-  {
-    n: 5, page: 'eval', icon: '✅', title: '결과 평가',
-    desc: '단일대상연구 시각 분석 (Level/Trend/Variability/Immediacy) + PND·Tau-U 효과크기.',
-    measure: (d) => (d?.fid?.length || 0),
-    measureLabel: '건의 충실도 기록',
+    n: 8, page: 'eval', icon: '✅', title: '실행·모니터링·결과 평가',
+    desc: '중재(Phase B) 데이터를 쌓고 기초선과 비교합니다 — 시각 분석(Level/Trend) + PND·Tau-U + 충실도.',
+    measure: (d) => (d?.fid?.length || 0) + (d?.mon || []).filter((r) => r.phase === 'B').length,
+    measureLabel: '건의 중재·충실도 기록',
   },
 ];
 
@@ -109,8 +136,8 @@ export default function Tier3Page({ onNavigate }) {
           <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: 10 }}>🎯 개별 맞춤형 중재</h2>
           <p style={{ fontSize: '.92rem', lineHeight: 1.7, opacity: 0.95 }}>
             전체 학생의 <strong>1~5%</strong>가 대상인 가장 집중적 지원 단계입니다.
-            ABC 관찰 → QABF 기능평가 → BIP 중재계획 → 행동 데이터 → 결과 평가의 5단계를 거쳐
-            학생 개별화 행동지원을 진행합니다.
+            행동 확인·기본 정보 → 표적행동 선정 → 기초선 측정 → ABC·환경 분석 → 가설 설정 →
+            기능평가(QABF) → 중재계획 → 실행·평가의 <strong>8단계</strong>를 거쳐 학생 개별화 행동지원을 진행합니다.
           </p>
         </div>
       </div>
@@ -157,7 +184,7 @@ export default function Tier3Page({ onNavigate }) {
         <div className="card">
           <div className="empty-state">
             <span className="emoji">👆</span>
-            위에서 Tier 3 대상 학생을 선택하면 5단계 개별 중재 워크플로가 표시됩니다.
+            위에서 Tier 3 대상 학생을 선택하면 8단계 개별 중재 워크플로가 표시됩니다.
           </div>
         </div>
       ) : (
@@ -180,9 +207,9 @@ export default function Tier3Page({ onNavigate }) {
         </div>
       </div>
 
-      {/* 5단계 워크플로 */}
+      {/* 8단계 워크플로 */}
       <div className="card" data-tour="t3-steps">
-        <div className="card-title">📋 5단계 개별 중재 워크플로</div>
+        <div className="card-title">📋 8단계 개별 중재 워크플로</div>
         <div className="card-subtitle">현재 학생 <strong>{curStu.code}</strong>의 진행 상황입니다. 카드를 클릭하면 해당 단계로 이동합니다.</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
           {STEPS.map((s, i) => {

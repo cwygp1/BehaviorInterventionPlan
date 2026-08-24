@@ -21,7 +21,7 @@ const SECTION_ITEMS = {
   ],
   t3: [
     { id: 'dash3', label: '대시보드', icon: '📊' },
-    { id: 'tier3', label: '개요 / 5단계 안내', icon: '🎯' },
+    { id: 'tier3', label: '개요 / 8단계 안내', icon: '🎯' },
     { id: 'observe', label: '학생 관찰 / ABC', icon: '🔍', requiresStudent: true, step: 1 },
     { id: 'qabf', label: '기능평가 (QABF)', icon: '📊', requiresStudent: true, step: 2 },
     { id: 'bip', label: '중재계획 (BIP)', icon: '📝', requiresStudent: true, step: 3 },

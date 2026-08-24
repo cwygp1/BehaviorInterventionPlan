@@ -5,7 +5,7 @@ import Sparkline from '../../ui/Sparkline';
 import { computeT3Reviews } from '../../../lib/dashReviews';
 import { useDashboard, KpiBody, Chip, ReviewList, DashLoading, DashError, agoLabel, daysAgo, fmtDate } from './DashBits';
 
-// Tier 3 대시보드 — 학생별 5단계 진행 명부 (gridstack 위젯 · 배치는 사용자별 저장)
+// Tier 3 대시보드 — 학생별 진행 명부 (gridstack 위젯 · 배치는 사용자별 저장. 정식 워크플로는 8단계 — 개요 보드 참조)
 // 0824 위젯 확장: 행동 추이 스파크라인 · Phase 현황 · 충실도 KPI · 심리안정실 위젯
 export default function Tier3Dashboard({ onNavigate }) {
   const { curClass, selectStudent, tier3Ids } = useStudents();

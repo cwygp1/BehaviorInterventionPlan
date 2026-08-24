@@ -1,6 +1,7 @@
 import { useStudents } from '../../contexts/StudentContext';
 
-// Tier 3 개별 중재 5단계 순서 (개요 페이지에 명시된 워크플로와 동일)
+// Tier 3 개별 중재 화면 이동 순서. 0822 워크플로 개편으로 정식 절차는 8단계(개요 보드 참조)이며,
+// 이 내비는 실제 입력 "화면" 5곳(관찰·QABF·BIP·데이터·평가)을 순서대로 오가는 용도다.
 export const TIER3_FLOW = [
   { id: 'observe', label: '학생 관찰 / ABC' },
   { id: 'qabf', label: '기능평가 (QABF)' },
@@ -19,7 +20,7 @@ export const IEP_FLOW = [
 ];
 
 const FLOWS = {
-  tier3: { steps: TIER3_FLOW, aria: '개별 중재 5단계' },
+  tier3: { steps: TIER3_FLOW, aria: '개별 중재 진행 화면' },
   iep: { steps: IEP_FLOW, aria: 'IEP 작성 4단계' },
 };
 
