@@ -123,17 +123,20 @@ export default function BipPage({ onNavigate }) {
     }
   }
 
-  // 0822: 행동기능 가설문 규칙 초안 — QABF 최다 기능 + 최근 ABC로 문장 틀을 채운다(AI 불필요).
+  // 0822: 행동기능 가설문 규칙 초안 — QABF 최다 기능 + 최근 ABC로 양식을 채운다(AI 불필요).
+  // 양식(동료 제공): "[선행사건]일 때, 학생은 [행동]을 하며, 이는 [기능]을 얻기 위한 것이다."
   function draftHypothesis() {
     const abc0 = (curStuData?.abc || [])[0] || {};
-    const beh = String(opdef || abc0.b || '').trim() || '〔표적행동〕';
-    const ante = String(abc0.a || '').trim() || '〔배경·선행사건〕';
-    const cons = String(abc0.c || '').trim() || '〔행동 직후 얻는 것(후속결과)〕';
+    const beh = String(opdef || abc0.b || '').trim() || '[행동]';
+    const ante = String(abc0.a || '').trim() || '[선행사건]';
     const rec = skillsForQabf(curStuData?.qabf);
-    const FUNC_TEXT = { 관심: '관심 획득', 회피: '과제·상황 회피', '자동·감각': '감각 자극(자동강화)', 신체: '신체적 불편(통증) 표현', 강화물: '원하는 물건·활동 획득' };
-    const fn = rec?.qabfLabel ? (FUNC_TEXT[rec.qabfLabel] || rec.qabfLabel) : '〔기능: 관심/회피/획득/감각〕';
-    setHypothesis(`${ante} 상황에서 학생은 ${beh} 행동을 한다. 그 결과 ${cons}(으)로 이어지며, 이 행동의 기능은 '${fn}'(으)로 추정된다.`);
-    toast('ABC·QABF에서 가설문 초안을 채웠어요 — 〔 〕 부분을 학생에 맞게 다듬어 주세요.');
+    const FUNC_TEXT = {
+      관심: '타인의 관심', 회피: '선호하지 않는 요구·상황으로부터의 도피·회피',
+      '자동·감각': '감각 자극(자동강화)', 신체: '신체적 불편의 표현·완화', 강화물: '원하는 물건·활동',
+    };
+    const fn = rec?.qabfLabel ? (FUNC_TEXT[rec.qabfLabel] || rec.qabfLabel) : '[기능]';
+    setHypothesis(`${ante}일 때, 학생은 ${beh}을(를) 하며, 이는 ${fn}을(를) 얻기 위한 것이다.`);
+    toast('ABC·QABF에서 가설문 초안을 채웠어요 — [ ] 부분을 학생에 맞게 다듬어 주세요.');
   }
 
   // 0719: ABC 누적 기록으로 표적행동 조작적 정의 초안 생성.
@@ -259,12 +262,11 @@ export default function BipPage({ onNavigate }) {
           <button className="btn btn-ghost btn-sm" onClick={draftHypothesis}>↻ ABC·QABF에서 초안 채우기</button>
         </div>
         <div style={{ fontSize: '.8rem', color: '#274690', background: '#eef4ff', border: '1px solid #b9cdf0', borderRadius: 8, padding: '8px 12px', margin: '8px 0', lineHeight: 1.7 }}>
-          <strong>가설문 양식</strong> — 「〔배경·선행사건〕 상황에서 학생은 〔행동〕을 한다. 그 결과 〔후속결과〕(으)로 이어지며, 이 행동의 기능은 '〔기능〕'(으)로 추정된다.」
-          <br />예시 ① 「어려운 쓰기 과제가 제시되면 학생은 학습지를 찢고 소리를 지른다. 그 결과 과제가 중단되므로, 이 행동의 기능은 '과제 회피'로 추정된다.」
-          <br />예시 ② 「교사가 다른 학생을 지도할 때 학생은 큰 소리로 책상을 두드린다. 그 결과 교사가 다가와 말을 걸게 되므로, 이 행동의 기능은 '관심 획득'으로 추정된다.」
+          <strong>입력 양식</strong> — “[선행사건]일 때, 학생은 [행동]을 하며, 이는 [기능]을 얻기 위한 것이다.”
+          <br /><strong>예시</strong> — “아침 학습 시간에 여러 단계로 이루어진 쓰기 과제가 제시될 때, 로라는 자료를 던지거나 ‘싫어요’라고 말하거나 자리에서 벗어나며, 이는 선호하지 않는 학업 요구를 도피·회피하기 위한 것이다.”
         </div>
         <textarea className="form-textarea" rows={2} value={hypothesis} onChange={(e) => setHypothesis(e.target.value)}
-          placeholder="위 양식을 따라 이 학생의 가설문을 작성하세요 — 아래 중재 전략(예방·교수·강화·반응)은 이 가설에서 출발합니다." />
+          placeholder="“[선행사건]일 때, 학생은 [행동]을 하며, 이는 [기능]을 얻기 위한 것이다.” 형태로 입력 — 아래 중재 전략은 이 가설에서 출발합니다." />
       </div>
 
       <div className="card" data-tour="bip-alt">

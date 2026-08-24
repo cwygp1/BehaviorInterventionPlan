@@ -7,6 +7,7 @@ import { fetchIEP } from '../../lib/api/students';
 import { QABF_QUESTIONS, QABF_FUNCTION_LABELS } from '../../lib/qabf';
 import { downloadTier3Doc } from '../../lib/utils/printTier3';
 import { buildFullStudentContext } from '../../lib/tierContext';
+import { interviewProgress } from '../modals/InitialInterviewModal';
 
 // QABF 응답(0~3, 25문항)에서 심각도 합이 가장 큰 기능(들)을 행동의 기능 문구로.
 function qabfFunctionText(responses) {
@@ -26,8 +27,7 @@ const STEPS = [
     n: 1, page: 'observe', icon: '📝', title: '중재가 필요한 행동·문제 상황 확인 및 기본 정보',
     desc: '초기면담지(보호자·담임 면담)와 표적행동 우선순위 체크리스트로 무엇부터 다룰지 정합니다. — 관찰 화면 상단 「학생 기초 평가」 카드에서 작성',
     measure: (d) => {
-      const iv = d?.bip?.interview || {};
-      const ivDone = Object.keys(iv).some((k) => k !== 'date' && k !== 'interviewee' && String(iv[k] || '').trim());
+      const ivDone = interviewProgress(d?.bip?.interview).done > 0;
       const pr = Array.isArray(d?.priority?.responses) && d.priority.responses.length > 0 && typeof d.priority.responses[0] === 'object';
       return (ivDone ? 1 : 0) + (pr ? 1 : 0);
     },
