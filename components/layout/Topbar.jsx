@@ -35,7 +35,7 @@ const TITLES = {
   videos: 'PBS 영상 강의실',
 };
 
-export default function Topbar({ activePage, onNavigate, canGoBack, onBack, onMenu, onOpenLLMSettings, onAddStudent, onManageClasses }) {
+export default function Topbar({ activePage, sectionKey, onNavigate, canGoBack, onBack, onMenu, onOpenLLMSettings, onAddStudent, onManageClasses }) {
   const {
     students, curStuId, selectStudent,
     classes, years, curYear, selectYear,
@@ -57,7 +57,8 @@ export default function Topbar({ activePage, onNavigate, canGoBack, onBack, onMe
   };
 
   // 워크스페이스에 있을 때만 영역 전환 칩 표시(시안 B).
-  const curSection = PAGE_SECTION[activePage] || null;
+  // 0824: 공통 페이지에서도 직전 영역 맥락을 유지하도록 Layout이 내려준 값을 우선 사용.
+  const curSection = sectionKey !== undefined ? sectionKey : (PAGE_SECTION[activePage] || null);
   // Tier 1·2·3 + IEP는 항상 전부 표시(2026-08-14: '사용 단계 설정' 숨김 기능 폐지).
   const chips = curSection ? Object.values(SECTIONS) : [];
 

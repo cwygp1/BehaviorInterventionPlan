@@ -64,6 +64,10 @@ const WORKSPACE_COMMON = [
   { id: 'builder', label: 'AI 어시스턴트', icon: '🤖' },
 ];
 
+// 0824: 워크스페이스에서 위 공통 메뉴로 이동해도 사이드바가 포털 모드로 바뀌지 않도록,
+// Layout이 "마지막 영역 유지" 판단에 쓰는 페이지 id 목록.
+export const WORKSPACE_COMMON_IDS = WORKSPACE_COMMON.map((i) => i.id);
+
 // 학생 선택이 필요한 페이지 목록(Layout의 학생 선택 가드가 사용).
 export const PBS_PAGES = Object.values(SECTION_ITEMS).flat().filter((i) => i.requiresStudent).map((i) => i.id);
 
@@ -94,9 +98,11 @@ function NavItem({ item, activePage, onNavigate, hasStudent, hint }) {
   );
 }
 
-export default function Sidebar({ activePage, onNavigate, open, onClose, hasStudent }) {
+export default function Sidebar({ activePage, onNavigate, open, onClose, hasStudent, sectionKey: sectionKeyProp }) {
   const { user, logout } = useAuth();
-  const sectionKey = PAGE_SECTION[activePage] || null;
+  // 0824: 어떤 영역 사이드바를 보일지는 Layout이 내려준다(공통 페이지에서도 직전
+  // 영역을 유지하기 위해). prop이 없으면 종전처럼 페이지 소속으로 판단.
+  const sectionKey = sectionKeyProp !== undefined ? sectionKeyProp : (PAGE_SECTION[activePage] || null);
   const section = sectionKey ? SECTIONS[sectionKey] : null;
 
   // 0819(2차 피드백): 저장 직후 다음 단계 메뉴가 몇 초간 반짝여 위치를 알려준다.

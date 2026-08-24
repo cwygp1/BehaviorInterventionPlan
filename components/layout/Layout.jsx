@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import Sidebar, { PBS_PAGES } from './Sidebar';
+import Sidebar, { PBS_PAGES, WORKSPACE_COMMON_IDS } from './Sidebar';
+import { PAGE_SECTION } from '../../lib/tiers';
 import Topbar from './Topbar';
 import SecurityBanner from './SecurityBanner';
 import AIBusyOverlay from './AIBusyOverlay';
@@ -26,6 +27,18 @@ export default function Layout({ children, activePage, onNavigate, canGoBack, on
   const [editOpen, setEditOpen] = useState(false);
   const [classesOpen, setClassesOpen] = useState(false);
   const [pendingPage, setPendingPage] = useState(null);
+
+  // 0824 피드백: 워크스페이스(T1·2·3·IEP)에서 사이드바 하단 '공통' 메뉴(학생 관리·
+  // AI 생성기 등)를 누르면 사이드바가 통째로 포털 메뉴로 바뀌어 혼동됐다.
+  // → 마지막 영역을 기억해 두고, 공통 페이지에 있어도 그 영역 사이드바를 유지한다.
+  //   홈이나 그 밖의 포털 전용 페이지(qa·videos)로 가면 포털 모드로 돌아간다.
+  const pageSection = PAGE_SECTION[activePage] || null;
+  const [stickySection, setStickySection] = useState(null);
+  useEffect(() => {
+    if (pageSection) setStickySection(pageSection);
+    else if (!WORKSPACE_COMMON_IDS.includes(activePage)) setStickySection(null);
+  }, [activePage, pageSection]);
+  const sectionKey = pageSection || stickySection;
 
   // 페이지를 바꾸면 스크롤을 맨 위로 되돌린다. 스크롤 컨테이너가 window가 아니라
   // .main / .content이므로 두 엘리먼트를 직접 되감아야 한다.
@@ -67,11 +80,13 @@ export default function Layout({ children, activePage, onNavigate, canGoBack, on
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         hasStudent={!!curStuId}
+        sectionKey={sectionKey}
       />
       <main className="main" ref={mainRef}>
         <SecurityBanner />
         <Topbar
           activePage={activePage}
+          sectionKey={sectionKey}
           onNavigate={tryNavigate}
           canGoBack={canGoBack}
           onBack={onBack}
