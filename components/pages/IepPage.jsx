@@ -7,8 +7,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { fetchIEP, saveIEPGoal, deleteIEPGoal, fetchStartpoint, fetchClassPBS } from '../../lib/api/students';
+import { parseLooseJSON } from '../../lib/utils/looseJson';
 import { buildPyeongPrompt, parsePyeongLines, PYEONG_LEVELS } from '../../lib/pyeong';
-import { downloadIepFormWord, downloadTaskSheet } from '../../lib/utils/printIep';
+import { downloadIepFormDocx, downloadTaskSheetDocx } from '../../lib/utils/iepFormDocx';
 import { downloadNiceIepDocx } from '../../lib/utils/niceIepDocx';
 import { buildStudentSummary as tcBuildStudentSummary, buildTierLinkage as tcBuildTierLinkage } from '../../lib/tierContext';
 import { profileNarrative } from '../../lib/utils/splitNote';
@@ -335,25 +336,7 @@ function buildEvalFoci(verb, intent, descriptor, fallbackText, verbAlts) {
 
 // LLM이 종종 살짝 깨진 JSON을 내놓는다(예: "eval":": " 처럼 콜론·따옴표 중복, 후행 콤마).
 // 1차 파싱 실패 시 흔한 오류를 보정해 한 번 더 시도한다.
-function parseLooseJSON(raw) {
-  const m = String(raw || '').match(/\{[\s\S]*\}/);
-  if (!m) throw new Error('JSON({…})을 찾지 못했어요.');
-  const text = m[0];
-  try {
-    return JSON.parse(text);
-  } catch (e1) {
-    const repaired = text
-      .replace(/```(?:json)?/gi, '')
-      .replace(/:\s*"\s*:\s*"/g, ': "')          // "key":": "  →  "key": "
-      .replace(/”|“/g, '"').replace(/’|‘/g, "'")  // 스마트 따옴표 정규화
-      .replace(/,\s*([}\]])/g, '$1');             // 후행 콤마 제거
-    try {
-      return JSON.parse(repaired);
-    } catch (e2) {
-      throw e1; // 원본 오류 메시지를 노출
-    }
-  }
-}
+// JSON 파싱은 공용 강건 파서 사용(lib/utils/looseJson.js — jsonrepair 기반, 0824).
 
 export default function IepPage({ onNavigate }) {
   const { curStu, curStuId, curStuData, ensureStudentData, editStudent, curYear, curSemester, studentTier, tier2Groups } = useStudents();
@@ -1760,29 +1743,28 @@ export default function IepPage({ onNavigate }) {
     }).then(() => setWordDone(true)).catch((e) => toast('Word 생성 실패: ' + e.message));
   }
 
-  // 평가초점 연수자료 양식(생활지원/교과 중심)대로 Word 내보내기
+  // 평가초점 연수자료 양식(생활지원/교과 중심)대로 Word 내보내기 — 진짜 .docx (0824)
   function exportFormWord(goals) {
     if (!goals.length) { toast('저장된 IEP 목표가 없습니다. 먼저 저장하세요.'); return; }
-    downloadIepFormWord({
+    downloadIepFormDocx({
       student: { code: curStu.code, level: curStu.level, disability: curStu.disability },
       teacherName: user?.name || '',
-      school: user?.school || '',
       goals,
-    });
-    setWordDone(true);
+    })
+      .then(() => setWordDone(true))
+      .catch((e) => toast('Word 생성 실패: ' + e.message));
   }
 
-  // 과제분석 단계별 평가 기록지(데이터 수집 체크리스트) 인쇄용 Word 출력.
+  // 과제분석 단계별 평가 기록지(데이터 수집 체크리스트) 인쇄용 Word 출력 — 진짜 .docx (0824)
   function downloadTaskSheetNow() {
     const steps = (taskSteps || []).map((t) => t.trim()).filter(Boolean);
     if (!steps.length) { toast('단계를 먼저 만들어 주세요.'); return; }
-    downloadTaskSheet({
+    downloadTaskSheetDocx({
       student: { code: curStu.code, level: curStu.level, disability: curStu.disability },
       teacherName: user?.name || '',
-      school: user?.school || '',
       goalText: goal,
       steps, chainType, promptSystem,
-    });
+    }).catch((e) => toast('기록지 생성 실패: ' + e.message));
   }
 
   // ── 🌐 외부AI 연동 설정 — 각 AI 기능의 프롬프트 생성·응답 적용(로컬 AI와 비교용) ──

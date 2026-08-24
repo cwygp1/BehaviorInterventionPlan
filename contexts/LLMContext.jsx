@@ -44,18 +44,30 @@ export function LLMProvider({ children }) {
   const busyCount = useRef(0);
   const [busy, setBusy] = useState(false);
   const [busyLabels, setBusyLabels] = useState([]); // 진행 중인 AI 작업 라벨 목록
+  // P1(진행 피드백): 스트리밍 수신 진행 상황 — { startedAt, chars }. 동시 호출 시 최신 값 표시.
+  const [aiProgress, setAiProgress] = useState(null);
   const incBusy = useCallback((label) => {
     busyCount.current += 1;
     setBusy(true);
     setBusyLabels((prev) => [...prev, label || 'AI 생성']);
+    setAiProgress({ startedAt: Date.now(), chars: 0 });
   }, []);
   const decBusy = useCallback((label) => {
     busyCount.current = Math.max(0, busyCount.current - 1);
-    if (busyCount.current === 0) setBusy(false);
+    if (busyCount.current === 0) { setBusy(false); setAiProgress(null); }
     setBusyLabels((prev) => {
       const i = prev.indexOf(label || 'AI 생성');
       return i >= 0 ? [...prev.slice(0, i), ...prev.slice(i + 1)] : prev.slice(1);
     });
+  }, []);
+  // 스트리밍 조각이 도착할 때마다 수신량 갱신 — llm.js의 onProgress로 주입된다.
+  // chars = 보이는 답변 글자 수, reasoningChars = 사고 과정(표시용으로 구분).
+  const onAiProgress = useCallback((p) => {
+    setAiProgress((cur) => ({
+      startedAt: cur?.startedAt || Date.now(),
+      chars: p.chars,
+      reasoningChars: p.reasoningChars || 0,
+    }));
   }, []);
 
   // --- 전역 AI 통신 로그 ----------------------------------------------------
@@ -222,22 +234,22 @@ export function LLMProvider({ children }) {
     async (prompt, opts) => {
       const r = await trackCall(
         opts?.label || 'AI 생성',
-        () => callLLM(prompt, opts, config),
+        () => callLLM(prompt, { ...opts, onProgress: onAiProgress }, config),
         { model: resolveModel(config, opts?.tier), tier: opts?.tier || 'quality' }
       );
       return r.content;
     },
-    [config, trackCall]
+    [config, trackCall, onAiProgress]
   );
 
   const callDetailed = useCallback(
     (prompt, opts) =>
       trackCall(
         opts?.label || 'AI 생성',
-        () => callLLM(prompt, opts, config),
+        () => callLLM(prompt, { ...opts, onProgress: onAiProgress }, config),
         { model: resolveModel(config, opts?.tier), tier: opts?.tier || 'quality' }
       ),
-    [config, trackCall]
+    [config, trackCall, onAiProgress]
   );
 
   // 이미지(비전) 입력 호출 — { content, reasoning, finish_reason, model, usage } 반환.
@@ -246,14 +258,14 @@ export function LLMProvider({ children }) {
     (prompt, images, opts) =>
       trackCall(
         opts?.label || 'AI 비전 분석',
-        () => callLLMVision(prompt, images, opts, config),
+        () => callLLMVision(prompt, images, { ...opts, onProgress: onAiProgress }, config),
         { model: resolveModel(config, opts?.tier || 'fast'), tier: opts?.tier || 'fast' }
       ),
-    [config, trackCall]
+    [config, trackCall, onAiProgress]
   );
 
   return (
-    <LLMContext.Provider value={{ config, status, busy, busyLabels, aiLog, pushLog, clearLog, saveConfig, clearConfig, call, callDetailed, callVisionDetailed, setStatus }}>
+    <LLMContext.Provider value={{ config, status, busy, busyLabels, aiProgress, aiLog, pushLog, clearLog, saveConfig, clearConfig, call, callDetailed, callVisionDetailed, setStatus }}>
       {children}
     </LLMContext.Provider>
   );

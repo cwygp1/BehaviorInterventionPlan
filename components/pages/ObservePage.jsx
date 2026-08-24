@@ -13,6 +13,7 @@ import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner
 import AssessmentLauncher from '../student/AssessmentLauncher';
 import DeadMansModal from '../modals/DeadMansModal';
 import { createABC as apiCreateABC, deleteABC as apiDeleteABC } from '../../lib/api/students';
+import { parseLooseJSON } from '../../lib/utils/looseJson';
 
 const ABC_TIMES = ['1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '쉬는 시간', '점심', '등교', '하교'];
 const ABC_PLACES = ['교실', '복도', '운동장', '급식실', '특별실', '통합학급', '화장실', '보건실'];
@@ -38,18 +39,7 @@ function buildSplitPrompt(text) {
 }
 
 // LLM이 살짝 깨진 JSON을 줄 때 흔한 오류를 보정해 한 번 더 시도한다.
-function parseLooseJSON(raw) {
-  const m = String(raw || '').match(/\{[\s\S]*\}/);
-  if (!m) throw new Error('JSON을 찾지 못했어요.');
-  try { return JSON.parse(m[0]); }
-  catch (_) {
-    const fixed = m[0]
-      .replace(/```(?:json)?/gi, '')
-      .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
-      .replace(/,\s*([}\]])/g, '$1');
-    return JSON.parse(fixed);
-  }
-}
+// JSON 파싱은 공용 강건 파서 사용(lib/utils/looseJson.js — jsonrepair 기반, 0824).
 
 export default function ObservePage({ onNavigate }) {
   const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData } = useStudents();
