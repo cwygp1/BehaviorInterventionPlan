@@ -5,6 +5,7 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { saveCICO, deleteCICO } from '../../lib/api/students';
+import { useAutoSaveBody } from '../../lib/hooks/useAutoSave';
 import { printDPRCard } from '../../lib/utils/printDPR';
 import { EditableChipGroup } from '../ui/QChip';
 import AIActionBar from '../ui/AIActionBar';
@@ -42,7 +43,7 @@ function readPeriodData(scores, periodName) {
 }
 
 export default function Tier2Page({ onNavigate }) {
-  const { curStu, curStuId, curStuData, updateStudentData, curClassId, tier2Groups } = useStudents();
+  const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData, curClassId, tier2Groups } = useStudents();
   const toast = useToast();
   const { call, status: llmStatus } = useLLM();
 
@@ -72,33 +73,53 @@ export default function Tier2Page({ onNavigate }) {
 
   const cicoRecords = curStuData?.cico || [];
   const todayRecord = cicoRecords.find((r) => r.date === date);
+  // 자동 저장 무장 시점 + 폼 재초기화 트리거(삭제 등) — resetTick을 올리면 기준값 재무장.
+  const [cicoLoaded, setCicoLoaded] = useState(false);
+  const [resetTick, setResetTick] = useState(0);
 
-  // Load existing record OR initialize defaults for new entries
+  // Load existing record OR initialize defaults for new entries.
+  // ⚠ 자동 저장 도입(0824): 저장 때마다 캐시가 갱신되는데, 그때마다 이 로더가
+  //   재실행되면 저장 요청 중 입력한 값이 되돌아간다 → 날짜·학생·데이터 도착
+  //   시에만 실행 (deps에서 todayRecord/cicoRecords.length 제외).
   useEffect(() => {
-    if (todayRecord) {
-      setGoals(todayRecord.goals || []);
+    setCicoLoaded(false);
+    if (!curStuId || !curStuDataLoaded) return;
+    const recs = curStuData?.cico || [];
+    const today = recs.find((r) => r.date === date);
+    if (today) {
+      setGoals(today.goals || []);
       setPeriodList(
-        todayRecord.periods?.length
-          ? todayRecord.periods
-          : Object.keys(todayRecord.scores || {}) // legacy fallback
+        today.periods?.length
+          ? today.periods
+          : Object.keys(today.scores || {}) // legacy fallback
               .filter((k) => k !== '_periods')
       );
-      setScores(todayRecord.scores || {});
-      setCheckIn(todayRecord.check_in_time || '');
-      setCheckOut(todayRecord.check_out_time || '');
-      setComment(todayRecord.comment || '');
+      setScores(today.scores || {});
+      setCheckIn(today.check_in_time || '');
+      setCheckOut(today.check_out_time || '');
+      setComment(today.comment || '');
     } else {
       // For a new entry, copy structure from the most recent record (so the
       // teacher doesn't have to re-define periods every day) — fall back to
       // level-based defaults.
-      const last = cicoRecords[0];
+      const last = recs[0];
       const lastPeriods = last?.periods?.length ? last.periods : null;
       setGoals([]);
       setPeriodList(lastPeriods || defaultPeriods(curStu?.level));
       setScores({});
       setCheckIn(''); setCheckOut(''); setComment('');
     }
-  }, [date, todayRecord, curStu, cicoRecords.length]);
+    setCicoLoaded(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, curStuId, curStuDataLoaded, resetTick]);
+
+  // 자동 저장(0824) — 오늘 기록이 로드 시점과 달라지면 입력이 멎은 뒤 upsert 저장.
+  const { dirty: cicoDirty } = useAutoSaveBody({
+    enabled: !!curStuId && cicoLoaded,
+    resetKey: `${curStuId}:${date}:${resetTick}`,
+    body: { date, goals, periods: periodList, scores: buildCleanScores(), check_in_time: checkIn, check_out_time: checkOut, comment },
+    save: saveCore,
+  });
 
   if (!curClassId) {
     return (
@@ -172,26 +193,35 @@ export default function Tier2Page({ onNavigate }) {
   const max = filledScores.length * 3;
   const pct = max ? Math.round((total / max) * 100) : 0;
 
+  // Clean scores: only include periods that have at least a score or comment.
+  // (함수 선언 호이스팅으로 위 useAutoSaveBody의 body에서도 참조 가능)
+  function buildCleanScores() {
+    const cleanScores = {};
+    periodList.forEach((p) => {
+      const d = readPeriodData(scores, p);
+      if (d.score != null || (d.comment && d.comment.trim())) {
+        cleanScores[p] = { score: d.score, comment: d.comment || '' };
+      }
+    });
+    return cleanScores;
+  }
+
+  async function saveCore() {
+    const res = await saveCICO(curStuId, {
+      date, goals, periods: periodList, scores: buildCleanScores(),
+      check_in_time: checkIn, check_out_time: checkOut, comment,
+    });
+    updateStudentData(curStuId, (cur) => {
+      const others = (cur.cico || []).filter((r) => r.date !== date);
+      return { ...cur, cico: [res.record, ...others].sort((a, b) => (b.date || '').localeCompare(a.date || '')) };
+    });
+  }
+
   async function onSave() {
     if (!curStuId) return;
     setBusy(true);
     try {
-      // Clean scores: only include periods that have at least a score or comment
-      const cleanScores = {};
-      periodList.forEach((p) => {
-        const d = readPeriodData(scores, p);
-        if (d.score != null || (d.comment && d.comment.trim())) {
-          cleanScores[p] = { score: d.score, comment: d.comment || '' };
-        }
-      });
-      const res = await saveCICO(curStuId, {
-        date, goals, periods: periodList, scores: cleanScores,
-        check_in_time: checkIn, check_out_time: checkOut, comment,
-      });
-      updateStudentData(curStuId, (cur) => {
-        const others = (cur.cico || []).filter((r) => r.date !== date);
-        return { ...cur, cico: [res.record, ...others].sort((a, b) => (b.date || '').localeCompare(a.date || '')) };
-      });
+      await saveCore();
       toast(`CICO 저장됨 — ${total}/${max}점 (${pct}%)`);
     } catch (e) { toast('저장 실패: ' + e.message); }
     finally { setBusy(false); }
@@ -200,8 +230,12 @@ export default function Tier2Page({ onNavigate }) {
   async function onDelete(id) {
     if (!window.confirm('이 CICO 기록을 삭제할까요?')) return;
     try {
+      const rec = (curStuData?.cico || []).find((r) => r.id === id);
       await deleteCICO(curStuId, id);
       updateStudentData(curStuId, (cur) => ({ ...cur, cico: (cur.cico || []).filter((r) => r.id !== id) }));
+      // 오늘(현재 날짜) 기록을 지웠으면 폼을 재초기화 — 그대로 두면 자동 저장이
+      // 남아 있는 폼 값으로 방금 지운 기록을 다시 만들어 버린다.
+      if (rec && rec.date === date) setResetTick((t) => t + 1);
       toast('삭제됨');
     } catch (e) { toast('삭제 실패: ' + e.message); }
   }
@@ -431,7 +465,14 @@ ${lines || '  (기록 없음)'}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-          <button className="btn btn-pri" onClick={onSave} disabled={busy}>{busy ? '저장 중...' : '💾 CICO 저장'}</button>
+          <button
+            className={'btn ' + (cicoDirty ? 'btn-pri' : 'btn-ghost')}
+            onClick={onSave}
+            disabled={busy || !cicoDirty}
+            title={cicoDirty ? '지금 바로 저장' : '변경 내용이 모두 자동 저장되었습니다'}
+          >
+            {busy ? '저장 중...' : (cicoDirty ? '💾 CICO 저장' : '✓ 저장됨')}
+          </button>
         </div>
       </div>
 

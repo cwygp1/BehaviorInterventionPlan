@@ -7,6 +7,8 @@ import { EditableChipGroup, makeAppender } from '../ui/QChip';
 import ExternalAIModal from '../ui/ExternalAIModal';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import { fetchStartpoint, saveStartpoint } from '../../lib/api/students';
+import { useAutoSaveBody } from '../../lib/hooks/useAutoSave';
+import { extractLooseJSON } from '../../lib/utils/looseJson';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
 import { skillsForQabf } from '../../lib/functionSkills';
 import { normalizePriority, priorityRank, PRIORITY_MAX } from '../../lib/priority';
@@ -36,18 +38,8 @@ const PERF_CHIPS = ['독립 수행', '부분 도움', '전적 도움', '언어 �
 const EMPTY = { guardian: '', observation: '', fba: '', strengths: '', eco: '', supportNeeds: '', functions: '', perfLevel: '' };
 
 // 모델이 살짝 깨진 JSON을 내도 1차 실패 시 보정 후 재파싱.
-function extractJSON(text) {
-  if (!text) return null;
-  const s = text.indexOf('{');
-  const e = text.lastIndexOf('}');
-  if (s < 0 || e <= s) return null;
-  let body = text.slice(s, e + 1);
-  try { return JSON.parse(body); } catch (_) {}
-  try {
-    body = body.replace(/,\s*([}\]])/g, '$1').replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
-    return JSON.parse(body);
-  } catch (_) { return null; }
-}
+// JSON 추출은 공용 강건 파서 사용(lib/utils/looseJson.js — jsonrepair 기반, 0824).
+const extractJSON = extractLooseJSON;
 
 export default function StartPointPage({ onNavigate }) {
   const { curStu, curStuId, curStuData } = useStudents();
@@ -55,6 +47,7 @@ export default function StartPointPage({ onNavigate }) {
   const toast = useToast();
 
   const [f, setF] = useState(EMPTY);
+  const [spLoaded, setSpLoaded] = useState(false); // 저장값 로드 완료 — 자동 저장 무장 시점
   // 0819 피드백: 저장 성공 후 "다음 단계(IEP 목표 생성)로 이동" 배너 — 다시 수정하면 숨김.
   const [savedOk, markSaved] = useSavedFlag([f]);
   const [busy, setBusy] = useState(false);
@@ -105,6 +98,7 @@ export default function StartPointPage({ onNavigate }) {
   useEffect(() => {
     if (!curStuId) return;
     let alive = true;
+    setSpLoaded(false); // 학생 전환/재로드 동안 자동 저장 해제 → 로드 후 기준값 재무장
     (async () => {
       try {
         const r = await fetchStartpoint(curStuId);
@@ -115,12 +109,21 @@ export default function StartPointPage({ onNavigate }) {
         if (!merged.observation && obsAuto) merged.observation = obsAuto;
         if (!merged.strengths && profile.strengths) merged.strengths = profile.strengths;
         setF(merged);
+        setSpLoaded(true);
       } catch (_e) {
         setF((cur) => ({ ...cur, fba: cur.fba || fbaAuto, observation: cur.observation || obsAuto }));
       }
     })();
     return () => { alive = false; };
   }, [curStuId, fbaAuto, abcAuto]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 자동 저장(0824) — 로드 시점 값을 기준으로, 교사가 고친 뒤 입력이 멎으면 저장.
+  // (빈 칸 자동 연동 값 자체는 기준에 포함되므로 '연동만 되고 수정 안 한' 상태는 저장하지 않음)
+  const { dirty: spDirty } = useAutoSaveBody({
+    enabled: !!curStuId && spLoaded,
+    body: f,
+    save: () => saveStartpoint(curStuId, f),
+  });
 
   if (!curStu) return <><StuHero /><NoStudentHint /></>;
 
@@ -357,7 +360,14 @@ export default function StartPointPage({ onNavigate }) {
           {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
           <button className="btn btn-ghost btn-sm" onClick={() => { if (!hasDeriveInput()) { toast('입력 블록을 먼저 채워주세요.'); return; } setExtOpen(true); }} title="외부 AI(클로드 등)로 산출물 도출">🌐 외부AI</button> */}
           <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
-          <button className="btn btn-pri" onClick={onSave} disabled={busy}>② 💾 출발점 저장</button>
+          <button
+            className={'btn ' + (spDirty ? 'btn-pri' : 'btn-ghost')}
+            onClick={onSave}
+            disabled={busy || !spDirty}
+            title={spDirty ? '지금 바로 저장' : '변경 내용이 모두 자동 저장되었습니다'}
+          >
+            {spDirty ? '② 💾 출발점 저장' : '② ✓ 저장됨'}
+          </button>
           <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
           <button
             className={'btn ' + (savedOk ? 'btn-pri' : 'btn-ghost')}

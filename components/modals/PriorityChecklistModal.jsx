@@ -3,6 +3,7 @@ import Modal from '../ui/Modal';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { savePriority } from '../../lib/api/students';
+import { useAutoSaveBody } from '../../lib/hooks/useAutoSave';
 import { PRIORITY_CRITERIA, PRIORITY_SCALE, PRIORITY_MAX, priorityRank, normalizePriority, isLegacyPriority } from '../../lib/priority';
 
 // 표적행동 우선순위 체크리스트 (Checklist for Prioritizing Target Behaviors)
@@ -15,13 +16,29 @@ export default function PriorityChecklistModal({ open, onClose }) {
   const [behaviors, setBehaviors] = useState([]);
   const [busy, setBusy] = useState(false);
   const [legacy, setLegacy] = useState(false); // 개정 전 응답이 있었는지 — 재작성 안내용
+  const [plLoaded, setPlLoaded] = useState(false); // 자동 저장 무장 시점
 
+  // 모달을 열 때만 저장값을 불러온다.
+  // ⚠ deps에 curStuData를 두면 자동 저장의 캐시 갱신마다 재실행되어
+  //   평정 중인 응답이 되돌아간다 — open 시점에만 로드.
   useEffect(() => {
-    if (!open) return;
+    if (!open) { setPlLoaded(false); return; }
     const saved = curStuData?.priority?.responses;
     setLegacy(isLegacyPriority(saved));
     setBehaviors(normalizePriority(saved));
-  }, [open, curStuData]);
+    setPlLoaded(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, curStuId]);
+
+  // 자동 저장(0824) — 평정을 고치고 잠시 멎으면 저장. 모달을 그냥 닫아도 유실 없음.
+  const { dirty: plDirty } = useAutoSaveBody({
+    enabled: open && plLoaded && !!curStuId,
+    body: { responses: behaviors },
+    save: async () => {
+      const data = await savePriority(curStuId, { responses: behaviors });
+      updateStudentData(curStuId, (cur) => ({ ...cur, priority: data.data }));
+    },
+  });
 
   const setName = (bi, v) => setBehaviors((p) => p.map((b, i) => (i === bi ? { ...b, name: v } : b)));
   const setVal = (bi, qi, v) => setBehaviors((p) => p.map((b, i) => (
@@ -108,8 +125,15 @@ export default function PriorityChecklistModal({ open, onClose }) {
           + 행동 추가 ({behaviors.length}/4)
         </button>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-ghost" onClick={onClose}>취소</button>
-          <button className="btn btn-pri" onClick={onSave} disabled={busy}>{busy ? '저장 중…' : '저장'}</button>
+          <button className="btn btn-ghost" onClick={onClose}>닫기</button>
+          <button
+            className={'btn ' + (plDirty ? 'btn-pri' : 'btn-ghost')}
+            onClick={onSave}
+            disabled={busy || !plDirty}
+            title={plDirty ? '지금 바로 저장하고 닫기' : '변경 내용이 모두 자동 저장되었습니다'}
+          >
+            {busy ? '저장 중…' : (plDirty ? '저장' : '✓ 저장됨')}
+          </button>
         </div>
       </div>
       <p style={{ fontSize: '.72rem', color: 'var(--muted)', marginTop: 10 }}>

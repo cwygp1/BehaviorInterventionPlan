@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { FormLoading } from '../../lib/hooks/useFormLoad';
+import useAutoSave from '../../lib/hooks/useAutoSave';
 import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -69,24 +70,47 @@ export default function BipPage({ onNavigate }) {
   const [aiOpen, setAiOpen] = useState(false);
   const [letterOpen, setLetterOpen] = useState(false);
 
+  // 학생이 바뀌거나 데이터가 처음 도착했을 때만 폼을 채운다.
+  // (자동 저장이 캐시를 갱신할 때마다 재실행되면, 저장 요청 중에 이어서 친
+  //  글자가 방금 저장된 값으로 되돌아가는 유실이 생긴다 — deps에서 bip 제외)
   useEffect(() => {
     const b = curStuData?.bip || {};
     setAlt(b.alt || ''); setFct(b.fct || ''); setCrit(b.crit || '');
     setPrev(b.prev || ''); setTeach(b.teach || ''); setReinf(b.reinf || ''); setResp(b.resp || '');
     setOpdef(b.opdef || ''); setBgoal(b.bgoal || ''); setBgoalDest(b.bgoal_dest || '');
-  }, [curStuId, curStuData?.bip]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [curStuId, curStuDataLoaded]);
+
+  // 자동 저장(0824 퀵윈①) — 입력이 서버값과 다르면 타이핑이 멎은 뒤 저장.
+  // 텍스트 위주 페이지라 디바운스를 2초로 넉넉히. 상태는 상단바 SaveBadge에 표시.
+  const bipBody = { alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest: bgoalDest };
+  const savedBip = curStuData?.bip || {};
+  const bipDirty = Object.entries(bipBody).some(([k, v]) => String(v || '') !== String(savedBip[k] || ''));
+  useAutoSave({
+    enabled: !!curStuId && curStuDataLoaded,
+    dirty: bipDirty,
+    signal: JSON.stringify(bipBody),
+    save: saveCore,
+    delay: 2000,
+  });
 
   if (!curStu) return <><StuHero /><NoStudentHint /></>;
   // 서버 데이터 도착 전 입력 UI를 띄우지 않는다 — 로드 중 입력이 덮어써지는 것 방지.
   if (!curStuDataLoaded) return <><StuHero /><FormLoading label="BIP 내용을 불러오는 중…" /></>;
 
+  // 실제 저장(공통) — 자동 저장은 조용히 호출, 수동 [저장]은 토스트·다음단계 안내까지.
+  // (함수 선언 호이스팅으로 위 useAutoSave에서 참조 가능)
+  async function saveCore() {
+    const body = { alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest: bgoalDest };
+    await apiSaveBIP(curStuId, body);
+    updateStudentData(curStuId, (cur) => ({ ...cur, bip: body }));
+  }
+
   async function onSave() {
     if (!curStuId) return;
     setBusy(true);
     try {
-      const body = { alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest: bgoalDest };
-      await apiSaveBIP(curStuId, body);
-      updateStudentData(curStuId, (cur) => ({ ...cur, bip: body }));
+      await saveCore();
       toast('BIP 저장 완료');
       markSaved(); hintNextStep('monitor'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
     } catch (e) {
@@ -307,7 +331,14 @@ export default function BipPage({ onNavigate }) {
         {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
           <button className="btn btn-ghost" onClick={onPrintBIP}>🖨 BIP 인쇄/PDF</button>
-          <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 BIP 저장</button>
+          <button
+            className={'btn ' + (bipDirty ? 'btn-pri' : 'btn-ghost')}
+            onClick={onSave}
+            disabled={busy || !bipDirty}
+            title={bipDirty ? '지금 바로 저장' : '변경 내용이 모두 자동 저장되었습니다'}
+          >
+            {bipDirty ? '💾 BIP 저장' : '✓ 저장됨'}
+          </button>
           <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
           <button className={'btn ' + (savedOk ? 'btn-pri' : 'btn-ghost')} onClick={() => onNavigate?.('monitor')}>📈 행동 데이터 →</button>
         </div>

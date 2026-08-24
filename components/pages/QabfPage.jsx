@@ -9,6 +9,7 @@ import AIActionBar from '../ui/AIActionBar';
 import PromptResultBlock from '../modals/PromptResultBlock';
 import { downloadQabfExcel } from '../../lib/utils/exportQabf';
 import { FormLoading } from '../../lib/hooks/useFormLoad';
+import useAutoSave from '../../lib/hooks/useAutoSave';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import {
   QABF_QUESTIONS as QUESTIONS,
@@ -45,6 +46,8 @@ export default function QabfPage({ onNavigate }) {
   // 작성 중 응답 자동 임시저장(학생별, 브라우저 세션). 저장 전에 페이지를 떠나도 복원된다.
   const qabfDraftKey = curStuId ? `qabfDraft:${curStuId}` : null;
 
+  // 학생이 바뀌거나 데이터가 처음 도착했을 때만 응답을 채운다.
+  // (자동 저장의 캐시 갱신마다 재실행되면 저장 요청 중 새로 고른 응답이 되돌아감 — deps에서 qabf 제외)
   useEffect(() => {
     if (!curStuId) return;
     // 1) 임시저장(draft)이 있으면 우선 복원
@@ -61,7 +64,8 @@ export default function QabfPage({ onNavigate }) {
     } else {
       setResponses(new Array(25).fill(-1));
     }
-  }, [curStuId, curStuData?.qabf, qabfDraftKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [curStuId, curStuDataLoaded, qabfDraftKey]);
 
   // 서버 저장값과 다른 미저장 응답만 draft로 보관 (저장/초기 상태면 draft 제거).
   useEffect(() => {
@@ -74,6 +78,17 @@ export default function QabfPage({ onNavigate }) {
       else sessionStorage.setItem(qabfDraftKey, JSON.stringify(responses));
     } catch (_) { /* ignore */ }
   }, [responses, qabfDraftKey, curStuData?.qabf]);
+
+  // 자동 저장(0824 퀵윈①) — 응답이 서버값과 다르면 입력이 멎은 뒤 저장.
+  // 상태는 상단바 SaveBadge에 표시되고, 페이지 이탈 시엔 즉시 저장된다.
+  const savedQabf = (curStuData?.qabf && curStuData.qabf.length === 25) ? curStuData.qabf : new Array(25).fill(-1);
+  const qabfDirty = !responses.every((v) => v === -1) && JSON.stringify(responses) !== JSON.stringify(savedQabf);
+  useAutoSave({
+    enabled: !!curStuId && curStuDataLoaded,
+    dirty: qabfDirty,
+    signal: JSON.stringify(responses),
+    save: saveCore,
+  });
 
   if (!curStu) return <><StuHero /><NoStudentHint /></>;
   // 저장된 QABF가 도착하기 전에는 문항·붙여넣기 UI를 띄우지 않는다.
@@ -92,13 +107,19 @@ export default function QabfPage({ onNavigate }) {
     setResponses((prev) => prev.map((x, idx) => (idx === i ? v : x)));
   }
 
+  // 실제 저장(공통) — 자동 저장은 조용히 이걸 호출하고, 수동 [저장]은 토스트·다음단계 안내까지.
+  // (함수 선언이라 위 useAutoSave에서 호이스팅으로 참조 가능)
+  async function saveCore() {
+    await apiSaveQABF(curStuId, responses);
+    updateStudentData(curStuId, (cur) => ({ ...cur, qabf: responses }));
+    try { if (qabfDraftKey) sessionStorage.removeItem(qabfDraftKey); } catch (_) { /* ignore */ }
+  }
+
   async function onSave() {
     if (!curStuId) return;
     setBusy(true);
     try {
-      await apiSaveQABF(curStuId, responses);
-      updateStudentData(curStuId, (cur) => ({ ...cur, qabf: responses }));
-      try { if (qabfDraftKey) sessionStorage.removeItem(qabfDraftKey); } catch (_) { /* ignore */ }
+      await saveCore();
       toast('QABF 저장 완료', 'success');
       markSaved(); hintNextStep('bip'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
     } catch (e) {
@@ -266,7 +287,10 @@ ${profile}
       <div className="card" data-tour="qb-chart">
         <div className="card-title">📈 QABF 기능·심각도 그래프</div>
         <div className="card-subtitle">공식 QABF 양식의 그래프 — 5개 기능별 <strong>기능(0~5, 응답 문항 수)</strong>과 <strong>심각도(0~15, 점수 합)</strong>를 함께 보여줍니다.</div>
-        <QabfFnChart responses={responses} />
+        {/* id: 엑셀 내보내기에서 이 캔버스를 PNG로 캡처해 시트에 삽입한다 */}
+        <div id="qabf-fn-chart">
+          <QabfFnChart responses={responses} />
+        </div>
       </div>
 
       <div className="card" data-tour="qb-list">
@@ -308,9 +332,25 @@ ${profile}
         ))}
         {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-          <button className="btn btn-ghost" onClick={() => downloadQabfExcel(responses, curStu)}>⬇ 엑셀 다운로드</button>
-          <button className="btn btn-pri" onClick={onSave} disabled={busy}>
-            💾 QABF 저장
+          <button
+            className="btn btn-ghost"
+            onClick={async () => {
+              const canvas = document.querySelector('#qabf-fn-chart canvas'); // 그래프를 PNG로 함께 담는다
+              try {
+                await downloadQabfExcel(responses, curStu, canvas);
+                toast('QABF 엑셀(.xlsx)을 내려받았어요 — 그래프 포함.', 'success');
+              } catch (e) { toast('엑셀 생성 실패: ' + e.message); }
+            }}
+          >
+            ⬇ 엑셀 다운로드
+          </button>
+          <button
+            className={'btn ' + (qabfDirty ? 'btn-pri' : 'btn-ghost')}
+            onClick={onSave}
+            disabled={busy || !qabfDirty}
+            title={qabfDirty ? '지금 바로 저장' : '변경 내용이 모두 자동 저장되었습니다'}
+          >
+            {qabfDirty ? '💾 QABF 저장' : '✓ 저장됨'}
           </button>
           <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
           <button className={'btn ' + (savedOk ? 'btn-pri' : 'btn-ghost')} onClick={() => onNavigate?.('bip')}>📝 중재계획(BIP) →</button>

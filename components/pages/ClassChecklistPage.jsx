@@ -6,6 +6,7 @@ import { fetchClassChecklist, saveClassChecklist } from '../../lib/api/students'
 import PromptResultBlock from '../modals/PromptResultBlock';
 import AIActionBar from '../ui/AIActionBar';
 import useFormLoad, { FormLoading } from '../../lib/hooks/useFormLoad';
+import { useAutoSaveBody } from '../../lib/hooks/useAutoSave';
 import {
   CWPBS_ITEMS, CWPBS_SCALE, SOLVE_ITEMS, SOLVE_SCALE, SOLVE_SECTIONS,
   CORE_ELEMENTS, emptyClassChecklist,
@@ -109,6 +110,13 @@ export default function ClassChecklistPage() {
     };
   }, [r]);
 
+  // 자동 저장(0824) — 응답이 로드 시점과 달라지면 입력이 멎은 뒤 저장.
+  const { dirty: ckDirty } = useAutoSaveBody({
+    enabled: loaded && !!curClassId,
+    body: r,
+    save: () => saveClassChecklist({ class_id: curClassId, semester: curSemester, responses: r }),
+  });
+
   async function onSave() {
     if (!curClassId) { toast('먼저 학급을 선택해주세요.'); return; }
     setBusy(true);
@@ -195,7 +203,7 @@ ${low(SOLVE_ITEMS, r.solve, 4)}
           </div>
         </div>
         <div style={{ marginLeft: 'auto' }}>
-          <button className="btn btn-pri btn-sm" onClick={onSave} disabled={busy}>{busy ? '저장 중…' : '💾 저장'}</button>
+          <button className={'btn btn-sm ' + (ckDirty ? 'btn-pri' : 'btn-ghost')} onClick={onSave} disabled={busy || !ckDirty}>{busy ? '저장 중…' : (ckDirty ? '💾 저장' : '✓ 저장됨')}</button>
         </div>
       </div>
 
@@ -254,7 +262,14 @@ ${low(SOLVE_ITEMS, r.solve, 4)}
         <div className="card-title">💾 저장 · ✨ AI 해석</div>
         <div className="card-subtitle">체크 결과를 저장하고, AI로 강점·개선 영역과 실행 전략을 받아보세요. (학급 정보만 사용 · 비식별)</div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12, flexWrap: 'wrap' }}>
-          <button className="btn btn-pri" onClick={onSave} disabled={busy}>{busy ? '저장 중…' : '💾 체크리스트 저장'}</button>
+          <button
+            className={'btn ' + (ckDirty ? 'btn-pri' : 'btn-ghost')}
+            onClick={onSave}
+            disabled={busy || !ckDirty}
+            title={ckDirty ? '지금 바로 저장' : '변경 내용이 모두 자동 저장되었습니다'}
+          >
+            {busy ? '저장 중…' : (ckDirty ? '💾 체크리스트 저장' : '✓ 저장됨')}
+          </button>
         </div>
         <div style={{ marginTop: 10 }}>
           <AIActionBar prompt={buildPrompt()} onCallAI={runAI} busy={aiBusy} callLabel="✨ AI 해석 받기" />

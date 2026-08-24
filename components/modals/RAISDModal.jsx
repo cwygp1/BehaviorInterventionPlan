@@ -3,6 +3,7 @@ import Modal from '../ui/Modal';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { saveRAISD } from '../../lib/api/students';
+import { useAutoSaveBody } from '../../lib/hooks/useAutoSave';
 // 2026-08: 두 번째 선호도 평가 도구(강화제 체크리스트) 추가 — 같은 모달의 탭으로 제공한다.
 import { RC_CATEGORIES, RC_WORK_ACTIVITIES, RC_SCALE, RC_SCALE_LABELS, RC_NA, RC_NA_LABEL, rcKey, rcTopPreferred } from '../../lib/reinforcerChecklist';
 
@@ -67,9 +68,12 @@ export default function RAISDModal({ open, onClose }) {
 
   const draftKey = curStuId ? `raisd_draft_${curStuId}` : null;
   const dirtyRef = useRef(false); // 사용자가 실제로 수정했을 때만 임시 저장.
+  const [rLoaded, setRLoaded] = useState(false); // 자동 저장 무장 시점
 
+  // ⚠ deps에 curStuData를 두면 자동 저장의 캐시 갱신마다 재실행되어
+  //   작성 중인 응답이 되돌아간다 — open 시점(및 학생 변경 시)에만 로드.
   useEffect(() => {
-    if (!open) return;
+    if (!open) { setRLoaded(false); return; }
     const saved = curStuData?.raisd || {};
     let resp = { ...(saved.responses || {}) };
     // 순위·금지/허용은 responses JSONB 안의 _meta 키에 함께 저장한다.
@@ -103,7 +107,16 @@ export default function RAISDModal({ open, onClose }) {
     setTab('raisd');
     setSec({ qs: true, rank: false, limits: false });
     dirtyRef.current = false;
-  }, [open, curStuData]); // eslint-disable-line react-hooks/exhaustive-deps
+    setRLoaded(true);
+  }, [open, curStuId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 자동 저장(0824) — 입력이 멎으면 서버에 저장. 모달을 그냥 닫아도 유실 없음.
+  // (localStorage 임시 저장은 네트워크 실패 대비 이중 안전망으로 유지)
+  const { dirty: raisdDirty } = useAutoSaveBody({
+    enabled: open && rLoaded && !!curStuId,
+    body: { responses, ranking, banned, unlimited, checklist },
+    save: saveCore,
+  });
 
   // 임시 저장 — 사용자가 수정한 뒤부터 localStorage에 초안 보관 (모달 닫힘·이탈 대비).
   useEffect(() => {
@@ -151,16 +164,22 @@ export default function RAISDModal({ open, onClose }) {
     });
   }
 
+  // 실제 저장(공통) — 자동 저장은 조용히 호출, 수동 [저장]은 토스트+닫기까지.
+  // (함수 선언 호이스팅으로 위 useAutoSaveBody에서 참조 가능)
+  async function saveCore() {
+    const data = await saveRAISD(curStuId, {
+      responses: { ...responses, _meta: { ranking, banned, unlimited, checklist } },
+    });
+    updateStudentData(curStuId, (cur) => ({ ...cur, raisd: data.data }));
+    if (draftKey) { try { localStorage.removeItem(draftKey); } catch (_) { /* ignore */ } }
+    dirtyRef.current = false;
+  }
+
   async function onSave() {
     if (!curStuId) return;
     setBusy(true);
     try {
-      const data = await saveRAISD(curStuId, {
-        responses: { ...responses, _meta: { ranking, banned, unlimited, checklist } },
-      });
-      updateStudentData(curStuId, (cur) => ({ ...cur, raisd: data.data }));
-      if (draftKey) { try { localStorage.removeItem(draftKey); } catch (_) { /* ignore */ } }
-      dirtyRef.current = false;
+      await saveCore();
       toast('선호/강화물 저장 완료');
       onClose();
     } catch (e) {
@@ -215,7 +234,7 @@ export default function RAISDModal({ open, onClose }) {
     <Modal open={open} onClose={onClose} maxWidth={980}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
         <h3 style={{ margin: 0 }}>💡 선호/강화물 탐색 (RAISD)</h3>
-        <button className="btn btn-pri btn-sm" onClick={onSave} disabled={busy}>💾 저장</button>
+        <button className={'btn btn-sm ' + (raisdDirty ? 'btn-pri' : 'btn-ghost')} onClick={onSave} disabled={busy || !raisdDirty}>{raisdDirty ? '💾 저장' : '✓ 저장됨'}</button>
       </div>
       {/* 2026-08: 두 가지 평가 도구를 탭으로 — ① 구조화 면담(RAISD) ② 항목별 선호도 평정(강화제 체크리스트) */}
       <div style={{ display: 'flex', gap: 6, margin: '10px 0 12px', flexWrap: 'wrap' }}>
@@ -349,8 +368,15 @@ export default function RAISDModal({ open, onClose }) {
       )}
 
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-        <button className="btn btn-ghost" onClick={onClose}>취소</button>
-        <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 저장</button>
+        <button className="btn btn-ghost" onClick={onClose}>닫기</button>
+        <button
+          className={'btn ' + (raisdDirty ? 'btn-pri' : 'btn-ghost')}
+          onClick={onSave}
+          disabled={busy || !raisdDirty}
+          title={raisdDirty ? '지금 바로 저장하고 닫기' : '변경 내용이 모두 자동 저장되었습니다'}
+        >
+          {busy ? '저장 중…' : (raisdDirty ? '💾 저장' : '✓ 저장됨')}
+        </button>
       </div>
     </Modal>
   );

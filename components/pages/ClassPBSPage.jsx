@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchClassPBS, saveClassPBS, fetchClassChecklist } from '../../lib/api/students';
 import useFormLoad, { FormLoading } from '../../lib/hooks/useFormLoad';
+import { useAutoSaveBody } from '../../lib/hooks/useAutoSave';
 import { CWPBS_ITEMS, SOLVE_ITEMS } from '../../lib/classChecklist';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -92,14 +93,25 @@ export default function ClassPBSPage() {
     return parts.join('\n');
   }
 
+  // 자동 저장(0824) — 로드 시점 값을 기준으로, 달라지면 입력이 멎은 뒤 저장.
+  const { dirty: pbsDirty } = useAutoSaveBody({
+    enabled: loaded && !!curClassId,
+    body: { goal, target_points: +target, current_points: +current, rewards },
+    save: saveCore,
+  });
+
+  async function saveCore() {
+    await saveClassPBS({
+      class_id: curClassId, semester: curSemester,
+      goal, target_points: +target, current_points: +current, rewards,
+    });
+  }
+
   async function onSave() {
     if (!curClassId) { toast('먼저 학급을 선택해주세요.'); return; }
     setBusy(true);
     try {
-      await saveClassPBS({
-        class_id: curClassId, semester: curSemester,
-        goal, target_points: +target, current_points: +current, rewards,
-      });
+      await saveCore();
       toast('학급 PBS 상태 저장 완료');
     } catch (e) { toast('저장 실패: ' + e.message); }
     finally { setBusy(false); }
@@ -358,7 +370,14 @@ ${question}
         <button className="btn btn-ghost btn-sm" onClick={addReward} style={{ marginTop: 12 }}>+ 보상 추가</button>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-          <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 학급 PBS 저장</button>
+          <button
+            className={'btn ' + (pbsDirty ? 'btn-pri' : 'btn-ghost')}
+            onClick={onSave}
+            disabled={busy || !pbsDirty}
+            title={pbsDirty ? '지금 바로 저장' : '변경 내용이 모두 자동 저장되었습니다'}
+          >
+            {pbsDirty ? '💾 학급 PBS 저장' : '✓ 저장됨'}
+          </button>
         </div>
       </div>
 

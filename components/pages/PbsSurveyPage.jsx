@@ -5,6 +5,7 @@ import { useLLM } from '../../contexts/LLMContext';
 import { fetchPbsSurvey, savePbsSurvey } from '../../lib/api/students';
 import PromptResultBlock from '../modals/PromptResultBlock';
 import useFormLoad, { FormLoading } from '../../lib/hooks/useFormLoad';
+import { useAutoSaveBody } from '../../lib/hooks/useAutoSave';
 import {
   PBS_BEHAVIORS, PBS_INTENSITY, PBS_INTERVENTIONS, PBS_AWARENESS, PBS_EFFECT_AREAS,
   PBS_DIFFICULTIES, PBS_PLACES, PBS_TIMES, PBS_EXPECTED, emptyPbsSurvey,
@@ -160,6 +161,13 @@ export default function PbsSurveyPage() {
     keys.forEach((k, i) => { q2[k] = { ...q2[k], rank: next[i] }; });
     patch({ q2 });
   };
+
+  // 자동 저장(0824) — 응답이 로드 시점과 달라지면 입력이 멎은 뒤 저장.
+  const { dirty: surveyDirty } = useAutoSaveBody({
+    enabled: loaded && !!curClassId,
+    body: r,
+    save: () => savePbsSurvey({ class_id: curClassId, semester: curSemester, responses: r }),
+  });
 
   async function onSave() {
     if (!curClassId) { toast('먼저 학급을 선택해주세요.'); return; }
@@ -424,7 +432,14 @@ export default function PbsSurveyPage() {
       <div className="card" data-tour="ps-save">
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <button className="btn btn-ok" onClick={onAISummary} disabled={aiBusy}>{aiBusy ? '⏳ 분석 중…' : '✨ AI 실행계획 요약'}</button>
-          <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 설문 저장</button>
+          <button
+            className={'btn ' + (surveyDirty ? 'btn-pri' : 'btn-ghost')}
+            onClick={onSave}
+            disabled={busy || !surveyDirty}
+            title={surveyDirty ? '지금 바로 저장' : '변경 내용이 모두 자동 저장되었습니다'}
+          >
+            {surveyDirty ? '💾 설문 저장' : '✓ 저장됨'}
+          </button>
         </div>
         {(aiOut || aiBusy) && <div style={{ marginTop: 12 }}><PromptResultBlock output={aiOut} busy={aiBusy} /></div>}
       </div>

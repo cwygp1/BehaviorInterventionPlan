@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Modal from '../ui/Modal';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
@@ -7,20 +7,15 @@ import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { fetchIEP, saveIEPGoal } from '../../lib/api/students';
 import { downloadNiceIepDocx } from '../../lib/utils/niceIepDocx';
+import { buildNeisGoalText, buildNeisAllText, copyToClipboard } from '../../lib/utils/neisCopy';
+import useAutoSave from '../../lib/hooks/useAutoSave';
+import { parseLooseJSON } from '../../lib/utils/looseJson';
 import { findHanja } from '../../lib/utils/aiText';
 import ExternalAIModal from '../ui/ExternalAIModal';
 
 const GRADE = { 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
 
-// 모델이 살짝 깨진 JSON(스마트 따옴표, 후행 콤마 등)을 내도 1차 실패 시 보정 후 재시도.
-function parseLooseJSON(raw) {
-  try { return JSON.parse(raw); } catch (_) { /* 보정 시도 */ }
-  let s = String(raw)
-    .replace(/[“”]/g, '"')   // 스마트 큰따옴표
-    .replace(/[‘’]/g, "'")   // 스마트 작은따옴표
-    .replace(/,\s*([}\]])/g, '$1');     // 후행 콤마 제거
-  return JSON.parse(s);
-}
+// JSON 파싱은 공용 강건 파서 사용(lib/utils/looseJson.js — jsonrepair 기반, 0824).
 
 export default function IepReportPage() {
   const { curStu, curStuId, curStuData, ensureStudentData } = useStudents();
@@ -45,11 +40,32 @@ export default function IepReportPage() {
   const [promptText, setPromptText] = useState('');
   const [pasteText, setPasteText] = useState('');
 
+  // 목표별 저장 기준값 — { goalId: 직렬화된 저장 body }. 로드/저장 시 갱신.
+  const savedMapRef = useRef({});
+
   useEffect(() => {
-    if (!curStuId) { setGoals([]); return; }
+    if (!curStuId) { setGoals([]); savedMapRef.current = {}; return; }
     setLoading(true);
-    fetchIEP(curStuId).then((d) => setGoals(d.goals || [])).catch(() => toast('IEP 목표를 불러오지 못했습니다.')).finally(() => setLoading(false));
+    fetchIEP(curStuId).then((d) => {
+      const list0 = d.goals || [];
+      setGoals(list0);
+      savedMapRef.current = Object.fromEntries(list0.map((g) => [g.id, JSON.stringify(goalBody(g))]));
+    }).catch(() => toast('IEP 목표를 불러오지 못했습니다.')).finally(() => setLoading(false));
   }, [curStuId, toast]);
+
+  // 자동 저장(0824) — 편집으로 기준값과 달라진 목표만 골라 순서대로 저장.
+  // AI 종합/평가계획 채우기 결과도 화면에 뜬 그대로 저장된다(항상 재편집 가능).
+  const dirtyIds = goals.filter((g) => {
+    const base = savedMapRef.current[g.id];
+    return base !== undefined && JSON.stringify(goalBody(g)) !== base;
+  }).map((g) => g.id);
+  useAutoSave({
+    enabled: !!curStuId && !loading && goals.length > 0,
+    dirty: dirtyIds.length > 0,
+    signal: JSON.stringify(goals),
+    delay: 2500,
+    save: autoSaveDirtyGoals,
+  });
 
   if (!curStu) return (<><StuHero /><NoStudentHint /></>);
 
@@ -67,17 +83,36 @@ export default function IepReportPage() {
     }));
   }
 
+  // 저장 body 단일 출처 — 수동 저장·자동 저장·기준값 비교가 모두 이걸 쓴다.
+  // (함수 선언 호이스팅으로 위 useAutoSave/effect에서도 참조 가능)
+  function goalBody(g) {
+    return {
+      id: g.id, school_year: g.school_year, subject: g.subject, grade_code: g.grade_code, area: g.area,
+      standard_code: g.standard_code, standard_text: g.standard_text, semester: g.semester,
+      semester_goal: g.semester_goal, plop: g.plop, crit_type: g.crit_type, crit_start: g.crit_start, crit_end: g.crit_end,
+      support_tier: g.support_tier, eval_foci: g.eval_foci || [], task_steps: g.task_steps || [],
+      chain_type: g.chain_type, prompt_system: g.prompt_system,
+      monthly: g.monthly || [], semestral_eval: g.semestral_eval,
+    };
+  }
+
+  async function autoSaveDirtyGoals() {
+    for (const g of goals) {
+      const body = goalBody(g);
+      const json = JSON.stringify(body);
+      const base = savedMapRef.current[g.id];
+      if (base === undefined || json === base) continue;
+      await saveIEPGoal(curStuId, body);
+      savedMapRef.current[g.id] = json;
+    }
+  }
+
   async function saveGoal(g) {
     setSavingId(g.id);
     try {
-      await saveIEPGoal(curStuId, {
-        id: g.id, school_year: g.school_year, subject: g.subject, grade_code: g.grade_code, area: g.area,
-        standard_code: g.standard_code, standard_text: g.standard_text, semester: g.semester,
-        semester_goal: g.semester_goal, plop: g.plop, crit_type: g.crit_type, crit_start: g.crit_start, crit_end: g.crit_end,
-        support_tier: g.support_tier, eval_foci: g.eval_foci || [], task_steps: g.task_steps || [],
-        chain_type: g.chain_type, prompt_system: g.prompt_system,
-        monthly: g.monthly || [], semestral_eval: g.semestral_eval,
-      });
+      const body = goalBody(g);
+      await saveIEPGoal(curStuId, body);
+      savedMapRef.current[g.id] = JSON.stringify(body);
       toast('저장 완료');
     } catch (e) { toast('저장 실패: ' + e.message); } finally { setSavingId(null); }
   }
@@ -181,6 +216,16 @@ export default function IepReportPage() {
     catch (e) { toast('JSON 파싱 실패: ' + e.message); }
   }
 
+  // NEIS 복사(0824 퀵윈⑤) — Word 다운로드보다 잦은 "복사 → NEIS 붙여넣기" 동선을 원클릭으로.
+  async function onNeisCopy(g) {
+    const text = g ? buildNeisGoalText(g) : buildNeisAllText(list);
+    if (!text.trim()) { toast('복사할 내용이 없습니다.'); return; }
+    const ok = await copyToClipboard(text);
+    toast(ok
+      ? (g ? `'${g.subject}' NEIS용 텍스트를 복사했어요 — NEIS에 붙여넣으세요.` : `${list.length}개 영역의 NEIS용 텍스트를 복사했어요.`)
+      : '복사 권한이 없어요 — 화면의 내용을 직접 선택해 복사해 주세요.');
+  }
+
   function onWord() {
     if (!list.length) { toast('출력할 목표가 없습니다.'); return; }
     downloadNiceIepDocx({
@@ -209,6 +254,7 @@ export default function IepReportPage() {
             <select className="form-input" style={{ width: 'auto' }} value={sem} onChange={(e) => setSem(e.target.value)}>
               <option value="">전체 학기</option><option value="1">1학기</option><option value="2">2학기</option>
             </select>
+            <button className="btn btn-ghost" onClick={() => onNeisCopy(null)} title="화면의 모든 영역을 NEIS 붙여넣기용 일반 텍스트로 복사">📋 NEIS용 전체 복사</button>
             <button className="btn btn-ok" onClick={onWord}>📄 나이스 양식 Word(.docx)</button>
           </div>
         </div>
@@ -234,7 +280,15 @@ export default function IepReportPage() {
               <button className="btn btn-ghost btn-sm" onClick={() => aiSynth(g)} disabled={synthId === g.id}>{synthId === g.id ? 'AI 종합 중…' : '✨ AI 종합 (월별→학기)'}</button>
               {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
               <button className="btn btn-ghost btn-sm" onClick={() => openManual(g)} title="외부 AI(클로드 등)로 학기 종합">🌐 외부AI 종합</button> */}
-              <button className="btn btn-pri btn-sm" onClick={() => saveGoal(g)} disabled={savingId === g.id}>{savingId === g.id ? '저장 중…' : '💾 저장'}</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => onNeisCopy(g)} title="이 영역을 NEIS 붙여넣기용 일반 텍스트로 복사">📋 NEIS 복사</button>
+              <button
+                className={'btn btn-sm ' + (dirtyIds.includes(g.id) ? 'btn-pri' : 'btn-ghost')}
+                onClick={() => saveGoal(g)}
+                disabled={savingId === g.id || !dirtyIds.includes(g.id)}
+                title={dirtyIds.includes(g.id) ? '지금 바로 저장' : '변경 내용이 모두 자동 저장되었습니다'}
+              >
+                {savingId === g.id ? '저장 중…' : (dirtyIds.includes(g.id) ? '💾 저장' : '✓ 저장됨')}
+              </button>
             </div>
           </div>
 

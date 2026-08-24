@@ -130,6 +130,29 @@ export default function MonitorPage({ onNavigate }) {
     setDate(new Date().toISOString().slice(0, 10));
   }
 
+  // 0824 퀵윈⑦: 매일 반복 입력 단축 — 최근 기록 값으로 폼을 채우되
+  // 날짜는 오늘, 새 기록으로 저장(수정 아님). 수치만 고치고 Enter로 끝.
+  function prefillFromLatest() {
+    const r = monRecords[0];
+    if (!r) { toast('아직 저장된 기록이 없어요. 첫 기록은 직접 입력해 주세요.'); return; }
+    setEditingId(null); // 새 기록으로
+    setDate(new Date().toISOString().slice(0, 10));
+    setBeh(r.beh || '');
+    setFreq(r.freq ?? 0); setDur(r.dur ?? 0); setIntensity(r.int ?? 1);
+    setAlt(r.alt || 'N'); setAltFreq(r.alt_freq ?? 0); setLat(r.lat ?? 0); setDbr(r.dbr ?? 5);
+    setPhase(r.phase || 'A');
+    toast(`최근 기록(${r.date})과 같게 채웠어요 — 오늘 수치만 고치고 저장(Enter)하세요.`);
+  }
+
+  // Enter로 저장 — 폼 카드 안 어디서든(텍스트영역·셀렉트 제외) Enter 한 번이면 저장.
+  function onFormKeyDown(e) {
+    if (e.key !== 'Enter' || busy) return;
+    const tag = (e.target.tagName || '').toUpperCase();
+    if (tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
+    e.preventDefault();
+    onSaveMon();
+  }
+
   async function onDeleteMon(id) {
     try {
       await apiDelMon(curStuId, id);
@@ -244,11 +267,17 @@ ${bText}
       </div>
       <ObservationPeriodModal open={periodModalOpen} onClose={() => setPeriodModalOpen(false)} />
 
-      <div className="card" id="mon-form">
-        <div className="card-title">📝 일일 행동 데이터 기록
-          {editingId && <span className="badge badge-purple" style={{ marginLeft: 8 }}>수정 중 · {date}</span>}
+      <div className="card" id="mon-form" onKeyDown={onFormKeyDown}>
+        <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          📝 일일 행동 데이터 기록
+          {editingId && <span className="badge badge-purple">수정 중 · {date}</span>}
+          {!editingId && monRecords.length > 0 && (
+            <button className="btn btn-ghost btn-sm" onClick={prefillFromLatest} title="최근 기록의 값으로 채우고 날짜만 오늘로 — 수치만 고쳐 저장하세요">
+              ↻ 최근 기록과 같게
+            </button>
+          )}
         </div>
-        <div className="card-subtitle">CICO (Check-In/Check-Out) — 매일 행동 데이터를 기록합니다. <strong>기록 날짜</strong>는 행동을 관찰한 그 날짜로 적으세요(작성일과 달라도 됩니다).</div>
+        <div className="card-subtitle">CICO (Check-In/Check-Out) — 매일 행동 데이터를 기록합니다. <strong>기록 날짜</strong>는 행동을 관찰한 그 날짜로 적으세요(작성일과 달라도 됩니다). 숫자 칸에서 <strong>Enter</strong>를 누르면 바로 저장돼요.</div>
         <div className="form-group">
           <label className="form-label">기록 날짜 (행동을 관찰한 날)</label>
           <input type="date" className="form-input" value={date} onChange={(e) => setDate(e.target.value)} />

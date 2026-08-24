@@ -1,5 +1,6 @@
 import LLMIndicator from './LLMIndicator';
 import HelpMenu from '../guide/HelpMenu';
+import SaveBadge from '../ui/SaveBadge';
 import { useStudents } from '../../contexts/StudentContext';
 import { SECTIONS, PAGE_SECTION } from '../../lib/tiers';
 
@@ -86,6 +87,7 @@ export default function Topbar({ activePage, onNavigate, canGoBack, onBack, onMe
         )}
       </div>
       <div className="topbar-right">
+        <SaveBadge />
         <HelpMenu />
         <LLMIndicator onClick={onOpenLLMSettings} />
         <div className="stu-bar" data-tour="stu-bar">
