@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLLM } from '../../contexts/LLMContext';
+import { useToast } from '../../contexts/ToastContext';
 import { useUIActions } from '../../contexts/UIActionsContext';
+import { useGuide } from '../guide/GuideContext';
 import { SECTIONS } from '../../lib/tiers';
 import { computeNextStep } from '../../lib/nextStep';
 
@@ -9,9 +12,52 @@ import { computeNextStep } from '../../lib/nextStep';
 // 그 영역의 대시보드로 들어가고, 사이드바에는 그 영역 메뉴만 남는다.
 export default function PortalHome({ onNavigate }) {
   const { user } = useAuth();
-  const { students, tier2Groups, homeSummary, curClass, curSemester } = useStudents();
+  const {
+    students, studentsLoaded, tier2Groups, homeSummary, curClass, curSemester,
+    hasSamples, seedSamples, clearSamples, selectStudent,
+  } = useStudents();
   const { status: llmStatus } = useLLM();
+  const toast = useToast();
   const { openAddStudent, openAISettings, openManageClasses } = useUIActions();
+  const { startTour } = useGuide();
+  const [sampleBusy, setSampleBusy] = useState(false);
+
+  // 샘플 체험 시작 — 시드 후 첫 샘플 학생을 선택하고 Tier 3 대시보드로 이동해
+  // '채워진 화면'(관찰→기능평가→BIP→데이터→평가)을 바로 보여준다.
+  // 처음이면 그 화면 투어도 자동으로 시작(0824 온보딩 후속) — 본 적 있으면 건너뜀.
+  async function onStartSample() {
+    if (sampleBusy) return;
+    setSampleBusy(true);
+    try {
+      const first = await seedSamples();
+      toast('샘플 학생 2명과 4주치 기록을 만들었어요. 화면 곳곳을 눌러보세요!');
+      if (first) {
+        await selectStudent(first.id);
+        onNavigate('dash3');
+        setTimeout(() => {
+          try { if (!localStorage.getItem('kb_tour_done:dash3')) startTour('dash3'); } catch (_e) { /* 사생활 모드 등 */ }
+        }, 900); // 화면이 그려진 뒤 스포트라이트가 요소를 찾을 수 있게 잠시 대기
+      }
+    } catch (e) {
+      toast('샘플 만들기 실패: ' + e.message);
+    } finally {
+      setSampleBusy(false);
+    }
+  }
+
+  async function onClearSample() {
+    if (sampleBusy) return;
+    if (!window.confirm('샘플 학생 2명과 그 기록을 모두 삭제할까요?\n(선생님이 직접 등록한 학생은 그대로 남아요.)')) return;
+    setSampleBusy(true);
+    try {
+      await clearSamples();
+      toast('샘플을 정리했어요. 이제 내 학생으로 시작해보세요!');
+    } catch (e) {
+      toast('샘플 삭제 실패: ' + e.message);
+    } finally {
+      setSampleBusy(false);
+    }
+  }
 
   const today = new Date();
   const wd = ['일', '월', '화', '수', '목', '금', '토'][today.getDay()];
@@ -64,15 +110,39 @@ export default function PortalHome({ onNavigate }) {
         </div>
       )}
 
-      {students.length === 0 && (
+      {studentsLoaded && students.length === 0 && (
         <div className="card" style={{ borderColor: 'var(--pri-l)', background: 'linear-gradient(135deg,#fff 0%,var(--pri-soft) 100%)', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 220 }}>
             <div className="card-title" style={{ marginBottom: 4 }}>🚀 시작하기</div>
-            <div className="card-subtitle" style={{ marginBottom: 0 }}>학생을 추가하면 모든 영역이 살아나요. 이름 없이 학생 코드로 등록합니다.{!aiOn && ' AI를 연결하면 초안 작성도 도와드려요.'}</div>
+            <div className="card-subtitle" style={{ marginBottom: 0 }}>
+              처음이라면 <b>샘플로 체험</b>을 눌러보세요 — 학생 2명과 4주치 기록이 채워진 화면을 바로 볼 수 있어요.
+              내 학생은 이름 없이 학생 코드로 등록합니다.{!aiOn && ' AI를 연결하면 초안 작성도 도와드려요.'}
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-pri" onClick={openAddStudent}>＋ 학생 추가</button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn btn-pri" onClick={onStartSample} disabled={sampleBusy}>
+              {sampleBusy ? '만드는 중…' : '🧪 샘플로 체험'}
+            </button>
+            <button className="btn btn-ghost" onClick={openAddStudent}>＋ 내 학생 등록</button>
             {!aiOn && <button className="btn btn-ghost" onClick={openAISettings}>🤖 AI 연결</button>}
+          </div>
+        </div>
+      )}
+
+      {hasSamples && (
+        <div className="card" style={{ borderColor: '#f5c26b', background: 'linear-gradient(135deg,#fff 0%,#fdf6e9 100%)', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div className="card-title" style={{ marginBottom: 4 }}>🧪 샘플 체험 중이에요</div>
+            <div className="card-subtitle" style={{ marginBottom: 0 }}>
+              '샘플A(관심 기능)'와 '샘플B(회피 기능)'로 관찰→기능평가→BIP→데이터→평가 흐름을 둘러보세요.
+              체험이 끝나면 샘플을 삭제하고 내 학생으로 시작하면 돼요.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn btn-pri" onClick={openAddStudent}>＋ 내 학생 등록</button>
+            <button className="btn btn-ghost" onClick={onClearSample} disabled={sampleBusy} style={{ color: '#c0392b' }}>
+              {sampleBusy ? '정리 중…' : '🗑 샘플 삭제'}
+            </button>
           </div>
         </div>
       )}
@@ -100,6 +170,13 @@ export default function PortalHome({ onNavigate }) {
       </div>
 
       <div className="pquick" data-tour="pquick">
+        {/* 샘플 체험 상시 진입점 — 학생이 이미 있어도 체험할 수 있게 빠른 메뉴에 둔다.
+            체험 중에는 위 '샘플 체험 중' 배너가 담당하므로 숨긴다. */}
+        {studentsLoaded && !hasSamples && (
+          <button onClick={onStartSample} disabled={sampleBusy}>
+            {sampleBusy ? '⏳ 샘플 만드는 중…' : '🧪 샘플로 체험'}
+          </button>
+        )}
         <button onClick={() => onNavigate('students')}>🧑‍🎓 학생 관리</button>
         <button onClick={() => onNavigate('crisis')}>🚨 위기행동 대처</button>
         <button onClick={() => onNavigate('support')}>📚 교사 지원</button>

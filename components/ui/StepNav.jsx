@@ -27,8 +27,23 @@ const FLOWS = {
  * 단계 흐름(Tier3 개별 중재 / IEP 작성)에서 이전/다음 단계로 이동하는 하단 내비게이션.
  * 학생이 선택된 단계 페이지에서만 표시된다.
  */
+// Tier 3 흐름의 각 단계에 실제 데이터가 있는지 판정한다 — 위치가 아니라
+// 데이터 기준으로 ✓를 표시해, 스테퍼가 '진행 상황 안내판' 역할을 하게 한다(0824 온보딩).
+function tier3DoneMap(d) {
+  if (!d) return {};
+  const bipFilled = d.bip && ['alt', 'fct', 'crit', 'prev', 'teach', 'reinf', 'resp'].some((k) => (d.bip[k] || '').trim());
+  return {
+    observe: (d.abc || []).length > 0,
+    qabf: (d.qabf || []).some((v) => v >= 0),
+    bip: !!bipFilled,
+    monitor: (d.mon || []).length > 0,
+    // 평가는 중재(B) 데이터가 있어야 기초선과 비교할 수 있다.
+    eval: (d.mon || []).some((m) => m.phase === 'B'),
+  };
+}
+
 export default function StepNav({ cur, onNavigate, flow = 'tier3' }) {
-  const { curStuId } = useStudents();
+  const { curStuId, curStuData } = useStudents();
   if (!curStuId) return null;
 
   const { steps, aria } = FLOWS[flow] || FLOWS.tier3;
@@ -39,19 +54,23 @@ export default function StepNav({ cur, onNavigate, flow = 'tier3' }) {
   const next = idx < steps.length - 1 ? steps[idx + 1] : null;
   const labelOf = (s) => s.label + (s.optional ? ' (선택)' : '');
 
+  // tier3 흐름은 데이터 기준 ✓, 그 외(IEP)는 종전대로 위치 기준.
+  const doneMap = flow === 'tier3' ? tier3DoneMap(curStuData) : null;
+  const isDone = (s, i) => (doneMap ? !!doneMap[s.id] : i < idx);
+
   return (
     <>
-      {/* 전체 단계를 한눈에 — 어느 단계든 눌러서 바로 이동 */}
+      {/* 전체 단계를 한눈에 — 어느 단계든 눌러서 바로 이동. ✓는 실제 기록이 있는 단계 */}
       <div className="stepnav-progress" role="navigation" aria-label={aria}>
         {steps.map((s, i) => (
           <button
             key={s.id}
-            className={'stepnav-pill' + (i === idx ? ' cur' : '') + (i < idx ? ' done' : '')}
+            className={'stepnav-pill' + (i === idx ? ' cur' : '') + (isDone(s, i) ? ' done' : '')}
             onClick={() => onNavigate(s.id)}
-            title={`${i + 1}. ${labelOf(s)}`}
+            title={`${i + 1}. ${labelOf(s)}` + (isDone(s, i) ? ' — 기록 있음' : '')}
             aria-current={i === idx ? 'step' : undefined}
           >
-            <span className="pnum" aria-hidden="true">{i < idx ? '✓' : i + 1}</span>
+            <span className="pnum" aria-hidden="true">{isDone(s, i) ? '✓' : i + 1}</span>
             <span className="plabel">{labelOf(s)}</span>
           </button>
         ))}

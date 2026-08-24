@@ -91,6 +91,7 @@ export default function StudentsPage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       {code}
+                      {s.is_sample && <span className="badge" style={{ background: '#fdf6e9', color: '#b9770e', border: '1px solid #f5c26b' }}>🧪 샘플</span>}
                       {tierBadge(s.id)}
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>

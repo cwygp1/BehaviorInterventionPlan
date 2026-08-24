@@ -6,6 +6,8 @@ import {
   createStudent as apiCreateStudent,
   updateStudent as apiUpdateStudent,
   deleteStudent as apiDeleteStudent,
+  seedSampleStudents as apiSeedSamples,
+  clearSampleStudents as apiClearSamples,
 } from '../lib/api/students';
 import {
   fetchClasses,
@@ -39,6 +41,7 @@ const DEFAULT_SEMESTER = (new Date().getMonth() + 1) >= 3 && (new Date().getMont
 export function StudentProvider({ children }) {
   const { user } = useAuth();
   const [allStudents, setAllStudents] = useState([]); // every student for the user
+  const [studentsLoaded, setStudentsLoaded] = useState(false); // 학생 목록을 서버에서 받아왔는가(빈 화면 깜빡임 방지)
   const [classes, setClasses] = useState([]);         // every class for the user
   const [classesLoaded, setClassesLoaded] = useState(false); // 서버에서 학급 목록을 받아왔는가
   const [curYear, setCurYear] = useState(DEFAULT_YEAR);
@@ -55,6 +58,7 @@ export function StudentProvider({ children }) {
   useEffect(() => {
     if (!user) {
       setAllStudents([]);
+      setStudentsLoaded(false);
       setClasses([]);
       setClassesLoaded(false);
       setCurYear(DEFAULT_YEAR);
@@ -73,6 +77,7 @@ export function StudentProvider({ children }) {
       const data = await fetchStudents();
       const list = (data.students || []).map((s) => ({ ...s, code: s.student_code }));
       setAllStudents(list);
+      setStudentsLoaded(true); // 이후에만 '학생 0명' 빈 화면을 판단(로딩 중 깜빡임 방지)
       return list;
     } catch (_e) {
       return [];
@@ -343,6 +348,24 @@ export function StudentProvider({ children }) {
     return data.student;
   }, [reloadStudents]);
 
+  // 샘플 체험 — 현재 학급에 샘플 학생 2명 + 4주치 기록을 시드한다.
+  // 성공 시 첫 샘플 학생을 반환해 호출부(홈)가 바로 선택+이동할 수 있게 한다.
+  const seedSamples = useCallback(async () => {
+    if (!curClassId) throw new Error('학급을 먼저 만들어주세요.');
+    const data = await apiSeedSamples(curClassId);
+    await Promise.all([reloadStudents(), reloadHomeSummary()]);
+    return (data.students || [])[0] || null;
+  }, [curClassId, reloadStudents, reloadHomeSummary]);
+
+  // 샘플 일괄 삭제 — 샘플 학생과 그 기록(CASCADE)을 정리한다.
+  const clearSamples = useCallback(async () => {
+    const sampleIds = allStudents.filter((s) => s.is_sample).map((s) => s.id);
+    await apiClearSamples();
+    if (sampleIds.includes(curStuId)) setCurStuId(null);
+    sampleIds.forEach((id) => invalidateStudent(id));
+    await Promise.all([reloadStudents(), reloadHomeSummary(), reloadTier2Groups()]);
+  }, [allStudents, curStuId, invalidateStudent, reloadStudents, reloadHomeSummary, reloadTier2Groups]);
+
   // 학생 삭제 — DB의 ON DELETE CASCADE로 관찰·BIP·IEP 등 관련 기록이 함께 삭제된다.
   const removeStudent = useCallback(async (id) => {
     await apiDeleteStudent(id);
@@ -350,6 +373,9 @@ export function StudentProvider({ children }) {
     invalidateStudent(id);
     await Promise.all([reloadStudents(), reloadClasses(), reloadHomeSummary(), reloadTier2Groups()]);
   }, [curStuId, invalidateStudent, reloadStudents, reloadClasses, reloadHomeSummary, reloadTier2Groups]);
+
+  // 샘플 체험 중인가 — 홈 배너·학생 목록 배지가 사용한다.
+  const hasSamples = useMemo(() => allStudents.some((s) => s.is_sample), [allStudents]);
 
   const curStu = allStudents.find((s) => s.id === curStuId) || null;
   const curStuData = curStuId ? studentDataCache[curStuId] : null;
@@ -412,6 +438,7 @@ export function StudentProvider({ children }) {
         studentTier,
         // students
         allStudents,
+        studentsLoaded,
         students,
         curStu,
         curStuId,
@@ -423,6 +450,10 @@ export function StudentProvider({ children }) {
         addStudent,
         editStudent,
         removeStudent,
+        // 샘플 체험
+        hasSamples,
+        seedSamples,
+        clearSamples,
         reloadStudents,
         reloadHomeSummary,
         ensureStudentData,
