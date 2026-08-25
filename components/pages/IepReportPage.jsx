@@ -213,7 +213,7 @@ export default function IepReportPage() {
     const m = (pasteText || '').match(/\{[\s\S]*\}/);
     if (!m) { toast('붙여넣은 내용에서 JSON을 찾지 못했어요.'); return; }
     try { applySynth(manualGoalId, parseLooseJSON(m[0])); toast('적용했어요. 확인 후 저장하세요.', 'success'); setManualGoalId(null); }
-    catch (e) { toast('JSON 파싱 실패: ' + e.message); }
+    catch (e) { toast('AI 응답을 읽지 못했어요: ' + e.message); }
   }
 
   // NEIS 복사(0824 퀵윈⑤) — Word 다운로드보다 잦은 "복사 → NEIS 붙여넣기" 동선을 원클릭으로.
@@ -353,7 +353,7 @@ export default function IepReportPage() {
             if (!n) { toast('평가계획을 찾지 못했어요.'); return false; }
             toast(`빈 평가계획 ${n}개 구간을 채웠어요. 확인 후 저장하세요.`, 'success');
             return true;
-          } catch (e) { toast('JSON 파싱 실패: ' + e.message); return false; }
+          } catch (e) { toast('AI 응답을 읽지 못했어요: ' + e.message); return false; }
         }}
       />
 

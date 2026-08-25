@@ -163,7 +163,7 @@ export default function ObservePage({ onNavigate }) {
       setQcPaste(''); setQcPasteOpen(false); setQuickText('');
       toast('응답을 적용했어요. 확인 후 저장하세요.', 'success');
     } catch (e) {
-      toast('JSON 파싱 실패: ' + e.message, 'error');
+      toast('AI 응답을 읽지 못했어요: ' + e.message, 'error');
     }
   }
 

@@ -123,13 +123,13 @@ export default function PriorIepPage({ onNavigate }) {
       const m = (out || '').match(/\[[\s\S]*\]/);
       if (!m) { toast(r.finish_reason === 'length' ? 'AI 응답이 잘렸어요. max_tokens를 늘려보세요.' : '목표 목록을 찾지 못했어요.'); return; }
       const arr = JSON.parse(m[0]);
-      if (!Array.isArray(arr) || !arr.length) { toast('파싱된 목표가 없습니다.'); return; }
+      if (!Array.isArray(arr) || !arr.length) { toast('읽어 온 목표가 없습니다.'); return; }
       const n = await saveParsedGoals(arr);
       setImpText(''); setImpImages([]);
       toast(`${year}학년도 IEP에서 ${n}개 목표를 불러왔어요.`);
       markSaved(); hintNextStep('startpoint'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
       reload();
-    } catch (e) { toast('파싱 실패: ' + e.message + (impImages.length ? ' (이미지 분석은 비전 모델 필요)' : '')); }
+    } catch (e) { toast('읽기 실패: ' + e.message + (impImages.length ? ' (이미지 분석은 비전 모델 필요)' : '')); }
     finally { setImpBusy(false); }
   }
 
@@ -139,7 +139,7 @@ export default function PriorIepPage({ onNavigate }) {
 
       <div className="card" data-tour="pi-year">
         <div className="card-title">🗓 전년도 IEP 관리</div>
-        <div className="card-subtitle">과거 학년도의 IEP를 업로드 파싱하거나 직접 입력·수정합니다. 올해 IEP 목표 생성 시 이 자료를 근거로 활용합니다.</div>
+        <div className="card-subtitle">과거 학년도의 IEP를 업로드해 읽어 오거나 직접 입력·수정합니다. 올해 IEP 목표 생성 시 이 자료를 근거로 활용합니다.</div>
         <div className="form-row">
           <div className="form-group">
             <label className="form-label">학년도</label>
@@ -154,7 +154,7 @@ export default function PriorIepPage({ onNavigate }) {
 
       {/* 업로드 파싱 */}
       <div className="card" data-tour="pi-upload">
-        <div className="card-title">📥 파일 업로드 → AI 파싱</div>
+        <div className="card-title">📥 파일 업로드 → AI로 읽어 오기</div>
         <div className="card-subtitle">.pdf · .docx · 이미지 · .txt 지원. 스캔본/이미지는 AI 비전이 읽습니다.{!aiOn && ' (AI 연결 필요)'} 위에서 고른 {year}학년도로 저장됩니다.</div>
         <div className="form-row" style={{ alignItems: 'flex-end' }}>
           <div className="form-group"><label className="form-label">파일</label><input type="file" accept=".txt,.pdf,.docx,image/*" onChange={onImportFile} disabled={!!impMsg || !aiOn} /></div>
@@ -163,7 +163,7 @@ export default function PriorIepPage({ onNavigate }) {
         {impMsg && <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#6b7280', fontSize: 12.5 }}><span style={spinner} /> {impMsg}</div>}
         {impImages.length > 0 && <div style={{ fontSize: 12.5, color: '#15a36e', fontWeight: 600 }}>🖼 이미지 {impImages.length}장 첨부됨 <button className="btn btn-ghost btn-sm" onClick={() => setImpImages([])}>비우기</button></div>}
         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <button className="btn btn-pri" onClick={parseImport} disabled={impBusy || !!impMsg || !aiOn}>{impBusy ? 'AI 파싱 중…' : `✨ ${year}학년도로 파싱해 추가`}</button>
+          <button className="btn btn-pri" onClick={parseImport} disabled={impBusy || !!impMsg || !aiOn}>{impBusy ? 'AI가 읽는 중…' : `✨ ${year}학년도로 읽어 추가`}</button>
           {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
           <button className="btn btn-ghost" onClick={() => { if (!impText.trim()) { toast('외부AI 파싱은 텍스트만 지원해요. 문서 내용을 붙여넣어 주세요.'); return; } setExtOpen(true); }}
             title="프롬프트를 복사해 클로드·ChatGPT 등에서 실행 후 응답(JSON 배열)을 붙여넣기">🌐 외부AI 파싱</button> */}
@@ -173,15 +173,15 @@ export default function PriorIepPage({ onNavigate }) {
         <ExternalAIModal
           open={extOpen}
           onClose={() => setExtOpen(false)}
-          title="🌐 외부 AI — 전년도 IEP 파싱"
+          title="🌐 외부 AI — 전년도 IEP 읽어 오기"
           buildPrompt={async () => ('다음은 학생의 전년도 IEP 문서 텍스트다. ' + PARSE_INSTR + '\n\n[문서]\n' + impText.slice(0, 12000))}
           placeholder='[{"subject":"국어", ...}] 형태의 JSON 배열을 붙여넣으세요.'
           onApply={(raw) => {
             const m = (raw || '').match(/\[[\s\S]*\]/);
             if (!m) { toast('붙여넣은 내용에서 JSON 배열을 찾지 못했어요.'); return false; }
             let arr;
-            try { arr = JSON.parse(m[0]); } catch (e) { toast('JSON 파싱 실패: ' + e.message); return false; }
-            if (!Array.isArray(arr) || !arr.length) { toast('파싱된 목표가 없습니다.'); return false; }
+            try { arr = JSON.parse(m[0]); } catch (e) { toast('AI 응답을 읽지 못했어요: ' + e.message); return false; }
+            if (!Array.isArray(arr) || !arr.length) { toast('읽어 온 목표가 없습니다.'); return false; }
             saveParsedGoals(arr).then((n) => {
               setImpText(''); setImpImages([]);
               toast(`${year}학년도 IEP에서 ${n}개 목표를 불러왔어요.`);
@@ -221,7 +221,7 @@ export default function PriorIepPage({ onNavigate }) {
       <div className="card" data-tour="pi-list">
         <div className="card-title">📋 {year}학년도 IEP 목록 ({yearGoals.length})</div>
         {loading && <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 2px', color: '#6b7280' }}><span style={spinner} /> 불러오는 중…</div>}
-        {!loading && yearGoals.length === 0 && <div className="empty-state">{year}학년도에 저장된 IEP가 없습니다. 위에서 업로드 파싱하거나 직접 입력하세요.</div>}
+        {!loading && yearGoals.length === 0 && <div className="empty-state">{year}학년도에 저장된 IEP가 없습니다. 위에서 업로드해 읽어 오거나 직접 입력하세요.</div>}
         {!loading && yearGoals.map((g) => (
           <div key={g.id} style={{ border: '1px solid ' + (editingId === g.id ? '#7c4dff' : '#e3e6eb'), background: editingId === g.id ? '#f5f0ff' : '#fff', borderRadius: 9, padding: '10px 12px', marginTop: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>

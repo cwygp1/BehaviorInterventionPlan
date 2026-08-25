@@ -375,8 +375,8 @@ export default function IepPage({ onNavigate }) {
       const j = parseLooseJSON(m[0]);
       return j;
     } catch (e) {
-      pushLog('error', label, 'JSON 파싱 실패 · ' + meta, m[0]);
-      throw new Error('JSON 파싱 실패: ' + e.message);
+      pushLog('error', label, 'AI 응답 읽기 실패 · ' + meta, m[0]);
+      throw new Error('AI 응답을 읽지 못했어요: ' + e.message);
     }
   }
 
@@ -1677,10 +1677,10 @@ export default function IepPage({ onNavigate }) {
       applyGen(j);
       const echoes = findExampleEchoes(j);
       if (echoes.length) toast(`적용했어요. 예시 자료와 겹치는 표현이 ${echoes.length}곳 있어요(예: "${echoes[0]}") — 다른 표현으로 다듬어 주세요.`);
-      else toast('응답을 파싱해 적용했어요.');
+      else toast('응답을 읽어 적용했어요.');
       setManualOpen(false);
     }
-    catch (e) { toast('JSON 파싱 실패: ' + e.message); }
+    catch (e) { toast('AI 응답을 읽지 못했어요: ' + e.message); }
   }
 
 
