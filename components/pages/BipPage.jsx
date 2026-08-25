@@ -14,7 +14,6 @@ import { saveBIP as apiSaveBIP } from '../../lib/api/students';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import { skillsForQabf } from '../../lib/functionSkills';
 import AssessmentLauncher from '../student/AssessmentLauncher';
-import { printBehaviorContract } from '../../lib/utils/printContract';
 import { printBIP } from '../../lib/utils/printBIP';
 
 // LLM 응답에서 JSON 오브젝트를 관대하게 추출.
@@ -58,7 +57,7 @@ const PREV_CHIPS = ['시각적 일과표 제공', '선택권 2~3가지 제공', 
 const TEACH_CHIPS = ['FCT 직접 교수', '모델링 후 역할극', '사회적 이야기(Carol Gray)', '비디오 모델링', '자기관리 훈련', '또래 매개 중재(PMI)', '과제 분석 단계별', '점진적 촉진 줄이기'];
 const REINF_CHIPS = ['차별강화 DRA(대체행동)', '차별강화 DRO(부재 강화)', '토큰 경제', '즉각 칭찬 + 스티커', '활동 강화(선호 활동)', '4:1 긍정:재지도 비율', '자연 강화 활용'];
 const RESP_CHIPS = ['계획적 무시 10초', '대체행동 즉각 촉진', '안전 거리 확보', '심리안정실 이동', '위기관리팀 호출', '보호자 연락', '그라운딩 5-4-3-2-1', '신체적 개입(최후 수단)'];
-const REWARD_CHIPS = ['스티커 5개당 작은 선물', '특별 활동 시간', '선택 시간', '또래 칭찬 카드', '보호자 칭찬 통신문', '자리 선택권'];
+// 0825 동료 피드백: 행동 계약서는 Tier 2 수준 중재(CICO·집단강화·행동계약) — Tier2Page로 이동.
 
 export default function BipPage({ onNavigate }) {
   const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData } = useStudents();
@@ -85,12 +84,6 @@ export default function BipPage({ onNavigate }) {
   // 0819 피드백: 저장 성공 후 "다음 단계(행동 데이터)로 이동" 배너 — 내용을 다시 수정하면 숨김.
   const [savedOk, markSaved] = useSavedFlag([alt, fct, crit, prev, teach, reinf, resp, bgoal, bgoalDest, hypothesis]);
   const [bgoalBusy, setBgoalBusy] = useState(false);
-
-  const [conStu, setConStu] = useState('');
-  const [conCrit, setConCrit] = useState('');
-  const [conTch, setConTch] = useState('');
-  const [conStart, setConStart] = useState('');
-  const [conEnd, setConEnd] = useState('');
 
   const [busy, setBusy] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -201,13 +194,6 @@ export default function BipPage({ onNavigate }) {
     catch (_) { toast('복사가 막혔어요. 직접 선택해 복사하세요.'); }
   }
 
-  function copyBIPToContract() {
-    if (!alt && !crit) { toast('BIP 칸을 먼저 작성해주세요.'); return; }
-    if (alt) setConStu(alt);
-    if (crit) setConCrit(crit);
-    toast('BIP 데이터로 채웠습니다.');
-  }
-
   function onPrintBIP() {
     if (!alt && !prev && !teach && !reinf && !resp) {
       toast('BIP 내용을 먼저 작성해주세요.');
@@ -221,15 +207,6 @@ export default function BipPage({ onNavigate }) {
       teacherName: user?.name,
       school: user?.school,
       bip: { alt, fct, crit, prev, teach, reinf, resp },
-    });
-  }
-
-  function onPrint() {
-    if (!conStu.trim()) { toast('학생의 약속을 입력해주세요.'); return; }
-    printBehaviorContract({
-      studentId: curStu.code,
-      teacherName: user?.name || '',
-      stu: conStu, crit: conCrit, tch: conTch, d1: conStart, d2: conEnd,
     });
   }
 
@@ -440,34 +417,7 @@ export default function BipPage({ onNavigate }) {
         </div>
       </div>
 
-      <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <div className="card-title" style={{ marginBottom: 0 }} data-tour="bip-contract">✍ 행동 계약서</div>
-          <button className="btn btn-ghost btn-sm" onClick={copyBIPToContract}>📋 BIP에서 가져오기</button>
-        </div>
-        <div className="form-group">
-          <label className="form-label">나(학생)의 약속</label>
-          <input className="form-input" value={conStu} onChange={(e) => setConStu(e.target.value)} placeholder="목표 행동" />
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">성공 기준</label>
-            <input className="form-input" value={conCrit} onChange={(e) => setConCrit(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">선생님의 약속 (보상)</label>
-            <EditableChipGroup storageKey="bip_reward" defaults={REWARD_CHIPS} onPick={makeAppender(conTch, setConTch, true)} />
-            <input className="form-input" value={conTch} onChange={(e) => setConTch(e.target.value)} />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">계약 시작일</label><input type="date" className="form-input" value={conStart} onChange={(e) => setConStart(e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">계약 종료일</label><input type="date" className="form-input" value={conEnd} onChange={(e) => setConEnd(e.target.value)} /></div>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
-          <button className="btn btn-ok" onClick={onPrint}>🖨 계약서 인쇄/저장</button>
-        </div>
-      </div>
+      {/* ✍ 행동 계약서는 Tier 2(소그룹 지원) 화면으로 이동 (0825 동료 피드백) */}
 
       {/* 가정 연계 통신문 — 별도의 카드로 격상 */}
       <div className="card" style={{ background: 'linear-gradient(135deg, #f0fbf4 0%, #e7f7ee 100%)', borderColor: '#9be0b9' }}>

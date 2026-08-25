@@ -2,14 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 import StuHero from '../student/StuHero';
 import Tier2GroupPanel from '../student/Tier2GroupPanel';
 import { useStudents } from '../../contexts/StudentContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { saveCICO, deleteCICO } from '../../lib/api/students';
 import { useAutoSaveBody } from '../../lib/hooks/useAutoSave';
 import { printDPRCard } from '../../lib/utils/printDPR';
-import { EditableChipGroup } from '../ui/QChip';
+import { printBehaviorContract } from '../../lib/utils/printContract';
+import { EditableChipGroup, makeAppender } from '../ui/QChip';
 import AIActionBar from '../ui/AIActionBar';
 import PromptResultBlock from '../modals/PromptResultBlock';
+
+// 0825 동료 피드백: 행동 계약서는 Tier 2 수준 중재(CICO·집단강화·행동계약) — BIP 화면에서 이동.
+const REWARD_CHIPS = ['스티커 5개당 작은 선물', '특별 활동 시간', '선택 시간', '또래 칭찬 카드', '보호자 칭찬 통신문', '자리 선택권'];
 
 const PRESETS = {
   '초등 (7교시 + 종례)': ['1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '종례'],
@@ -44,6 +49,14 @@ function readPeriodData(scores, periodName) {
 
 export default function Tier2Page({ onNavigate }) {
   const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData, curClassId, tier2Groups } = useStudents();
+  const { user } = useAuth();
+
+  // ✍ 행동 계약서 (0825: BIP 화면에서 이동) — 인쇄 전용, 저장하지 않는다.
+  const [conStu, setConStu] = useState('');
+  const [conCrit, setConCrit] = useState('');
+  const [conTch, setConTch] = useState('');
+  const [conStart, setConStart] = useState('');
+  const [conEnd, setConEnd] = useState('');
   const toast = useToast();
   const { call, status: llmStatus } = useLLM();
 
@@ -282,6 +295,27 @@ ${lines || '  (기록 없음)'}
     } finally {
       setAiBusy(false);
     }
+  }
+
+  // 행동 계약서: 오늘 목표(goals)나 BIP 작성분이 있으면 약속 칸을 채워준다.
+  function fillContract() {
+    const bip = curStuData?.bip || {};
+    const fromGoals = goals.filter(Boolean).join(', ');
+    const stuPromise = String(bip.alt || fromGoals || '').trim();
+    const crit = String(bip.crit || '').trim();
+    if (!stuPromise && !crit) { toast('가져올 내용이 없어요 — CICO 목표나 중재계획(BIP)을 먼저 작성해주세요.'); return; }
+    if (stuPromise) setConStu(stuPromise);
+    if (crit) setConCrit(crit);
+    toast('목표·중재계획 내용으로 채웠습니다.');
+  }
+
+  function onPrintContract() {
+    if (!conStu.trim()) { toast('학생의 약속을 입력해주세요.'); return; }
+    printBehaviorContract({
+      studentId: curStu.code,
+      teacherName: user?.name || '',
+      stu: conStu, crit: conCrit, tch: conTch, d1: conStart, d2: conEnd,
+    });
   }
 
   // 최근 7"건" — 달력상 7일이 아니라 최근 기록 7개의 평균이다.
@@ -574,6 +608,39 @@ ${lines || '  (기록 없음)'}
         <div className="card-subtitle">선택된 학생({curStu.code})의 최근 CICO 기록을 요약하고 Tier 3 개별 중재 검토가 필요한지 표시합니다. (학생 코드만 사용 · 비식별)</div>
         <AIActionBar prompt={buildProgressPrompt()} onCallAI={runProgress} busy={aiBusy} callLabel="✨ AI 진전 요약" />
         {(aiOutput || aiBusy) && <PromptResultBlock prompt={buildProgressPrompt()} output={aiOutput} busy={aiBusy} onChange={setAiOutput} />}
+      </div>
+
+      {/* ✍ 행동 계약서 (0825: BIP 화면에서 이동 — 행동계약은 Tier 2 수준 중재) */}
+      <div className="card" data-tour="t2-contract">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <div className="card-title" style={{ marginBottom: 0 }}>✍ 행동 계약서</div>
+            <div className="card-subtitle">학생과 함께 목표 행동·보상을 약속하고 서명하는 문서를 인쇄합니다.</div>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={fillContract}>📋 목표·BIP에서 가져오기</button>
+        </div>
+        <div className="form-group">
+          <label className="form-label">나(학생)의 약속</label>
+          <input className="form-input" value={conStu} onChange={(e) => setConStu(e.target.value)} placeholder="목표 행동" />
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">성공 기준</label>
+            <input className="form-input" value={conCrit} onChange={(e) => setConCrit(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">선생님의 약속 (보상)</label>
+            <EditableChipGroup storageKey="bip_reward" defaults={REWARD_CHIPS} onPick={makeAppender(conTch, setConTch, true)} />
+            <input className="form-input" value={conTch} onChange={(e) => setConTch(e.target.value)} />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group"><label className="form-label">계약 시작일</label><input type="date" className="form-input" value={conStart} onChange={(e) => setConStart(e.target.value)} /></div>
+          <div className="form-group"><label className="form-label">계약 종료일</label><input type="date" className="form-input" value={conEnd} onChange={(e) => setConEnd(e.target.value)} /></div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+          <button className="btn btn-ok" onClick={onPrintContract}>🖨 계약서 인쇄/저장</button>
+        </div>
       </div>
       </>
       )}
