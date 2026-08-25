@@ -22,9 +22,9 @@ const SECTION_ITEMS = {
   t3: [
     { id: 'dash3', label: '대시보드', icon: '📊' },
     { id: 'tier3', label: '개요 / 8단계 안내', icon: '🎯' },
-    { id: 'observe', label: '학생 관찰 / ABC', icon: '🔍', requiresStudent: true, step: 1 },
+    { id: 'observe', label: '표적행동 · ABC 관찰', icon: '🔍', requiresStudent: true, step: 1 },
     { id: 'qabf', label: '기능평가 (QABF)', icon: '📊', requiresStudent: true, step: 2 },
-    { id: 'bip', label: '중재계획 (BIP)', icon: '📝', requiresStudent: true, step: 3 },
+    { id: 'bip', label: '가설 · 중재계획 (BIP)', icon: '📝', requiresStudent: true, step: 3 },
     { id: 'monitor', label: '행동 데이터', icon: '📈', requiresStudent: true, step: 4 },
     { id: 'eval', label: '결과 평가', icon: '✅', requiresStudent: true, step: 5 },
   ],

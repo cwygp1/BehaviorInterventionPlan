@@ -27,6 +27,30 @@ function looseJSON(raw) {
   }
 }
 
+// 목적격 조사 선택 — 마지막 한글의 받침으로 판단. 맞춤법상 괄호 병기 뒤 조사는
+// 괄호 앞 단어를 따르므로("감각 자극(자동강화)을") 끝의 괄호 묶음은 떼고 본다.
+// 한글을 못 찾으면(영문·숫자 등) 병기 "을(를)"로 안전하게.
+function objParticle(word) {
+  const s = String(word || '').replace(/\s*\([^()]*\)\s*$/, '');
+  for (let i = s.length - 1; i >= 0; i--) {
+    const code = s.charCodeAt(i);
+    if (code >= 0xac00 && code <= 0xd7a3) return (code - 0xac00) % 28 ? '을' : '를';
+    if (/[0-9A-Za-z]/.test(s[i])) break;
+  }
+  return '을(를)';
+}
+
+// 선행사건 → "~일 때" 절. ABC의 A는 "예고 없이 일과표 변경됨"처럼 명사절로 끝나는
+// 경우가 많아, 끝말에 맞춰 자연스럽게 접붙인다("변경됨일 때" 방지).
+function whenClause(ante) {
+  const a = String(ante || '').trim();
+  if (!a) return '[선행사건]일 때';
+  if (/때$/.test(a)) return a;                    // 이미 "~할 때" 형태
+  if (/됨$/.test(a)) return a.replace(/됨$/, '될 때');
+  if (/함$/.test(a)) return a.replace(/함$/, '할 때');
+  return a + '일 때';
+}
+
 const ALT_CHIPS = ['쉬어 카드 들기', '"도와주세요" 카드', '심호흡 3회', '감각 도구 요청', '휴식 신호', '대안 활동 선택'];
 const FCT_CHIPS = ['"도와주세요" 카드', '"쉬고 싶어요" 카드', '"이해 안 돼요" 카드', '"그만" 카드', 'PECS 그림 카드', 'AAC 음성 출력'];
 const CRIT_CHIPS = ['하루 3회 미만', '주 5회 이상', '2주 연속', '한 달 연속', '80% 이상', '강도 2 이하'];
@@ -43,7 +67,9 @@ export default function BipPage({ onNavigate }) {
   const { callDetailed, status: llmStatus } = useLLM();
   const aiOn = llmStatus !== 'off';
 
-  const [opdef, setOpdef] = useState(''); // 0719: 표적행동(문제행동) 조작적 정의 — ABC 다음 단계
+  // 0825(동료 피드백): 조작적 정의(opdef)는 학생 관찰 화면으로 이동 — 여기서는
+  // 읽기 전용 참고로만 쓴다(가설·행동목표 생성의 재료). 저장도 관찰 화면이 담당.
+  const opdef = String(curStuData?.bip?.opdef || '');
   const [hypothesis, setHypothesis] = useState(''); // 0822: 행동기능 가설문(워크플로 ⑤단계)
   const [alt, setAlt] = useState('');
   const [fct, setFct] = useState('');
@@ -57,8 +83,7 @@ export default function BipPage({ onNavigate }) {
   // 'iep'(개별화 목표로 가져감) | 'subject'(교과 목표에 녹임) | ''(미선택).
   const [bgoalDest, setBgoalDest] = useState('');
   // 0819 피드백: 저장 성공 후 "다음 단계(행동 데이터)로 이동" 배너 — 내용을 다시 수정하면 숨김.
-  const [savedOk, markSaved] = useSavedFlag([alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoalDest, hypothesis]);
-  const [opdefBusy, setOpdefBusy] = useState(false);
+  const [savedOk, markSaved] = useSavedFlag([alt, fct, crit, prev, teach, reinf, resp, bgoal, bgoalDest, hypothesis]);
   const [bgoalBusy, setBgoalBusy] = useState(false);
 
   const [conStu, setConStu] = useState('');
@@ -78,14 +103,15 @@ export default function BipPage({ onNavigate }) {
     const b = curStuData?.bip || {};
     setAlt(b.alt || ''); setFct(b.fct || ''); setCrit(b.crit || '');
     setPrev(b.prev || ''); setTeach(b.teach || ''); setReinf(b.reinf || ''); setResp(b.resp || '');
-    setOpdef(b.opdef || ''); setBgoal(b.bgoal || ''); setBgoalDest(b.bgoal_dest || '');
+    setBgoal(b.bgoal || ''); setBgoalDest(b.bgoal_dest || '');
     setHypothesis(b.hypothesis || '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [curStuId, curStuDataLoaded]);
 
   // 자동 저장(0824 퀵윈①) — 입력이 서버값과 다르면 타이핑이 멎은 뒤 저장.
   // 텍스트 위주 페이지라 디바운스를 2초로 넉넉히. 상태는 상단바 SaveBadge에 표시.
-  const bipBody = { alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest: bgoalDest, hypothesis };
+  // opdef는 관찰 화면 소유(0825) — 이 화면의 저장 본문에서 제외(부분 업데이트라 기존 값 유지).
+  const bipBody = { alt, fct, crit, prev, teach, reinf, resp, bgoal, bgoal_dest: bgoalDest, hypothesis };
   const savedBip = curStuData?.bip || {};
   const bipDirty = Object.entries(bipBody).some(([k, v]) => String(v || '') !== String(savedBip[k] || ''));
   useAutoSave({
@@ -103,7 +129,7 @@ export default function BipPage({ onNavigate }) {
   // 실제 저장(공통) — 자동 저장은 조용히 호출, 수동 [저장]은 토스트·다음단계 안내까지.
   // (함수 선언 호이스팅으로 위 useAutoSave에서 참조 가능)
   async function saveCore() {
-    const body = { alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest: bgoalDest, hypothesis };
+    const body = { alt, fct, crit, prev, teach, reinf, resp, bgoal, bgoal_dest: bgoalDest, hypothesis };
     await apiSaveBIP(curStuId, body);
     // 캐시는 병합으로 갱신 — interview(초기면담지)처럼 이 화면이 다루지 않는 필드를 지우지 않는다.
     updateStudentData(curStuId, (cur) => ({ ...cur, bip: { ...(cur.bip || {}), ...body } }));
@@ -125,42 +151,20 @@ export default function BipPage({ onNavigate }) {
 
   // 0822: 행동기능 가설문 규칙 초안 — QABF 최다 기능 + 최근 ABC로 양식을 채운다(AI 불필요).
   // 양식(동료 제공): "[선행사건]일 때, 학생은 [행동]을 하며, 이는 [기능]을 얻기 위한 것이다."
+  // 0825: 단순 이어붙이기라 "변경됨일 때"·"시작을(를) 하며"처럼 어색하던 것 개선 —
+  //   받침에 따라 을/를을 고르고, 선행사건 끝말("~됨/~함/~때")에 맞춰 "일 때"를 접붙인다.
   function draftHypothesis() {
     const abc0 = (curStuData?.abc || [])[0] || {};
     const beh = String(opdef || abc0.b || '').trim() || '[행동]';
-    const ante = String(abc0.a || '').trim() || '[선행사건]';
+    const ante = String(abc0.a || '').trim();
     const rec = skillsForQabf(curStuData?.qabf);
     const FUNC_TEXT = {
       관심: '타인의 관심', 회피: '선호하지 않는 요구·상황으로부터의 도피·회피',
       '자동·감각': '감각 자극(자동강화)', 신체: '신체적 불편의 표현·완화', 강화물: '원하는 물건·활동',
     };
     const fn = rec?.qabfLabel ? (FUNC_TEXT[rec.qabfLabel] || rec.qabfLabel) : '[기능]';
-    setHypothesis(`${ante}일 때, 학생은 ${beh}을(를) 하며, 이는 ${fn}을(를) 얻기 위한 것이다.`);
-    toast('ABC·QABF에서 가설문 초안을 채웠어요 — [ ] 부분을 학생에 맞게 다듬어 주세요.');
-  }
-
-  // 0719: ABC 누적 기록으로 표적행동 조작적 정의 초안 생성.
-  async function aiOpdef() {
-    if (!aiOn) { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
-    const abcs = (curStuData?.abc || []).slice(0, 12);
-    if (!abcs.length) { toast('ABC 관찰 기록이 없어요. 학생 관찰/ABC에서 먼저 기록하세요.'); return; }
-    setOpdefBusy(true);
-    try {
-      const prompt =
-        '/no_think\n너는 특수교육 행동지원(PBS) 전문가다. 아래 ABC 관찰 기록을 바탕으로 표적행동(문제행동)의 "조작적 정의"를 작성하라.\n' +
-        '- 눈으로 보고 셀 수 있는 구체적 움직임으로("죽은 사람 검사" 통과), 시작·끝을 알 수 있게 1~2문장.\n' +
-        '- 추측·감정 표현(화가 나서, 반항적으로 등) 금지. 쉬운 우리말.\n' +
-        (opdef.trim() ? `- 교사가 쓴 초안을 다듬어라: "${opdef.trim()}"\n` : '') +
-        '[ABC 기록]\n' + abcs.map((r) => `- A: ${r.a} / B: ${r.b} / C: ${r.c}`).join('\n') + '\n' +
-        '반드시 JSON만 출력: {"opdef":"..."}';
-      const r = await callDetailed(prompt, { temperature: 0.3, tier: 'fast', label: '조작적 정의 생성' });
-      const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
-      const j = looseJSON(out);
-      if (!String(j.opdef || '').trim()) throw new Error('정의를 받지 못했어요.');
-      setOpdef(String(j.opdef).trim());
-      toast('조작적 정의 초안을 만들었어요. 다듬은 뒤 저장하세요.');
-    } catch (e) { toast('생성 실패: ' + e.message); }
-    finally { setOpdefBusy(false); }
+    setHypothesis(`${whenClause(ante)}, 학생은 ${beh}${objParticle(beh)} 하며, 이는 ${fn}${objParticle(fn)} 얻기 위한 것이다.`);
+    toast('ABC·QABF에서 가설문 초안을 채웠어요 — 문장을 학생에 맞게 다듬어 주세요.');
   }
 
   // 0719: 선택한 키워드·작성 내용(조작적 정의+대체행동+중재전략)으로 메이거식 행동목표 생성.
@@ -235,28 +239,30 @@ export default function BipPage({ onNavigate }) {
       {/* 0821: BIP는 선호/강화물·표적행동 우선순위를 재료로 쓴다 — 여기서 바로 작성·수정 */}
       <AssessmentLauncher compact />
 
-      {/* 0719 피드백: ABC → ① 조작적 정의 → ② 중재계획 → ③ 행동목표 순서를 화면에 드러냄 */}
+      {/* 0825 피드백: 표적행동 선정·조작적 정의는 관찰 화면으로 이동 — 이 화면은 가설부터 시작 */}
       <div className="card" style={{ background: 'var(--pri-soft)', borderColor: 'var(--pri-l)', fontSize: '.84rem', lineHeight: 1.6 }} data-tour="bip-order">
-        🧭 <strong>작성 순서</strong> — ABC 관찰 뒤 ① <strong>표적행동 조작적 정의</strong>를 쓰고, ② 대체행동·중재 전략(BIP)을 세운 다음, ③ <strong>행동목표(메이거식)</strong>를 만들어 마무리합니다. 행동목표는 IEP의 개별화 학기목표로도 쓸 수 있어요.
+        🧭 <strong>작성 순서</strong> — 관찰 화면에서 표적행동 정의·ABC 기록을 마친 뒤, ① <strong>행동기능 가설</strong>을 세우고, ② 대체행동·중재 전략(BIP)을 정한 다음, ③ <strong>행동목표(메이거식)</strong>를 만들어 마무리합니다. 행동목표는 IEP의 개별화 학기목표로도 쓸 수 있어요.
       </div>
 
-      <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <div>
-            <div className="card-title" style={{ marginBottom: 0 }} data-tour="bip-opdef">🪄 ① 표적행동(문제행동) 조작적 정의</div>
-            <div className="card-subtitle">ABC 기록을 근거로, 눈으로 보고 셀 수 있는 구체적 행동으로 정의합니다.</div>
+      {/* 관찰 화면에서 작성한 조작적 정의를 참고로 보여준다(가설의 [행동] 재료). */}
+      <div className="card" style={{ fontSize: '.85rem', lineHeight: 1.6 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <strong>🪄 표적행동 조작적 정의</strong>{' '}
+            <span style={{ fontSize: '.76rem', color: 'var(--muted)' }}>— 학생 관찰 화면에서 작성해요</span>
+            <div style={{ marginTop: 4, color: opdef.trim() ? 'var(--text)' : 'var(--muted)' }}>
+              {opdef.trim() || '아직 작성되지 않았어요. 관찰 화면에서 행동을 정의하면 여기 표시되고, 가설·행동목표 AI 초안의 재료로 쓰여요.'}
+            </div>
           </div>
-          {aiOn && <button className="btn btn-ghost btn-sm" onClick={aiOpdef} disabled={opdefBusy}>{opdefBusy ? '생성 중…' : '✨ ABC 기록으로 AI 초안'}</button>}
+          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('observe')}>🔍 관찰 화면에서 {opdef.trim() ? '수정' : '작성'} →</button>
         </div>
-        <textarea className="form-textarea" rows={2} value={opdef} onChange={(e) => setOpdef(e.target.value)}
-          placeholder='예: 과제를 제시받으면 3초 이내에 "싫어"라고 소리치며 책상 위 물건을 바닥으로 던진다.' />
       </div>
 
       {/* 0822 워크플로 개편 ⑤: 행동기능에 대한 가설 설정 — 가설문 양식 + 예시 + 규칙 초안 */}
       <div className="card" data-tour="bip-hypo" style={{ borderColor: '#c7d8f5' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div>
-            <div className="card-title" style={{ marginBottom: 0 }}>🧭 행동기능 가설 설정</div>
+            <div className="card-title" style={{ marginBottom: 0 }}>🧭 ① 행동기능 가설 설정</div>
             <div className="card-subtitle">ABC 분석과 기능평가(QABF)를 근거로, 행동이 <strong>왜</strong> 나타나는지 한 문장으로 가설을 세웁니다.</div>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={draftHypothesis}>↻ ABC·QABF에서 초안 채우기</button>
