@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useLLM } from '../../contexts/LLMContext';
 import { fetchClassChecklist, saveClassChecklist } from '../../lib/api/students';
+import PromptResultBlock from '../modals/PromptResultBlock';
+import AIActionBar from '../ui/AIActionBar';
 import useFormLoad, { FormLoading } from '../../lib/hooks/useFormLoad';
 import { useAutoSaveBody } from '../../lib/hooks/useAutoSave';
 import { FIDELITY_AREAS, FIDELITY_SCALE, emptyFidelity } from '../../lib/classChecklist';
@@ -12,9 +15,12 @@ import { FIDELITY_AREAS, FIDELITY_SCALE, emptyFidelity } from '../../lib/classCh
 export default function ClassFidelityPage() {
   const toast = useToast();
   const { curYear, curSemester, curClassId, curClass } = useStudents();
+  const { call, status: llmStatus } = useLLM();
 
   const [vals, setVals] = useState(emptyFidelity());
   const [busy, setBusy] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiOut, setAiOut] = useState('');
   // 저장값 로드 전에는 체크 UI를 띄우지 않는다 — 로드 중 찍은 응답 유실 방지.
   const { loaded, applyLoaded } = useFormLoad([curClassId, curSemester]);
 
@@ -53,6 +59,38 @@ export default function ClassFidelityPage() {
       toast('학급관리 실행충실도 2 저장 완료');
     } catch (e) { toast('저장 실패: ' + e.message); }
     finally { setBusy(false); }
+  }
+
+  // 실행충실도 1과 같은 패턴의 AI 해석 (0825 동료 피드백) — 낮은 영역 중심 실천 전략.
+  function buildPrompt() {
+    const lines = FIDELITY_AREAS.map((a, i) => {
+      const v = vals[i];
+      return `- ${a.name}: ${v >= 0 ? `${v}점 (${FIDELITY_SCALE[v]})` : '미응답'}`;
+    }).join('\n');
+    return `당신은 학급 차원 긍정적행동지원(CWPBS) 컨설턴트입니다. 교사의 보편적 지원 실행충실도 점검 결과를 해석하고 실천 전략을 제안하세요.
+
+## 학급 (비식별)
+- ${curYear}학년도 ${curSemester}학기 · ${curClass?.name || '-'}
+
+## 보편적 지원 실행충실도 점검지 (0~2점 × ${FIDELITY_AREAS.length}영역)
+- 총점: ${stats.score} / ${stats.max} (응답 ${stats.done}/${stats.total}영역)
+${lines}
+
+## 요청
+1) 잘 실행되는 영역(2점)과 우선 보완 영역(0~1점) 요약
+2) 0~1점 영역별로 한국 특수학급 현장에서 바로 실천할 수 있는 개선 전략 1~2가지 (기대행동 수립·교수·게시, 강화제, 학급 구조화(공간·시간·절차 지원), 행동 특정적 칭찬과 연결)
+3) 다음 4주 실행 계획 (주 단위)
+간결한 한국어로 작성.`;
+  }
+
+  async function runAI() {
+    if (llmStatus !== 'on') { toast('AI 연결을 먼저 설정해주세요.'); return; }
+    setAiBusy(true); setAiOut('');
+    try {
+      const out = await call(buildPrompt(), { tier: 'fast' });
+      setAiOut(out || '응답이 비어 있습니다.');
+    } catch (e) { toast('AI 해석 실패: ' + e.message); }
+    finally { setAiBusy(false); }
   }
 
   if (!curClassId) {
@@ -140,19 +178,29 @@ export default function ClassFidelityPage() {
         </div>
       ))}
 
-      <div className="card" style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '.74rem', color: 'var(--muted)', lineHeight: 1.5 }}>
-          출처: 최미진 (2023). 학급차원의 긍정적 행동지원 관련 전문성 개발 프로그램이 교사의 효능감과 학급관리실행에 미치는 영향.
-          이화여자대학교 박사학위 논문. 수정. · 참고: Jolstead et al. (2017), Nelson et al. (2018)
-        </span>
-        <button
-          className={'btn ' + (dirty ? 'btn-pri' : 'btn-ghost')}
-          onClick={onSave}
-          disabled={busy || !dirty}
-          title={dirty ? '지금 바로 저장' : '변경 내용이 모두 자동 저장되었습니다'}
-        >
-          {busy ? '저장 중…' : (dirty ? '💾 점검지 저장' : '✓ 저장됨')}
-        </button>
+      {/* 저장 + AI 해석 — 실행충실도 1과 같은 패턴 (0825 동료 피드백) */}
+      <div className="card">
+        <div className="card-title">💾 저장 · ✨ AI 해석</div>
+        <div className="card-subtitle">점검 결과를 저장하고, AI로 잘 되는 영역·보완 영역과 실행 전략을 받아보세요. (학급 정보만 사용 · 비식별)</div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12, flexWrap: 'wrap' }}>
+          <button
+            className={'btn ' + (dirty ? 'btn-pri' : 'btn-ghost')}
+            onClick={onSave}
+            disabled={busy || !dirty}
+            title={dirty ? '지금 바로 저장' : '변경 내용이 모두 자동 저장되었습니다'}
+          >
+            {busy ? '저장 중…' : (dirty ? '💾 점검지 저장' : '✓ 저장됨')}
+          </button>
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <AIActionBar prompt={buildPrompt()} onCallAI={runAI} busy={aiBusy} callLabel="✨ AI 해석 받기" />
+          {(aiOut || aiBusy) && <PromptResultBlock prompt={buildPrompt()} output={aiOut} busy={aiBusy} />}
+        </div>
+      </div>
+
+      <div className="card" style={{ fontSize: '.74rem', color: 'var(--muted)', lineHeight: 1.5 }}>
+        출처: 최미진 (2023). 학급차원의 긍정적 행동지원 관련 전문성 개발 프로그램이 교사의 효능감과 학급관리실행에 미치는 영향.
+        이화여자대학교 박사학위 논문. 수정. · 참고: Jolstead et al. (2017), Nelson et al. (2018)
       </div>
     </>
   );
