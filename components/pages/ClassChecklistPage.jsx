@@ -167,7 +167,7 @@ ${low(SOLVE_ITEMS, r.solve, 4)}
   if (!curClassId) {
     return (
       <div className="card">
-        <div className="card-title">✅ 학급관리 체크리스트</div>
+        <div className="card-title">✅ 학급관리 실행충실도 1</div>
         <p style={{ color: '#64748b' }}>먼저 상단에서 학급을 선택해주세요. 체크리스트는 <strong>반·학기 단위</strong>로 저장됩니다.</p>
       </div>
     );
@@ -180,7 +180,8 @@ ${low(SOLVE_ITEMS, r.solve, 4)}
   return (
     <>
       <div className="card" style={{ background: 'linear-gradient(135deg,#eef4ff 0%,#e6eeff 100%)', borderColor: '#b9cdf0' }} data-tour="cc-intro">
-        <div className="card-title" style={{ marginBottom: 4 }}>✅ 학급관리 체크리스트 (Tier 1 자가진단)</div>
+        {/* 0825 동료 피드백: 실행충실도 점검지(2)가 추가되며 명칭을 '실행충실도 1'로 변경 */}
+        <div className="card-title" style={{ marginBottom: 4 }}>✅ 학급관리 실행충실도 1 (Tier 1 자가진단)</div>
         <p style={{ fontSize: '.9rem', color: '#274690', margin: 0, lineHeight: 1.6 }}>
           교사의 <strong>학급관리 실행(CWPBS)</strong>과 <strong>학급 내 행동문제해결력</strong>을 스스로 점검하는 도구입니다.
           현재 <strong>{curYear}학년도 {curSemester}학기 · {curClass?.name || '학급'}</strong> 기준으로 저장됩니다.

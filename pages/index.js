@@ -28,6 +28,7 @@ import SupportPage from '../components/pages/SupportPage';
 import ClassPBSPage from '../components/pages/ClassPBSPage';
 import PbsSurveyPage from '../components/pages/PbsSurveyPage';
 import ClassChecklistPage from '../components/pages/ClassChecklistPage';
+import ClassFidelityPage from '../components/pages/ClassFidelityPage';
 import QAPage from '../components/pages/QAPage';
 import GeneratorPage from '../components/pages/GeneratorPage';
 import Tier2Page from '../components/pages/Tier2Page';
@@ -40,7 +41,7 @@ import StepNav from '../components/ui/StepNav';
 const VALID_PAGES = new Set([
   'home', 'dash1', 'dash2', 'dash3', 'dashIep', 'students', 'startpoint',
   'observe', 'qabf', 'bip', 'monitor', 'eval', 'iep', 'priorIep', 'iepReport',
-  'builder', 'crisis', 'support', 'classpbs', 'pbssurvey', 'classcheck',
+  'builder', 'crisis', 'support', 'classpbs', 'pbssurvey', 'classcheck', 'classcheck2',
   'tier2', 'tier3', 'videos', 'qa', 'generator',
 ]);
 
@@ -223,6 +224,7 @@ function PageRouter({ activePage, onNavigate }) {
     case 'classpbs': return <ClassPBSPage />;
     case 'pbssurvey': return <PbsSurveyPage />;
     case 'classcheck': return <ClassChecklistPage />;
+    case 'classcheck2': return <ClassFidelityPage />;
     case 'tier2': return <Tier2Page onNavigate={onNavigate} />;
     case 'tier3': return <Tier3Page onNavigate={onNavigate} />;
     case 'videos': return <VideoLecturesPage onNavigate={onNavigate} />;

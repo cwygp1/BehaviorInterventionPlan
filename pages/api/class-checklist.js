@@ -4,7 +4,9 @@ import { requireAuth } from '../../lib/auth';
 // 학급관리 체크리스트 (Tier 1) — 반·학기 단위 1행.
 //   GET  /api/class-checklist?class_id=ID&semester=1
 //   POST /api/class-checklist  body { class_id, semester, responses }
-//   responses(JSONB): { cwpbs: [0..3 ×10], solve: [0..4 ×30] } (-1 = 미응답)
+//   responses(JSONB): { cwpbs: [0..3 ×10], solve: [0..4 ×30], fidelity: [0..2 ×7] } (-1 = 미응답)
+// 0825: 저장은 키 단위 병합(||) — 실행충실도 1(cwpbs·solve)과 2(fidelity)가
+//   서로 다른 화면에서 같은 행을 나눠 쓰므로, 부분 저장이 상대 키를 지우지 않게.
 // 자가치유: 테이블이 없으면 생성(마이그레이션 전에도 동작).
 export default requireAuth(async function handler(req, res) {
   const userId = req.userId;
@@ -49,7 +51,7 @@ export default requireAuth(async function handler(req, res) {
         INSERT INTO class_mgmt_checklist (user_id, class_id, semester, responses, updated_at)
         VALUES (${userId}, ${classId}, ${sem}, ${json}::jsonb, NOW())
         ON CONFLICT (class_id, semester)
-        DO UPDATE SET responses = ${json}::jsonb, updated_at = NOW()
+        DO UPDATE SET responses = class_mgmt_checklist.responses || ${json}::jsonb, updated_at = NOW()
         RETURNING *
       `;
       return res.status(200).json({ data: r.rows[0] });
