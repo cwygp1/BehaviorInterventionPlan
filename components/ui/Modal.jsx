@@ -26,7 +26,15 @@ export default function Modal({ open, onClose, children, maxWidth }) {
     }
 
     document.addEventListener('keydown', onKey);
-    // 열릴 때 첫 입력 요소(없으면 닫기 버튼)로 포커스 이동.
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  // 열릴 때 첫 입력 요소(없으면 닫기 버튼)로 포커스 이동 — 반드시 open 전환 시 1회만.
+  // ⚠ 0825: deps에 onClose를 두면 부모가 인라인 함수를 넘길 때 리렌더마다(특히
+  //   자동 저장 → 학생 캐시 갱신 → 부모 리렌더) 재실행되어, 작성 중이던 입력칸에서
+  //   포커스가 첫 요소로 튀고 스크롤이 맨 위로 올라갔다("커서가 움직인다" 피드백).
+  useEffect(() => {
+    if (!open) return undefined;
     const t = setTimeout(() => {
       const box = boxRef.current;
       if (!box) return;
@@ -39,9 +47,8 @@ export default function Modal({ open, onClose, children, maxWidth }) {
       focusable?.focus?.({ preventScroll: true });
       box.scrollTop = 0; // 항상 맨 위에서 시작
     }, 40);
-
-    return () => { document.removeEventListener('keydown', onKey); clearTimeout(t); };
-  }, [open, onClose]);
+    return () => clearTimeout(t);
+  }, [open]);
 
   if (!open) return null;
   return (
