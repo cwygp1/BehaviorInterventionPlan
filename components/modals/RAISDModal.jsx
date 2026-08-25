@@ -193,10 +193,12 @@ export default function RAISDModal({ open, onClose }) {
   const rcTop = rcTopPreferred(checklist, 6);
 
   // 0719 피드백: 좌 '자극' / 우 '강화제' 묶음 표시용.
+  // 0825 피드백: 형식은 유지하되 원문 질문지 문장이 화면에 항상 보이게 — 툴팁만으로는
+  //   터치 기기에서 질문을 볼 수 없고, 종이 질문지와 대조할 때 "질문이 사라졌다"고 느꼈다.
   const renderCat = (cat, idx) => (
     <div key={cat.key} className="form-group" style={{ paddingBottom: 10, borderBottom: '1px dashed var(--border)', marginBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <label className="form-label" style={{ margin: 0 }} title={cat.question}>{idx + 1}. {cat.label}</label>
+        <label className="form-label" style={{ margin: 0 }}>{idx + 1}. {cat.label}</label>
         {/* 강도: 범주 제목 옆에 표기 (1 약함 ~ 5 매우 좋아함) */}
         <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }} title="이 범주를 좋아하는 정도 (1 약함 ~ 5 매우 좋아함)">
           <span style={{ fontSize: '.72rem', color: 'var(--muted)' }}>강도</span>
@@ -211,13 +213,13 @@ export default function RAISDModal({ open, onClose }) {
           ))}
         </span>
       </div>
+      <div style={{ fontSize: '.78rem', color: 'var(--sub)', lineHeight: 1.5, marginTop: 4 }}>{cat.question}</div>
       <input
         className="form-input"
         style={{ marginTop: 6 }}
         value={responses[cat.key]?.items || ''}
         onChange={(e) => update(cat.key, 'items', e.target.value)}
         placeholder={cat.ph}
-        title={cat.question}
       />
       <div style={{ fontSize: '.7rem', color: 'var(--muted)', marginTop: 2 }}>쉼표로 구분 · 항목별 강도는 괄호로 적어도 돼요: 거울(3), TV(5)</div>
       <input
