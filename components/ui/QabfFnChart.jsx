@@ -1,11 +1,19 @@
 import { useEffect, useRef } from 'react';
-import { QABF_SHORT_LABELS as FUNC_LABELS, qabfScores } from '../../lib/qabf';
+import { qabfScores } from '../../lib/qabf';
 
 // 공식 QABF 양식의 그래프 재현 — 5개 기능별 "기능(0~5)"과 "심각도(0~15)" 선 그래프.
 //  - 기능(function): 그 기능에서 0점 초과로 응답한 문항 수 (0~5)
 //  - 심각도(severity): 그 기능 문항 점수의 합 (0~15)
 // 0822(동료 피드백): 원문 엑셀 그래프처럼 곡선(tension)·면 채움 없이
 // 마커를 직선으로만 잇는 꺾은선(선형)으로 그린다.
+// 0825(동료 피드백): 원문 엑셀처럼 Y축 2개 — 왼쪽 기능(0~5)·오른쪽 기능/심각도(0~15),
+// 색상도 원문과 동일하게 기능=파랑, 기능/심각도=빨강. 눈금은 좌 1·우 3 간격으로
+// 격자선이 맞물리게 한다.
+// X축도 원문처럼 기능당 2칸(…기능 / …기능·심각도) 총 10칸 — 파란 점은 홀수째,
+// 빨간 점은 짝수째 칸에 찍고(spanGaps로 빈칸을 건너 이어 그림) 서로 엇갈리게 한다.
+
+// 원문 양식의 X축 표기(기능별 정식 이름).
+const FN_NAMES = ['관심습득', '회피', '자동·감각적', '신체적', '강화물습득'];
 
 let chartLib = null;
 async function loadChart() {
@@ -23,14 +31,19 @@ export default function QabfFnChart({ responses, label, height = 280 }) {
     loadChart().then((Chart) => {
       if (!alive || !ref.current) return;
       const { func, sev } = qabfScores(responses);
+      // 기능당 2칸: [관심습득기능, 관심습득\n기능/심각도, 회피기능, …] 총 10칸.
+      // 파란(기능) 점은 앞 칸, 빨간(심각도) 점은 뒤 칸에만 두고 나머지는 null.
+      const labels = FN_NAMES.flatMap((n) => [`${n} 기능`, [n, '기능/심각도']]);
+      const funcData = FN_NAMES.flatMap((_, i) => [func[i], null]);
+      const sevData = FN_NAMES.flatMap((_, i) => [null, sev[i]]);
       if (inst.current) inst.current.destroy();
       inst.current = new Chart(ref.current, {
         type: 'line',
         data: {
-          labels: FUNC_LABELS,
+          labels,
           datasets: [
-            { label: '심각도 (0~15)', data: sev, borderColor: '#4f6bed', pointRadius: 5, pointStyle: 'rect', pointBackgroundColor: '#4f6bed', tension: 0, fill: false, borderWidth: 2 },
-            { label: '기능 (0~5)', data: func, borderColor: '#f59f00', pointRadius: 5, pointStyle: 'circle', pointBackgroundColor: '#f59f00', tension: 0, borderDash: [6, 4], fill: false, borderWidth: 2 },
+            { label: '기능 (0~5)', data: funcData, yAxisID: 'yFunc', spanGaps: true, borderColor: '#0000ff', pointRadius: 5, pointStyle: 'circle', pointBackgroundColor: '#0000ff', tension: 0, fill: false, borderWidth: 2.5 },
+            { label: '기능/심각도 (0~15)', data: sevData, yAxisID: 'ySev', spanGaps: true, borderColor: '#ff0000', pointRadius: 5, pointStyle: 'circle', pointBackgroundColor: '#ff0000', tension: 0, fill: false, borderWidth: 2.5 },
           ],
         },
         options: {
@@ -38,7 +51,17 @@ export default function QabfFnChart({ responses, label, height = 280 }) {
           maintainAspectRatio: false,
           plugins: { legend: { position: 'bottom' }, title: { display: !!label, text: label } },
           scales: {
-            y: { beginAtZero: true, suggestedMax: 15, title: { display: true, text: '점수' }, ticks: { stepSize: 3 } },
+            yFunc: {
+              position: 'left', beginAtZero: true, min: 0, max: 5,
+              title: { display: true, text: '기능 (0~5)', color: '#0000ff' },
+              ticks: { stepSize: 1, color: '#0000ff' },
+            },
+            ySev: {
+              position: 'right', beginAtZero: true, min: 0, max: 15,
+              title: { display: true, text: '기능/심각도 (0~15)', color: '#ff0000' },
+              ticks: { stepSize: 3, color: '#ff0000' },
+              grid: { drawOnChartArea: false }, // 격자선은 왼쪽 축 기준만 — 겹침 방지(좌 1칸 = 우 3칸으로 맞물림)
+            },
             x: { title: { display: true, text: '행동 기능' } },
           },
         },
