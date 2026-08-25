@@ -94,17 +94,19 @@ export default function EditStudentModal({ open, onClose, student }) {
         </div>
         <div className="form-group">
           <label className="form-label">주요 장애 영역</label>
+          {/* 0825: 목록이 장특법 기준으로 바뀜 — 옛 목록으로 저장된 값(ADHD 등)은
+              옵션에 함께 보여 기존 학생 수정 시에도 선택이 유지되게 한다. */}
           <select className="form-select" value={dis} onChange={(e) => { const v = e.target.value; setDis(v); if (dis2 === v) setDis2(DIS_NONE); }}>
-            {DISABILITIES.map((d) => <option key={d}>{d}</option>)}
+            {(DISABILITIES.includes(dis) ? DISABILITIES : [dis, ...DISABILITIES]).map((d) => <option key={d}>{d}</option>)}
           </select>
         </div>
       </div>
       <div className="form-group">
         <label className="form-label">추가 장애 영역 (선택)</label>
         <select className="form-select" value={dis2} onChange={(e) => setDis2(e.target.value)}>
-          {[DIS_NONE, ...DISABILITIES.filter((d) => d !== dis)].map((d) => <option key={d}>{d}</option>)}
+          {[DIS_NONE, ...(dis2 !== DIS_NONE && !DISABILITIES.includes(dis2) ? [dis2] : []), ...DISABILITIES.filter((d) => d !== dis)].map((d) => <option key={d}>{d}</option>)}
         </select>
-        <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 4 }}>※ 중복장애·장애특성 2가지일 때 선택 — 배지·문서에는 "주요·추가"가 함께 표시됩니다.</div>
+        <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 4 }}>※ 장특법(장애인 등에 대한 특수교육법) 기준 — 중복장애·장애특성 2가지일 때 선택하면 배지·문서에 "주요·추가"가 함께 표시됩니다.</div>
       </div>
       <div className="form-group">
         <label className="form-label">소속 학급</label>

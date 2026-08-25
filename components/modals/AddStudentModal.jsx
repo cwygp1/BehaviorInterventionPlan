@@ -106,10 +106,10 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
               {[DIS_NONE, ...DISABILITIES.filter((d) => d !== dis)].map((d) => <option key={d}>{d}</option>)}
             </select>
             <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 4 }}>
-              ※ 중복장애이거나 장애특성이 2가지면 선택하세요. 두 유형을 각각 남기고 싶을 때 쓰며, '중복중증'은 그 자체로 하나의 범주입니다.
+              ※ 장특법(장애인 등에 대한 특수교육법) 기준 목록입니다. 중복장애이거나 장애특성이 2가지면 선택하세요 — 두 유형을 각각 남기고 싶을 때 쓰며, '두 가지 이상의 중복장애'는 그 자체로 하나의 범주입니다.
             </div>
           </div>
-          <div style={{ fontSize: 11.5, color: '#6b7280' }}>※ 전년도 IEP는 등록 후 "IEP 계획서" 화면에서 업로드하면 AI가 목표로 파싱합니다.</div>
+          <div style={{ fontSize: 11.5, color: '#6b7280' }}>※ 전년도 IEP는 등록 후 "IEP 계획서" 화면에서 업로드하면 AI가 목표를 읽어 옵니다.</div>
         </>
       )}
 
