@@ -15,6 +15,8 @@ const TIER1_DOCS = [
   { name: '(예시) 기대행동 매트릭스', desc: '기대행동 × 장소별 규칙 매트릭스 예시', links: [{ label: 'PDF', href: '/docs/tier1/기대행동_매트릭스.pdf' }] },
   { name: '(예시) 월별 기대행동', desc: '월별 기대행동 운영 계획 예시', links: [{ label: 'PDF', href: '/docs/tier1/월별_기대행동.pdf' }] },
   { name: '(예시) PBS 충실도 체크 (Tier 1)', desc: '학급 차원 PBS 실행 충실도 점검표 예시', links: [{ label: 'PDF', href: '/docs/tier1/PBS충실도체크_Tier1.pdf' }] },
+  // 0825 동료 제공: 학급 구조화(공간·시간·절차 지원) 실제 사례 모음.
+  { name: '(예시) 공간적·시간적·절차적 지원', desc: '학급 구조화를 위한 공간·시간·절차 지원 사례 예시', links: [{ label: 'PDF', href: '/docs/tier1/공간적_시간적_절차적_지원.pdf' }] },
 ];
 
 const REWARD_ICONS = ['🎁', '🍿', '🎬', '🍕', '🎮', '🎨', '⚽', '📚', '🎵', '🌟'];
@@ -384,7 +386,7 @@ ${question}
       <div data-tour="cp-docs">
         <ResourceDownloads
           title="📎 Tier 1 자료실 (예시 문서)"
-          subtitle="기대행동 매트릭스·월별 기대행동·충실도 체크 예시를 내려받아 활용하세요."
+          subtitle="기대행동 매트릭스·월별 기대행동·충실도 체크·공간/시간/절차 지원 예시를 내려받아 활용하세요."
           files={TIER1_DOCS}
         />
       </div>
