@@ -30,7 +30,7 @@ const TOPICS = [
   {
     id: 'tier3',
     title: '개별 맞춤형 중재 (Tier 3) — BIP·FCT·DRA',
-    desc: 'BIP 4영역, FCT 기능적 의사소통, DRA/DRO 차별 강화.',
+    desc: 'PTR(예방·교수·강화)+반응 절차, FCT 기능적 의사소통, DRA/DRO 차별 강화.',
     tag: 'Tier 3', tagColor: '#ef476f', tagBg: '#fde7e8', icon: '🎯',
     queries: ['행동중재계획 BIP 작성', 'FCT 기능적 의사소통 훈련 한국어', '차별강화 DRA DRO'],
   },

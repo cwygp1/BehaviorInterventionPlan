@@ -256,7 +256,7 @@ export default function BipPage({ onNavigate }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div>
             <div className="card-title" style={{ marginBottom: 0 }}>🎯 ② 목표 행동(대체 행동) 설정</div>
-            <div className="card-subtitle">ABC + QABF + 학생 정보를 기반으로 AI가 4영역 초안을 만들어줍니다.</div>
+            <div className="card-subtitle">ABC + QABF + 학생 정보를 기반으로 AI가 PTR(예방·교수·강화)+반응 초안을 만들어줍니다.</div>
           </div>
           <button className="btn btn-pri btn-sm" onClick={() => setAiOpen(true)}>📜 AI BIP 중재안 프롬프트</button>
         </div>
@@ -301,7 +301,9 @@ export default function BipPage({ onNavigate }) {
       </div>
 
       <div className="card" data-tour="bip-strategy">
-        <div className="card-title">📜 중재 전략 (예방-교수-강화-반응)</div>
+        {/* 0825: 예방·교수·강화는 PTR(Prevent-Teach-Reinforce) 모델의 3요소, 반응은 별도 안전 절차 */}
+        <div className="card-title">📜 중재 전략 — PTR (예방·교수·강화) + 반응 절차</div>
+        <div className="card-subtitle">PTR 세 갈래에서 전략을 최소 1개씩 고르고, 문제행동 발생 시 대응(반응 절차)을 함께 정합니다.</div>
         <div className="form-group">
           <label className="form-label">🛡 예방 전략</label>
           <TokenField value={prev} onChange={setPrev} options={PREV_CHIPS} storageKey="bip_prev" editPlaceholder="이 학생 맥락의 예방 전략" />
@@ -326,9 +328,9 @@ export default function BipPage({ onNavigate }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.84rem' }}>
               <tbody>
                 {[
-                  ['🛡 예방 (Antecedent)', prev, '#eef4ff'],
-                  ['📖 교수 (Teaching)', teach, '#f0fbf4'],
-                  ['⭐ 강화 (Reinforcement)', reinf, '#fff7ed'],
+                  ['🛡 예방 (Prevent)', prev, '#eef4ff'],
+                  ['📖 교수 (Teach)', teach, '#f0fbf4'],
+                  ['⭐ 강화 (Reinforce)', reinf, '#fff7ed'],
                   ['🚨 반응 (Response)', resp, '#fff1f4'],
                   ['🎯 대체 행동', alt, '#f7f3ff'],
                   ['✅ 결과 평가 (성공 기준)', crit, '#f2f4f7'],

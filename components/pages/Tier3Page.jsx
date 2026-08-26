@@ -67,7 +67,7 @@ const STEPS = [
   },
   {
     n: 7, page: 'bip', icon: '🎯', title: '기능에 근거한 중재계획 수립',
-    desc: '가설·기능에 맞춰 예방·교수·강화·반응 4영역 + FCT·DRA로 대체행동을 형성합니다. — 중재계획(BIP) 화면에서 입력',
+    desc: '가설·기능에 맞춰 PTR(예방·교수·강화) 전략과 반응 절차 + FCT·DRA로 대체행동을 형성합니다. — 중재계획(BIP) 화면에서 입력',
     measure: (d) => (d?.bip?.alt ? 1 : 0),
     measureLabel: (v) => (v ? '대체 행동 작성됨' : '미작성'),
   },
@@ -277,14 +277,19 @@ export default function Tier3Page({ onNavigate }) {
           </div>
         </div>
 
+        {/* 0825 동료 피드백: '4영역'이 아니라 PTR(Prevent-Teach-Reinforce) 3요소가
+            근거 이론 — 반응(위기 대응)은 PTR과 별도의 안전 요소로 구분해 표기. */}
         <div className="card">
-          <div className="card-title">📋 BIP의 4영역 (예방-교수-강화-반응)</div>
+          <div className="card-title">📋 중재 전략의 틀 — PTR (예방·교수·강화)</div>
           <ul style={{ listStyle: 'none', padding: 0, fontSize: '.85rem', lineHeight: 1.9, color: 'var(--sub)' }}>
-            <li>🛡 <strong>예방 (Antecedent)</strong> — 문제행동의 원인 자극을 미리 제거·조정</li>
-            <li>📖 <strong>교수 (Teaching)</strong> — 대체 행동을 직접 가르침 (FCT, 모델링)</li>
-            <li>⭐ <strong>강화 (Reinforcement)</strong> — 대체 행동에 즉각 보상 (DRA/DRO)</li>
-            <li>🚨 <strong>반응 (Response)</strong> — 문제행동 발생 시 안전 절차</li>
+            <li>🛡 <strong>예방 (Prevent)</strong> — 문제행동을 부르는 선행사건·환경을 미리 조정</li>
+            <li>📖 <strong>교수 (Teach)</strong> — 대체 행동을 직접 가르침 (FCT, 모델링)</li>
+            <li>⭐ <strong>강화 (Reinforce)</strong> — 대체 행동에 기능에 맞는 보상 (DRA/DRO)</li>
+            <li style={{ borderTop: '1px dashed var(--border)', marginTop: 4, paddingTop: 4 }}>🚨 <strong>+ 반응 (Response)</strong> — 문제행동 발생 시 안전·대응 절차 <span style={{ fontSize: '.78em', color: 'var(--muted)' }}>(PTR 3요소와 별도로 함께 계획)</span></li>
           </ul>
+          <div style={{ fontSize: '.72rem', color: 'var(--muted)', marginTop: 6 }}>
+            PTR: 학교 기반 개별 긍정적 행동지원 모델 (Prevent-Teach-Reinforce · Dunlap, Iovannone, Kincaid 외, 2010)
+          </div>
         </div>
       </div>
 

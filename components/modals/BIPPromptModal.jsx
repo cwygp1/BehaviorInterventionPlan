@@ -139,7 +139,7 @@ export default function BIPPromptModal({ open, onClose, onApply }) {
     <Modal open={open} onClose={onClose} maxWidth={780}>
       <h3>📜 AI BIP 중재안 프롬프트</h3>
       <p style={{ fontSize: '.84rem', color: 'var(--sub)', margin: '6px 0 14px', lineHeight: 1.6 }}>
-        현재 학생의 ABC 누적 관찰과 QABF 점수를 바탕으로 예방·교수·강화·반응 4영역의 BIP 초안을 AI가 생성합니다.
+        현재 학생의 ABC 누적 관찰과 QABF 점수를 바탕으로 PTR(예방·교수·강화) 전략과 반응 절차의 BIP 초안을 AI가 생성합니다.
         결과를 BIP 칸에 한 번에 적용할 수 있습니다.
       </p>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

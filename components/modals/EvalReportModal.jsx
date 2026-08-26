@@ -108,7 +108,7 @@ export default function EvalReportModal({ open, onClose, chartRefs, effectSize, 
           <li>핵심 지표 (PND, Tau-U, 평균 빈도)</li>
           <li>5종 차트 이미지 (행동 추이·QABF·충실도·SZ 분포·SZ 월별)</li>
           <li>지표별 데이터 비교 표 (기초선 vs 중재)</li>
-          <li>적용된 BIP 4영역 요약</li>
+          <li>적용된 BIP 중재 전략(PTR + 반응 절차) 요약</li>
           <li>교사 종합 의견 + 서명란</li>
         </ul>
       </div>
