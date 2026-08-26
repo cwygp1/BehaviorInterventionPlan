@@ -42,13 +42,17 @@ export default function QabfFnChart({ responses, label, height = 280 }) {
         data: {
           labels,
           datasets: [
-            { label: '기능 (0~5)', data: funcData, yAxisID: 'yFunc', spanGaps: true, borderColor: '#0000ff', pointRadius: 5, pointStyle: 'circle', pointBackgroundColor: '#0000ff', tension: 0, fill: false, borderWidth: 2.5 },
-            { label: '기능/심각도 (0~15)', data: sevData, yAxisID: 'ySev', spanGaps: true, borderColor: '#ff0000', pointRadius: 5, pointStyle: 'circle', pointBackgroundColor: '#ff0000', tension: 0, fill: false, borderWidth: 2.5 },
+            // clip:false — 만점(5·15)이면 점이 차트 맨 윗선에 걸리는데, 기본값은 영역
+            // 밖을 잘라내 마커가 반쪽만 보였다("차트가 짤린다" 피드백). 축 최대값은
+            // 실제 척도(0~5·0~15) 그대로 두고 마커만 경계를 넘어 그리게 한다.
+            { label: '기능 (0~5)', data: funcData, yAxisID: 'yFunc', spanGaps: true, clip: false, borderColor: '#0000ff', pointRadius: 5, pointStyle: 'circle', pointBackgroundColor: '#0000ff', tension: 0, fill: false, borderWidth: 2.5 },
+            { label: '기능/심각도 (0~15)', data: sevData, yAxisID: 'ySev', spanGaps: true, clip: false, borderColor: '#ff0000', pointRadius: 5, pointStyle: 'circle', pointBackgroundColor: '#ff0000', tension: 0, fill: false, borderWidth: 2.5 },
           ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: { padding: { top: 8 } }, // 경계를 넘은 만점 마커가 캔버스 밖으로 나가지 않게 여유
           plugins: { legend: { position: 'bottom' }, title: { display: !!label, text: label } },
           scales: {
             yFunc: {
