@@ -55,7 +55,6 @@ const COMMON_GROUPS = [
     { id: 'generator', label: 'AI 생성기', icon: '✨' },
     { id: 'builder', label: 'AI 어시스턴트', icon: '🤖' },
     { id: 'chatExpert', label: 'AI 전문가 채팅', icon: '🗨️' },
-    { id: 'qa', label: 'PBS Q&A 전문가', icon: '💬' },
   ] },
 ];
 

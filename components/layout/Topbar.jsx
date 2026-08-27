@@ -33,7 +33,6 @@ const TITLES = {
   priorIep: '전년도 IEP',
   iepReport: 'IEP 계획서 (완성·출력)',
   generator: 'AI 생성기',
-  qa: 'PBS Q&A 전문가',
   videos: 'PBS 영상 강의실',
   admin: '가입자 관리 (관리자)',
   qaBoard: '질문 게시판',

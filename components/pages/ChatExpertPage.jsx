@@ -1,15 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLLM } from '../../contexts/LLMContext';
+import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api/client';
 import { LLM_SYSTEM_PROMPT } from '../../lib/api/llm';
 import { SITE_GUIDE_BRIEF, SITE_GUIDE_FULL } from '../../lib/siteGuide';
 import MarkdownView from '../ui/MarkdownView';
 import { EditableChipGroup } from '../ui/QChip';
-import { SAMPLE_QUESTIONS } from './QAPage';
 
 // AI 전문가 실시간 채팅 (mds/28 P2) — 멀티턴 대화 + 토큰 스트리밍 표시.
 // LLM 호출은 기존 구조대로 브라우저→LM Studio 직접(스트리밍), 완성된 턴만 서버에 저장.
+// 구 'PBS Q&A 전문가'(단발 QAPage)를 흡수·대체함 — 자주 묻는 질문 칩과 storageKey를 그대로 승계.
+
+const SAMPLE_QUESTIONS = [
+  '학급에서 4:1 긍정 비율을 지키려면 어떻게 해야 하나요?',
+  '자해행동 학생에게 어떤 FCT를 가르칠 수 있나요?',
+  '교권 침해 발생 시 어디에 지원을 요청할 수 있나요?',
+  'DRA와 DRO의 차이는 무엇인가요?',
+  '학부모와 BIP를 어떻게 공유해야 효과적인가요?',
+  '심리안정실 운영 시 주의할 점은?',
+  'CICO 시작 시 학교 차원에서 준비해야 할 것은?',
+  'Acting-Out Cycle 7단계 중 가속 단계에서 가장 중요한 대응은?',
+];
 
 const MODES = {
   pbs: {
@@ -40,12 +52,14 @@ const CHAT_COMMON = `
 - 핵심부터 간결하게 답하고, 더 깊은 설명이 가능하면 마지막에 짧게 제안합니다.
 - 확실하지 않은 내용은 추측하지 말고 한계를 밝힙니다.`;
 
-function systemFor(mode) {
+function systemFor(mode, studentBrief) {
   const m = MODES[mode] || MODES.pbs;
   // 사이트 사용법 질문은 어느 모드에서든 나올 수 있어 요약 안내를 공통 주입한다.
   // guide 모드는 상세판(SITE_GUIDE_FULL)이 이미 페르소나라 요약본을 중복 주입하지 않는다.
   const siteInfo = mode === 'guide' ? '' : `\n${SITE_GUIDE_BRIEF}`;
-  return `${m.sys}\n${LLM_SYSTEM_PROMPT}\n${CHAT_COMMON}${siteInfo}`;
+  // 학생 맞춤 상담(P3): 선택된 학생의 비식별 요약을 덧붙인다.
+  const stu = studentBrief ? `\n\n${studentBrief}` : '';
+  return `${m.sys}\n${LLM_SYSTEM_PROMPT}\n${CHAT_COMMON}${siteInfo}${stu}`;
 }
 
 // 컨텍스트 슬라이딩 윈도우 — 로컬 모델의 컨텍스트 한계 대응(mds/28 C-6).
@@ -63,6 +77,7 @@ const noteStyle = { fontSize: '.72rem', color: 'var(--muted)' };
 
 export default function ChatExpertPage() {
   const { status, callChat } = useLLM();
+  const { students, curStuId } = useStudents();
   const toast = useToast();
 
   const [threads, setThreads] = useState([]);
@@ -75,6 +90,40 @@ export default function ChatExpertPage() {
   const streamRef = useRef('');
   const abortRef = useRef(null);
   const scrollRef = useRef(null);
+
+  // 학생 맞춤 상담(P3) — 이 대화에 연결된 학생과 비식별 요약.
+  // 새 대화에서는 토글로 켜고, 저장된 대화를 열면 스레드의 student_id를 따른다.
+  const [consultStudent, setConsultStudent] = useState(null); // { id, code } | null
+  const [brief, setBrief] = useState(null);
+  const [briefLoading, setBriefLoading] = useState(false);
+
+  const fetchBrief = useCallback(async (studentId) => {
+    setBriefLoading(true);
+    try {
+      const d = await api(`/api/students/${studentId}/ai-brief`);
+      setBrief(d.brief);
+      return true;
+    } catch (_e) {
+      setBrief(null);
+      toast('학생 정보를 불러오지 못했습니다 — 일반 상담으로 진행합니다.');
+      return false;
+    } finally {
+      setBriefLoading(false);
+    }
+  }, [toast]);
+
+  async function toggleConsult() {
+    if (consultStudent) {
+      setConsultStudent(null);
+      setBrief(null);
+      return;
+    }
+    const stu = students.find((x) => x.id === curStuId);
+    if (!stu) return;
+    setConsultStudent({ id: stu.id, code: stu.code });
+    const ok = await fetchBrief(stu.id);
+    if (!ok) setConsultStudent(null);
+  }
 
   const loadThreads = useCallback(async () => {
     try {
@@ -98,6 +147,14 @@ export default function ChatExpertPage() {
       setMode(d.thread.mode || 'pbs');
       setMessages((d.messages || []).map((m) => ({ role: m.role, content: m.content })));
       setStreamText(null);
+      // 학생 맞춤 스레드면 그 학생의 요약을 다시 불러온다(최신 데이터 반영).
+      if (d.thread.student_id) {
+        setConsultStudent({ id: d.thread.student_id, code: d.thread.student_code || '학생' });
+        fetchBrief(d.thread.student_id);
+      } else {
+        setConsultStudent(null);
+        setBrief(null);
+      }
     } catch (e) {
       toast('대화를 불러오지 못했습니다: ' + (e.message || ''));
     }
@@ -108,6 +165,8 @@ export default function ChatExpertPage() {
     setCurId(null);
     setMessages([]);
     setStreamText(null);
+    setConsultStudent(null);
+    setBrief(null);
   }
 
   async function removeThread(t, e) {
@@ -149,14 +208,14 @@ export default function ChatExpertPage() {
     let id = curId;
     try {
       if (!id) {
-        const d = await api('/api/chat-threads', 'POST', { mode });
+        const d = await api('/api/chat-threads', 'POST', { mode, student_id: consultStudent?.id });
         id = d.thread.id;
         setCurId(id);
       }
       await saveTurn(id, 'user', text);
 
       const llmMessages = [
-        { role: 'system', content: systemFor(mode) },
+        { role: 'system', content: systemFor(mode, consultStudent ? brief : null) },
         ...history.slice(-CONTEXT_WINDOW).map((m) => ({ role: m.role, content: m.content })),
       ];
       const ctrl = new AbortController();
@@ -234,7 +293,7 @@ export default function ChatExpertPage() {
                   fontSize: '.8rem', fontWeight: curId === t.id ? 700 : 500,
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>
-                  {t.title || '(제목 없음)'}
+                  {t.student_code ? `🎯${t.student_code} · ` : ''}{t.title || '(제목 없음)'}
                 </div>
                 <div style={noteStyle}>{fmtDate(t.updated_at)} · {t.msg_count}개</div>
               </div>
@@ -255,6 +314,14 @@ export default function ChatExpertPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <div className="card-title" style={{ margin: 0 }}>🗨️ AI 전문가 채팅</div>
           <span style={{ ...noteStyle, fontWeight: 700 }}>{curMode.icon} {curMode.label}</span>
+          {consultStudent && (
+            <span style={{
+              fontSize: '.7rem', fontWeight: 700, color: '#fff', background: 'var(--acc)',
+              borderRadius: 999, padding: '2px 9px',
+            }} title="이 대화는 선택한 학생의 비식별 데이터(프로필·BIP·최근 행동 데이터)를 참고해 답합니다">
+              🎯 {consultStudent.code} 맞춤{briefLoading ? ' (정보 불러오는 중…)' : ''}
+            </span>
+          )}
           {messages.length > CONTEXT_WINDOW && (
             <span style={noteStyle}>· 대화가 길어져 오래된 내용은 AI가 기억하지 못할 수 있어요</span>
           )}
@@ -291,6 +358,23 @@ export default function ChatExpertPage() {
                     {m.icon} {m.label}
                   </button>
                 ))}
+              </div>
+              <div style={{ fontSize: '.8rem', fontWeight: 700, marginBottom: 6 }}>🎯 학생 맞춤 상담 <span style={{ ...noteStyle, fontWeight: 500 }}>(선택)</span></div>
+              <div style={{ marginBottom: 14 }}>
+                {curStuId ? (
+                  <button
+                    className={'btn btn-sm ' + (consultStudent ? 'btn-pri' : 'btn-ghost')}
+                    onClick={toggleConsult}
+                    disabled={briefLoading}
+                    title="이 학생의 비식별 데이터(프로필·BIP·최근 행동 데이터)를 참고해 맞춤 답변합니다"
+                  >
+                    {briefLoading
+                      ? '학생 정보 불러오는 중…'
+                      : `🎯 '${students.find((x) => x.id === curStuId)?.code || ''}' 맞춤 상담${consultStudent ? ' 켜짐 ✓' : ''}`}
+                  </button>
+                ) : (
+                  <span style={noteStyle}>상단바에서 학생을 선택하면 그 학생 맞춤 상담을 켤 수 있어요.</span>
+                )}
               </div>
               <div style={{ fontSize: '.78rem', color: 'var(--muted)', marginBottom: 6, fontWeight: 700 }}>
                 📌 자주 묻는 질문 <span style={{ fontWeight: 500 }}>· 클릭하면 바로 물어봅니다</span>
@@ -356,7 +440,7 @@ export default function ChatExpertPage() {
           {sending ? (
             <button className="btn btn-err" onClick={stop} title="생성 중단">⏹ 중단</button>
           ) : (
-            <button className="btn btn-pri" onClick={() => send()} disabled={!input.trim() || status !== 'on'}>
+            <button className="btn btn-pri" onClick={() => send()} disabled={!input.trim() || status !== 'on' || briefLoading}>
               전송
             </button>
           )}

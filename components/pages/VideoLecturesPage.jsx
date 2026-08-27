@@ -265,7 +265,7 @@ export default function VideoLecturesPage({ onNavigate }) {
           <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('classpbs')}>🏫 학급 차원 PBS</button>
           <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('tier2')}>👥 Tier 2 CICO/DPR</button>
           <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('tier3')}>🎯 Tier 3 개요</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('qa')}>💬 PBS Q&A 전문가</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('chatExpert')}>🗨️ AI 전문가 채팅</button>
           <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('crisis')}>🚨 위기행동 대처</button>
           <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('support')}>📚 EBP 27종 가이드</button>
         </div>

@@ -14,8 +14,10 @@ export default requireAuth(async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid thread id' });
   }
   const found = await sql`
-    SELECT id, title, mode, student_id, created_at, updated_at
-      FROM chat_threads WHERE id = ${tid} AND user_id = ${req.userId}
+    SELECT t.id, t.title, t.mode, t.student_id, s.student_code, t.created_at, t.updated_at
+      FROM chat_threads t
+      LEFT JOIN students s ON s.id = t.student_id
+     WHERE t.id = ${tid} AND t.user_id = ${req.userId}
   `;
   if (found.rows.length === 0) {
     return res.status(404).json({ error: '대화를 찾을 수 없습니다.' });

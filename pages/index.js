@@ -29,7 +29,6 @@ import ClassPBSPage from '../components/pages/ClassPBSPage';
 import PbsSurveyPage from '../components/pages/PbsSurveyPage';
 import ClassChecklistPage from '../components/pages/ClassChecklistPage';
 import ClassFidelityPage from '../components/pages/ClassFidelityPage';
-import QAPage from '../components/pages/QAPage';
 import GeneratorPage from '../components/pages/GeneratorPage';
 import Tier2Page from '../components/pages/Tier2Page';
 import ContractPage from '../components/pages/ContractPage';
@@ -46,13 +45,18 @@ const VALID_PAGES = new Set([
   'home', 'dash1', 'dash2', 'dash3', 'dashIep', 'students', 'startpoint',
   'observe', 'qabf', 'bip', 'monitor', 'eval', 'iep', 'priorIep', 'iepReport',
   'builder', 'crisis', 'support', 'classpbs', 'pbssurvey', 'classcheck', 'classcheck2',
-  'tier2', 'contract', 'tier3', 'videos', 'qa', 'generator', 'admin', 'qaBoard', 'chatExpert',
+  'tier2', 'contract', 'tier3', 'videos', 'generator', 'admin', 'qaBoard', 'chatExpert',
 ]);
+
+// 없어진 화면 id의 후계 화면 — 북마크·히스토리의 옛 해시를 새 화면으로 보낸다.
+//   qa: 'PBS Q&A 전문가'(단발) → 'AI 전문가 채팅'으로 흡수 (2026-08-27)
+const LEGACY_PAGES = { qa: 'chatExpert' };
 
 // 현재 주소 해시에서 화면 id를 읽는다. 유효하지 않으면 홈.
 function pageFromHash() {
   if (typeof window === 'undefined') return 'home';
   const h = (window.location.hash || '').replace(/^#\/?/, '');
+  if (LEGACY_PAGES[h]) return LEGACY_PAGES[h];
   return VALID_PAGES.has(h) ? h : 'home';
 }
 
@@ -233,7 +237,6 @@ function PageRouter({ activePage, onNavigate }) {
     case 'contract': return <ContractPage />;
     case 'tier3': return <Tier3Page onNavigate={onNavigate} />;
     case 'videos': return <VideoLecturesPage onNavigate={onNavigate} />;
-    case 'qa': return <QAPage />;
     case 'generator': return <GeneratorPage />;
     case 'admin': return <AdminPage />;
     case 'qaBoard': return <QABoardPage />;

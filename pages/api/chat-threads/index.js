@@ -12,9 +12,10 @@ export default requireAuth(async function handler(req, res) {
 
   if (req.method === 'GET') {
     const result = await sql`
-      SELECT t.id, t.title, t.mode, t.created_at, t.updated_at,
+      SELECT t.id, t.title, t.mode, t.student_id, s.student_code, t.created_at, t.updated_at,
              (SELECT COUNT(*)::int FROM chat_history h WHERE h.thread_id = t.id) AS msg_count
         FROM chat_threads t
+        LEFT JOIN students s ON s.id = t.student_id
        WHERE t.user_id = ${req.userId}
        ORDER BY t.updated_at DESC
        LIMIT 100
@@ -23,12 +24,19 @@ export default requireAuth(async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { mode } = req.body || {};
+    const { mode, student_id } = req.body || {};
     const m = VALID_MODES.includes(mode) ? mode : 'pbs';
+    // 학생 맞춤 상담(P3): student_id는 본인 소유 학생일 때만 연결한다.
+    let sid = null;
+    const n = Number(student_id);
+    if (Number.isInteger(n) && n > 0) {
+      const own = await sql`SELECT id FROM students WHERE id = ${n} AND user_id = ${req.userId}`;
+      if (own.rows.length > 0) sid = n;
+    }
     const result = await sql`
-      INSERT INTO chat_threads (user_id, mode)
-      VALUES (${req.userId}, ${m})
-      RETURNING id, title, mode, created_at, updated_at
+      INSERT INTO chat_threads (user_id, mode, student_id)
+      VALUES (${req.userId}, ${m}, ${sid})
+      RETURNING id, title, mode, student_id, created_at, updated_at
     `;
     return res.status(201).json({ thread: result.rows[0] });
   }

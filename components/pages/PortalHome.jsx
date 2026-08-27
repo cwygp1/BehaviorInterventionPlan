@@ -214,7 +214,7 @@ export default function PortalHome({ onNavigate }) {
                   boxShadow: '0 8px 24px rgba(0,0,0,.12)', padding: 6, gap: 2,
                 }}
               >
-                {[['generator', '✨ AI 생성기'], ['builder', '🤖 AI 어시스턴트'], ['qa', '💬 PBS Q&A']].map(([page, label]) => (
+                {[['generator', '✨ AI 생성기'], ['builder', '🤖 AI 어시스턴트'], ['chatExpert', '🗨️ AI 전문가 채팅']].map(([page, label]) => (
                   <button
                     key={page}
                     role="menuitem"
