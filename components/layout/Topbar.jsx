@@ -37,6 +37,7 @@ const TITLES = {
   videos: 'PBS 영상 강의실',
   admin: '가입자 관리 (관리자)',
   qaBoard: '질문 게시판',
+  chatExpert: 'AI 전문가 채팅',
 };
 
 export default function Topbar({ activePage, sectionKey, onNavigate, canGoBack, onBack, onMenu, onOpenLLMSettings, onAddStudent, onManageClasses }) {

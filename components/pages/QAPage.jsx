@@ -5,7 +5,8 @@ import PromptResultBlock from '../modals/PromptResultBlock';
 import AIActionBar from '../ui/AIActionBar';
 import { EditableChipGroup } from '../ui/QChip';
 
-const SAMPLE_QUESTIONS = [
+// AI 전문가 채팅(ChatExpertPage)도 같은 목록·storageKey를 써서 칩을 공유한다.
+export const SAMPLE_QUESTIONS = [
   '학급에서 4:1 긍정 비율을 지키려면 어떻게 해야 하나요?',
   '자해행동 학생에게 어떤 FCT를 가르칠 수 있나요?',
   '교권 침해 발생 시 어디에 지원을 요청할 수 있나요?',

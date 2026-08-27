@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   callLLM,
+  callLLMChat,
   callLLMVision,
   clearAllLLMCaches,
   clearLLMConfig,
@@ -26,6 +27,7 @@ const LLMContext = createContext({
   clearConfig: async () => {},
   call: async () => '',
   callDetailed: async () => ({ content: '' }),
+  callChat: async () => ({ content: '' }),
   callVisionDetailed: async () => ({ content: '' }),
   setStatus: () => {},
 });
@@ -252,6 +254,18 @@ export function LLMProvider({ children }) {
     [config, trackCall, onAiProgress]
   );
 
+  // 멀티턴 채팅 호출(mds/28 P2) — 완성된 messages 배열을 그대로 보낸다.
+  // onDelta(부분 본문)·signal(중단)은 opts로 통과. 기본 tier는 'fast'(상호작용).
+  const callChat = useCallback(
+    (messages, opts) =>
+      trackCall(
+        opts?.label || 'AI 전문가 채팅',
+        () => callLLMChat(messages, { ...opts, onProgress: onAiProgress }, config),
+        { model: resolveModel(config, opts?.tier || 'fast'), tier: opts?.tier || 'fast' }
+      ),
+    [config, trackCall, onAiProgress]
+  );
+
   // 이미지(비전) 입력 호출 — { content, reasoning, finish_reason, model, usage } 반환.
   // 비전은 기본적으로 빠른(멀티모달) 모델을 쓰므로 tier 기본값을 'fast'로 맞춘다.
   const callVisionDetailed = useCallback(
@@ -265,7 +279,7 @@ export function LLMProvider({ children }) {
   );
 
   return (
-    <LLMContext.Provider value={{ config, status, busy, busyLabels, aiProgress, aiLog, pushLog, clearLog, saveConfig, clearConfig, call, callDetailed, callVisionDetailed, setStatus }}>
+    <LLMContext.Provider value={{ config, status, busy, busyLabels, aiProgress, aiLog, pushLog, clearLog, saveConfig, clearConfig, call, callDetailed, callChat, callVisionDetailed, setStatus }}>
       {children}
     </LLMContext.Provider>
   );
