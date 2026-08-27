@@ -363,6 +363,43 @@ ${lines || '  (기록 없음)'}
 
       <StuHero />
 
+      {/* ✍ 행동 계약서 (0825: BIP 화면에서 이동 — 행동계약은 Tier 2 수준 중재)
+          0827: 맨 아래에 있어 "안 옮겨졌다"는 피드백 — 학생 선택 직후 상단의
+          접이식 카드로 이동(계약 만들 때만 펼치고, 매일 CICO 흐름은 방해하지 않게). */}
+      <details data-tour="t2-contract" style={{ marginBottom: 16 }}>
+        <summary style={{ cursor: 'pointer', padding: '12px 16px', background: '#fff8e8', border: '1px solid #f2dfad', borderRadius: 8, fontWeight: 700, fontSize: '.92rem' }}>
+          ✍ 행동 계약서 — 학생과 목표·보상 약속 만들기 (펼치기)
+        </summary>
+        <div className="card" style={{ marginTop: 0, borderRadius: '0 0 8px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <div className="card-subtitle" style={{ margin: 0 }}>학생과 함께 목표 행동·보상을 약속하고 서명하는 문서를 인쇄합니다. 계약 후 매일의 실천은 아래 CICO로 점검해요.</div>
+            <button className="btn btn-ghost btn-sm" onClick={fillContract}>📋 목표·BIP에서 가져오기</button>
+          </div>
+          <div className="form-group" style={{ marginTop: 10 }}>
+            <label className="form-label">나(학생)의 약속</label>
+            <input className="form-input" value={conStu} onChange={(e) => setConStu(e.target.value)} placeholder="목표 행동" />
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">성공 기준</label>
+              <input className="form-input" value={conCrit} onChange={(e) => setConCrit(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">선생님의 약속 (보상)</label>
+              <EditableChipGroup storageKey="bip_reward" defaults={REWARD_CHIPS} onPick={makeAppender(conTch, setConTch, true)} />
+              <input className="form-input" value={conTch} onChange={(e) => setConTch(e.target.value)} />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group"><label className="form-label">계약 시작일</label><input type="date" className="form-input" value={conStart} onChange={(e) => setConStart(e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">계약 종료일</label><input type="date" className="form-input" value={conEnd} onChange={(e) => setConEnd(e.target.value)} /></div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+            <button className="btn btn-ok" onClick={onPrintContract}>🖨 계약서 인쇄/저장</button>
+          </div>
+        </div>
+      </details>
+
       {/* 일일 입력 폼 */}
       <div className="card" data-tour="t2-daily">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
@@ -610,38 +647,6 @@ ${lines || '  (기록 없음)'}
         {(aiOutput || aiBusy) && <PromptResultBlock prompt={buildProgressPrompt()} output={aiOutput} busy={aiBusy} onChange={setAiOutput} />}
       </div>
 
-      {/* ✍ 행동 계약서 (0825: BIP 화면에서 이동 — 행동계약은 Tier 2 수준 중재) */}
-      <div className="card" data-tour="t2-contract">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <div>
-            <div className="card-title" style={{ marginBottom: 0 }}>✍ 행동 계약서</div>
-            <div className="card-subtitle">학생과 함께 목표 행동·보상을 약속하고 서명하는 문서를 인쇄합니다.</div>
-          </div>
-          <button className="btn btn-ghost btn-sm" onClick={fillContract}>📋 목표·BIP에서 가져오기</button>
-        </div>
-        <div className="form-group">
-          <label className="form-label">나(학생)의 약속</label>
-          <input className="form-input" value={conStu} onChange={(e) => setConStu(e.target.value)} placeholder="목표 행동" />
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">성공 기준</label>
-            <input className="form-input" value={conCrit} onChange={(e) => setConCrit(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">선생님의 약속 (보상)</label>
-            <EditableChipGroup storageKey="bip_reward" defaults={REWARD_CHIPS} onPick={makeAppender(conTch, setConTch, true)} />
-            <input className="form-input" value={conTch} onChange={(e) => setConTch(e.target.value)} />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group"><label className="form-label">계약 시작일</label><input type="date" className="form-input" value={conStart} onChange={(e) => setConStart(e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">계약 종료일</label><input type="date" className="form-input" value={conEnd} onChange={(e) => setConEnd(e.target.value)} /></div>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
-          <button className="btn btn-ok" onClick={onPrintContract}>🖨 계약서 인쇄/저장</button>
-        </div>
-      </div>
       </>
       )}
 
