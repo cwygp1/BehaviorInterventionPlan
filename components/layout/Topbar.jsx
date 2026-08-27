@@ -26,6 +26,7 @@ const TITLES = {
   classcheck: '학급관리 실행충실도 1 (Tier 1)',
   classcheck2: '학급관리 실행충실도 2 (Tier 1)',
   tier2: 'Tier 2 · 소그룹 지원 (CICO / DPR)',
+  contract: '행동 계약서 (Tier 2)',
   tier3: 'Tier 3 · 개별 맞춤형 중재',
   startpoint: '출발점 분석 (현행수준)',
   iep: 'IEP 목표 생성',

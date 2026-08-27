@@ -19,6 +19,7 @@ const SECTION_ITEMS = {
   t2: [
     { id: 'dash2', label: '대시보드', icon: '📊' },
     { id: 'tier2', label: 'CICO / DPR 운영', icon: '👥' },
+    { id: 'contract', label: '행동 계약서', icon: '✍', requiresStudent: true },
   ],
   t3: [
     { id: 'dash3', label: '대시보드', icon: '📊' },

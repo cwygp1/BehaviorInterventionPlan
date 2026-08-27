@@ -32,6 +32,7 @@ import ClassFidelityPage from '../components/pages/ClassFidelityPage';
 import QAPage from '../components/pages/QAPage';
 import GeneratorPage from '../components/pages/GeneratorPage';
 import Tier2Page from '../components/pages/Tier2Page';
+import ContractPage from '../components/pages/ContractPage';
 import Tier3Page from '../components/pages/Tier3Page';
 import VideoLecturesPage from '../components/pages/VideoLecturesPage';
 import StepNav from '../components/ui/StepNav';
@@ -42,7 +43,7 @@ const VALID_PAGES = new Set([
   'home', 'dash1', 'dash2', 'dash3', 'dashIep', 'students', 'startpoint',
   'observe', 'qabf', 'bip', 'monitor', 'eval', 'iep', 'priorIep', 'iepReport',
   'builder', 'crisis', 'support', 'classpbs', 'pbssurvey', 'classcheck', 'classcheck2',
-  'tier2', 'tier3', 'videos', 'qa', 'generator',
+  'tier2', 'contract', 'tier3', 'videos', 'qa', 'generator',
 ]);
 
 // 현재 주소 해시에서 화면 id를 읽는다. 유효하지 않으면 홈.
@@ -226,6 +227,7 @@ function PageRouter({ activePage, onNavigate }) {
     case 'classcheck': return <ClassChecklistPage />;
     case 'classcheck2': return <ClassFidelityPage />;
     case 'tier2': return <Tier2Page onNavigate={onNavigate} />;
+    case 'contract': return <ContractPage />;
     case 'tier3': return <Tier3Page onNavigate={onNavigate} />;
     case 'videos': return <VideoLecturesPage onNavigate={onNavigate} />;
     case 'qa': return <QAPage />;
