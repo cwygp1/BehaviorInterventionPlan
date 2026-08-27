@@ -35,6 +35,7 @@ const TITLES = {
   generator: 'AI 생성기',
   qa: 'PBS Q&A 전문가',
   videos: 'PBS 영상 강의실',
+  admin: '가입자 관리 (관리자)',
 };
 
 export default function Topbar({ activePage, sectionKey, onNavigate, canGoBack, onBack, onMenu, onOpenLLMSettings, onAddStudent, onManageClasses }) {

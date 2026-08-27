@@ -102,6 +102,7 @@ function NavItem({ item, activePage, onNavigate, hasStudent, hint }) {
 
 export default function Sidebar({ activePage, onNavigate, open, onClose, hasStudent, sectionKey: sectionKeyProp }) {
   const { user, logout } = useAuth();
+  const isAdmin = user?.role === 'admin';
   // 0824: 어떤 영역 사이드바를 보일지는 Layout이 내려준다(공통 페이지에서도 직전
   // 영역을 유지하기 위해). prop이 없으면 종전처럼 페이지 소속으로 판단.
   const sectionKey = sectionKeyProp !== undefined ? sectionKeyProp : (PAGE_SECTION[activePage] || null);
@@ -175,15 +176,30 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
           </>
         )}
         <div className="sidebar-foot">
-          <div className="user-avatar">{(user?.name || 'T').charAt(0)}</div>
-          <div className="user-info">
-            <div className="name">{user?.name || '선생님'}</div>
-            <div className="role">{user?.school || '로그인됨'}</div>
-            {BUILD_LABEL && (
-              <div className="role" style={{ fontSize: 10, opacity: 0.65 }} title="이 화면이 언제 배포된 버전인지 — 수정 반영 여부를 확인할 때 보세요 (새로고침 후에도 같으면 아직 새 배포 전)">
-                빌드 {BUILD_LABEL}
+          {/* 관리자에게만 이름 클릭 → 관리자 페이지(가입자 관리). 일반 사용자는 종전처럼 무반응.
+              진입점 숨김은 UX일 뿐 — 실제 보호는 /api/admin/* 의 requireRole 서버 검사. */}
+          <div
+            className={'user-hit' + (isAdmin ? ' clickable' : '')}
+            onClick={isAdmin ? () => onNavigate('admin') : undefined}
+            onKeyDown={isAdmin ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate('admin'); } } : undefined}
+            role={isAdmin ? 'button' : undefined}
+            tabIndex={isAdmin ? 0 : undefined}
+            title={isAdmin ? '관리자 페이지 — 가입자 관리' : undefined}
+            aria-label={isAdmin ? '관리자 페이지 열기' : undefined}
+          >
+            <div className="user-avatar">{(user?.name || 'T').charAt(0)}</div>
+            <div className="user-info">
+              <div className="name">
+                {user?.name || '선생님'}
+                {isAdmin && <span className="admin-badge" title="관리자 계정" aria-hidden="true">🛡️</span>}
               </div>
-            )}
+              <div className="role">{user?.school || '로그인됨'}</div>
+              {BUILD_LABEL && (
+                <div className="role" style={{ fontSize: 10, opacity: 0.65 }} title="이 화면이 언제 배포된 버전인지 — 수정 반영 여부를 확인할 때 보세요 (새로고침 후에도 같으면 아직 새 배포 전)">
+                  빌드 {BUILD_LABEL}
+                </div>
+              )}
+            </div>
           </div>
           <button className="logout-btn" onClick={logout} title="로그아웃">↪</button>
         </div>
