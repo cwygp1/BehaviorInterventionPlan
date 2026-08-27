@@ -64,8 +64,10 @@ const WORKSPACE_COMMON = [
   { id: 'students', label: '학생 관리', icon: '🧑‍🎓' },
   { id: 'crisis', label: '위기행동 대처', icon: '🚨' },
   { id: 'support', label: '교사 지원', icon: '📚' },
+  { id: 'qaBoard', label: '질문 게시판', icon: '❓' },
   { id: 'generator', label: 'AI 생성기', icon: '✨' },
   { id: 'builder', label: 'AI 어시스턴트', icon: '🤖' },
+  { id: 'chatExpert', label: 'AI 전문가 채팅', icon: '🗨️' },
 ];
 
 // 0824: 워크스페이스에서 위 공통 메뉴로 이동해도 사이드바가 포털 모드로 바뀌지 않도록,
