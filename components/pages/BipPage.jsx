@@ -12,7 +12,7 @@ import BIPPromptModal from '../modals/BIPPromptModal';
 import FamilyLetterModal from '../modals/FamilyLetterModal';
 import { saveBIP as apiSaveBIP } from '../../lib/api/students';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
-import { skillsForQabf } from '../../lib/functionSkills';
+import { skillsForQabf, strategiesForQabf } from '../../lib/functionSkills';
 import AssessmentLauncher from '../student/AssessmentLauncher';
 import { printBIP } from '../../lib/utils/printBIP';
 
@@ -304,18 +304,39 @@ export default function BipPage({ onNavigate }) {
         {/* 0825: 예방·교수·강화는 PTR(Prevent-Teach-Reinforce) 모델의 3요소, 반응은 별도 안전 절차 */}
         <div className="card-title">📜 중재 전략 — PTR (예방·교수·강화) + 반응 절차</div>
         <div className="card-subtitle">PTR 세 갈래에서 전략을 최소 1개씩 고르고, 문제행동 발생 시 대응(반응 절차)을 함께 정합니다.</div>
-        <div className="form-group">
-          <label className="form-label">🛡 예방 전략</label>
-          <TokenField value={prev} onChange={setPrev} options={PREV_CHIPS} storageKey="bip_prev" editPlaceholder="이 학생 맥락의 예방 전략" />
-        </div>
-        <div className="form-group">
-          <label className="form-label">📖 교수 전략</label>
-          <TokenField value={teach} onChange={setTeach} options={TEACH_CHIPS} storageKey="bip_teach" editPlaceholder="이 학생 맥락의 교수 전략" />
-        </div>
-        <div className="form-group">
-          <label className="form-label">⭐ 강화 전략</label>
-          <TokenField value={reinf} onChange={setReinf} options={REINF_CHIPS} storageKey="bip_reinf" editPlaceholder="이 학생 맥락의 강화 전략" />
-        </div>
+        {/* 0827(동료 확정): 대체행동 칸에만 있던 기능 추천을 예방·교수·강화로 확장 —
+            QABF 최상위 기능에 맞는 전략 칩을 각 칸 위에 노출한다(기능기반 원칙의 시각화). */}
+        {(() => {
+          const rec = strategiesForQabf(curStuData?.qabf);
+          const row = (chips, cur, set) => rec && chips?.length ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', background: '#fff8e8', border: '1px solid #f2dfad', borderRadius: 8, padding: '5px 10px', marginBottom: 6 }}>
+              <span style={{ fontSize: '.74rem', color: '#8a6100', fontWeight: 700 }}>⭐ '{rec.qabfLabel}' 기능 추천</span>
+              {chips.map((t) => (
+                <button key={t} type="button" className="btn btn-ghost btn-sm" style={{ borderColor: '#e5c76a', fontSize: '.76rem', padding: '2px 9px' }}
+                  title="누르면 아래 칸에 추가돼요" onClick={() => makeAppender(cur, set, false)(t)}>{t}</button>
+              ))}
+            </div>
+          ) : null;
+          return (
+            <>
+              <div className="form-group">
+                <label className="form-label">🛡 예방 전략</label>
+                {row(rec?.prev, prev, setPrev)}
+                <TokenField value={prev} onChange={setPrev} options={PREV_CHIPS} storageKey="bip_prev" editPlaceholder="이 학생 맥락의 예방 전략" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">📖 교수 전략</label>
+                {row(rec?.teach, teach, setTeach)}
+                <TokenField value={teach} onChange={setTeach} options={TEACH_CHIPS} storageKey="bip_teach" editPlaceholder="이 학생 맥락의 교수 전략" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">⭐ 강화 전략</label>
+                {row(rec?.reinf, reinf, setReinf)}
+                <TokenField value={reinf} onChange={setReinf} options={REINF_CHIPS} storageKey="bip_reinf" editPlaceholder="이 학생 맥락의 강화 전략" />
+              </div>
+            </>
+          );
+        })()}
         <div className="form-group">
           <label className="form-label">🚨 반응 절차</label>
           <TokenField value={resp} onChange={setResp} options={RESP_CHIPS} storageKey="bip_resp" editPlaceholder="이 학생 맥락의 반응 절차" />
