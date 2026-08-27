@@ -48,6 +48,7 @@ const COMMON_GROUPS = [
   { group: '위기 대처 · 자료실', items: [
     { id: 'crisis', label: '위기행동 대처', icon: '🚨' },
     { id: 'support', label: '교사 지원', icon: '📚' },
+    { id: 'qaBoard', label: '질문 게시판', icon: '❓' },
     { id: 'videos', label: 'PBS 영상 강의', icon: '🎬' },
   ] },
   { group: 'AI 도구', items: [

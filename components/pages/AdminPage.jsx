@@ -88,7 +88,7 @@ export default function AdminPage() {
     <div className="card">
       <div className="card-title">🛡️ 가입자 관리</div>
       <div className="card-subtitle">
-        가입한 선생님 목록을 확인하고 관리자를 지정합니다. 관리자는 가입자 관리와 (추후) Q&A 게시판 답변 권한을 갖습니다.
+        가입한 선생님 목록을 확인하고 관리자를 지정합니다. 관리자는 가입자 관리와 질문 게시판 답변 권한을 갖습니다.
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0', flexWrap: 'wrap' }}>

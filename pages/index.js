@@ -36,6 +36,7 @@ import ContractPage from '../components/pages/ContractPage';
 import Tier3Page from '../components/pages/Tier3Page';
 import VideoLecturesPage from '../components/pages/VideoLecturesPage';
 import AdminPage from '../components/pages/AdminPage';
+import QABoardPage from '../components/pages/QABoardPage';
 import StepNav from '../components/ui/StepNav';
 
 // 화면 id 전체 목록 — 주소 해시(#dash3 등)로 화면을 복원할 때 유효성 검사에 쓴다.
@@ -44,7 +45,7 @@ const VALID_PAGES = new Set([
   'home', 'dash1', 'dash2', 'dash3', 'dashIep', 'students', 'startpoint',
   'observe', 'qabf', 'bip', 'monitor', 'eval', 'iep', 'priorIep', 'iepReport',
   'builder', 'crisis', 'support', 'classpbs', 'pbssurvey', 'classcheck', 'classcheck2',
-  'tier2', 'contract', 'tier3', 'videos', 'qa', 'generator', 'admin',
+  'tier2', 'contract', 'tier3', 'videos', 'qa', 'generator', 'admin', 'qaBoard',
 ]);
 
 // 현재 주소 해시에서 화면 id를 읽는다. 유효하지 않으면 홈.
@@ -234,6 +235,7 @@ function PageRouter({ activePage, onNavigate }) {
     case 'qa': return <QAPage />;
     case 'generator': return <GeneratorPage />;
     case 'admin': return <AdminPage />;
+    case 'qaBoard': return <QABoardPage />;
     default: return <PortalHome onNavigate={onNavigate} />;
   }
 }

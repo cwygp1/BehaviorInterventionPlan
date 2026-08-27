@@ -36,6 +36,7 @@ const TITLES = {
   qa: 'PBS Q&A 전문가',
   videos: 'PBS 영상 강의실',
   admin: '가입자 관리 (관리자)',
+  qaBoard: '질문 게시판',
 };
 
 export default function Topbar({ activePage, sectionKey, onNavigate, canGoBack, onBack, onMenu, onOpenLLMSettings, onAddStudent, onManageClasses }) {
