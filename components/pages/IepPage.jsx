@@ -13,13 +13,13 @@ import { downloadIepFormDocx, downloadTaskSheetDocx } from '../../lib/utils/iepF
 import { downloadNiceIepDocx } from '../../lib/utils/niceIepDocx';
 import { buildStudentSummary as tcBuildStudentSummary, buildTierLinkage as tcBuildTierLinkage } from '../../lib/tierContext';
 import { profileNarrative } from '../../lib/utils/splitNote';
-import { findHanja } from '../../lib/utils/aiText';
+import { findHanja, findNegative } from '../../lib/utils/aiText';
 import { ebpBlockForGoal } from '../../lib/ebp';
 import { functionSkillsBlock } from '../../lib/functionSkills';
 import AssessmentLauncher from '../student/AssessmentLauncher';
 import { FORMAT_EX_MATH, FORMAT_EX_COMM, findExampleEchoes } from '../../lib/exampleGuard';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
-import { splitDisability } from '../../lib/disability';
+import { methodsForType, methodsForTask, buildDisabilityMethodBlock, TEACH_SCENES } from '../../lib/disabilityMethods';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import { GRADES_BY_LEVEL } from '../modals/EditStudentModal';
 
@@ -62,34 +62,11 @@ function toActivityPhrase(s) {
 }
 const CONTENT_SUFFIX = ['탐색·모방 활동', '구조화된 연습 활동', '실제 상황 적용 연습', '모의·실제 상황 일반화 활동'];
 
-// 유형 1개의 기본 교육방법. 매칭 없으면 null(호출부에서 기본 세트 처리).
-function methodsForOne(d) {
-  if (d.includes('자폐')) return ['시각적 지원', '구조화 교수', '사회적 이야기', '과제분석'];
-  if (d.includes('주의') || d.toUpperCase().includes('ADHD')) return ['짧은 활동', '즉각 강화', '자기점검', '시각적 일정'];
-  if (d.includes('지적')) return ['직접교수', '모델링', '과제분석', '반복연습', '즉각 강화'];
-  return null;
-}
-// 중복장애("지적장애·ADHD" 결합값)면 각 유형의 방법을 합집합으로(주 장애 순서 우선).
-function methodsForType(disability) {
-  const out = [];
-  for (const p of splitDisability(disability)) {
-    const m = methodsForOne(p);
-    if (m) out.push(...m);
-  }
-  if (!out.length) return ['모델링', '직접교수', '과제분석', '즉각 강화'];
-  return [...new Set(out)];
-}
+// 장애영역별 기본 교육방법(methodsForType/methodsForTask)은 lib/disabilityMethods.js로 이동(0902) —
+// 규칙 초안·채우기 버튼·AI 프롬프트가 같은 표(장특법 11개 영역, EBP 명칭)를 읽는다.
 // 과제 분석 — 교수 순서(연쇄)·촉진 체계 라벨 및 서술 도우미.
 const CHAIN_LABEL = { forward: '전진형', backward: '후진형', total: '전체과제 제시형' };
 const PROMPT_LABEL = { mtl: '최대-최소촉진', slp: '최소촉진체계', td: '시간지연', sim: '동시촉진' };
-// 과제 분석 시 교육방법 기본값에 결합 EBP(증거기반실제)를 더한다.
-function methodsForTask(disability, promptSystem) {
-  const add = ['과제분석', '비디오 모델링', '그림 촉진'];
-  if (promptSystem === 'td') add.push('시간지연');
-  if (promptSystem === 'slp') add.push('최소촉진체계');
-  if (promptSystem === 'sim') add.push('동시촉진');
-  return [...new Set([...methodsForType(disability), ...add])];
-}
 // 교수 순서(연쇄)에 따라 "이번 달 독립 수행 단계" 서술.
 function chainDesc(chainType, totalSteps, indep) {
   if (indep <= 0) return `전 단계 교사 촉진(${CHAIN_LABEL[chainType] || '전진형'}: 한 단계씩 독립화 시작)`;
@@ -199,11 +176,13 @@ function fadeStartStage(perfText, cStart, cEnd) {
   return ratio >= 0.8 ? 2 : ratio >= 0.6 ? 1 : 0;
 }
 // 구간 phase(탐색→연습→적용→일반화)별 지도전략 중점 — 지도전략 줄이 매달 똑같지 않게.
+// 0902: 구간 중점에 "교수 장면"(DTT→삽입 교수→자연적 중재)을 붙여 DTT·자연적 중재가 사다리 축에 들어가게 한다.
+//       핵심 방법(기본 전략)은 학기 내내 고정하고, 구간마다 바뀌는 것은 장면·중점뿐.
 const PHASE_STRATEGY = [
-  '교사 시범·모델링을 보고 따라 하기 중심',
-  '직접교수·반복연습으로 정확도 높이기 중심',
-  '촉진을 줄이며 자기점검(스스로 확인하기) 활용 중심',
-  '장소·자료·사람을 바꿔 적용하기 중심',
+  `${TEACH_SCENES[0].scene} — 교사 시범·모델링을 보고 따라 하기 중심`,
+  `${TEACH_SCENES[1].scene} — 반복연습으로 정확도 높이기 중심`,
+  `${TEACH_SCENES[2].scene} — 촉진을 줄이며 자기점검(스스로 확인하기) 활용 중심`,
+  `${TEACH_SCENES[3].scene} — 장소·자료·사람을 바꿔 적용하기 중심`,
 ];
 // 0819(동료 피드백): 학기목표 문장은 "~할 수 있다."로 끝맺는다. '~한다'로 끝나는 문장만 안전 변환
 // (다른 어미는 형태 변형이 위험해 그대로 두고, AI 프롬프트 지시로 보완).
@@ -804,7 +783,7 @@ export default function IepPage({ onNavigate }) {
         : reinforceStage(stg, reinfPos[i], topReinf);
       return [
         // P15: 교사가 학기 교육방법에 적은 지도전략을 우선 반영 + 구간별 중점을 문두에.
-        `지도전략: (이번 구간 중점) ${PHASE_STRATEGY[phaseIdx(i)]} — 기본 전략: ${semStrategy || methods.join(', ')}`,
+        `지도전략: 핵심 방법(학기 고정): ${semStrategy || methods.join(', ')} / 이번 구간 중점: ${PHASE_STRATEGY[phaseIdx(i)]}`,
         `지원수준(촉구·용암): ${fadeLine}`,
         `강화 스케줄: ${reinfLine}`,
       ];
@@ -1133,6 +1112,7 @@ export default function IepPage({ onNavigate }) {
         '- [서술형] 문장은 반드시 "~할 수 있다."로 끝맺을 것(예: "…을 스스로 가리킬 수 있다.").\n' +
         '- [단일 행동 원칙] 목표의 핵심 행동(동사)은 1개만 쓸 것. "~하거나 ~하며" 같은 선택형·병렬형으로 여러 행동을 묶으면 달성 판정이 불가능해진다. 도달 기준(예: 5회 중 4회)도 그 행동 1개에만 걸 것.\n' +
         '- 교수전략·지도방법 이름은 넣지 말 것. 영어 단어·어려운 한자어 없이 쉬운 우리말로 쓸 것.\n' +
+        '- [부정 진술 금지] "~하지 않는다", "~않고 기다린다"처럼 무엇을 안 하는지로 쓰지 말고, 대신 무엇을 하는지(대체행동)로 쓸 것. 예) "소리 지르지 않는다" → "쉬고 싶어요 카드를 교사에게 건넨다", "다른 행동을 하지 않고 기다린다" → "자리에 앉아 손을 무릎에 두고 기다린다".\n' +
         `[성취기준] ${[sel, ...selExtra].map((x) => `[${x.code}] ${x.text}`).join(' / ')} (교과 ${sel.subject}${sel.area ? ' · ' + sel.area : ''})\n` +
         (selExtra.length ? `  → 성취기준이 여러 개다. 각각을 나열해 잇지 말고, 공통되는 상위 행동 1개로 통합해 진술할 것(통합이 어려우면 첫 번째 성취기준을 중심으로 쓰고 나머지는 조건·맥락으로만 반영).\n` : '') +
         `[학생 자료]\n${summary}\n` +
@@ -1149,6 +1129,7 @@ export default function IepPage({ onNavigate }) {
       setGoal(toCanDo(g)); // 0819: "~할 수 있다." 서술형 보정
       const hanja = findHanja(g);
       if (hanja.length) toast(`⚠ 학기목표에 한자 혼입(${hanja.join(', ')})이 있어요 — 수정해 주세요.`);
+      if (findNegative(g).length) toast('⚠ 학기목표가 "~하지 않는다"식 부정 진술이에요 — 대신 무엇을 하는지(대체행동)로 고쳐 주세요.');
       toast('성취기준·학생 자료를 반영한 학기목표 초안을 만들었어요. 문장을 다듬어 확정하세요.');
     } catch (e) { toast('학기목표 생성 실패: ' + e.message); }
     finally { setGoalAiBusy(false); }
@@ -1177,7 +1158,10 @@ export default function IepPage({ onNavigate }) {
         '2) methods(교육방법): 교사가 실제로 어떻게 가르치는지 2~4개 항목. 그중 1개 이상은 지원을 점차 줄여 독립 수행으로 가는 단계 흐름을 "→"로 이어 서술할 것.\n' +
         '   (서술 방식 예 — 내용은 베끼지 말 것: "교사가 학생의 손을 잡고 대피하기 → 대피 방법을 말로 설명하며 반복하기 → 설명 없이 함께 대피하기 → 교사가 한 걸음 뒤에서 지켜보기 → 학생이 머뭇거릴 때만 촉구 제공하며 스스로 대피하기")\n' +
         '   [중요] "→" 단계 흐름의 첫 단계는 위 [현행수준]·[출발점 — 수행 가능 수준]에 적힌 이 학생의 실제 촉진 수준(예: 신체 촉진, 언어·시각 촉진, 시간지연)에서 시작할 것. "최대-최소 촉진에서 시간지연으로 촉구를 점차 줄여 독립 수행으로" 같은 일반 문구를 그대로 쓰지 말고, 이 학기목표의 실제 활동·자료·촉진 방법을 담아 이 학생만의 문장으로 쓸 것.\n' +
-        '3) 각 항목은 "- "로 시작하는 한 줄. 쉬운 우리말, 학생 실명·영어 단어 금지.\n\n' +
+        '3) 각 항목은 "- "로 시작하는 한 줄. 쉬운 우리말, 학생 실명·영어 단어 금지.\n' +
+        '4) [부정 진술 금지] 교육내용에 "~하지 않기"처럼 무엇을 안 하는지를 쓰지 말고, 대신 무엇을 하는지(대체행동)로 쓸 것.\n' +
+        (curStu?.disability ? '5) 교육방법의 핵심 방법은 이 학생 장애영역의 기본 교수전략에서 1~2개를 고르고, "→" 단계 흐름은 구조화된 1:1 시행(비연속 시행 훈련, DTT)에서 시작해 일과 속 자연적 중재로 넘어가는 순서로 쓸 것.\n' : '') +
+        '\n' + buildDisabilityMethodBlock(curStu?.disability) + '\n' +
         '반드시 JSON만 출력: {"content":"- ...하기\\n- ...하기","methods":"- ...\\n- ... → ... → ..."}';
       const j = await llmJSON('학기 교육내용·방법 생성(연수자료 방식)', prompt, { tier: 'fast', temperature: 0.5 });
       const c = String(j.content || '').trim(), m = String(j.methods || '').trim();
@@ -1219,6 +1203,7 @@ export default function IepPage({ onNavigate }) {
         '2) 의미는 그대로 두고, 조건(어디서/무엇으로) + 행동(무엇을 한다) + 기준(얼마나)이 드러나는 한 문장으로만 정련한다.\n' +
         '3) 교수전략 이름 금지. 영어 단어 없이 쉬운 우리말. 초안이 이미 좋으면 표현만 자연스럽게 손본다.\n' +
         '4) 문장은 반드시 "~할 수 있다."로 끝맺는다.\n' +
+        '5) [부정 진술 금지] 초안이 "~하지 않는다"처럼 무엇을 안 하는지로 쓰여 있으면, 같은 상황에서 대신 무엇을 하는지(대체행동)로 바꿔 쓴다. 예) "지루함을 표현하지 않는다" → "지루할 때 쉬고 싶어요 카드를 교사에게 건넬 수 있다."\n' +
         '예) 초안 "점심 먹기 전에 손을 씻는다." → "급식 전과 화장실 이용 후, 비누를 사용해 손 씻기 6단계를 10회 기회 중 8회 이상 스스로 수행할 수 있다."\n' +
         (strict ? '※ 직전 답변이 초안과 무관한 내용이었다. 이번에는 반드시 초안의 소재(단어)를 그대로 사용해 다듬기만 하라.\n' : '') +
         (curStu?.disability ? `(참고 — 장애유형 ${curStu.disability}: 문장 난이도 조정에만 사용, 소재 변경 금지)\n` : '') +
@@ -1240,6 +1225,7 @@ export default function IepPage({ onNavigate }) {
         return;
       }
       setGoal(toCanDo(g)); // 0819: "~할 수 있다." 서술형 보정
+      if (findNegative(g).length) toast('⚠ 다듬은 문장이 아직 부정 진술("~하지 않는다")이에요 — 대체행동으로 고쳐 주세요.');
       toast('학기목표 문장을 다듬었어요.');
     } catch (e) { toast('학기목표 다듬기 실패: ' + e.message); }
     finally { setGoalAiBusy(false); }
@@ -1359,6 +1345,7 @@ export default function IepPage({ onNavigate }) {
         '   ③ 상황·자료 확장(모의 → 실제 등)은 많아야 1~2개만.\n' +
         (verbHints.length ? `   ④ 필요하면 이 동사 후보를 활용해 표현을 다양하게: ${verbHints.join(', ')}\n` : '') +
         `3) 정확히 ${n}개 만들 것(규칙을 어긴 문장을 빼느라 줄어드는 것은 허용). 평서형("~한다.")으로 끝낼 것. 지원 수준(도움받아/독립)으로 나누지 말 것. 쉬운 우리말.\n` +
+        '4) [부정 진술 금지] "~하지 않는다", "~않고 기다린다"처럼 무엇을 안 하는지로 쓰지 말고, 대신 무엇을 하는지(대체행동)로 쓸 것. 예) "다른 행동을 하지 않고 기다린다" → "자리에 앉아 손을 무릎에 두고 기다린다".\n' +
         '예) 학기목표 "급식 시간에 수저로 밥을 먹는다." — 이 예시는 소재가 다르므로 문장을 절대 베끼지 말 것.\n' +
         '  좋은 평가초점: "수저를 바르게 잡는다." / "숟가락으로 밥을 떠서 먹는다." / "젓가락으로 반찬을 집어 먹는다." / "흘리지 않고 밥을 먹는다." / "급식 시간 동안 수저로 스스로 밥을 먹는다."\n' +
         '  나쁜 평가초점: "식탁에 바르게 앉는다."(목표에 없는 행동) / "교실에서 수저로 밥을 먹는다."와 "식당에서 수저로 밥을 먹는다."(장소만 바꾼 반복)\n' +
@@ -1381,6 +1368,8 @@ export default function IepPage({ onNavigate }) {
       }
       if (!foci.length) throw new Error('학기목표에 맞는 평가초점을 받지 못했어요. 다시 시도해 주세요.');
       setEvalFoci(foci);
+      const negFoci = findNegative(foci.join('\n'));
+      if (negFoci.length) toast(`⚠ 부정 진술 평가초점 ${negFoci.length}개("${negFoci[0].slice(0, 20)}…") — 대신 무엇을 하는지로 고쳐 주세요.`);
       toast(`학기목표를 쪼개 평가초점 ${foci.length}개를 만들었어요. 목표의 하위 수행이 맞는지 확인해 주세요.`);
     } catch (e) { toast('평가초점 생성 실패: ' + e.message); }
     finally { setFociGoalBusy(false); }
@@ -1461,7 +1450,7 @@ export default function IepPage({ onNavigate }) {
         ? `[학기 교육방법(교사 방향)]\n${String(semMethods).trim()}\n  → 월별 교육방법(methods)의 지도전략은 이 방향을 우선 반영할 것. 이 방향에 "→"로 이어진 단계 흐름이 있으면 무관한 새 흐름을 만들지 말고 그 단계들을 구간 순서대로 배분할 것 — 각 구간의 ②지원수준·③강화 스케줄 문장 앞에 "[학기 계획 n/m단계]"를 붙여 학기 방향의 몇 번째 단계인지 표시하고, 그 단계를 이 구간의 교육내용 활동·자료에 맞게 구체화할 것(학기 방향 문장을 그대로 복사하지 말 것).\n`
         : '') +
       `[대상 월(구간)] ${ms.map((x) => x + '월').join(', ')} (총 ${ms.length}구간 — 월을 묶은 구간은 한 행으로 작성)\n` +
-      critLine + tierLine + ebpBlock + funcSkillsB +
+      critLine + tierLine + buildDisabilityMethodBlock(curStu?.disability) + ebpBlock + funcSkillsB +
       `\n[형식 본보기 — 일부러 고른 "다른 교과"의 한 구간 예시]\n` +
       `아래 예시는 지금 작성하는 교과(${sel.subject})와 무관하다. 구조(개조식 content, methods 3구조, 질문형 eval_plan의 측면 구성)와 어미만 본보기로 삼을 것. 예시의 소재·활동·문장은 이 교과와 맞지 않으므로 가져다 쓰지 말 것.\n` +
       `${/수학|과학/.test(sel.subject || '') ? FORMAT_EX_COMM : FORMAT_EX_MATH}\n\n` +
@@ -1469,14 +1458,15 @@ export default function IepPage({ onNavigate }) {
       `1) 현행수준(plop)은 이 성취기준·평가초점에 대한 학생의 현재 수행 수준(무엇을 어디까지 하는지)을 중심으로 쓰고, 행동·지원 정보(ABC·BIP·안정실 등)는 학습에 영향을 주는 범위에서만 보조적으로 덧붙인다.\n` +
       `2) 구간이 지날수록 지원 수준을 점차 줄이며(도움받아→부분→독립→적용) 목표를 점증시킬 것.\n` +
       `3) [교육목표(goal) 진술 규칙 — 중요] 교육목표는 성취기준과 현행수준에 근거해 학생이 도달할 행동·능력만 진술한다. 교수전략·증거기반실제의 기법명이나 지도 방법 서술은 교육목표에 절대 넣지 말 것 — 그런 내용은 전부 교육방법(methods)에만 쓴다.\n` +
+      `   [부정 진술 금지] 교육목표·교육내용·평가초점에 "~하지 않는다", "~않고 기다린다"처럼 무엇을 안 하는지를 쓰지 말고, 대신 무엇을 하는지(대체행동)로 쓸 것. 예) "소리 지르지 않는다" → "쉬고 싶어요 카드를 교사에게 건넨다", "다른 행동을 하지 않고 기다린다" → "자리에 앉아 손을 무릎에 두고 기다린다".\n` +
       `4) [교육내용(content) 진술 규칙] 교육내용은 "~하기"로 끝나는 개조식 명사형 활동 목록으로 쓴다. 이 학생이 수업에서 실제로 할 구체적 활동(재료·놀잇감·상황 포함)을 스스로 구상해 항목 3~6개로 쓸 것. "~할 수 있다", "~한다" 같은 목표·평가식 문장 금지.\n` +
       `5) [교육방법(methods) 3구조] methods 배열은 반드시 "지도전략: ...", "지원수준(촉구·용암): ...", "강화 스케줄: ..." 세 항목으로 구성한다.\n` +
-      `   ① 지도전략 — 위 [IEP 교육방법 증거기반실제(EBP) 후보]와 학생 자료에서 이 구간의 교육내용에 맞는 전략을 골라, 어떤 활동에서 어떤 지시어·상황으로 쓰는지 이 학생에 맞춰 서술(전략명은 우리말 명칭+약어 병기).\n` +
+      `   ① 지도전략 — [고정 축] 핵심 방법 1~2개를 [학기 교육방법(교사 방향)] 또는 [장애영역 기본 교육방법]·[EBP 후보]에서 골라 모든 구간에 똑같이 쓸 것(구간마다 기법을 바꿔 넣지 말 것 — 교사가 매달 새 방법을 준비하는 부담이 생긴다). 구간마다 달라지는 것은 그 방법을 적용하는 활동·자료·지시어와 "교수 장면"뿐이다. 교수 장면은 ${TEACH_SCENES.map((t, k) => `${k + 1}단계 ${t.label}: ${t.scene}`).join(' → ')} 순서로 점증하며, 마지막 구간에서만 자연적 중재(교수) 하나를 새로 더할 수 있다. 서술 형식: "핵심 방법(학기 고정): ○○, ○○ / 이번 구간: [교수 장면] 어떤 활동에서 어떤 지시어·상황으로"(전략명은 우리말 명칭+약어 병기).\n` +
       `   ② 지원수준(촉구·용암) — 무엇을 촉구하고 언제 어떻게 줄이는지, 이 학생의 현행수준에 맞는 촉구 체계와 용암 계획을 서술.\n` +
       `   ③ 강화 스케줄 — 습득 단계와 유지 단계의 강화 계획을 서술하고, 학생 자료에 나온 이 학생이 실제 좋아하는 것을 강화물로 연결.\n` +
       `   ※ 3구조의 틀은 구간마다 일관되게 유지하되, 내용은 매 구간 이 학생·이 교육내용에서 출발해 새로 쓸 것.\n` +
       `   ※ [구간별 점증 — 중요] ②지원수준과 ③강화 스케줄은 그 구간에서 실제로 쓰는 단계만 서술할 것. 전체 용암 흐름(최대-최소 촉진→시간지연→독립)을 매 구간 반복해 쓰지 말 것. 첫 구간은 [모듈1 출발점]의 수행 가능 수준(없으면 현행수준)에 적힌 촉진 수준에서 시작하고, 구간이 지날수록 최대-최소 촉진→시간지연→독립 수행, 즉시(연속)강화→간헐강화→자연적 강화로 점증해 마지막 구간은 독립 수행·자연적 강화에 도달할 것.\n` +
-      `   ※ 인접 구간과 같거나 거의 같은 문장 금지 — 구간마다 촉진 종류·대기 시간·강화 비율 중 최소 1가지를 명시적으로 다르게 쓸 것.\n` +
+      `   ※ 인접 구간과 같거나 거의 같은 문장 금지는 ②지원수준·③강화 스케줄에만 적용 — 구간마다 촉진 종류·대기 시간·강화 비율 중 최소 1가지를 명시적으로 다르게 쓸 것. ①지도전략의 핵심 방법은 반대로 구간이 바뀌어도 같아야 한다.\n` +
       `6) [평가초점 연결 — 핵심] 평가초점이 교육목표·교육내용·교육방법·평가를 하나로 꿰는 축이다. 교육목표는 평가초점이 가리키는 능력에 도달하도록 진술하고, 교육내용은 그 평가초점을 배우는 구체적 학습내용·활동으로, 교육방법은 그 내용을 가르치는 방법으로, 평가는 평가초점을 기준으로 작성한다(평가초점이 비어 있으면 성취기준을 먼저 분석해 세운다). 교육목표·평가는 "- "로 시작하는 항목 2~3개로 쓴다.\n` +
       `7) [평가계획(eval_plan)] 구간마다 교육목표·교육내용에 근거한 "~는가?" 질문형 항목 2~4개. 반드시 서로 다른 측면을 다각적으로 다룰 것 — (a) 수행·도달, (b) 참여 태도, (c) 지속성(시간·횟수), (d) 독립·모방 수준, (e) 일반화(다른 상황·자료·사람) 중 2~4개 측면을 골라 한 측면당 1개 질문. 같은 측면 반복 금지. 질문은 이 구간의 교육내용에 나온 실제 활동·재료를 담아 구체적으로 쓸 것.\n` +
       `8) 평가(eval)는 ${isQual ? '평가초점을 중심으로, 수업 맥락·학생 반응·성장 변곡점을 담은 내러티브(서술형)로만 작성(수치 금지).' : isTask ? '전체 N단계 중 독립 수행 단계 수와 단계별 촉진 수준(전신→부분→시범→독립)의 변화를 함께 기록하는 과제분석 체크리스트형 서술로 작성.' : '양적 기준 도달 여부와 함께 평가초점 중심의 질적 서술을 함께 포함.'}\n` +
@@ -1613,6 +1603,10 @@ export default function IepPage({ onNavigate }) {
       // P11(0720): 치환표에 없는 한자(중국어 혼입 의심)가 남았으면 교사에게 경고.
       const hanja = findHanja(JSON.stringify(j));
       if (hanja.length) toast(`⚠ 생성문에 한자 혼입 ${hanja.length}곳(${hanja.slice(0, 3).join(', ')}…)이 있어요 — 해당 칸을 확인·수정해 주세요.`);
+      // 0902: 교육목표·교육내용의 부정 진술("~하지 않는다") 검출 — 교육방법("촉진 없이")은 검사하지 않는다.
+      const negTargets = [j.semester_goal, ...(Array.isArray(j.monthly) ? j.monthly.flatMap((m) => [m.goal, m.content]) : [])].filter(Boolean).join('\n');
+      const negs = findNegative(negTargets);
+      if (negs.length) toast(`⚠ 교육목표·교육내용에 부정 진술 ${negs.length}곳("${negs[0].slice(0, 22)}…") — 대신 무엇을 하는지(대체행동)로 고쳐 주세요.`);
       if (echoes.length) toast(`생성했어요. 다만 예시 자료와 겹치는 표현이 ${echoes.length}곳 남아 있어요 — 해당 칸을 다듬어 주세요.`);
       else toast('학생 데이터를 반영해 생성했어요.');
     } catch (e) {
