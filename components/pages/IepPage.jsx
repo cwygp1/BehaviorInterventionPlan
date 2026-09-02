@@ -29,6 +29,8 @@ const GORDER = [2, 4, 6, 9, 12];
 // 「일상생활 활동」 영역 계층 구조: 대영역(5) → 중영역(하위 영역)
 // 출처: 개별화교육계획 가이드북 / 일상생활 활동 영역 구분
 const DAILY_SUBJECT = '일상생활 활동';
+// 0902: 공통교육과정을 적용하는 장애영역(장특법 기준 통상 적용) — 성취기준 목록 기본값 판단용.
+const COMMON_CURR_DIS = /시각|청각|지체|학습|건강/;
 const DAILY_AREA_GROUPS = {
   '의사소통': ['의사소통의 기초', '보완대체의사소통의 탐색과 선택', '의사소통의 활용'],
   '자립생활': ['신변 자립', '자기 관리', '안전한 생활', '자기 결정과 상호 작용'],
@@ -362,6 +364,8 @@ export default function IepPage({ onNavigate }) {
   const [rows, setRows] = useState([]); // achievement standards
   const [fSubject, setFSubject] = useState('');
   const [fGrade, setFGrade] = useState('');
+  // 0902: 교육과정 구분 — '기본'(특수교육 기본교육과정) | '공통'(초·중등 공통교육과정). 학생 장애영역에 따라 기본값.
+  const [fCurr, setFCurr] = useState('기본');
   const [fBigArea, setFBigArea] = useState(''); // 일상생활 활동 대영역
   const [fArea, setFArea] = useState('');
   // 0720: 성취기준 여러 개 선택(연수자료 22~26p "관련성취기준" 목록). 화면상 '대표' 개념은 없음.
@@ -429,7 +433,7 @@ export default function IepPage({ onNavigate }) {
   useEffect(() => {
     fetch('/data/achievement-standards.json')
       .then((r) => r.json())
-      .then((d) => setRows((d.rows || []).map((a) => ({ subject: a[0], gradeCode: a[1], area: a[2], code: a[3], text: a[4], verb: a[5], intent: a[6], descriptor: a[7] }))))
+      .then((d) => setRows((d.rows || []).map((a) => ({ subject: a[0], gradeCode: a[1], area: a[2], code: a[3], text: a[4], verb: a[5], intent: a[6], descriptor: a[7], curriculum: a[8] || '기본' }))))
       .catch(() => toast('성취기준 데이터를 불러오지 못했습니다.'));
   }, [toast]);
 
@@ -443,7 +447,10 @@ export default function IepPage({ onNavigate }) {
     const lv = String(curStu?.level || '');
     const preset = lv.includes('중') ? '9' : lv.includes('고') ? '12' : '';
     if (preset) { setFGrade(preset); setFArea(''); }
-  }, [curStuId, curStu?.level]);
+    // 0902: 시각·청각·지체·학습·건강장애는 공통교육과정 적용 대상 → 성취기준 목록 기본값을 공통으로.
+    setFCurr(COMMON_CURR_DIS.test(String(curStu?.disability || '')) ? '공통' : '기본');
+    setFSubject(''); setFBigArea(''); setFArea('');
+  }, [curStuId, curStu?.level, curStu?.disability]);
 
   // Load saved IEP goals when the selected student changes.
   useEffect(() => {
@@ -480,33 +487,36 @@ export default function IepPage({ onNavigate }) {
     setPlop(profileNarrative(curStu) || curStu?.note || '교사의 신체적·언어적 촉진이 있을 때 부분적으로 수행하며, 독립 수행은 어려움.');
   }, [curStuId, curStu?.note, curStu?.strengths, curStu?.difficulties]);
 
-  const subjects = useMemo(() => [...new Set(rows.map((r) => r.subject))], [rows]);
+  // 0902: 현재 교육과정 구분의 성취기준만(교과·학년군·영역 필터와 경로B 추천의 공통 풀).
+  const crows = useMemo(() => rows.filter((r) => (r.curriculum || '기본') === fCurr), [rows, fCurr]);
+  const currCounts = useMemo(() => ({ 기본: rows.filter((r) => (r.curriculum || '기본') === '기본').length, 공통: rows.filter((r) => r.curriculum === '공통').length }), [rows]);
+  const subjects = useMemo(() => [...new Set(crows.map((r) => r.subject))], [crows]);
   const grades = useMemo(() => {
-    const pool = rows.filter((r) => !fSubject || r.subject === fSubject);
+    const pool = crows.filter((r) => !fSubject || r.subject === fSubject);
     return GORDER.filter((g) => pool.some((r) => r.gradeCode === g));
-  }, [rows, fSubject]);
+  }, [crows, fSubject]);
   const isDaily = fSubject === DAILY_SUBJECT;
   // 일상생활 활동: 데이터에 실제 존재하는 대영역만 노출
   const bigAreas = useMemo(() => {
     if (!isDaily) return [];
     const present = new Set(rows.filter((r) => r.subject === DAILY_SUBJECT).map((r) => DAILY_MID_TO_BIG[r.area]).filter(Boolean));
     return DAILY_BIG_AREAS.filter((b) => present.has(b));
-  }, [rows, isDaily]);
+  }, [crows, isDaily]);
   const areas = useMemo(() => {
-    const pool = rows.filter((r) => (!fSubject || r.subject === fSubject) && (!fGrade || r.gradeCode === +fGrade));
+    const pool = crows.filter((r) => (!fSubject || r.subject === fSubject) && (!fGrade || r.gradeCode === +fGrade));
     let list = [...new Set(pool.map((r) => r.area).filter(Boolean))];
     // 일상생활 활동이고 대영역이 선택된 경우, 중영역만 그 그룹으로 좁힘
     if (isDaily && fBigArea) list = list.filter((a) => DAILY_MID_TO_BIG[a] === fBigArea);
     return list;
-  }, [rows, fSubject, fGrade, isDaily, fBigArea]);
+  }, [crows, fSubject, fGrade, isDaily, fBigArea]);
   const candidates = useMemo(() => {
-    return rows.filter((r) =>
+    return crows.filter((r) =>
       (!fSubject || r.subject === fSubject) &&
       (!fGrade || r.gradeCode === +fGrade) &&
       (!isDaily || !fBigArea || DAILY_MID_TO_BIG[r.area] === fBigArea) &&
       (!fArea || r.area === fArea)
     );
-  }, [rows, fSubject, fGrade, isDaily, fBigArea, fArea]);
+  }, [crows, fSubject, fGrade, isDaily, fBigArea, fArea]);
 
   // 0720: 성취기준 다중 선택 — 단순 토글(누르면 담고, 다시 누르면 뺌).
   // '대표'는 화면 개념에서 제거. 다만 DB·문서 양식의 과목/영역/성취기준 단일 칸이 있어서
@@ -1017,7 +1027,7 @@ export default function IepPage({ onNavigate }) {
     try {
       // 1단계: 성취기준 분석 — 대표 동사 + "같은 의미 동사" 목록 + 행위지향 + 서술자만 추출(평가초점 문장은 다음 단계에서).
       const aPrompt =
-        '다음 2022 개정 특수교육 기본교육과정 성취기준을 분석하세요. 평가초점 문장은 만들지 말고 "요소"만 추출합니다.\n' +
+        '다음 2022 개정 교육과정 성취기준을 분석하세요. 평가초점 문장은 만들지 말고 "요소"만 추출합니다.\n' +
         '- verb: 측정 가능한 대표 동사. 명사형(예: 분류하기, 탐색하기).\n' +
         '- verbs: 위 verb와 "같은 의미·같은 성취 의도"로 바꿔 쓸 수 있는 측정 가능한 동사 6~8개. 모두 명사형(~하기/~기), 대표 동사 자신도 포함. 서로 다른 구체 행동이되 의미는 동일.\n' +
         '   예: "분류하기" → ["분류하기","나누기","구분하기","묶기","가려내기","골라내기"]\n' +
@@ -1235,7 +1245,7 @@ export default function IepPage({ onNavigate }) {
   function keywordStdCandidates(text, limit, allowGrades) {
     // 0819(5차 피드백): 학생 학교급과 무관한 학년(초1·중학 등) 기준이 추천되던 문제 —
     // allowGrades가 있으면 그 학년군의 성취기준만 후보로 삼는다.
-    const pool = allowGrades ? rows.filter((r) => allowGrades.includes(r.gradeCode)) : rows;
+    const pool = allowGrades ? crows.filter((r) => allowGrades.includes(r.gradeCode)) : crows;
     const tokens = [...new Set(String(text).replace(/[^가-힣a-zA-Z0-9\s]/g, ' ').split(/\s+/)
       .map((t) => t.trim()).filter((t) => t.length >= 2)
       .flatMap((t) => (t.length >= 3 ? [t, t.slice(0, 2), t.slice(0, 3)] : [t])))]; // 조사 붙은 어절 대응
@@ -1487,7 +1497,7 @@ export default function IepPage({ onNavigate }) {
     const c = String(code || '').trim();
     if (!c || !rows.length) return;
     if (!rows.some((r) => r.code === c)) {
-      toast(`성취기준 코드 ${c}가 2022 기본교육과정 목록에 없습니다 — 확인하세요`);
+      toast(`성취기준 코드 ${c}가 2022 개정 교육과정(기본·공통) 목록에 없습니다 — 확인하세요`);
     }
   }
 
@@ -1766,7 +1776,7 @@ export default function IepPage({ onNavigate }) {
     analyze: {
       title: '🌐 외부 AI — 성취기준 분석 (동사·행위지향·평가초점)',
       buildPrompt: async () => (
-        '다음 2022 개정 특수교육 기본교육과정 성취기준을 분석해 "평가초점"까지 한 번에 작성하세요.\n' +
+        '다음 2022 개정 교육과정 성취기준을 분석해 "평가초점"까지 한 번에 작성하세요.\n' +
         '- verb: 측정 가능한 대표 동사(명사형, 예: 분류하기)\n' +
         '- verbs: 같은 의미·같은 성취 의도로 바꿔 쓸 수 있는 측정 가능한 동사 6~8개(모두 명사형, 대표 동사 포함)\n' +
         '- intent: 행위지향(가치·태도). 명시된 부사어가 없으면 성취기준의 취지에서 반드시 유추해 한 구절로(빈 값 금지)\n' +
@@ -2094,7 +2104,7 @@ export default function IepPage({ onNavigate }) {
       {(flowMode === 'std' || !!String(goal).trim()) && (
       <div className="card" id="iep-std">
         <div className="card-title">📋 {stepNo.std} {flowMode === 'goal' ? '성취기준 연결 (학기목표와 관련된 기준 선택)' : '성취기준 선택'}</div>
-        <div className="card-subtitle">2022 개정 기본교육과정 성취기준 {rows.length || ''}개에서 교과·학년군·영역으로 좁혀 선택합니다. <strong>여러 개 선택 가능</strong> — 누르면 담기고, 다시 누르면 빠집니다.</div>
+        <div className="card-subtitle">2022 개정 교육과정 성취기준 {rows.length || ''}개(기본교육과정 {currCounts.기본} · 공통교육과정 {currCounts.공통})에서 교육과정·교과·학년군·영역으로 좁혀 선택합니다. 교육과정 구분은 학생 장애영역에 맞춰 미리 골라집니다. <strong>여러 개 선택 가능</strong> — 누르면 담기고, 다시 누르면 빠집니다.</div>
         {/* 0720: 선택된 성취기준 목록 — 단순 토글(대표 개념 없음) */}
         {(sel || selExtra.length > 0) && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', margin: '4px 0 8px', padding: '8px 10px', background: '#f3f6fc', border: '1px solid #d5e0f5', borderRadius: 8 }}>
@@ -2158,6 +2168,13 @@ export default function IepPage({ onNavigate }) {
           </div>
         )}
         <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">교육과정</label>
+            <select className="form-input" value={fCurr} onChange={(e) => { setFCurr(e.target.value); setFSubject(''); setFBigArea(''); setFArea(''); }}>
+              <option value="기본">특수교육 기본교육과정 ({currCounts.기본}개)</option>
+              <option value="공통">초·중등 공통교육과정 ({currCounts.공통}개)</option>
+            </select>
+          </div>
           <div className="form-group">
             <label className="form-label">교과</label>
             <select className="form-input" value={fSubject} onChange={(e) => { setFSubject(e.target.value); setFGrade(''); setFBigArea(''); setFArea(''); }}>
