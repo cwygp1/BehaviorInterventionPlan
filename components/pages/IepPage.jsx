@@ -16,6 +16,7 @@ import { downloadNiceIepDocx } from '../../lib/utils/niceIepDocx';
 import { buildStudentSummary as tcBuildStudentSummary, buildTierLinkage as tcBuildTierLinkage } from '../../lib/tierContext';
 import { profileNarrative } from '../../lib/utils/splitNote';
 import { findHanja, findNegative } from '../../lib/utils/aiText';
+import { isQuestionList, guardEvalText } from '../../lib/utils/iepEvalGuard';
 import { ebpBlockForGoal } from '../../lib/ebp';
 import { functionSkillsBlock } from '../../lib/functionSkills';
 import AssessmentLauncher from '../student/AssessmentLauncher';
@@ -960,11 +961,21 @@ export default function IepPage({ onNavigate }) {
         setPlop(seed);
       }
     }
-    setSemEval(isQual
-      ? `평가초점을 중심으로 한 학기 학습 과정과 결과를 내러티브(서술형)로 종합 평가 — 수치·등급이 아니라 학생의 성장·변화 양상과 변곡점을 질적으로 기술.`
-      : isTask
-      ? `학기말 ${totalSteps}단계 중 ${Math.max(0, Math.min(totalSteps, e))}단계 독립 수행 도달 여부와 함께, 단계별 촉진 수준의 감소 양상과 미습득 단계의 변화를 과제분석 점검표 기준으로 종합 평가. 유지·일반화(다양한 상황에 적용)와 스스로 하기(그림 촉진·동영상 따라하기) 수행 정도도 함께 기술.`
-      : `학기말 ${critType === 'rate' ? `${e}%` : `10회 중 ${e}회`} 기준 도달 여부와 함께, 평가초점 중심의 학습 과정 변화·일반화 정도를 질적으로 서술 평가.`);
+    setSemEval(ruleSemEval());
+  }
+
+  // 학기말 종합 평가 기본 문장(규칙) — 규칙 초안이 쓰고, AI가 질문 나열을 돌려줬을 때의 대체 문장으로도 쓴다.
+  // "무엇을 어떤 기준으로 평가할지"의 계획 어투 — 학기가 끝나기 전에 결과를 적지 않는다.
+  function ruleSemEval() {
+    const e = +cEnd;
+    const totalSteps = (taskSteps || []).map((t) => String(t).trim()).filter(Boolean).length || Math.max(e || 0, 4);
+    if (critType === 'qual') {
+      return `평가초점을 중심으로 한 학기 학습 과정과 결과를 내러티브(서술형)로 종합 평가 — 수치·등급이 아니라 학생의 성장·변화 양상과 변곡점을 질적으로 기술.`;
+    }
+    if (critType === 'task') {
+      return `학기말 ${totalSteps}단계 중 ${Math.max(0, Math.min(totalSteps, e))}단계 독립 수행 도달 여부와 함께, 단계별 촉진 수준의 감소 양상과 미습득 단계의 변화를 과제분석 점검표 기준으로 종합 평가. 유지·일반화(다양한 상황에 적용)와 스스로 하기(그림 촉진·동영상 따라하기) 수행 정도도 함께 기술.`;
+    }
+    return `학기말 ${critType === 'rate' ? `${e}%` : `10회 중 ${e}회`} 기준 도달 여부와 함께, 평가초점 중심의 학습 과정 변화·일반화 정도를 질적으로 서술 평가.`;
   }
 
   // ── 초안 보관·전환 (규칙 초안 · AI 1차 · AI 2차… 비교) ─────────────
@@ -1689,6 +1700,8 @@ export default function IepPage({ onNavigate }) {
       `6) [평가초점 연결 — 핵심] 평가초점이 교육목표·교육내용·교육방법·평가를 하나로 꿰는 축이다. 교육목표는 평가초점이 가리키는 능력에 도달하도록 진술하고, 교육내용은 그 평가초점을 배우는 구체적 학습내용·활동으로, 교육방법은 그 내용을 가르치는 방법으로, 평가는 평가초점을 기준으로 작성한다(평가초점이 비어 있으면 성취기준을 먼저 분석해 세운다). 교육목표·평가는 "- "로 시작하는 항목 2~3개로 쓴다.\n` +
       `7) [평가계획(eval_plan)] 구간마다 교육목표·교육내용에 근거한 "~는가?" 질문형 항목 2~4개. 반드시 서로 다른 측면을 다각적으로 다룰 것 — (a) 수행·도달, (b) 참여 태도, (c) 지속성(시간·횟수), (d) 독립·모방 수준, (e) 일반화(다른 상황·자료·사람) 중 2~4개 측면을 골라 한 측면당 1개 질문. 같은 측면 반복 금지. 질문은 이 구간의 교육내용에 나온 실제 활동·재료를 담아 구체적으로 쓸 것.\n` +
       `8) 평가(eval)는 ${isQual ? '평가초점을 중심으로, 수업 맥락·학생 반응·성장 변곡점을 담은 내러티브(서술형)로만 작성(수치 금지).' : isTask ? '전체 N단계 중 독립 수행 단계 수와 단계별 촉진 수준(전신→부분→시범→독립)의 변화를 함께 기록하는 과제분석 체크리스트형 서술로 작성.' : '양적 기준 도달 여부와 함께 평가초점 중심의 질적 서술을 함께 포함.'}\n` +
+      `   [주의] 평가(eval)에 평가계획(eval_plan)의 질문을 그대로 되풀이하거나 "~는가?"로 끝나는 질문형 문장을 쓰지 말 것 — 평가는 "무엇을 어떻게 관찰·기록·판단할지"를 서술한다(예: "~하는지 관찰해 기록", "~를 기준으로 서술 평가"). 아직 학기가 시작되지 않았으므로 결과를 이룬 것처럼 완료형("~향상됨", "~달성함")으로도 쓰지 말 것.\n` +
+      `   학기말 종합 평가(semestral_eval)는 학기 전체를 어떤 기준·방법으로 종합 평가할지 2~3문장으로 서술할 것 — 월별 평가계획의 질문을 이어 붙이지 말고, 질문형·완료형 결과 기술은 모두 금지.\n` +
       `9) 학생 실명/식별정보는 절대 쓰지 말 것(익명 ID만).\n` +
       `10) semester_goal에는 위 [학기목표(확정)] 문장을 그대로 출력할 것(새로 쓰거나 바꾸지 말 것).\n` +
       `11) "Tier 1/2/3" 같은 단계 라벨을 결과 텍스트에 그대로 쓰지 말 것. 지원 단계를 언급해야 하면 그 단계가 실제로 어떤 지원인지(예: 소그룹 CICO·일일 행동점검표 등)를 구체적으로 풀어서 서술해, 제출본만 읽어도 이해되게 할 것.\n` +
@@ -1779,9 +1792,19 @@ export default function IepPage({ onNavigate }) {
         eval: normItemList(x.eval || x.evaluation),
         eval_plan: normItemList(x.eval_plan || x.evalPlan),
       }));
-      const { list, fixed } = fixAiMethodRepetition(mapped);
+      // 0904(갑 지적): 모델이 평가(eval) 칸에 평가계획(eval_plan)의 "~는가?" 질문을 그대로 되풀이하는 일이 있다.
+      // 평가는 학기말에 결과를 적는 칸이라 질문이 들어가면 나이스·문서까지 그대로 나간다 →
+      // 질문 나열이면 "~하는지 관찰해 기록" 평가 방법 서술로 바꾼다(질문이 아닌 줄은 그대로).
+      let echoed = 0;
+      const guarded = mapped.map((m, i) => {
+        if (!isQuestionList(m.eval)) return m;
+        echoed += 1;
+        return { ...m, eval: guardEvalText(m.eval, { last: i === mapped.length - 1 }) };
+      });
+      const { list, fixed } = fixAiMethodRepetition(guarded);
       setMonthly(list);
       if (fixed) toast('AI가 구간별 지원수준·강화를 비슷하게 반복해, 구간별 점증(촉구 줄이기·강화 전환)으로 자동 보정했어요.');
+      if (echoed) toast(`AI가 ${echoed}개 구간의 평가 칸에 평가계획 질문을 되풀이해, "~하는지 관찰해 기록" 문장으로 바꿨어요. 실제 평가 결과는 학기말에 적어 주세요.`);
       // 0819(동료 피드백): 성취기준을 2~3개 골랐을 때 각 성취기준이 교육내용에 실제로
       // 반영됐는지 크로스체크 — 핵심 단어가 학기목표·월별 어디에도 없으면 경고.
       if (selExtra.length) {
@@ -1792,7 +1815,16 @@ export default function IepPage({ onNavigate }) {
         }
       }
     }
-    if (j.semestral_eval || j.semestralEval) setSemEval(String(j.semestral_eval || j.semestralEval));
+    const se = j.semestral_eval || j.semestralEval;
+    if (se) {
+      if (isQuestionList(se)) {
+        // 질문 나열은 평가가 아니다 — 지금 문장이 멀쩡하면 유지, 아니면 규칙 기본 문장으로 대체.
+        setSemEval((cur) => (String(cur || '').trim() && !isQuestionList(cur) ? cur : ruleSemEval()));
+        toast('AI가 학기말 종합 평가를 질문 나열로 써서, 평가 기준 문장으로 대체했어요. 실제 종합 평가는 학기말에 적어 주세요.');
+      } else {
+        setSemEval(String(se));
+      }
+    }
     if (Array.isArray(j.task_steps) && j.task_steps.length) setTaskSteps(j.task_steps.map((s) => String(s).trim()).filter(Boolean));
   }
 
