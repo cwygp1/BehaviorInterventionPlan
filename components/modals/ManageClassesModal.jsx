@@ -91,11 +91,33 @@ export default function ManageClassesModal({ open, onClose }) {
         </select>
       </div>
 
+      {/* 새 학급 추가 — 목록보다 '위'에 둔다.
+          0902 현장: 학급이 몇 개 쌓이면 이 상자가 모달 아래로 밀려 잘리고,
+          목록이 자체 스크롤바를 가져 모달 스크롤이 먹지 않아 "학급을 더 추가할 수
+          없다"는 오해를 샀다. 위로 올려 항상 먼저 보이게 한다. */}
+      <div style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 12, margin: '8px 0 14px' }}>
+        <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 13 }}>➕ 새 학급 추가</div>
+        {/* .form-row는 2칸 그리드라 자식이 3개면 [추가] 버튼만 다음 줄로 떨어졌다 — flex로 한 줄에. */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div className="form-group" style={{ width: 120, marginBottom: 0 }}>
+            <label className="form-label">학년도</label>
+            <select className="form-select" style={{ width: '100%' }} value={newYear} onChange={(e) => setNewYear(Number(e.target.value))}>
+              {yearOptions.map((y) => <option key={y} value={y}>{y}년</option>)}
+            </select>
+          </div>
+          <div className="form-group" style={{ flex: '1 1 170px', marginBottom: 0 }}>
+            <label className="form-label">학급 이름</label>
+            <input className="form-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="예: 1반, 2반, 햇살반" onKeyDown={(e) => { if (e.key === 'Enter') onCreate(); }} />
+          </div>
+          <button className="btn btn-pri" disabled={busy} onClick={onCreate}>추가</button>
+        </div>
+      </div>
+
       {/* 현재 년도의 학급 목록 */}
       <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 4, margin: '8px 0 14px', maxHeight: 240, overflowY: 'auto' }}>
         {yearClasses.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 16, color: 'var(--muted)', fontSize: '.88rem' }}>
-            {curYear}년에 등록된 학급이 없습니다. 아래에서 추가해 주세요.
+            {curYear}년에 등록된 학급이 없습니다. 위에서 추가해 주세요.
           </div>
         ) : (
           yearClasses.map((c) => (
@@ -117,24 +139,6 @@ export default function ManageClassesModal({ open, onClose }) {
             </div>
           ))
         )}
-      </div>
-
-      {/* 새 학급 추가 */}
-      <div style={{ border: '1px dashed var(--border)', borderRadius: 10, padding: 12 }}>
-        <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 13 }}>➕ 새 학급 추가</div>
-        <div className="form-row" style={{ alignItems: 'flex-end' }}>
-          <div className="form-group" style={{ maxWidth: 130 }}>
-            <label className="form-label">학년도</label>
-            <select className="form-select" value={newYear} onChange={(e) => setNewYear(Number(e.target.value))}>
-              {yearOptions.map((y) => <option key={y} value={y}>{y}년</option>)}
-            </select>
-          </div>
-          <div className="form-group" style={{ flex: 1 }}>
-            <label className="form-label">학급 이름</label>
-            <input className="form-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="예: 1반, 2반, 햇살반" onKeyDown={(e) => { if (e.key === 'Enter') onCreate(); }} />
-          </div>
-          <button className="btn btn-pri" disabled={busy} onClick={onCreate} style={{ marginBottom: 12 }}>추가</button>
-        </div>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>

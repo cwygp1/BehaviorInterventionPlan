@@ -117,6 +117,11 @@ export default function Topbar({ activePage, sectionKey, onNavigate, canGoBack, 
             title="학년도·학급"
           >
             {classesByYear.length === 0 && <option value="">학급 없음</option>}
+            {/* 0902: 학급이 없는 학년도로 전환하면 curClassId가 null이 되는데, 빈 값에
+                맞는 option이 없으면 select가 첫 학급을 '선택된 것처럼' 보여줬다 —
+                화면엔 학급이 떠 있는데 실제로는 미선택이라 학생 추가(+)가 잠기고,
+                같은 항목을 다시 눌러도 change가 안 나 빠져나올 수 없었다. */}
+            {classesByYear.length > 0 && !curClassId && <option value="">— 학급을 선택하세요 —</option>}
             {classesByYear.length === 1
               ? classesByYear[0].list.map((c) => (
                   <option key={c.id} value={c.id}>{c.school_year} · {c.name}</option>
