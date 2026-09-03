@@ -32,11 +32,11 @@ const PROVIDER_LABEL = {
 
 // 첫 로드 시 기본으로 비교표에 올릴 대표 모델(존재하는 것만).
 const DEFAULT_COMPARE = [
-  'Anthropic::Claude Sonnet 4.6',
-  'OpenAI::GPT-5.4',
-  'Google::Gemini 3.5 Flash',
-  'Zhipu::GLM-5.2',
-  'Alibaba::Qwen3.7-Max',
+  'Anthropic::Claude Sonnet 5',
+  'OpenAI::GPT-5.6 Terra',
+  'Google::Gemini 3.8 Flash',
+  'Zhipu::GLM-5.3',
+  'Alibaba::Qwen3.8-Max',
 ];
 
 const round2 = (n) => Math.round(n * 100) / 100;
