@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node --test lib/utils/__tests__/*.test.js"
   },
   "dependencies": {
     "@vercel/analytics": "^1.3.1",

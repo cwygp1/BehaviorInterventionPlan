@@ -28,10 +28,7 @@ export default requireStudentAccess(async function handler(req, res) {
       case 'POST':
       case 'PUT': {
         const b = req.body || {};
-        const monthly = JSON.stringify(Array.isArray(b.monthly) ? b.monthly : []);
-        const evalFoci = JSON.stringify(Array.isArray(b.eval_foci) ? b.eval_foci : []);
-        const taskSteps = JSON.stringify(Array.isArray(b.task_steps) ? b.task_steps : []);
-        // 자가 치유: eval_foci 컬럼이 아직 없는 DB(마이그레이션 전)에서도 저장이 되도록 보강.
+        // 자가 치유: 마이그레이션 전 DB에서도 저장이 되도록 컬럼을 보강.
         await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS eval_foci JSONB NOT NULL DEFAULT '[]'`;
         // 모듈4: 지원 수준(Tier) 컬럼 자가 치유.
         await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS support_tier VARCHAR(40) NOT NULL DEFAULT ''`;
@@ -47,23 +44,57 @@ export default requireStudentAccess(async function handler(req, res) {
         // 0720(P15, 현장 피드백): 학기 수준 교육내용·교육방법 — 월별 생성 전에 방향을 잡는 칸.
         await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS sem_content TEXT NOT NULL DEFAULT ''`;
         await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS sem_methods TEXT NOT NULL DEFAULT ''`;
-        const relatedStds = JSON.stringify(Array.isArray(b.related_stds) ? b.related_stds : []);
+        // 0903(B안): 성취기준별 도달 목표 [{code, std, goal}].
+        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS std_goals JSONB NOT NULL DEFAULT '[]'`;
+
+        // 저장 값 정규화. UPDATE는 "부분 갱신": body에 없는(undefined) 필드는 기존 행 값을 유지한다.
+        // 계획서 페이지 자동저장·전년도 페이지처럼 일부 필드만 보내는 호출자가 관련 성취기준·교육내용 등을
+        // '[]'/''로 지워 버리던 문제(0903)를 서버 쪽에서 막는다. 명시적으로 보낸 null/''/[]는 그대로 저장한다.
+        const cur = b.id
+          ? (await sql`SELECT * FROM iep_goals WHERE id = ${b.id} AND student_id = ${studentId}`).rows[0]
+          : null;
+        if (b.id && !cur) return res.status(404).json({ error: 'Not found' });
+        const has = (k) => b[k] !== undefined;
+        const arr = (v) => (Array.isArray(v) ? v : []);
+        const jsonArr = (k) => JSON.stringify(has(k) ? arr(b[k]) : arr(cur?.[k]));
+        const str = (k, def = '') => (has(k) ? (b[k] || def) : (cur?.[k] ?? def));
+        const num = (k, def) => (has(k) ? (b[k] ?? def) : (cur?.[k] ?? def));
+        const nullable = (k) => (has(k) ? (b[k] ?? null) : (cur?.[k] ?? null));
+
+        const v = {
+          school_year: num('school_year', 0) || 0,
+          subject: str('subject'), grade_code: num('grade_code', 0) || 0, area: str('area'),
+          standard_code: str('standard_code'), standard_text: str('standard_text'),
+          related_stds: jsonArr('related_stds'),
+          semester: num('semester', 1) || 1, semester_goal: str('semester_goal'), plop: str('plop'),
+          sem_content: str('sem_content'), sem_methods: str('sem_methods'),
+          std_goals: jsonArr('std_goals'),
+          crit_type: str('crit_type', 'rate'), crit_start: num('crit_start', 30), crit_end: num('crit_end', 80),
+          support_tier: str('support_tier'),
+          tier2_group_id: nullable('tier2_group_id'),
+          eval_foci: jsonArr('eval_foci'),
+          task_steps: jsonArr('task_steps'),
+          chain_type: str('chain_type', 'forward'), prompt_system: str('prompt_system', 'mtl'),
+          monthly: jsonArr('monthly'), semestral_eval: str('semestral_eval'),
+        };
+
         if (b.id) {
           const r = await sql`
             UPDATE iep_goals SET
-              school_year = ${b.school_year || 0},
-              subject = ${b.subject || ''}, grade_code = ${b.grade_code || 0}, area = ${b.area || ''},
-              standard_code = ${b.standard_code || ''}, standard_text = ${b.standard_text || ''},
-              related_stds = ${relatedStds}::jsonb,
-              semester = ${b.semester || 1}, semester_goal = ${b.semester_goal || ''}, plop = ${b.plop || ''},
-              sem_content = ${b.sem_content || ''}, sem_methods = ${b.sem_methods || ''},
-              crit_type = ${b.crit_type || 'rate'}, crit_start = ${b.crit_start ?? 30}, crit_end = ${b.crit_end ?? 80},
-              support_tier = ${b.support_tier || ''},
-              tier2_group_id = ${b.tier2_group_id ?? null},
-              eval_foci = ${evalFoci}::jsonb,
-              task_steps = ${taskSteps}::jsonb,
-              chain_type = ${b.chain_type || 'forward'}, prompt_system = ${b.prompt_system || 'mtl'},
-              monthly = ${monthly}::jsonb, semestral_eval = ${b.semestral_eval || ''}, updated_at = NOW()
+              school_year = ${v.school_year},
+              subject = ${v.subject}, grade_code = ${v.grade_code}, area = ${v.area},
+              standard_code = ${v.standard_code}, standard_text = ${v.standard_text},
+              related_stds = ${v.related_stds}::jsonb,
+              semester = ${v.semester}, semester_goal = ${v.semester_goal}, plop = ${v.plop},
+              sem_content = ${v.sem_content}, sem_methods = ${v.sem_methods},
+              std_goals = ${v.std_goals}::jsonb,
+              crit_type = ${v.crit_type}, crit_start = ${v.crit_start}, crit_end = ${v.crit_end},
+              support_tier = ${v.support_tier},
+              tier2_group_id = ${v.tier2_group_id},
+              eval_foci = ${v.eval_foci}::jsonb,
+              task_steps = ${v.task_steps}::jsonb,
+              chain_type = ${v.chain_type}, prompt_system = ${v.prompt_system},
+              monthly = ${v.monthly}::jsonb, semestral_eval = ${v.semestral_eval}, updated_at = NOW()
             WHERE id = ${b.id} AND student_id = ${studentId}
             RETURNING *
           `;
@@ -72,9 +103,9 @@ export default requireStudentAccess(async function handler(req, res) {
         }
         const r = await sql`
           INSERT INTO iep_goals
-            (student_id, school_year, subject, grade_code, area, standard_code, standard_text, related_stds, semester, semester_goal, plop, sem_content, sem_methods, crit_type, crit_start, crit_end, support_tier, tier2_group_id, eval_foci, task_steps, chain_type, prompt_system, monthly, semestral_eval, updated_at)
+            (student_id, school_year, subject, grade_code, area, standard_code, standard_text, related_stds, semester, semester_goal, plop, sem_content, sem_methods, std_goals, crit_type, crit_start, crit_end, support_tier, tier2_group_id, eval_foci, task_steps, chain_type, prompt_system, monthly, semestral_eval, updated_at)
           VALUES
-            (${studentId}, ${b.school_year || 0}, ${b.subject || ''}, ${b.grade_code || 0}, ${b.area || ''}, ${b.standard_code || ''}, ${b.standard_text || ''}, ${relatedStds}::jsonb, ${b.semester || 1}, ${b.semester_goal || ''}, ${b.plop || ''}, ${b.sem_content || ''}, ${b.sem_methods || ''}, ${b.crit_type || 'rate'}, ${b.crit_start ?? 30}, ${b.crit_end ?? 80}, ${b.support_tier || ''}, ${b.tier2_group_id ?? null}, ${evalFoci}::jsonb, ${taskSteps}::jsonb, ${b.chain_type || 'forward'}, ${b.prompt_system || 'mtl'}, ${monthly}::jsonb, ${b.semestral_eval || ''}, NOW())
+            (${studentId}, ${v.school_year}, ${v.subject}, ${v.grade_code}, ${v.area}, ${v.standard_code}, ${v.standard_text}, ${v.related_stds}::jsonb, ${v.semester}, ${v.semester_goal}, ${v.plop}, ${v.sem_content}, ${v.sem_methods}, ${v.std_goals}::jsonb, ${v.crit_type}, ${v.crit_start}, ${v.crit_end}, ${v.support_tier}, ${v.tier2_group_id}, ${v.eval_foci}::jsonb, ${v.task_steps}::jsonb, ${v.chain_type}, ${v.prompt_system}, ${v.monthly}::jsonb, ${v.semestral_eval}, NOW())
           RETURNING *
         `;
         return res.status(200).json({ goal: fmtRow(r.rows[0]) });

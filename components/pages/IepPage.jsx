@@ -8,6 +8,8 @@ import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { fetchIEP, saveIEPGoal, deleteIEPGoal, fetchStartpoint, fetchClassPBS } from '../../lib/api/students';
 import { parseLooseJSON } from '../../lib/utils/looseJson';
+import { buildTermIndex, stdKeyTerms, goalCoverage, syncStdGoals, skeletonGoal, joinGoals, toCanDoText } from '../../lib/utils/stdTerms';
+import { getGoalStyle, setGoalStyle } from '../../lib/utils/iepGoalStyle';
 import { buildPyeongPrompt, parsePyeongLines, PYEONG_LEVELS } from '../../lib/pyeong';
 import { downloadIepFormDocx, downloadTaskSheetDocx } from '../../lib/utils/iepFormDocx';
 import { downloadNiceIepDocx } from '../../lib/utils/niceIepDocx';
@@ -188,13 +190,8 @@ const PHASE_STRATEGY = [
 ];
 // 0819(동료 피드백): 학기목표 문장은 "~할 수 있다."로 끝맺는다. '~한다'로 끝나는 문장만 안전 변환
 // (다른 어미는 형태 변형이 위험해 그대로 두고, AI 프롬프트 지시로 보완).
-function toCanDo(s) {
-  const t = String(s || '').trim().replace(/\.+\s*$/, '');
-  if (!t) return '';
-  if (/있다$/.test(t)) return t + '.';
-  if (/한다$/.test(t)) return t.replace(/한다$/, '할 수 있다') + '.';
-  return t + '.';
-}
+// 0903: 구현은 lib/utils/stdTerms.toCanDoText 하나로 통일(시드·AI 결과·요약이 같은 규칙을 쓰도록).
+const toCanDo = (s) => toCanDoText(s);
 const monthsOf = (sem) => (String(sem) === '2' ? [9, 10, 11, 12, 1] : [3, 4, 5, 6, 7]);
 // 학기에 넣을 수 있는 월 후보(학사일정 순서). 교사가 이 중에서 실제 운영 월을 고른다.
 const MONTH_POOL = (sem) => (String(sem) === '2' ? [9, 10, 11, 12, 1, 2] : [3, 4, 5, 6, 7, 8]);
@@ -362,6 +359,8 @@ export default function IepPage({ onNavigate }) {
   }
 
   const [rows, setRows] = useState([]); // achievement standards
+  // 0903(B안): 교과 패밀리별 낱말 빈도 인덱스 — 성취기준별 필수 낱말·커버리지 판정용(한 번만 계산).
+  const termIndex = useMemo(() => buildTermIndex(rows), [rows]);
   const [fSubject, setFSubject] = useState('');
   const [fGrade, setFGrade] = useState('');
   // 0902: 교육과정 구분 — '기본'(특수교육 기본교육과정) | '공통'(초·중등 공통교육과정). 학생 장애영역에 따라 기본값.
@@ -379,6 +378,14 @@ export default function IepPage({ onNavigate }) {
   const [intent, setIntent] = useState('');
   const [descriptor, setDescriptor] = useState('');
   const [evalFoci, setEvalFoci] = useState([]); // 평가초점 목록(성취기준 분석→해석→개발)
+  // 0903(B안): 성취기준별 도달 목표 [{code, std, goal}] — 선택한 성취기준마다 학생 수준으로 조정한 목표 1개.
+  // 학기목표(goal)는 이 묶음의 요약 한 문장이고, 평가초점·월별 계획은 이 목록을 앵커로 파생한다.
+  const [stdGoals, setStdGoals] = useState([]);
+  const autoSummaryRef = useRef(''); // 마지막 자동 요약 — 교사가 학기목표를 손대지 않았으면 목록을 따라 갱신
+  // 문서(Word·인쇄)의 학기목표 표기: 'full'(한 문장 + 성취기준별 목표) | 'summary'(한 문장만). 브라우저에 저장.
+  const [goalStyle, setGoalStyleState] = useState('full');
+  useEffect(() => { setGoalStyleState(getGoalStyle()); }, []);
+  const changeGoalStyle = (v) => { setGoalStyle(v); setGoalStyleState(v); };
 
   const [goal, setGoal] = useState('');
   const [plop, setPlop] = useState('');
@@ -465,7 +472,7 @@ export default function IepPage({ onNavigate }) {
   useEffect(() => {
     if (editStuRef.current === curStuId) return;
     editStuRef.current = curStuId;
-    setSel(null); setSelExtra([]); setStdRecs([]);
+    setSel(null); setSelExtra([]); setStdRecs([]); setStdGoals([]); autoSummaryRef.current = '';
     setVerb(''); setVerbAlts([]); setIntent(''); setDescriptor(''); setEvalFoci([]);
     setGoal(''); setSemContent(''); setSemMethods('');
     setMonthly([]); setSemEval(''); setTaskSteps([]);
@@ -518,6 +525,44 @@ export default function IepPage({ onNavigate }) {
     );
   }, [crows, fSubject, fGrade, isDaily, fBigArea, fArea]);
 
+  // 0903(B안): 교과중심 경로에서 선택한 성취기준 목록에 맞춰 성취기준별 목표를 맞춘다
+  // (있던 문장 유지 · 새 것은 성취기준 원문을 "~할 수 있다."로 시드 · 빠진 것은 제거).
+  useEffect(() => {
+    if (flowMode !== 'std') return;
+    const stds = [sel, ...selExtra].filter((s) => s && s.code && s.code !== 'PRIOR');
+    setStdGoals((prev) => {
+      const next = syncStdGoals(prev, stds);
+      const same = next.length === prev.length && next.every((x, i) => prev[i] && prev[i].code === x.code && prev[i].goal === x.goal && prev[i].std === x.std);
+      return same ? prev : next;
+    });
+  }, [sel, selExtra, flowMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 학기목표 한 문장은 교사가 손대지 않은 동안(비어 있거나 직전 자동 요약 그대로) 목록의 결정론 요약을 따라간다.
+  useEffect(() => {
+    if (flowMode !== 'std' || !stdGoals.length) return;
+    const summary = joinGoals(stdGoals);
+    const cur = String(goal || '').trim();
+    if (!cur || cur === autoSummaryRef.current) {
+      autoSummaryRef.current = summary;
+      if (cur !== summary) setGoal(summary);
+    }
+  }, [stdGoals, flowMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 최신 stdGoals 미러 — AI 생성처럼 오래 걸리는 작업이 끝났을 때 생성 중 바뀐 선택과 대조하기 위해.
+  const stdGoalsRef = useRef([]);
+  useEffect(() => { stdGoalsRef.current = stdGoals; }, [stdGoals]);
+  // 성취기준별 목표 각 줄의 필수 낱말 커버리지(변별 명사·인지 동사가 남아 있는지) — 타이핑마다 갱신.
+  // 단일 성취기준이면 학기목표 한 문장이 곧 그 줄이므로 학기목표를 판정한다.
+  const stdCoverage = useMemo(() => {
+    const stds = [sel, ...selExtra].filter(Boolean);
+    return stdGoals.map((x) => {
+      const s = stds.find((z) => z.code === x.code) || { code: x.code, text: x.std, subject: sel?.subject, gradeCode: sel?.gradeCode };
+      return goalCoverage(stdGoals.length === 1 ? goal : x.goal, s, termIndex);
+    });
+  }, [stdGoals, sel, selExtra, termIndex, goal]);
+  function editStdGoal(i, val) { setStdGoals((prev) => prev.map((x, idx) => (idx === i ? { ...x, goal: val } : x))); }
+  function resetStdGoal(i) {
+    setStdGoals((prev) => prev.map((x, idx) => (idx === i ? { ...x, goal: skeletonGoal({ text: x.std }) } : x)));
+  }
+
   // 0720: 성취기준 다중 선택 — 단순 토글(누르면 담고, 다시 누르면 뺌).
   // '대표'는 화면 개념에서 제거. 다만 DB·문서 양식의 과목/영역/성취기준 단일 칸이 있어서
   // 내부적으로는 "첫 번째 선택(sel)"이 조용히 그 칸을 채운다(첫 항목을 빼면 다음 항목이 이어받음).
@@ -528,13 +573,15 @@ export default function IepPage({ onNavigate }) {
         setSel(next);
         setVerb(next.verb || ''); setIntent(next.intent || ''); setDescriptor(next.descriptor || '');
         setSelExtra(rest);
+        setStdGoals((p) => p.filter((x) => x.code !== r.code));
       } else {
-        setSel(null); setVerb(''); setIntent(''); setDescriptor('');
+        setSel(null); setVerb(''); setIntent(''); setDescriptor(''); setStdGoals([]);
       }
       return;
     }
     if (selExtra.some((x) => x.code === r.code)) {
       setSelExtra((prev) => prev.filter((x) => x.code !== r.code));
+      setStdGoals((p) => p.filter((x) => x.code !== r.code));
       return;
     }
     if (sel) {
@@ -544,13 +591,14 @@ export default function IepPage({ onNavigate }) {
     }
     // 첫 선택 — 내부적으로 과목·영역·분석 도구의 기준이 된다(화면에는 표시하지 않음).
     setSel(r);
-    setSelExtra([]);
+    setSelExtra([]); setStdGoals([]);
     setVerb(r.verb || ''); setIntent(r.intent || ''); setDescriptor(r.descriptor || '');
     if (flowMode === 'std') {
-      // 경로A: 성취기준 → 학기목표. 성취기준 문장을 학기목표 초안 시드로 넣는다.
+      // 경로A: 성취기준 → 학기목표. 0903(B안): 성취기준별 목표 목록이 원문으로 채워지고(아래 sync 효과),
+      // 학기목표 한 문장은 그 묶음의 요약으로 자동 시드된다. 여기서는 비워 두어 요약 효과가 채우게 한다.
       // 평가초점은 여기서 만들지 않는다 — 학기목표 확정 후 "학기목표 쪼개기"로 개발(0719 피드백:
       // 성취기준을 바로 평가초점으로 나누던 방식 교정).
-      setGoal(toCanDo('스스로 ' + r.text.replace(/\s*\.?$/, ''))); // 0819: "~할 수 있다." 서술형
+      setGoal(''); autoSummaryRef.current = '';
       setEvalFoci([]);
     }
     // 경로B(학기목표 먼저): 교사가 쓴 학기목표·평가초점을 유지한 채 성취기준만 연결한다.
@@ -571,6 +619,15 @@ export default function IepPage({ onNavigate }) {
       : []);
     setVerb(std.verb || ''); setIntent(std.intent || ''); setDescriptor(std.descriptor || '');
     setEvalFoci(Array.isArray(g.eval_foci) ? g.eval_foci : []);
+    {
+      let loaded = Array.isArray(g.std_goals) ? g.std_goals.filter((x) => x && x.code) : [];
+      // B안 이전 저장본(std_goals 없음)이고 성취기준이 1개면 학기목표 문장이 곧 그 줄 — 원문 시드로 갈리지 않게 학기목표로 채운다.
+      const relatedN = Array.isArray(g.related_stds) ? g.related_stds.length : 0;
+      if (!loaded.length && std.code && std.code !== 'PRIOR' && relatedN === 0) loaded = [{ code: std.code, std: std.text || '', goal: g.semester_goal || '' }];
+      setStdGoals(loaded);
+      // 저장 당시 학기목표가 자동 요약 그대로였다면 계속 목록을 따라가고, 교사가 고친 문장이면 그대로 둔다.
+      autoSummaryRef.current = loaded.length > 1 ? joinGoals(loaded) : '';
+    }
     setGoal(g.semester_goal || ''); setPlop(g.plop || '');
     setSemContent(g.sem_content || ''); setSemMethods(g.sem_methods || '');
     setSchoolYear(g.school_year || new Date().getFullYear());
@@ -606,7 +663,7 @@ export default function IepPage({ onNavigate }) {
 
   function newGoal() {
     setSel(null); setSelExtra([]); setEditingId(null); setMonthly([]); setSemEval(''); setGoal('');
-    setSemContent(''); setSemMethods('');
+    setSemContent(''); setSemMethods(''); setStdGoals([]); autoSummaryRef.current = '';
     setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setSupportTier(''); setTaskSteps([]);
     setChainType('forward'); setPromptSystem('mtl'); setMonths(monthsOf(sem)); setMonthGroups('');
     resetDrafts();
@@ -614,10 +671,19 @@ export default function IepPage({ onNavigate }) {
 
   // 전년도 목표 하나를 "기준"으로 삼아 올해 목표 작성을 시작.
   function startFromPrior(g) {
-    const s = { subject: g.subject, gradeCode: g.grade_code, area: g.area, code: g.standard_code || 'PRIOR', text: g.semester_goal || g.standard_text || '', verb: '', intent: '', descriptor: '' };
-    setSel(s); setSelExtra([]); setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setTaskSteps([]);
+    // 0903: 성취기준 코드가 있으면 진짜 성취기준 행을 sel로 세운다(작년 학기목표 문장을 성취기준으로 오인하지 않게).
+    // 코드가 없는 전년도 목표는 'PRIOR' 가짜 sel — 성취기준별 목표 시드·검증에서 제외되고 AI는 작년 문장을 바탕으로 올해 목표를 쓴다.
+    const row = g.standard_code ? rows.find((r) => r.code === g.standard_code) : null;
+    const s = row
+      ? { ...row }
+      : { subject: g.subject, gradeCode: g.grade_code, area: g.area, code: g.standard_code || 'PRIOR', text: g.standard_text || g.semester_goal || '', verb: '', intent: '', descriptor: '' };
+    const seedGoal = g.semester_goal || toCanDo((s.text || '').replace(/\s*\.?$/, ''));
+    setSel(s); setSelExtra([]); autoSummaryRef.current = '';
+    // 단일 성취기준이면 학기목표가 곧 그 줄 — 작년 문장으로 시드(원문 스켈레톤과 갈리지 않게). 코드 없는 PRIOR는 목록 없음.
+    setStdGoals(s.code !== 'PRIOR' ? [{ code: s.code, std: s.text || '', goal: seedGoal }] : []);
+    setVerb(s.verb || ''); setIntent(s.intent || ''); setDescriptor(s.descriptor || ''); setEvalFoci([]); setTaskSteps([]);
     setChainType('forward'); setPromptSystem('mtl');
-    setGoal(g.semester_goal || toCanDo('스스로 ' + (s.text || '').replace(/\s*\.?$/, '')));
+    setGoal(seedGoal);
     if (g.plop) setPlop(g.plop);
     setEditingId(null); setMonthly([]); setSemEval('');
     toast(`${g.school_year} ${g.subject} 목표를 기준으로 불러왔어요. "✨ AI 생성"으로 올해 목표를 만드세요.`);
@@ -737,7 +803,18 @@ export default function IepPage({ onNavigate }) {
     const semCFor = (i) => semCLines.filter((_, k) => k % n === i || (semCLines.length <= n && k === i));
     const totalSteps = steps.length || Math.max(+e || 0, 4); // 단계 미입력 시 목표 단계 수로 대체
     const stepChain = steps.length ? steps.map((t, k) => `${k + 1}) ${t}`).join(' → ') : '단계 목록 참조';
+    // 0903(B안): 성취기준별 목표가 2개 이상이면 교육목표 줄의 소재를 구간 순서대로 배정한다(목표가 구간보다 많으면 한 구간에
+    // 여러 목표를 이어 쓰고, 적으면 한 목표가 여러 구간에 걸침). 지원 수준·평가 기준·촉진 단계의 점증은 종전처럼 학기 전체 흐름.
+    const sgList = (flowMode === 'std' ? stdGoals : []).filter((x) => x && x.code && String(x.goal || '').trim());
+    const rangeFor = (i) => {
+      const m = sgList.length;
+      if (m < 2) return [];
+      const lo = Math.floor((i * m) / n);
+      const hi = i === n - 1 ? m - 1 : Math.max(lo, Math.floor(((i + 1) * m) / n) - 1);
+      return sgList.slice(lo, hi + 1);
+    };
     const frac = (i) => (i + 1) / n; // 첫 구간부터 시작수준보다 한 걸음 위로 점증(피드백: 첫 달 목표 = 시작수준은 오류)
+    const baseFor = (i) => { const r = rangeFor(i); return r.length ? (baseOf(joinGoals(r)) || base) : base; };
     const stepCount = (i) => Math.max(0, Math.min(totalSteps, Math.round(s + (e - s) * frac(i))));
     const crit = (i) => {
       const v = Math.round(s + (e - s) * frac(i));
@@ -804,7 +881,7 @@ export default function IepPage({ onNavigate }) {
       const fThis = fociFor(i);
       const fLead = fThis.length ? fThis.join(' / ') : (foci.length ? foci[Math.min(i, foci.length - 1)] : '');
       const goal = [
-        `- ${support(i)}${base}.`,
+        `- ${support(i)}${baseFor(i)}.`,
         isQual ? null : `- ${crit(i)} 수준으로 수행하기.`,
         intent ? `- ${intent} 태도를 유지하며 활동에 참여하기.` : null,
       ].filter(Boolean).join('\n');
@@ -1103,9 +1180,19 @@ export default function IepPage({ onNavigate }) {
 
   // ── 학기목표 2경로 (0719 피드백) ────────────────────────────────
   // 경로A: 선택한 성취기준 + 학생 자료 → 학기목표 초안 AI 생성.
+  // 0903(B안): 성취기준별 목표 + 학기목표 요약을 한 번에 생성.
+  //   - 코드가 성취기준마다 "반드시 그대로 쓸 낱말"(변별 명사·인지 동사)을 뽑아 프롬프트에 넣고, 결과를 같은 낱말로 검증한다.
+  //   - 공통교육과정 성취기준은 엄격(낱말 모두 반영), 기본교육과정은 완화(소재 낱말이 하나라도 있으면 통과 — 가이드북식 재구성 허용).
+  //   - 실패한 성취기준만 빠진 낱말을 명시해 1회 재시도한다. 두 후보 모두 이탈(0점)이면 그 줄은 현재 문장을 유지하고,
+  //     낱말이 일부 빠진 후보(1점)는 채택하되 경고를 띄운다. 쓸 수 있는 줄이 하나도 없으면 아무것도 바꾸지 않는다.
+  //   - 요약 문장은 AI 것이 소재를 빠뜨리면 결정론 요약(joinGoals)으로 대체한다. 결과가 빈손이 되는 일은 없다.
+  //   - 코드 없는 전년도 목표(PRIOR)는 작년 문장을 유일한 '성취기준'으로 삼아 올해 학기목표 한 문장만 만든다(성취기준별 목록은 건드리지 않음).
   async function aiGoalFromStd() {
     if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
     if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    const realStds = [sel, ...selExtra].filter((x) => x && x.code && x.code !== 'PRIOR');
+    const prior = !realStds.length;
+    const stds = prior ? [{ ...sel, curriculum: '기본' }] : realStds;
     setGoalAiBusy(true);
     try {
       const data = curStuData || (await ensureStudentData(curStuId)) || {};
@@ -1114,33 +1201,131 @@ export default function IepPage({ onNavigate }) {
       const priorBlock = priors.length
         ? '\n[전년도 목표 참고]\n' + priors.map((g) => `· (${g.school_year}) ${g.subject}: ${g.semester_goal}`).join('\n')
         : '';
-      const prompt =
-        '너는 특수교육 IEP 작성 전문가다. 아래 성취기준과 학생 자료를 근거로, 한 학기 동안 도달할 "학기목표"를 1문장으로 작성하라.\n' +
-        '- [가장 중요] 목표의 소재는 반드시 위 성취기준에서 나와야 한다. 학생 자료의 행동중재 내용(대체행동·의사소통 카드·안정실 등)을 목표의 소재로 삼지 말 것 — 그 정보는 지원 강도·난이도 조정 참고로만 쓴다.\n' +
-        '- 성취기준을 학생의 현행수준에 맞게 재구성하되, 관찰·측정 가능한 행동으로 진술할 것.\n' +
-        '- [목표 수준 선정] 학생이 언어적 촉구만으로 이미 수행하는 내용은 목표로 삼지 말 것(그건 현행수준). 신체적 지원·촉진이 필요한 수준의 내용에서 목표를 잡을 것.\n' +
-        '- [서술형] 문장은 반드시 "~할 수 있다."로 끝맺을 것(예: "…을 스스로 가리킬 수 있다.").\n' +
-        '- [단일 행동 원칙] 목표의 핵심 행동(동사)은 1개만 쓸 것. "~하거나 ~하며" 같은 선택형·병렬형으로 여러 행동을 묶으면 달성 판정이 불가능해진다. 도달 기준(예: 5회 중 4회)도 그 행동 1개에만 걸 것.\n' +
-        '- 교수전략·지도방법 이름은 넣지 말 것. 영어 단어·어려운 한자어 없이 쉬운 우리말로 쓸 것.\n' +
-        '- [부정 진술 금지] "~하지 않는다", "~않고 기다린다"처럼 무엇을 안 하는지로 쓰지 말고, 대신 무엇을 하는지(대체행동)로 쓸 것. 예) "소리 지르지 않는다" → "쉬고 싶어요 카드를 교사에게 건넨다", "다른 행동을 하지 않고 기다린다" → "자리에 앉아 손을 무릎에 두고 기다린다".\n' +
-        `[성취기준] ${[sel, ...selExtra].map((x) => `[${x.code}] ${x.text}`).join(' / ')} (교과 ${sel.subject}${sel.area ? ' · ' + sel.area : ''})\n` +
-        (selExtra.length ? `  → 성취기준이 여러 개다. 각각을 나열해 잇지 말고, 공통되는 상위 행동 1개로 통합해 진술할 것(통합이 어려우면 첫 번째 성취기준을 중심으로 쓰고 나머지는 조건·맥락으로만 반영).\n` : '') +
+      const commonAt = (i) => ((stds[i].curriculum || sel.curriculum || '기본') === '공통');
+      const anyCommon = stds.some((_, i) => commonAt(i));
+      // 전년도 목표(PRIOR)는 작년 문장이 참고일 뿐이라 필수 낱말을 뽑지 않는다(지원 조건·부정 표현 토큰이 '그대로 쓸 낱말'로 실리던 문제).
+      const terms = stds.map((x) => (prior ? { nouns: [], verbs: [], required: [], attitude: false } : stdKeyTerms(x, termIndex)));
+      const stdBlock = stds.map((x, i) => `- [${prior ? '전년도 목표' : x.code}] ${x.text}${terms[i].required.length ? ` (반드시 그대로 쓸 낱말: ${terms[i].required.join(', ')})` : ''}`).join('\n');
+      const jsonShape = '{"goals":{' + stds.map((x) => `"${x.code}":"..."`).join(',') + '},"summary":"..."}';
+      const basePrompt = (missingNote) =>
+        '너는 특수교육 IEP 작성 전문가다. 아래 성취기준마다 이 학생이 한 학기 동안 도달할 "성취기준별 목표"를 1문장씩 쓰고, 마지막에 그 묶음을 요약한 "학기목표" 1문장을 써라.\n' +
+        '규칙:\n' +
+        '1) [가장 중요] 각 목표는 그 성취기준의 소재를 그대로 다룬다. 괄호 안 "반드시 그대로 쓸 낱말"은 한 글자도 바꾸지 말 것. 정당화·판별처럼 성취기준에 있는 동사를 설명·말하기로 낮추지 말 것 — 학생에게 어렵다면 동사를 낮추지 말고 지원 조건(그림·힌트 카드·확대 자료·충분한 시간·교사의 안내 질문 등)을 앞에 붙일 것.\n' +
+        '2) 학생 자료는 지원 조건과 난이도 조정에만 쓴다. 학생 자료의 행동중재 내용(대체행동·의사소통 카드·안정실 등)을 목표의 소재로 삼지 말 것.\n' +
+        (anyCommon
+          ? '3) 이 학생은 공통교육과정을 따른다. 내용 범위를 줄이지 말고 수행 방식·지원 조건만 조정할 것.\n'
+          : '3) 학생이 언어적 촉구만으로 이미 하는 내용은 목표가 아니다(현행수준). 신체적 지원·촉진이 필요한 수준에서 목표를 잡되, 소재는 성취기준의 낱말을 유지하고 학생 생활 속 구체 상황으로 써도 된다.\n') +
+        '4) 모든 문장은 "~할 수 있다."로 끝맺는다. "~하거나/또는"처럼 선택형으로 여러 행동을 묶지 말 것. 부정 진술("~하지 않는다") 금지. 교수전략 이름·영어 단어·어려운 한자어 금지(단, 성취기준에 있는 낱말은 그대로 쓴다).\n' +
+        '5) summary(학기목표)는 위 목표들을 한 문장으로 요약하되 "반드시 그대로 쓸 낱말"을 빠뜨리지 말 것. 성취기준이 1개면 그 목표와 같아도 된다.\n' +
+        `[성취기준]\n${stdBlock}\n` +
         `[학생 자료]\n${summary}\n` +
         (plop ? `[현행수준] ${plop}\n` : '') + priorBlock + '\n' +
-        '반드시 JSON만 출력: {"semester_goal":"..."}';
-      const j = await llmJSON('학기목표 생성(성취기준 기반)', prompt, { temperature: 0.4 });
-      const g = String(j.semester_goal || '').trim();
-      if (!g) throw new Error('학기목표를 받지 못했어요.');
-      // 주제 이탈 가드: 성취기준(대표+관련)의 핵심 단어와 하나도 안 겹치면 적용하지 않음.
-      if (!topicOverlap([sel.text, ...selExtra.map((x) => x.text)].join(' '), g)) {
-        toast('AI가 성취기준과 무관한 목표를 만들어 적용하지 않았어요. 다시 시도해 주세요.');
+        (missingNote ? `※ 직전 답변에서 빠진 낱말: ${missingNote} — 이번에는 그 낱말을 반드시 그대로 넣어 다시 써라.\n` : '') +
+        `반드시 JSON만 출력(코드마다 1문장): ${jsonShape}`;
+
+      // 소형 모델의 흔한 출력 변형을 흡수: goals 키 없음, 코드에 괄호/공백, 값이 객체, 배열(순서대로), {code, goal} 배열.
+      const normCode = (k) => String(k || '').replace(/[\[\]\s]/g, '');
+      const pickGoals = (j) => {
+        const out = {};
+        const put = (k, v) => {
+          const val = typeof v === 'string' ? v : (v && typeof v === 'object' ? String(v.goal || v.text || '') : '');
+          const nk = normCode(k);
+          const hit = stds.find((x) => normCode(x.code) === nk) || stds.find((x) => nk.includes(normCode(x.code)));
+          if (hit && val.trim()) out[hit.code] = val.trim();
+        };
+        const g = (j && typeof j === 'object' && j.goals !== undefined) ? j.goals : j;
+        if (Array.isArray(g)) {
+          if (g.every((x) => typeof x === 'string') && g.length === stds.length) g.forEach((v, i) => put(stds[i].code, v));
+          else g.forEach((x) => { if (x && typeof x === 'object' && x.code) put(x.code, x); });
+        } else if (g && typeof g === 'object') {
+          Object.keys(g).forEach((k) => { if (k !== 'summary') put(k, g[k]); });
+        }
+        return out;
+      };
+      // 성취기준별 점수: 2=필수 낱말 충족(공통은 빠진 낱말 0개), 1=소재 낱말 일부 반영, 0=이탈/빈 문장.
+      const score = (text, i) => {
+        if (!text) return { s: 0, c: null };
+        if (prior) return { s: 2, c: null }; // 전년도 문장 기준 생성은 AI 결과를 그대로 받는다
+        const c = goalCoverage(text, stds[i], termIndex);
+        if (c.terms.attitude || !c.terms.required.length) return { s: 2, c }; // 태도형·요구 낱말 없음 = 항상 통과
+        const hit = c.nounHits.length + c.verbHits.length;
+        const full = commonAt(i) ? (c.ok && c.missing.length === 0) : c.ok;
+        if (full) return { s: 2, c };
+        if (hit > 0) return { s: 1, c };
+        return { s: 0, c };
+      };
+      const passes = (sc, i) => (commonAt(i) ? sc.s === 2 : sc.s >= 1);
+
+      let j = await llmJSON('성취기준별 목표·학기목표 생성', basePrompt(''), { temperature: 0.3 });
+      let cand1 = pickGoals(j);
+      let sum1 = String(j?.summary || '').trim();
+      const sc1 = stds.map((x, i) => score(cand1[x.code], i));
+      const failed = stds.map((x, i) => i).filter((i) => !passes(sc1[i], i));
+      let cand2 = {}, sum2 = '', sc2 = [];
+      if (failed.length) {
+        const note = failed.map((i) => {
+          const miss = (sc1[i].c?.missing || terms[i].required);
+          return `[${stds[i].code}] ${miss.length ? miss.join(', ') : '(문장 누락)'}`;
+        }).join(' / ');
+        try {
+          const j2 = await llmJSON('성취기준별 목표 생성(재시도)', basePrompt(note), { temperature: 0.15 });
+          cand2 = pickGoals(j2); sum2 = String(j2?.summary || '').trim();
+        } catch (_) { cand2 = {}; }
+        sc2 = stds.map((x, i) => score(cand2[x.code], i));
+      }
+      // 성취기준별로 두 후보 중 나은 쪽. 둘 다 0점이면 현재 줄(원문 시드/교사 문장) 유지.
+      const kept = [], fixed = [];
+      const aiByCode = {};
+      const finalGoals = stds.map((x, i) => {
+        const a = sc1[i], b = sc2[i] || { s: -1 };
+        const best = b.s > a.s ? { text: cand2[x.code], sc: b } : { text: cand1[x.code], sc: a };
+        const curLine = (prior || stds.length === 1) ? (String(goal || '').trim() || skeletonGoal(x)) : (stdGoals.find((z) => z.code === x.code)?.goal || skeletonGoal(x));
+        if (!best.text || best.sc.s === 0) { kept.push(x.code); return { code: x.code, std: x.text, goal: curLine }; }
+        if (!passes(best.sc, i)) fixed.push(`[${x.code}] ${(best.sc.c?.missing || []).slice(0, 3).join('·')}`);
+        aiByCode[x.code] = toCanDo(best.text);
+        return { code: x.code, std: x.text, goal: aiByCode[x.code] };
+      });
+      // 요약: AI 요약이 소재 낱말을 지켰으면 채택, 아니면 결정론 요약. 성취기준이 1개면 요약 = 그 줄.
+      // 쓸 수 있는 줄이 하나도 없으면 아무것도 바꾸지 않는다(토스트만).
+      if (kept.length === stds.length) {
+        toast(prior ? 'AI가 쓸 만한 문장을 만들지 못해 전년도 문장을 그대로 두었어요 — 다시 시도해 주세요.' : 'AI가 성취기준과 무관한 문장을 만들어 적용하지 않았어요. 다시 시도해 주세요.');
         return;
       }
-      setGoal(toCanDo(g)); // 0819: "~할 수 있다." 서술형 보정
-      const hanja = findHanja(g);
-      if (hanja.length) toast(`⚠ 학기목표에 한자 혼입(${hanja.join(', ')})이 있어요 — 수정해 주세요.`);
-      if (findNegative(g).length) toast('⚠ 학기목표가 "~하지 않는다"식 부정 진술이에요 — 대신 무엇을 하는지(대체행동)로 고쳐 주세요.');
-      toast('성취기준·학생 자료를 반영한 학기목표 초안을 만들었어요. 문장을 다듬어 확정하세요.');
+      const sumOk = (t) => !!t && stds.every((x, i) => {
+        const c = goalCoverage(t, x, termIndex);
+        if (c.terms.attitude || !c.terms.required.length) return true;
+        return commonAt(i) ? (c.ok && c.missing.length === 0) : (c.nounHits.length + c.verbHits.length > 0);
+      });
+      // 생성 중 선택이 바뀌었으면(코드 집합 불일치) AI 요약 대신 결정론 요약으로 강등 — 현재 목록과 맞게.
+      const nowCodes = new Set(stdGoalsRef.current.map((z) => z.code));
+      const snapshotMatches = stds.length === nowCodes.size && stds.every((x) => nowCodes.has(x.code));
+      let finalSummary;
+      let summaryAuto = false;
+      if (!prior && !snapshotMatches) { finalSummary = ''; summaryAuto = true; }
+      else if (stds.length === 1) { finalSummary = finalGoals[0].goal; summaryAuto = true; }
+      else if (sumOk(sum2)) finalSummary = toCanDo(sum2);
+      else if (sumOk(sum1)) finalSummary = toCanDo(sum1);
+      else { finalSummary = joinGoals(finalGoals); summaryAuto = true; }
+
+      if (prior) {
+        setGoal(finalSummary);
+      } else {
+        // 생성 중 교사가 선택·편집한 내용을 잃지 않도록 코드별로 병합(전체 교체 금지).
+        const merged = stdGoalsRef.current.map((z) => (aiByCode[z.code] ? { ...z, goal: aiByCode[z.code] } : z));
+        setStdGoals(merged);
+        if (!finalSummary) finalSummary = joinGoals(merged);
+        // 결정론 요약(또는 단일 줄)이면 이후 줄 편집을 따라가고, AI 요약이면 교사 문장처럼 고정.
+        autoSummaryRef.current = summaryAuto ? finalSummary : '';
+        setGoal(finalSummary);
+      }
+      const all = finalGoals.map((x) => x.goal).join('\n') + '\n' + finalSummary;
+      const hanja = findHanja(all);
+      if (hanja.length) toast(`⚠ 한자 혼입(${hanja.join(', ')})이 있어요 — 수정해 주세요.`);
+      if (findNegative(all).length) toast('⚠ "~하지 않는다"식 부정 진술이 있어요 — 무엇을 하는지(대체행동)로 고쳐 주세요.');
+      if (kept.length) toast(`${kept.join(', ')}은(는) 문장을 받지 못했거나 성취기준과 무관해 현재 문장을 그대로 두었어요 — 직접 다듬어 주세요.`.replace('PRIOR', '전년도 목표'));
+      if (fixed.length) toast(`⚠ 낱말이 빠진 줄이 있어요: ${fixed.join(' / ')} — 보태 주세요.`);
+      if (!prior && !snapshotMatches) toast('생성 중에 성취기준 선택이 바뀌어, 현재 선택에 맞는 줄만 반영하고 학기목표는 자동 요약으로 두었어요.');
+      else if (!kept.length && !fixed.length) toast(prior ? '전년도 목표를 바탕으로 올해 학기목표 초안을 만들었어요.' : (stds.length === 1 ? '성취기준·학생 자료를 반영한 학기목표 초안을 만들었어요. 문장을 다듬어 확정하세요.' : `성취기준 ${stds.length}개의 목표와 학기목표 요약을 만들었어요. 줄을 다듬어 확정하세요.`));
     } catch (e) { toast('학기목표 생성 실패: ' + e.message); }
     finally { setGoalAiBusy(false); }
   }
@@ -1338,7 +1523,18 @@ export default function IepPage({ onNavigate }) {
     if (!g) { toast('학기목표를 먼저 확정하세요.'); return; }
     if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
     setFociGoalBusy(true);
-    const n = Math.max(2, Math.min(10, parseInt(fociCount, 10) || 5)); // 교사가 고른 개수
+    // 0903(B안): 성취기준별 목표가 평가초점의 앵커. 목표 수보다 개수가 적으면 배분이 구조적으로 불가능하므로 올린다.
+    const sgAll = (flowMode === 'std' ? stdGoals : []).filter((x) => x && x.code && String(x.goal || '').trim());
+    const multi = sgAll.length >= 2; // 단일 성취기준은 종전 프롬프트·동작 그대로
+    const sg = multi ? sgAll : [];
+    let n = Math.max(2, Math.min(10, parseInt(fociCount, 10) || 5)); // 교사가 고른 개수
+    if (multi && n < sg.length + 1) { n = Math.min(10, sg.length + 1); toast(`성취기준별 목표가 ${sg.length}개라 평가초점을 ${n}개로 늘려 만들어요.`); }
+    const sgStd = (x) => ([sel, ...selExtra].find((z) => z && z.code === x.code) || { code: x.code, text: x.std, subject: sel?.subject, gradeCode: sel?.gradeCode });
+    // 변별 명사가 없는 목표는 배정 판정 대상에서 뺀다(어떤 문장으로도 판정할 수 없어 헛된 재시도·경고가 나므로).
+    const unassigned = (arr) => sg.filter((x) => {
+      const nouns = goalCoverage('', sgStd(x), termIndex).terms.nouns;
+      return nouns.length > 0 && !arr.some((f) => goalCoverage(f, sgStd(x), termIndex).nounHits.length > 0);
+    });
     try {
       // 0720 재교정: 예시 소재가 실제 목표와 겹쳐 그대로 베끼던 문제 → 다른 소재의 예시로 교체.
       // "핵심 동사 그대로" 규칙이 장소만 바꾼 반복문을 만들던 문제 → 구성 동작(하위 기술) 분해 허용.
@@ -1349,6 +1545,7 @@ export default function IepPage({ onNavigate }) {
         '규칙:\n' +
         '1) 모든 평가초점은 학기목표 수행의 한 부분(구성 동작)이거나 수행 범위를 좁힌·넓힌 것이어야 하며, 학기목표의 소재(대상 단어)를 담아야 한다.\n' +
         '   학기목표에 없는 새로운 활동은 금지 — 자세(바르게 앉기 등), 준비·관찰 행동, 또래 협동(친구와 함께 등), 태도(소중히 여긴다 등).\n' +
+        (sg.length ? '   [성취기준별 목표]가 있으면 각 목표마다 그 소재(낱말)를 담은 평가초점을 최소 1개씩 만들 것. 단, 목표 문장을 그대로 옮겨 적지 말고 그 수행의 하위 동작으로 나눌 것.\n' : '') +
         '2) [중요] 문장들이 서로 뚜렷이 달라야 한다. 같은 문장에서 장소·수식어만 바꾼 반복 금지. 아래를 섞어서 만들 것:\n' +
         '   ① 수행을 이루는 구성 동작(과제분석적 하위 기술 — 동사가 목표와 달라져도 됨)\n' +
         '   ② 대상·범위를 좁힌 것 → 넓힌 것\n' +
@@ -1359,25 +1556,31 @@ export default function IepPage({ onNavigate }) {
         '예) 학기목표 "급식 시간에 수저로 밥을 먹는다." — 이 예시는 소재가 다르므로 문장을 절대 베끼지 말 것.\n' +
         '  좋은 평가초점: "수저를 바르게 잡는다." / "숟가락으로 밥을 떠서 먹는다." / "젓가락으로 반찬을 집어 먹는다." / "흘리지 않고 밥을 먹는다." / "급식 시간 동안 수저로 스스로 밥을 먹는다."\n' +
         '  나쁜 평가초점: "식탁에 바르게 앉는다."(목표에 없는 행동) / "교실에서 수저로 밥을 먹는다."와 "식당에서 수저로 밥을 먹는다."(장소만 바꾼 반복)\n' +
-        (strict ? '※ 직전 답변이 서로 비슷한 문장의 반복이었거나 무관한 활동이 섞여 있었다. 이번에는 구성 동작으로 뚜렷이 나눠 다시 작성하라.\n' : '') +
+        (strict ? `※ 직전 답변이 서로 비슷한 문장의 반복이었거나 무관한 활동이 섞여 있었다${typeof strict === 'string' ? `. 특히 다음 목표의 소재가 빠졌다: ${strict}` : ''}. 이번에는 구성 동작으로 뚜렷이 나눠 다시 작성하라.\n` : '') +
         `[학기목표] ${g}\n` +
-        (sel ? `[관련 성취기준(참고)] [${sel.code}] ${sel.text}${selExtra.length ? ' / ' + selExtra.map((x) => `[${x.code}] ${x.text}`).join(' / ') : ''}\n` : '') +
+        (sg.length
+          ? `[성취기준별 목표] (학기목표의 근거 — 각 줄의 소재를 담은 평가초점을 최소 1개씩)\n${sg.map((x) => `· [${x.code}] ${x.goal}`).join('\n')}\n`
+          : (sel ? `[관련 성취기준(참고)] [${sel.code}] ${sel.text}${selExtra.length ? ' / ' + selExtra.map((x) => `[${x.code}] ${x.text}`).join(' / ') : ''}\n` : '')) +
         '출력 전에 스스로 검증하라: 각 문장이 규칙 1·2를 지키는가? 장소·수식어만 다른 중복 문장은 하나로 합쳐라.\n' +
         '반드시 JSON만 출력: {"foci":["...","..."]}';
       const parse = (j) => (Array.isArray(j.foci) ? j.foci.map((s) => String(s).trim()).filter(Boolean) : []);
-      // 명백히 이탈한 항목(학기목표 핵심 단어가 전혀 없는 문장) 제거.
-      const keepOnTopic = (arr) => arr.filter((f) => topicOverlap(g, f));
+      // 명백히 이탈한 항목 제거 — 학기목표 핵심 단어가 없더라도 성취기준별 목표의 소재(변별 명사)를 담았으면 이탈이 아니다.
+      const keepOnTopic = (arr) => arr.filter((f) => topicOverlap(g, f) || sg.some((x) => goalCoverage(f, sgStd(x), termIndex).nounHits.length > 0));
       // 0720: 품질이 관건이라 큰(품질) 모델로 라우팅 — 느려도 정확하게 (사용자 요청).
       let foci = keepOnTopic(parse(await llmJSON('평가초점 개발(학기목표 쪼개기)', basePrompt(false), { tier: 'quality', temperature: 0.3 })));
-      if (foci.length < Math.min(3, n)) {
-        // 대부분 이탈 → 더 엄격한 지시로 1회 재시도.
+      let missedSg = unassigned(foci);
+      if (foci.length < Math.min(3, n) || missedSg.length) {
+        // 대부분 이탈했거나 어떤 성취기준별 목표에도 평가초점이 안 붙음 → 빠진 소재를 명시해 1회 재시도.
         try {
-          const retry = keepOnTopic(parse(await llmJSON('평가초점 개발(재시도)', basePrompt(true), { tier: 'quality', temperature: 0.2 })));
-          if (retry.length > foci.length) foci = retry;
+          const note = missedSg.length ? missedSg.map((x) => `[${x.code}] ${goalCoverage('', sgStd(x), termIndex).terms.nouns.slice(0, 3).join('·')}`).join(' / ') : true;
+          const retry = keepOnTopic(parse(await llmJSON('평가초점 개발(재시도)', basePrompt(note), { tier: 'quality', temperature: 0.2 })));
+          const retryMissed = unassigned(retry);
+          if (retry.length && (retryMissed.length < missedSg.length || retry.length > foci.length)) { foci = retry; missedSg = retryMissed; }
         } catch (_) { /* 첫 결과 유지 */ }
       }
       if (!foci.length) throw new Error('학기목표에 맞는 평가초점을 받지 못했어요. 다시 시도해 주세요.');
       setEvalFoci(foci);
+      if (missedSg.length) toast(`⚠ ${missedSg.map((x) => `[${x.code}]`).join(' ')} 목표의 소재가 평가초점에 없어요 — 그 목표의 하위 수행을 하나 보태 주세요.`);
       const negFoci = findNegative(foci.join('\n'));
       if (negFoci.length) toast(`⚠ 부정 진술 평가초점 ${negFoci.length}개("${negFoci[0].slice(0, 20)}…") — 대신 무엇을 하는지로 고쳐 주세요.`);
       toast(`학기목표를 쪼개 평가초점 ${foci.length}개를 만들었어요. 목표의 하위 수행이 맞는지 확인해 주세요.`);
@@ -1400,6 +1603,8 @@ export default function IepPage({ onNavigate }) {
       try { classPBS = (await fetchClassPBS(curStu.class_id, sem))?.data || null; } catch (_e) { /* best-effort */ }
     }
     const tierLinkage = buildTierLinkage(data, classPBS);
+    // 0903(B안): 성취기준별 목표 — 2개 이상일 때 월별 구간 배정의 축.
+    const sgGen = (flowMode === 'std' ? stdGoals : []).filter((x) => x && x.code && String(x.goal || '').trim());
     const fociBlock = (evalFoci || []).filter((f) => f.trim()).length
       ? `[평가초점] (성취기준 분석→해석으로 개발 — 교육목표·교육내용·교육방법·평가를 하나로 잇는 축)\n${evalFoci.filter((f) => f.trim()).map((f) => '· ' + f.trim()).join('\n')}\n`
       : '';
@@ -1452,6 +1657,10 @@ export default function IepPage({ onNavigate }) {
       fociBlock + stepsBlock +
       `[학기목표(확정)] ${goal}\n` +
       `  → 이 학기목표가 월별 계획 전체의 축이다(학기목표 선 확정 → 월별 후 작성). 각 구간(월)의 교육목표·교육내용은 이 학기목표에 도달하기 위한 중간 단계로 설계하고, 마지막 구간은 학기목표 수준에 도달하게 할 것.\n` +
+      (sgGen.length >= 2
+        ? `[성취기준별 목표] (학기목표의 근거 — 월별 구간은 이 순서대로 배정)\n${sgGen.map((x, i) => `${i + 1}. [${x.code}] ${x.goal}`).join('\n')}\n` +
+          `  → 구간마다 성취기준별 목표를 순서대로 배정해, 그 구간의 교육목표·교육내용은 배정된 목표의 소재를 다룰 것(목표보다 구간이 많으면 앞 목표부터 이어서 여러 구간에, 적으면 한 구간에 여러 목표). 지원 수준·평가 기준의 점증은 학기 전체 흐름(규칙 2·5)을 그대로 따른다.\n`
+        : '') +
       // P15(0720 현장 피드백): 교사가 학기 수준에서 잡은 교육내용·교육방법 방향을 월별에 구체화.
       (String(semContent || '').trim()
         ? `[학기 교육내용(교사 방향)]\n${String(semContent).trim()}\n  → 월별 교육내용(content)은 이 방향의 활동을 월 순서에 맞게 나누어 구체화·심화할 것(방향에 없는 활동을 새로 만들 수 있으나, 위 방향과 어긋나지 않게).\n`
@@ -1558,7 +1767,8 @@ export default function IepPage({ onNavigate }) {
   function applyGen(j) {
     const ms = parseMonthGroups(monthGroups, months, sem).map((g) => monthGroupLabel(g, sem));
     if (j && (j.standard_code || j.standardCode)) warnUnknownStandard(j.standard_code || j.standardCode);
-    if (j.semester_goal || j.semesterGoal) setGoal(String(j.semester_goal || j.semesterGoal));
+    // 0903: 확정된 학기목표(규칙10: 그대로 출력)를 AI 반환값으로 덮어쓰지 않는다 — 비어 있을 때만 채움.
+    if (j.semester_goal || j.semesterGoal) setGoal((cur) => (String(cur || '').trim() ? cur : String(j.semester_goal || j.semesterGoal)));
     if (j.plop) setPlop(String(j.plop));
     if (Array.isArray(j.monthly) && j.monthly.length) {
       const mapped = j.monthly.map((x, i) => ({
@@ -1575,7 +1785,7 @@ export default function IepPage({ onNavigate }) {
       // 0819(동료 피드백): 성취기준을 2~3개 골랐을 때 각 성취기준이 교육내용에 실제로
       // 반영됐는지 크로스체크 — 핵심 단어가 학기목표·월별 어디에도 없으면 경고.
       if (selExtra.length) {
-        const allText = [String(j.semester_goal || goal || ''), ...list.map((m) => `${m.goal || ''}\n${m.content || ''}`)].join('\n');
+        const allText = [String(goal || j.semester_goal || ''), ...list.map((m) => `${m.goal || ''}\n${m.content || ''}`)].join('\n');
         const missed = [sel, ...selExtra].filter(Boolean).filter((x) => !topicOverlap(x.text, allText));
         if (missed.length) {
           toast(`⚠ 성취기준 ${missed.map((x) => `[${x.code}]`).join(' ')}의 내용이 교육내용에 충분히 반영되지 않은 것 같아요 — 해당 활동을 보태거나 다시 생성해 보세요.`);
@@ -1705,6 +1915,13 @@ export default function IepPage({ onNavigate }) {
         related_stds: selExtra.map((x) => ({ code: x.code, text: x.text, subject: x.subject, area: x.area, grade_code: x.gradeCode })),
         semester: +sem, semester_goal: goal, plop,
         sem_content: semContent, sem_methods: semMethods,
+        // 0903(B안): 성취기준별 도달 목표 — 교과중심 경로(또는 저장본 편집)에서, 현재 선택된 성취기준에 있는 것만.
+        // 단일 성취기준이면 학기목표가 곧 그 줄이므로 학기목표 문장을 그대로 담는다.
+        std_goals: (flowMode === 'std' || editingId)
+          ? (stdGoals || [])
+            .filter((x) => x && x.code && (x.code === sel.code || selExtra.some((s) => s.code === x.code)))
+            .map((x, _i, arr) => ({ code: x.code, std: String(x.std || ''), goal: String(arr.length === 1 ? goal : (x.goal || '')).trim() }))
+          : [],
         crit_type: critType, crit_start: +cStart, crit_end: +cEnd,
         support_tier: supportTier,
         tier2_group_id: myTierGroups[0]?.id ?? null,
@@ -1890,7 +2107,7 @@ export default function IepPage({ onNavigate }) {
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {flowMode === 'std' && aiOn && !!sel && (
             <button className="btn btn-ok btn-sm" onClick={aiGoalFromStd} disabled={goalAiBusy}>
-              {goalAiBusy ? '생성 중…' : '✨ AI 학기목표 생성 (성취기준+학생 자료)'}
+              {goalAiBusy ? '생성 중…' : '✨ AI로 성취기준별 목표·학기목표 생성 (성취기준+학생 자료)'}
             </button>
           )}
           {flowMode === 'goal' && aiOn && (
@@ -1903,12 +2120,46 @@ export default function IepPage({ onNavigate }) {
       <div className="card-subtitle">
         {flowMode === 'goal'
           ? '학생에게 지금 필요한 기술·내용 중심으로 한 학기 동안 도달할 목표를 먼저 적으세요. 다음 단계에서 관련 성취기준을 연결합니다. (생활 지원 중심)'
-          : '선택한 성취기준을 학생의 현행수준에 맞게 재구성해 학기목표를 확정하세요. (교과 중심)'}
+          : '선택한 성취기준마다 이 학생 수준으로 조정한 목표를 확정하고, 학기목표 한 문장은 그 묶음의 요약으로 정리하세요. (교과 중심)'}
         {' '}학기목표를 먼저 확정하면 평가초점과 월별 계획이 이 목표에서 나옵니다.
       </div>
+      {/* 0903(B안): 성취기준별 목표 — 성취기준 자체가 아니라 학생 수준으로 조정한 목표 1개씩. 평가초점·월별의 앵커.
+          단일 성취기준이면 학기목표가 곧 그 줄이라 목록을 따로 보이지 않는다(종전 화면 그대로). */}
+      {flowMode === 'std' && stdGoals.length > 1 && (
+        <div className="form-group">
+          <label className="form-label">성취기준별 목표 (성취기준마다 1개 · 학생 수준으로 조정 · 수정 가능)</label>
+          <div style={{ display: 'grid', gap: 6 }}>
+            {stdGoals.map((x, i) => {
+              const c = stdCoverage[i];
+              const req = c?.terms?.required || [];
+              return (
+                <div key={x.code} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 8, alignItems: 'start', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
+                  <span className="qchip on" title={x.std} style={{ marginTop: 2 }}>[{x.code}]</span>
+                  <textarea className="form-textarea" rows={2} value={x.goal} onChange={(e) => editStdGoal(i, e.target.value)} style={{ minHeight: 0 }}
+                    placeholder={x.std} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+                    {req.length > 0 && (c.ok
+                      ? <span title={`필수 낱말 반영: ${[...c.nounHits, ...c.verbHits].join(', ')}`} style={{ fontSize: '.72rem', color: '#15803d', fontWeight: 700, whiteSpace: 'nowrap' }}>✓ 반영</span>
+                      : <span title={`빠진 낱말: ${c.missing.join(', ')}`} style={{ fontSize: '.72rem', color: '#b45309', fontWeight: 700, whiteSpace: 'nowrap' }}>⚠ {c.missing.slice(0, 3).join('·')} 빠짐</span>)}
+                    <button type="button" className="btn btn-sm" onClick={() => resetStdGoal(i)} title="성취기준 원문으로 되돌리기">원문</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: '.72rem', color: 'var(--muted)', marginTop: 4 }}>
+            각 줄은 그 성취기준을 이 학생 수준으로 조정한 목표예요(성취기준 자체가 아님). 평가초점은 이 줄들의 하위 수행으로, 월별 교육목표는 줄 순서대로 배정돼요. 아래 학기목표 한 문장은 이 묶음의 요약입니다.
+          </div>
+        </div>
+      )}
       <div className="form-group">
-        <label className="form-label">학기목표 (한 문장 · 수정 가능)</label>
-        <textarea className="form-textarea" value={goal} onChange={(e) => setGoal(e.target.value)}
+        <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {flowMode === 'std' && stdGoals.length > 1 ? '학기목표 (성취기준별 목표의 요약 한 문장 · 수정 가능)' : '학기목표 (한 문장 · 수정 가능)'}
+          {flowMode === 'std' && stdGoals.length === 1 && (stdCoverage[0]?.terms?.required?.length > 0) && (stdCoverage[0].ok
+            ? <span title={`성취기준 낱말 반영: ${[...stdCoverage[0].nounHits, ...stdCoverage[0].verbHits].join(', ')}`} style={{ fontSize: '.72rem', color: '#15803d', fontWeight: 700 }}>✓ 성취기준 반영</span>
+            : <span title={`빠진 낱말: ${stdCoverage[0].missing.join(', ')}`} style={{ fontSize: '.72rem', color: '#b45309', fontWeight: 700 }}>⚠ {stdCoverage[0].missing.slice(0, 3).join('·')} 빠짐</span>)}
+        </label>
+        <textarea className="form-textarea" value={goal} onChange={(e) => { const v = e.target.value; setGoal(v); if (flowMode === 'std' && stdGoals.length === 1) editStdGoal(0, v); }}
           placeholder="예: 학교에서 있었던 일을 활동사진을 보고 단어로 적어 문장을 완성할 수 있다." />
       </div>
       {/* P15(0720 현장 피드백): 학기목표와 함께 교육내용·교육방법도 학기 수준에서 같이 작성 —
@@ -2032,6 +2283,13 @@ export default function IepPage({ onNavigate }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>🗂 저장된 IEP 목표 ({savedGoals.length}) <span style={{ fontWeight: 400, fontSize: 12, color: '#6b7280' }}>— 수정하려면 [✏ 수정], 새로 만들려면 아래에서 성취기준 선택</span></div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '.78rem', color: 'var(--sub)' }} title="문서의 학기목표 칸에 성취기준별 목표를 함께 찍을지 정해요(이 브라우저에 저장)">
+                문서 학기목표
+                <select className="form-select" style={{ width: 'auto', padding: '4px 6px', fontSize: '.78rem' }} value={goalStyle} onChange={(e) => changeGoalStyle(e.target.value)}>
+                  <option value="full">한 문장 + 성취기준별 목표</option>
+                  <option value="summary">한 문장만</option>
+                </select>
+              </label>
               <button className="btn btn-ok btn-sm" onClick={() => exportNiceWord(savedGoals)} disabled={goalsLoading}>📄 나이스 양식 Word(.docx)</button>
               <button className="btn btn-ghost btn-sm" onClick={() => exportFormWord(savedGoals)} disabled={goalsLoading}>📄 양식 Word (생활지원/교과 중심)</button>
             </div>
@@ -2087,7 +2345,7 @@ export default function IepPage({ onNavigate }) {
             { key: 'std', t: 'A. 성취기준 먼저 → 학기목표', d: '교과 성취기준을 먼저 고르고, 학생에 맞게 재구성해 학기목표를 만듭니다. (교과 중심)' },
             { key: 'goal', t: 'B. 학기목표 먼저 → 성취기준', d: '학생에게 필요한 기술·내용 중심으로 학기목표를 먼저 쓰고, 관련 성취기준을 연결합니다. (생활 지원 중심)' },
           ].map((m) => (
-            <button key={m.key} type="button" onClick={() => { setFlowMode(m.key); setStdRecs([]); }}
+            <button key={m.key} type="button" onClick={() => { setFlowMode(m.key); setStdRecs([]); if (m.key === 'goal' && !editingId) { setStdGoals([]); autoSummaryRef.current = ''; } }}
               aria-pressed={flowMode === m.key}
               style={{ textAlign: 'left', border: '2px solid ' + (flowMode === m.key ? '#3b6ef5' : '#e3e6eb'), background: flowMode === m.key ? '#eaf0ff' : '#fff', borderRadius: 10, padding: '10px 12px', cursor: 'pointer' }}>
               <div style={{ fontWeight: 700, color: flowMode === m.key ? '#3b6ef5' : '#374151' }}>{flowMode === m.key ? '✓ ' : ''}{m.t}</div>

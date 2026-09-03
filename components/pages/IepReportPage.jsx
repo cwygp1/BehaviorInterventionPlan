@@ -85,6 +85,9 @@ export default function IepReportPage() {
 
   // 저장 body 단일 출처 — 수동 저장·자동 저장·기준값 비교가 모두 이걸 쓴다.
   // (함수 선언 호이스팅으로 위 useAutoSave/effect에서도 참조 가능)
+  // 0903: 이 페이지가 편집하지 않는 필드(관련 성취기준·학기 교육내용/방법·Tier2 소그룹·성취기준별 목표)는
+  // 일부러 보내지 않는다. 서버(/api/students/[id]/iep)가 body에 없는 필드를 기존 값으로 유지하므로(부분 갱신),
+  // 예전처럼 자동저장 한 번에 '[]'/''로 지워지지도 않고, 다른 탭에서 바꾼 값을 이 페이지의 오래된 스냅샷으로 덮지도 않는다.
   function goalBody(g) {
     return {
       id: g.id, school_year: g.school_year, subject: g.subject, grade_code: g.grade_code, area: g.area,
@@ -130,12 +133,13 @@ export default function IepReportPage() {
       `반드시 JSON만 출력: {"plop":"- ...\\n- ...","semester_goal":"- ...\\n- ...","semestral_eval":"- ...\\n- ..."}`
     );
   }
+  // 0903: 값이 온 키만 반영한다. undefined를 넣으면 화면은 빈칸이 되는데 서버는(부분 갱신) 옛값을 유지해 어긋난다.
   function applySynth(id, j) {
-    updateGoal(id, {
-      plop: j.plop != null ? String(j.plop) : undefined,
-      semester_goal: j.semester_goal != null ? String(j.semester_goal) : undefined,
-      semestral_eval: (j.semestral_eval != null) ? String(j.semestral_eval) : undefined,
-    });
+    const patch = {};
+    if (j.plop != null) patch.plop = String(j.plop);
+    if (j.semester_goal != null) patch.semester_goal = String(j.semester_goal);
+    if (j.semestral_eval != null) patch.semestral_eval = String(j.semestral_eval);
+    if (Object.keys(patch).length) updateGoal(id, patch);
   }
   async function aiSynth(g) {
     // 외부AI 폴백 비활성(0719 요청): AI 미연결 시 연결 안내만.
