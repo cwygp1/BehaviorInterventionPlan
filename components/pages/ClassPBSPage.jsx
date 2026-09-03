@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { fetchClassPBS, saveClassPBS, fetchClassChecklist } from '../../lib/api/students';
+import { useEffect, useMemo, useState } from 'react';
+import { fetchClassPBS, saveClassPBS, fetchClassChecklist, fetchPbsSurvey } from '../../lib/api/students';
 import useFormLoad, { FormLoading } from '../../lib/hooks/useFormLoad';
 import { useAutoSaveBody } from '../../lib/hooks/useAutoSave';
 import { CWPBS_ITEMS, SOLVE_ITEMS } from '../../lib/classChecklist';
+import { surveySummary } from '../../lib/pbsSurvey';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
@@ -21,7 +22,10 @@ const TIER1_DOCS = [
 
 const REWARD_ICONS = ['🎁', '🍿', '🎬', '🍕', '🎮', '🎨', '⚽', '📚', '🎵', '🌟'];
 
-export default function ClassPBSPage() {
+// 순위 배지 색 — 설문(PbsSurveyPage)의 순위 색과 같은 정체성을 쓴다.
+const RANK_COLORS = ['#dc2626', '#ea580c', '#16a34a', '#2563eb', '#7c3aed'];
+
+export default function ClassPBSPage({ onNavigate }) {
   const toast = useToast();
   const { call, status } = useLLM();
   const { curYear, curSemester, curClassId, curClass } = useStudents();
@@ -43,6 +47,9 @@ export default function ClassPBSPage() {
   const [coachBusy, setCoachBusy] = useState(false);
   // 학급관리 체크리스트 결과 — 코칭 프롬프트에 진단 근거로 주입 (best-effort).
   const [checklist, setChecklist] = useState(null);
+  // 0828 현장 요청: PBS 기초 설문의 기대행동·응답을 여기서도 보고 계획에 반영한다.
+  // 원본은 pbs_base_survey 한 곳뿐 — 여기서는 읽기만 하고 따로 저장하지 않는다.
+  const [survey, setSurvey] = useState(null);
 
   // Load the PBS state for the currently selected 반 + 학기. Each (반, 학기)
   // keeps its own goal/points/rewards; defaults are restored when there is no
@@ -69,8 +76,14 @@ export default function ClassPBSPage() {
     fetchClassChecklist(curClassId, curSemester).then((d) => {
       if (!cancelled) setChecklist(d?.data?.responses || null);
     }).catch(() => {});
+    fetchPbsSurvey(curClassId, curSemester).then((d) => {
+      if (!cancelled) setSurvey(d?.data?.responses || null);
+    }).catch(() => {});
     return () => { cancelled = true; };
   }, [curClassId, curSemester, applyLoaded]);
+
+  // 설문 원본에서 그때그때 파생 — 이 화면은 기대행동을 저장하지 않는다.
+  const sv = useMemo(() => surveySummary(survey), [survey]);
 
   // 체크리스트 진단 요약(총점 + 낮은 문항) — 없으면 ''.
   function checklistBlock() {
@@ -93,6 +106,39 @@ export default function ClassPBSPage() {
     if (sv.some((v) => v >= 0)) parts.push(`- 행동문제해결력: ${sum(sv)}/${SOLVE_ITEMS.length * 4}점`);
     parts.push('※ 위 진단에서 낮게 나온 항목을 우선 보완하는 방향으로 코칭하세요.');
     return parts.join('\n');
+  }
+
+  // PBS 기초 설문 요약 — 코칭 프롬프트에 학급 실태·기대행동 근거로 주입. 없으면 ''.
+  function surveyBlock() {
+    if (!sv.has) return '';
+    const parts = ['\n## PBS 기초 설문조사 결과 (Tier 1 실태 — 참고 근거)'];
+    if (sv.expected.length) parts.push(`- 기대행동(학교 규칙) 후보: ${sv.expected.map((e) => e.custom ? `${e.label}(기타)` : `${e.label}(${e.rank}위)`).join(', ')}`);
+    if (sv.behaviors) parts.push(`- 자주 발생하는 문제행동: ${sv.behaviors}`);
+    if (sv.places) parts.push(`- 빈발 장소: ${sv.places}`);
+    if (sv.times) parts.push(`- 빈발 시간대: ${sv.times}`);
+    if (sv.rulePlaces) parts.push(`- 생활규칙 우선 적용 장소: ${sv.rulePlaces}`);
+    if (sv.difficulties) parts.push(`- 교사가 어려움을 느끼는 점: ${sv.difficulties}`);
+    if (sv.matrix.length) {
+      parts.push('- 기대행동 × 장소 매트릭스(설문 12번):');
+      sv.matrix.forEach((row) => {
+        const cells = row.places.map((p) => `${p.place || '장소 미기재'}: ${p.rules || '규칙 미기재'}`).join(' / ');
+        parts.push(`  - ${row.behavior || '기대행동 미기재'} → ${cells || '내용 없음'}`);
+      });
+    }
+    parts.push('※ 위 설문 결과와 학급 목표·보상 운영이 어긋나지 않게, 기대행동을 그대로 살려 제안하세요.');
+    return parts.join('\n');
+  }
+
+  // 설문에서 뽑은 기대행동을 학급 목표 문구로 넣는다 — 사본을 만드는 게 아니라
+  // 교사가 명시적으로 누를 때만 학급 목표(class_pbs_state.goal) 칸을 채운다.
+  function applyExpectedToGoal() {
+    const labels = sv.expected.slice(0, 3).map((e) => e.label);
+    if (!labels.length) { toast('설문 10번에서 기대행동을 먼저 골라주세요.'); return; }
+    const text = labels.join(' · ');
+    if (goal && goal.trim() && goal.trim() !== text
+      && !window.confirm(`현재 학급 목표를 다음으로 바꿀까요?\n\n"${text}"`)) return;
+    setGoal(text);
+    toast('기대행동을 학급 목표에 넣었어요. 문구는 자유롭게 다듬으세요.');
   }
 
   // 자동 저장(0824) — 로드 시점 값을 기준으로, 달라지면 입력이 멎은 뒤 저장.
@@ -141,6 +187,7 @@ export default function ClassPBSPage() {
 - 학급 목표: ${goal}
 - 누적 포인트: ${current} / ${target}
 - 보상 항목: ${rewards.map(r => `${r.name}(${r.points}p)`).join(', ') || '(없음)'}
+${surveyBlock()}
 ${checklistBlock()}
 
 ## 교사 질문
@@ -272,6 +319,95 @@ ${question}
             >↺ 리셋</button>
           </div>
         </div>
+      </div>
+
+      {/* 기대행동(학교 규칙) — PBS 기초 설문조사에서 그대로 읽어온다(원본은 설문 화면).
+          0828 현장 요청: 설문 하단에 쓴 기대행동을 학급 차원 PBS에서도 보고 계획에 반영. */}
+      <div className="card" data-tour="cp-expected">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div className="card-title" style={{ marginBottom: 0 }}>📋 우리 반 기대행동 (학교 규칙)</div>
+          <span className="badge badge-pri" style={{ fontSize: '.72rem' }}>PBS 기초 설문조사에서 불러옴</span>
+          <div style={{ flex: 1 }} />
+          {onNavigate && (
+            <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('pbssurvey')}>
+              {sv.has ? '✏ 설문에서 수정' : '📝 설문 작성하러 가기'}
+            </button>
+          )}
+        </div>
+        <div className="card-subtitle" style={{ marginTop: 6 }}>
+          기대행동은 <strong>PBS 기초 설문조사(10·12번)</strong>에 저장된 내용을 그대로 보여줍니다. 고칠 내용은 설문 화면에서 수정하면 여기에도 바로 반영됩니다.
+        </div>
+
+        {sv.expected.length > 0 ? (
+          <>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+              {sv.expected.map((e, i) => {
+                const c = e.custom ? '#64748b' : RANK_COLORS[(e.rank - 1) % RANK_COLORS.length];
+                return (
+                  <span key={`${e.label}-${i}`} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+                    borderRadius: 999, border: `1.5px solid ${c}`, color: c, fontWeight: 700, fontSize: '.88rem',
+                  }}>
+                    <span style={{ background: c, color: '#fff', borderRadius: 999, padding: '1px 7px', fontSize: '.72rem' }}>
+                      {e.custom ? '기타' : `${e.rank}위`}
+                    </span>
+                    {e.label}
+                  </span>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+              <button className="btn btn-ok btn-sm" onClick={applyExpectedToGoal} title="상위 3개 기대행동을 학급 목표 문구로 넣습니다(문구는 이후 자유롭게 수정 가능)">
+                ⬆ 학급 목표 문구로 넣기
+              </button>
+            </div>
+          </>
+        ) : (
+          <div style={{ marginTop: 14, padding: '18px 16px', textAlign: 'center', color: 'var(--muted)', background: 'var(--surface2)', border: '1px dashed var(--border)', borderRadius: 8, fontSize: '.9rem' }}>
+            아직 설문에 기대행동이 없어요. [PBS 기초 설문조사] 10번에서 기대행동 후보 5가지를 골라주세요.
+          </div>
+        )}
+
+        {sv.matrix.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: '.88rem', color: 'var(--sub)', marginBottom: 8 }}>기대행동 × 장소 생활규칙 (설문 12번)</div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '.84rem' }}>
+                <thead><tr>
+                  <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px', background: '#f1f5f9', fontWeight: 700, width: 150 }}>기대행동</th>
+                  <th style={{ border: '1px solid #cbd5e1', padding: '6px 8px', background: '#f1f5f9', fontWeight: 700 }}>장소별 규칙</th>
+                </tr></thead>
+                <tbody>
+                  {sv.matrix.map((row, ri) => (
+                    <tr key={ri}>
+                      <td style={{ border: '1px solid #e2e8f0', padding: '6px 8px', fontWeight: 600, verticalAlign: 'top' }}>
+                        {row.behavior || <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(미기재)</span>}
+                      </td>
+                      <td style={{ border: '1px solid #e2e8f0', padding: '6px 8px' }}>
+                        {row.places.length ? row.places.map((p, pi) => (
+                          <div key={pi} style={{ marginBottom: 4, lineHeight: 1.5 }}>
+                            <strong>{p.place || '장소 미기재'}</strong>
+                            <span style={{ color: 'var(--sub)' }}> — {p.rules || '규칙 미기재'}</span>
+                          </div>
+                        )) : <span style={{ color: 'var(--muted)' }}>(미기재)</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {(sv.places || sv.times || sv.behaviors) && (
+          <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: '.83rem', color: 'var(--sub)', lineHeight: 1.7 }}>
+            <div style={{ fontWeight: 700, color: 'var(--muted)', marginBottom: 4 }}>설문에서 파악된 우리 반 실태 (AI 코칭에도 함께 전달됩니다)</div>
+            {sv.behaviors && <div>· 자주 발생하는 문제행동: {sv.behaviors}</div>}
+            {sv.places && <div>· 빈발 장소: {sv.places}</div>}
+            {sv.times && <div>· 빈발 시간대: {sv.times}</div>}
+            {sv.rulePlaces && <div>· 생활규칙 우선 적용 장소: {sv.rulePlaces}</div>}
+          </div>
+        )}
       </div>
 
       {/* Goal config card */}

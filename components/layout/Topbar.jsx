@@ -23,6 +23,7 @@ const TITLES = {
   support: '교사 지원 자료실',
   classpbs: '학급 차원 PBS (Tier 1)',
   pbssurvey: 'PBS 기초 설문조사 (Tier 1)',
+  schoolrules: '학교 규칙 수립을 위한 조사서 (Tier 1)',
   classcheck: '학급관리 실행충실도 1 (Tier 1)',
   classcheck2: '학급관리 실행충실도 2 (Tier 1)',
   tier2: 'Tier 2 · 소그룹 지원 (CICO / DPR)',

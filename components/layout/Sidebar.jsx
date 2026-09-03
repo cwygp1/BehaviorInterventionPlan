@@ -13,6 +13,7 @@ const SECTION_ITEMS = {
     { id: 'dash1', label: '대시보드', icon: '📊' },
     { id: 'classpbs', label: '학급 차원 PBS', icon: '🏫' },
     { id: 'pbssurvey', label: 'PBS 기초 설문조사', icon: '📋' },
+    { id: 'schoolrules', label: '학교 규칙 수립 조사서', icon: '📝' },
     { id: 'classcheck', label: '학급관리 실행충실도 1', icon: '✅' },
     { id: 'classcheck2', label: '학급관리 실행충실도 2', icon: '📋' },
   ],
