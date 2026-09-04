@@ -342,7 +342,8 @@ export default function IepPage({ onNavigate }) {
   // reasoning 모델(Qwen3 등) 대응. 요청/응답 로그는 LLMContext가 자동 기록하며
   // (상단 AI 연결 모달에서 확인), 여기서는 JSON 추출 단계 실패만 추가로 남긴다.
   async function llmJSON(label, prompt, opts) {
-    const r = await callDetailed('/no_think\n' + prompt, { ...opts, label });
+    // thinking을 켠 호출(opts.thinking)에는 `/no_think` 접두를 붙이지 않는다 — 모순 지시 방지.
+    const r = await callDetailed((opts?.thinking ? '' : '/no_think\n') + prompt, { ...opts, label });
     const out = (r.content && r.content.trim()) ? r.content : (r.reasoning || '');
     const meta = `finish=${r.finish_reason} · content ${(r.content || '').length}자 · reasoning ${(r.reasoning || '').length}자`;
     const m = (out || '').match(/\{[\s\S]*\}/);
@@ -1267,7 +1268,8 @@ export default function IepPage({ onNavigate }) {
       };
       const passes = (sc, i) => (commonAt(i) ? sc.s === 2 : sc.s >= 1);
 
-      let j = await llmJSON('성취기준별 목표·학기목표 생성', basePrompt(''), { temperature: 0.3 });
+      // 0904: 목표 문장의 낱말 게이트·긍정 진술·측정 기준을 동시에 맞춰야 해 thinking ON(low).
+      let j = await llmJSON('성취기준별 목표·학기목표 생성', basePrompt(''), { temperature: 0.3, thinking: true });
       let cand1 = pickGoals(j);
       let sum1 = String(j?.summary || '').trim();
       const sc1 = stds.map((x, i) => score(cand1[x.code], i));
@@ -1279,7 +1281,7 @@ export default function IepPage({ onNavigate }) {
           return `[${stds[i].code}] ${miss.length ? miss.join(', ') : '(문장 누락)'}`;
         }).join(' / ');
         try {
-          const j2 = await llmJSON('성취기준별 목표 생성(재시도)', basePrompt(note), { temperature: 0.15 });
+          const j2 = await llmJSON('성취기준별 목표 생성(재시도)', basePrompt(note), { temperature: 0.15, thinking: true });
           cand2 = pickGoals(j2); sum2 = String(j2?.summary || '').trim();
         } catch (_) { cand2 = {}; }
         sc2 = stds.map((x, i) => score(cand2[x.code], i));
@@ -1415,13 +1417,13 @@ export default function IepPage({ onNavigate }) {
         (curStu?.disability ? `(참고 — 장애유형 ${curStu.disability}: 문장 난이도 조정에만 사용, 소재 변경 금지)\n` : '') +
         `[교사 초안] ${draft}\n` +
         '반드시 JSON만 출력: {"semester_goal":"..."}';
-      // 0720: 문장 품질이 관건 — 큰(품질) 모델로 라우팅.
-      let j = await llmJSON('학기목표 다듬기', basePrompt(false), { tier: 'quality', temperature: 0.2 });
+      // 0720: 문장 품질이 관건 — 큰(품질) 모델로 라우팅. 0904: thinking ON(low).
+      let j = await llmJSON('학기목표 다듬기', basePrompt(false), { tier: 'quality', temperature: 0.2, thinking: true });
       let g = String(j.semester_goal || '').trim();
       // 주제 이탈 가드: 초안의 핵심 단어가 하나도 없으면 1회 재시도 → 그래도 이탈이면 초안 유지.
       if (g && !topicOverlap(draft, g)) {
         try {
-          j = await llmJSON('학기목표 다듬기(재시도)', basePrompt(true), { tier: 'quality', temperature: 0.1 });
+          j = await llmJSON('학기목표 다듬기(재시도)', basePrompt(true), { tier: 'quality', temperature: 0.1, thinking: true });
           g = String(j.semester_goal || '').trim();
         } catch (_) { g = ''; }
       }
@@ -1578,13 +1580,13 @@ export default function IepPage({ onNavigate }) {
       // 명백히 이탈한 항목 제거 — 학기목표 핵심 단어가 없더라도 성취기준별 목표의 소재(변별 명사)를 담았으면 이탈이 아니다.
       const keepOnTopic = (arr) => arr.filter((f) => topicOverlap(g, f) || sg.some((x) => goalCoverage(f, sgStd(x), termIndex).nounHits.length > 0));
       // 0720: 품질이 관건이라 큰(품질) 모델로 라우팅 — 느려도 정확하게 (사용자 요청).
-      let foci = keepOnTopic(parse(await llmJSON('평가초점 개발(학기목표 쪼개기)', basePrompt(false), { tier: 'quality', temperature: 0.3 })));
+      let foci = keepOnTopic(parse(await llmJSON('평가초점 개발(학기목표 쪼개기)', basePrompt(false), { tier: 'quality', temperature: 0.3, thinking: true })));
       let missedSg = unassigned(foci);
       if (foci.length < Math.min(3, n) || missedSg.length) {
         // 대부분 이탈했거나 어떤 성취기준별 목표에도 평가초점이 안 붙음 → 빠진 소재를 명시해 1회 재시도.
         try {
           const note = missedSg.length ? missedSg.map((x) => `[${x.code}] ${goalCoverage('', sgStd(x), termIndex).terms.nouns.slice(0, 3).join('·')}`).join(' / ') : true;
-          const retry = keepOnTopic(parse(await llmJSON('평가초점 개발(재시도)', basePrompt(note), { tier: 'quality', temperature: 0.2 })));
+          const retry = keepOnTopic(parse(await llmJSON('평가초점 개발(재시도)', basePrompt(note), { tier: 'quality', temperature: 0.2, thinking: true })));
           const retryMissed = unassigned(retry);
           if (retry.length && (retryMissed.length < missedSg.length || retry.length > foci.length)) { foci = retry; missedSg = retryMissed; }
         } catch (_) { /* 첫 결과 유지 */ }

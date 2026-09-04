@@ -212,7 +212,8 @@ ${profile}
     if (completed === 0) { toast('먼저 QABF 문항에 응답해주세요.'); return; }
     setAiBusy(true); setAiOutput('');
     try {
-      const reply = await call(buildInterpretPrompt(), { tier: 'quality', label: 'QABF 기능 해석' });
+      // 0904: 점수 비교·동점 판단이 필요한 해석 — thinking ON(low). 실측 30~60초.
+      const reply = await call(buildInterpretPrompt(), { tier: 'quality', label: 'QABF 기능 해석', thinking: true });
       setAiOutput(reply);
     } catch (e) {
       toast('AI 호출 실패: ' + e.message, 'error');

@@ -118,7 +118,8 @@ export default function BIPPromptModal({ open, onClose, onApply }) {
     if (status !== 'on') { toast('AI 연결을 먼저 설정해주세요. (우상단 AI 버튼)'); return; }
     setBusy(true); setOutput('');
     try {
-      const reply = await call(prompt || basePrompt);
+      // 0904: BIP 전체 초안은 기능 일관성·분량 준수가 관건 — thinking ON(low). 실측 1분 안팎.
+      const reply = await call(prompt || basePrompt, { label: 'BIP 초안 작성', thinking: true });
       setOutput(reply);
     } catch (e) {
       toast('AI 호출 실패: ' + e.message);
