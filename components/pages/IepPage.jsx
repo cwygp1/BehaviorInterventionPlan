@@ -40,6 +40,13 @@ const FUNC_TEACH_METHOD = (skill) => {
   if (/안정|조절|도구|선택/.test(s)) return '자기관리전략';
   return '행동기술훈련(BST)';
 };
+// 기능중심 B의 구간별 중점(습득 → 삽입 → 유지 → 주 목표 일반화). 교수 방법은 위에서 고른 하나만 쓴다.
+const FUNC_PHASES = (method) => [
+  `대체행동 배우기 — ${method} 절차대로 짧게 자주 연습(다른 방법과 섞지 않기)`,
+  '일과 속에서 기회를 만들어 대체행동 사용 연습(삽입 교수)',
+  '자연스러운 상황에서 촉구 없이 대체행동 유지',
+  '주 목표 행동으로 넓혀 장소·사람·자료를 바꿔도 스스로 하기',
+];
 
 // 「일상생활 활동」 영역 계층 구조: 대영역(5) → 중영역(하위 영역)
 // 출처: 개별화교육계획 가이드북 / 일상생활 활동 영역 구분
@@ -907,11 +914,14 @@ export default function IepPage({ onNavigate }) {
         : reinforceStage(stg, reinfPos[i], topReinf);
       // 0908(기능중심 B): 3구조를 PBS 3전략(교수 / 선행 예방+촉구 / 후속결과)으로 읽히게 꼬리표를 붙이고,
       // 교수 방법은 핵심기술 성격에 맞는 하나(FCT·모델링+사회적 이야기·BST·자기관리)로 고정한다.
-      const funcTeach = funcAlt ? ` / 대체행동 교수: ${FUNC_TEACH_METHOD(funcPlan.skill)}` : '';
+      // 경로B에서는 장애영역 기본 목록(직접교수 등)을 나열하지 않고 핵심기술에 맞는 방법 하나만 고정한다(혼용 금지).
+      const funcMethod = funcAlt ? FUNC_TEACH_METHOD(funcPlan.skill) : '';
+      const coreLine = funcAlt ? `${semStrategy || funcMethod} (대체행동 교수)` : (semStrategy || methods.join(', '));
+      const phaseTxt = funcAlt ? FUNC_PHASES(funcMethod)[Math.min(3, phaseIdx(i))] : PHASE_STRATEGY[phaseIdx(i)];
       const tag = funcAlt ? ['[교수] ', '[선행 예방·촉구] ', '[후속결과 — 대체행동에 기능과 같은 강화, 문제행동엔 주지 않기] '] : ['', '', ''];
       return [
         // P15: 교사가 학기 교육방법에 적은 지도전략을 우선 반영 + 구간별 중점을 문두에.
-        `지도전략: ${tag[0]}핵심 방법(학기 고정): ${semStrategy || methods.join(', ')}${funcTeach} / 이번 구간 중점: ${PHASE_STRATEGY[phaseIdx(i)]}`,
+        `지도전략: ${tag[0]}핵심 방법(학기 고정): ${coreLine} / 이번 구간 중점: ${phaseTxt}`,
         `지원수준(촉구·용암): ${tag[1]}${fadeLine}`,
         `강화 스케줄: ${tag[2]}${reinfLine}`,
       ];
