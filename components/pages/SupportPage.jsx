@@ -41,7 +41,7 @@ export default function SupportPage() {
                       <td style={{ padding: 9, borderBottom: '1px solid var(--border)' }}>{e.d}</td>
                       <td style={{ padding: 9, borderBottom: '1px solid var(--border)', fontSize: '.78rem', color: 'var(--sub)' }}>{e.area}</td>
                       <td style={{ padding: 9, borderBottom: '1px solid var(--border)', fontSize: '.78rem', color: 'var(--sub)' }}>{e.age}</td>
-                      <td style={{ padding: 9, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}><a href={e.link} target="_blank" rel="noreferrer" style={{ color: 'var(--pri)', fontWeight: 600 }}>↗ 보기</a></td>
+                      <td style={{ padding: 9, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{e.link ? <a href={e.link} target="_blank" rel="noreferrer" style={{ color: 'var(--pri)', fontWeight: 600 }}>↗ 보기</a> : <span style={{ color: 'var(--sub)' }}>—</span>}</td>
                     </tr>
                   ))}
                 </tbody>
