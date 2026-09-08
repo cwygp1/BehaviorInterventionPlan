@@ -46,6 +46,8 @@ export default requireStudentAccess(async function handler(req, res) {
         await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS sem_methods TEXT NOT NULL DEFAULT ''`;
         // 0903(B안): 성취기준별 도달 목표 [{code, std, goal}].
         await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS std_goals JSONB NOT NULL DEFAULT '[]'`;
+        // 0908(기능중심 IEP — 경로B): {func, skill, alt}.
+        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS func_plan JSONB NOT NULL DEFAULT '{}'`;
 
         // 저장 값 정규화. UPDATE는 "부분 갱신": body에 없는(undefined) 필드는 기존 행 값을 유지한다.
         // 계획서 페이지 자동저장·전년도 페이지처럼 일부 필드만 보내는 호출자가 관련 성취기준·교육내용 등을
@@ -69,6 +71,9 @@ export default requireStudentAccess(async function handler(req, res) {
           semester: num('semester', 1) || 1, semester_goal: str('semester_goal'), plop: str('plop'),
           sem_content: str('sem_content'), sem_methods: str('sem_methods'),
           std_goals: jsonArr('std_goals'),
+          func_plan: JSON.stringify(has('func_plan')
+            ? (b.func_plan && typeof b.func_plan === 'object' && !Array.isArray(b.func_plan) ? b.func_plan : {})
+            : (cur?.func_plan && typeof cur.func_plan === 'object' ? cur.func_plan : {})),
           crit_type: str('crit_type', 'rate'), crit_start: num('crit_start', 30), crit_end: num('crit_end', 80),
           support_tier: str('support_tier'),
           tier2_group_id: nullable('tier2_group_id'),
@@ -88,6 +93,7 @@ export default requireStudentAccess(async function handler(req, res) {
               semester = ${v.semester}, semester_goal = ${v.semester_goal}, plop = ${v.plop},
               sem_content = ${v.sem_content}, sem_methods = ${v.sem_methods},
               std_goals = ${v.std_goals}::jsonb,
+              func_plan = ${v.func_plan}::jsonb,
               crit_type = ${v.crit_type}, crit_start = ${v.crit_start}, crit_end = ${v.crit_end},
               support_tier = ${v.support_tier},
               tier2_group_id = ${v.tier2_group_id},
@@ -103,9 +109,9 @@ export default requireStudentAccess(async function handler(req, res) {
         }
         const r = await sql`
           INSERT INTO iep_goals
-            (student_id, school_year, subject, grade_code, area, standard_code, standard_text, related_stds, semester, semester_goal, plop, sem_content, sem_methods, std_goals, crit_type, crit_start, crit_end, support_tier, tier2_group_id, eval_foci, task_steps, chain_type, prompt_system, monthly, semestral_eval, updated_at)
+            (student_id, school_year, subject, grade_code, area, standard_code, standard_text, related_stds, semester, semester_goal, plop, sem_content, sem_methods, std_goals, func_plan, crit_type, crit_start, crit_end, support_tier, tier2_group_id, eval_foci, task_steps, chain_type, prompt_system, monthly, semestral_eval, updated_at)
           VALUES
-            (${studentId}, ${v.school_year}, ${v.subject}, ${v.grade_code}, ${v.area}, ${v.standard_code}, ${v.standard_text}, ${v.related_stds}::jsonb, ${v.semester}, ${v.semester_goal}, ${v.plop}, ${v.sem_content}, ${v.sem_methods}, ${v.std_goals}::jsonb, ${v.crit_type}, ${v.crit_start}, ${v.crit_end}, ${v.support_tier}, ${v.tier2_group_id}, ${v.eval_foci}::jsonb, ${v.task_steps}::jsonb, ${v.chain_type}, ${v.prompt_system}, ${v.monthly}::jsonb, ${v.semestral_eval}, NOW())
+            (${studentId}, ${v.school_year}, ${v.subject}, ${v.grade_code}, ${v.area}, ${v.standard_code}, ${v.standard_text}, ${v.related_stds}::jsonb, ${v.semester}, ${v.semester_goal}, ${v.plop}, ${v.sem_content}, ${v.sem_methods}, ${v.std_goals}::jsonb, ${v.func_plan}::jsonb, ${v.crit_type}, ${v.crit_start}, ${v.crit_end}, ${v.support_tier}, ${v.tier2_group_id}, ${v.eval_foci}::jsonb, ${v.task_steps}::jsonb, ${v.chain_type}, ${v.prompt_system}, ${v.monthly}::jsonb, ${v.semestral_eval}, NOW())
           RETURNING *
         `;
         return res.status(200).json({ goal: fmtRow(r.rows[0]) });

@@ -18,7 +18,7 @@ import { profileNarrative } from '../../lib/utils/splitNote';
 import { findHanja, findNegative } from '../../lib/utils/aiText';
 import { isQuestionList, guardEvalText } from '../../lib/utils/iepEvalGuard';
 import { ebpBlockForGoal } from '../../lib/ebp';
-import { functionSkillsBlock } from '../../lib/functionSkills';
+import { functionSkillsBlock, FUNCTION_SKILLS, FUNC_ORDER, qabfLabelToFunc } from '../../lib/functionSkills';
 import AssessmentLauncher from '../student/AssessmentLauncher';
 import { FORMAT_EX_MATH, FORMAT_EX_COMM, findExampleEchoes } from '../../lib/exampleGuard';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
@@ -28,6 +28,18 @@ import { GRADES_BY_LEVEL } from '../modals/EditStudentModal';
 
 const GRADE = { 0: '일상생활(공통)', 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
 const GORDER = [2, 4, 6, 9, 12];
+
+// 0908(기능중심 IEP — 경로B): 행동 기능 → 대체행동(단기목표) → 학기목표(주 목표) 구조의 상태 기본값.
+const EMPTY_FUNC = { func: '', skill: '', alt: '' };
+// 핵심기술 성격 → 교수 방법(직접교수·DTT·BST 혼용 금지 원칙: 기술에 맞는 하나만).
+const FUNC_TEACH_METHOD = (skill) => {
+  const s = String(skill || '');
+  if (/요청|카드|표현|알림/.test(s)) return '기능적 의사소통 훈련(FCT)';
+  if (/놀이|대화|주고받/.test(s)) return '모델링 + 사회적 담화(사회적 이야기)';
+  if (/기다리|협상|한계|수용|전환/.test(s)) return '행동기술훈련(BST)';
+  if (/안정|조절|도구|선택/.test(s)) return '자기관리전략';
+  return '행동기술훈련(BST)';
+};
 
 // 「일상생활 활동」 영역 계층 구조: 대영역(5) → 중영역(하위 영역)
 // 출처: 개별화교육계획 가이드북 / 일상생활 활동 영역 구분
@@ -389,6 +401,12 @@ export default function IepPage({ onNavigate }) {
   useEffect(() => { setGoalStyleState(getGoalStyle()); }, []);
   const changeGoalStyle = (v) => { setGoalStyle(v); setGoalStyleState(v); };
 
+  // 0908(기능중심 IEP — 경로B): 오하이오 기능기반 IEPBS 방식의 3단 구조.
+  //   ① 행동 기능(QABF 최상위에서 제안, 교사가 바꿀 수 있음) → ② 대체행동 = 단기목표(문제행동과 같은 기능을 하는
+  //   바람직한 방법, 학생 강점을 근거로 고름) → ③ 학기목표 = 주 목표(바람직한 행동). 월별 계획은 대체행동의
+  //   과제분석 단계를 앞 구간에, 주 목표를 뒤 구간에 배정해 학기말에 주 목표에 도달한다. iep_goals.func_plan 에 저장.
+  const [funcPlan, setFuncPlan] = useState(EMPTY_FUNC);
+
   const [goal, setGoal] = useState('');
   const [plop, setPlop] = useState('');
   // P15(0720 현장 피드백): 학기 수준 교육내용·교육방법 — 월별 생성 전에 한번 방향을 잡으면
@@ -474,7 +492,7 @@ export default function IepPage({ onNavigate }) {
   useEffect(() => {
     if (editStuRef.current === curStuId) return;
     editStuRef.current = curStuId;
-    setSel(null); setSelExtra([]); setStdRecs([]); setStdGoals([]); autoSummaryRef.current = '';
+    setSel(null); setSelExtra([]); setStdRecs([]); setStdGoals([]); autoSummaryRef.current = ''; setFuncPlan(EMPTY_FUNC);
     setVerb(''); setVerbAlts([]); setIntent(''); setDescriptor(''); setEvalFoci([]);
     setGoal(''); setSemContent(''); setSemMethods('');
     setMonthly([]); setSemEval(''); setTaskSteps([]);
@@ -630,6 +648,13 @@ export default function IepPage({ onNavigate }) {
       // 저장 당시 학기목표가 자동 요약 그대로였다면 계속 목록을 따라가고, 교사가 고친 문장이면 그대로 둔다.
       autoSummaryRef.current = loaded.length > 1 ? joinGoals(loaded) : '';
     }
+    {
+      // 0908(기능중심 B): 저장된 기능·대체행동이 있으면 경로B로 열린다.
+      const fp = g.func_plan && typeof g.func_plan === 'object' && !Array.isArray(g.func_plan) ? g.func_plan : {};
+      const loadedFp = { func: String(fp.func || ''), skill: String(fp.skill || ''), alt: String(fp.alt || '') };
+      setFuncPlan(loadedFp);
+      if (loadedFp.alt) setFlowMode('goal');
+    }
     setGoal(g.semester_goal || ''); setPlop(g.plop || '');
     setSemContent(g.sem_content || ''); setSemMethods(g.sem_methods || '');
     setSchoolYear(g.school_year || new Date().getFullYear());
@@ -665,7 +690,7 @@ export default function IepPage({ onNavigate }) {
 
   function newGoal() {
     setSel(null); setSelExtra([]); setEditingId(null); setMonthly([]); setSemEval(''); setGoal('');
-    setSemContent(''); setSemMethods(''); setStdGoals([]); autoSummaryRef.current = '';
+    setSemContent(''); setSemMethods(''); setStdGoals([]); autoSummaryRef.current = ''; setFuncPlan(EMPTY_FUNC);
     setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setSupportTier(''); setTaskSteps([]);
     setChainType('forward'); setPromptSystem('mtl'); setMonths(monthsOf(sem)); setMonthGroups('');
     resetDrafts();
@@ -741,15 +766,19 @@ export default function IepPage({ onNavigate }) {
   }
   // 과제분석 단계 분해 프롬프트 — 로컬 AI 호출·외부AI 복사 공용.
   function buildStepsPrompt() {
-    const target = (goal || sel?.text || '').trim();
+    // 0908(기능중심 B): 대체행동(단기목표)이 있으면 학기목표가 아니라 대체행동을 단계로 분해한다.
+    const funcTarget = flowMode === 'goal' ? String(funcPlan.alt || '').trim() : '';
+    const target = (funcTarget || goal || sel?.text || '').trim();
     const ctx = [];
+    if (funcTarget && String(goal || '').trim()) ctx.push(`주 목표(학기목표 — 마지막 단계는 여기로 이어짐): ${String(goal).trim()}`);
+    if (funcTarget && funcPlan.func) ctx.push(`행동 기능: ${funcPlan.func} (대체행동은 이 기능을 적절하게 얻는 방법)`);
     if (verb) ctx.push(`핵심 수행 동사: ${verb}`);
     if (descriptor) ctx.push(`대상·내용(서술자): ${descriptor}`);
     if (intent) ctx.push(`행위지향(태도): ${intent}`);
     const fociList = (evalFoci || []).map((f) => f.trim()).filter(Boolean);
     if (fociList.length) ctx.push(`평가초점: ${fociList.join(' / ')}`);
     return (
-      '다음 특수교육 학기목표를 학생이 순서대로 수행할 "과제분석 단계"로 분해하라.\n' +
+      `다음 특수교육 ${funcTarget ? '대체행동(단기목표)' : '학기목표'}을 학생이 순서대로 수행할 "과제분석 단계"로 분해하라.\n` +
       '규칙:\n' +
       '1) 각 단계는 관찰 가능한 하나의 행동, 4~8개.\n' +
       `2) 모든 단계는 "${target}"을(를) 실제로 완성하기 위한 하위 행동이어야 한다. 마지막 단계는 목표 행동(위 핵심 동사) 자체를 직접 수행한다.\n` +
@@ -807,7 +836,13 @@ export default function IepPage({ onNavigate }) {
     const stepChain = steps.length ? steps.map((t, k) => `${k + 1}) ${t}`).join(' → ') : '단계 목록 참조';
     // 0903(B안): 성취기준별 목표가 2개 이상이면 교육목표 줄의 소재를 구간 순서대로 배정한다(목표가 구간보다 많으면 한 구간에
     // 여러 목표를 이어 쓰고, 적으면 한 목표가 여러 구간에 걸침). 지원 수준·평가 기준·촉진 단계의 점증은 종전처럼 학기 전체 흐름.
-    const sgList = (flowMode === 'std' ? stdGoals : []).filter((x) => x && x.code && String(x.goal || '').trim());
+    // 0908(기능중심 B): 대체행동(단기목표)의 과제분석 단계를 앞 구간에, 주 목표(학기목표)를 마지막 구간에 배정 —
+    // 오하이오 기능기반 IEPBS의 "단기목표 과제분석 → 주 목표 도달" 흐름을 규칙 초안에서도 그대로 따른다.
+    const funcAlt = flowMode === 'goal' ? String(funcPlan.alt || '').trim() : '';
+    const funcList = funcAlt
+      ? [...(steps.length ? steps.map((t) => ({ code: '단기', goal: t })) : [{ code: '단기', goal: funcAlt }]), { code: '주', goal: base || goal }]
+      : [];
+    const sgList = (flowMode === 'std' ? stdGoals : funcList).filter((x) => x && x.code && String(x.goal || '').trim());
     const rangeFor = (i) => {
       const m = sgList.length;
       if (m < 2) return [];
@@ -870,11 +905,15 @@ export default function IepPage({ onNavigate }) {
         : semReinfChain.length
         ? chainLine(semReinfChain, i, n, REINF_CHAIN_EXTRAS)
         : reinforceStage(stg, reinfPos[i], topReinf);
+      // 0908(기능중심 B): 3구조를 PBS 3전략(교수 / 선행 예방+촉구 / 후속결과)으로 읽히게 꼬리표를 붙이고,
+      // 교수 방법은 핵심기술 성격에 맞는 하나(FCT·모델링+사회적 이야기·BST·자기관리)로 고정한다.
+      const funcTeach = funcAlt ? ` / 대체행동 교수: ${FUNC_TEACH_METHOD(funcPlan.skill)}` : '';
+      const tag = funcAlt ? ['[교수] ', '[선행 예방·촉구] ', '[후속결과 — 대체행동에 기능과 같은 강화, 문제행동엔 주지 않기] '] : ['', '', ''];
       return [
         // P15: 교사가 학기 교육방법에 적은 지도전략을 우선 반영 + 구간별 중점을 문두에.
-        `지도전략: 핵심 방법(학기 고정): ${semStrategy || methods.join(', ')} / 이번 구간 중점: ${PHASE_STRATEGY[phaseIdx(i)]}`,
-        `지원수준(촉구·용암): ${fadeLine}`,
-        `강화 스케줄: ${reinfLine}`,
+        `지도전략: ${tag[0]}핵심 방법(학기 고정): ${semStrategy || methods.join(', ')}${funcTeach} / 이번 구간 중점: ${PHASE_STRATEGY[phaseIdx(i)]}`,
+        `지원수준(촉구·용암): ${tag[1]}${fadeLine}`,
+        `강화 스케줄: ${tag[2]}${reinfLine}`,
       ];
     };
     const list = groups.map((grp, i) => {
@@ -900,6 +939,10 @@ export default function IepPage({ onNavigate }) {
             // 0720: "${obj} 학습내용을 지도"가 "주요 내용 학습내용을 지도" 같은 비문을 만들고,
             // 평가초점이 월마다 바뀌는데 지도 문구는 고정되던 문제 → 평가초점 자체를 지도 대상으로 서술.
             fLead ? `- 평가초점 '${fLead}'에 도달하기 위한 학습내용을 지도` : null,
+            // 0908(기능중심 B): 앞 구간은 대체행동 연습, 마지막 구간은 주 목표 상황에서 스스로 하기.
+            funcAlt ? (i < n - 1
+              ? `- 대체행동 '${funcAlt.replace(/\.$/, '')}' 연습하기 (${FUNC_TEACH_METHOD(funcPlan.skill)}${strengthsText() ? ` · 강점 활용: ${strengthsText().split(/[,·\n;]/)[0].trim()}` : ''})`
+              : `- 실제 수업·일과 상황에서 '${base}' 스스로 하기 (대체행동을 쓴 뒤 주 목표 행동으로 이어가기)`) : null,
             // P15: 교사가 적은 학기 교육내용을 월별로 배분해 활동으로 반영.
             ...semCFor(i).map((c) => `- ${c}`),
             `- ${sel.area ? sel.area + ' ' : ''}${obj} ${phase(i)}`,
@@ -1352,16 +1395,25 @@ export default function IepPage({ onNavigate }) {
     setSemAiBusy(true);
     try {
       const stds = [sel, ...selExtra].filter(Boolean).map((x) => `[${x.code}] ${x.text}`).join(' / ');
+      // 0908: 성취기준별 목표가 2개 이상이면 교육내용을 목표별로 묶어 쓰게 한다(목표 수만큼 1~2줄씩).
+      const sgSem = (flowMode === 'std' ? stdGoals : []).filter((x) => x && x.code && String(x.goal || '').trim());
+      const sgSemBlock = sgSem.length >= 2
+        ? `[성취기준별 목표]\n${sgSem.map((x, i) => `${i + 1}. [${x.code}] ${x.goal}`).join('\n')}\n  → 교육내용은 이 목표마다 1~2개씩, 목표 순서대로 묶어서 쓸 것(목표 4개면 4~8개). 학기목표 한 문장에서 뭉뚱그려 뽑지 말 것.\n`
+        : '';
+      const funcSem = flowMode === 'goal' && String(funcPlan.alt || '').trim()
+        ? `[기능중심 구조] 행동 기능 ${funcPlan.func || '(미지정)'} / 대체행동(단기목표): ${String(funcPlan.alt).trim()} / 학생 강점: ${strengthsText() || '(미입력)'}\n  → 교육내용은 대체행동을 연습하는 활동(강점 활용)에서 시작해 주 목표 상황으로 넓힐 것. 교육방법의 교수는 ${FUNC_TEACH_METHOD(funcPlan.skill)} 하나로, 선행 예방과 후속결과(기능과 같은 강화)를 함께 쓸 것.\n`
+        : '';
       const prompt =
         '너는 특수교육 IEP 작성 전문가다. 아래 학기목표를 "학기 수준의 교육내용·교육방법"으로 펼쳐라.\n' +
         '개별화교육 연수자료의 서술 방식을 따른다.\n\n' +
         `[학기목표] ${goal}\n` +
         (stds ? `[성취기준] ${stds}\n` : '') +
+        sgSemBlock + funcSem +
         (String(plop || '').trim() ? `[현행수준] ${String(plop).trim()}\n` : '') +
         (String(startpoint?.perfLevel || '').trim() ? `[출발점 — 수행 가능 수준] ${String(startpoint.perfLevel).replace(/\n/g, ' / ').trim()}\n` : '') +
         (curStu?.disability ? `[장애영역] ${curStu.disability}\n` : '') +
         '\n작성 규칙:\n' +
-        '1) content(교육내용): 학기목표에 도달하기 위한 구체 활동을 "~하기" 명사형으로 4~7개. 활동을 잘게 쪼개고 실제 자료·상황을 담을 것. 학기목표에 여러 요소(예: 읽기와 대화)가 있으면 모든 요소를 고르게 다룰 것. "~하기"는 항목 끝에 1번만 쓸 것("돌리기하기"처럼 겹치면 안 됨).\n' +
+        '1) content(교육내용): 학기목표에 도달하기 위한 구체 활동을 "~하기" 명사형으로 4~7개(위에 [성취기준별 목표]가 있으면 목표마다 1~2개씩). 활동을 잘게 쪼개고 실제 자료·상황을 담을 것. 학기목표에 여러 요소(예: 읽기와 대화)가 있으면 모든 요소를 고르게 다룰 것. "~하기"는 항목 끝에 1번만 쓸 것("돌리기하기"처럼 겹치면 안 됨).\n' +
         '   (서술 방식 예 — 내용은 베끼지 말 것: "화재경보기 소리와 다른 유사한 소리 구별하기" / "혼자서 버스 타기" / "버스 타고 내리기 순서 익히기")\n' +
         '2) methods(교육방법): 교사가 실제로 어떻게 가르치는지 2~4개 항목. 그중 1개 이상은 지원을 점차 줄여 독립 수행으로 가는 단계 흐름을 "→"로 이어 서술할 것.\n' +
         '   (서술 방식 예 — 내용은 베끼지 말 것: "교사가 학생의 손을 잡고 대피하기 → 대피 방법을 말로 설명하며 반복하기 → 설명 없이 함께 대피하기 → 교사가 한 걸음 뒤에서 지켜보기 → 학생이 머뭇거릴 때만 촉구 제공하며 스스로 대피하기")\n' +
@@ -1436,6 +1488,69 @@ export default function IepPage({ onNavigate }) {
       if (findNegative(g).length) toast('⚠ 다듬은 문장이 아직 부정 진술("~하지 않는다")이에요 — 대체행동으로 고쳐 주세요.');
       toast('학기목표 문장을 다듬었어요.');
     } catch (e) { toast('학기목표 다듬기 실패: ' + e.message); }
+    finally { setGoalAiBusy(false); }
+  }
+
+  // ── 0908 기능중심 IEP(경로B): 대체행동 제안 · 학기목표(주 목표) 생성 ──
+  // 오하이오 기능기반 IEPBS 자료의 3단 구조 — 주 목표(학기목표) ← 단기목표(대체행동, 기능 일치)의 과제분석 = 월별 목표.
+  async function aiFuncAlt() {
+    if (!funcPlan.func) { toast('행동 기능을 먼저 고르세요.'); return; }
+    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    setGoalAiBusy(true);
+    try {
+      const bip = curStuData?.bip || {};
+      const cands = funcRecs.map((s) => `· ${s.name}: ${s.goal}${s.when ? ` (언제: ${s.when})` : ''}`).join('\n');
+      const prompt =
+        '너는 특수교육 PBS 전문가다. 아래 학생의 문제행동과 같은 기능을 하는 "대체행동"을 단기목표 한 문장으로 제안하라.\n' +
+        '규칙:\n' +
+        '1) 대체행동은 문제행동이 얻던 것(관심·회피·획득·감각)을 더 쉽고 적절한 방법으로 얻게 하는 행동이어야 한다(기능 일치).\n' +
+        '2) [가장 중요] 학생의 강점을 근거로 방법을 고른다 — 강점이 "그림 이해"면 카드 교환, "말하기 가능"이면 구어 요청처럼, 학생이 이미 할 수 있는 것에 얹어서 만든다.\n' +
+        '3) 아래 핵심기술 후보 중 학생에게 가장 맞는 하나를 고르되, 문장은 이 학생의 상황·자료로 구체화한다. 후보 문장을 그대로 베끼지 말 것.\n' +
+        '4) 관찰 가능한 행동 한 문장, "~한다."로 끝맺음. 부정 진술("~하지 않는다") 금지. 교수전략 이름·영어 단어 금지. 쉬운 우리말.\n' +
+        `[행동 기능] ${funcPlan.func}${qabfFunc?.label ? ` (QABF 최상위: ${qabfFunc.label})` : ''}\n` +
+        (bip.opdef ? `[문제행동 정의] ${bip.opdef}\n` : '') +
+        (bip.hypothesis ? `[기능 가설] ${bip.hypothesis}\n` : '') +
+        `[학생 강점] ${strengthsText() || '(미입력)'}\n` +
+        (String(plop || '').trim() ? `[현행수준] ${String(plop).trim()}\n` : '') +
+        (cands ? `[핵심기술 후보 — 기능 '${funcPlan.func}']\n${cands}\n` : '') +
+        '반드시 JSON만 출력: {"skill":"고른 핵심기술 이름","alt":"대체행동 한 문장","why":"강점과 연결한 이유 한 문장"}';
+      const j = await llmJSON('대체행동 제안', prompt, { tier: 'quality', temperature: 0.3, thinking: true });
+      const alt = String(j.alt || '').trim();
+      if (!alt) throw new Error('대체행동 문장을 받지 못했어요.');
+      setFuncPlan((p) => ({ ...p, skill: String(j.skill || p.skill || '').trim(), alt }));
+      toast(`대체행동을 제안했어요${j.why ? ` — ${String(j.why).trim()}` : ''}`);
+      if (findNegative(alt).length) toast('⚠ 제안 문장이 부정 진술이에요 — 무엇을 하는지로 고쳐 주세요.');
+    } catch (e) { toast('대체행동 제안 실패: ' + e.message); }
+    finally { setGoalAiBusy(false); }
+  }
+
+  async function aiGoalFromFunc() {
+    const alt = String(funcPlan.alt || '').trim();
+    if (!alt) { toast('대체행동(단기목표)을 먼저 정하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    setGoalAiBusy(true);
+    try {
+      const bip = curStuData?.bip || {};
+      const prompt =
+        '너는 특수교육 IEP 작성 전문가다. 아래 대체행동(단기목표)이 자리 잡은 뒤 한 학기 끝에 학생이 보일 "바람직한 행동"을 학기목표(주 목표) 한 문장으로 써라.\n' +
+        '규칙:\n' +
+        '1) 학기목표는 문제행동의 자리를 대신하는 바람직한 행동을, 실제 상황(어디서·무엇을 할 때)과 기준(얼마나·몇 회 중 몇 회)을 넣어 한 문장으로 쓴다. 대체행동보다 한 단계 넓고 자연스러운 행동이어야 한다.\n' +
+        '   예) 대체행동 "과제가 어려울 때 휴식 카드를 건넨다" → 학기목표 "어려운 과제에서도 휴식 카드나 말로 요청한 뒤 자리에 남아 과제를 끝까지 수행하는 날이 주 5일 중 4일 이상일 수 있다".\n' +
+        '2) 학생 강점을 살린 방식이 문장에 드러나게 한다.\n' +
+        '3) "~할 수 있다."로 끝맺음. 부정 진술 금지. 교수전략 이름·영어 단어 금지. 쉬운 우리말.\n' +
+        `[행동 기능] ${funcPlan.func}\n` +
+        (bip.opdef ? `[문제행동 정의] ${bip.opdef}\n` : '') +
+        `[대체행동(단기목표)] ${alt}\n` +
+        `[학생 강점] ${strengthsText() || '(미입력)'}\n` +
+        (String(plop || '').trim() ? `[현행수준] ${String(plop).trim()}\n` : '') +
+        '반드시 JSON만 출력: {"semester_goal":"..."}';
+      const j = await llmJSON('학기목표 생성(기능중심)', prompt, { tier: 'quality', temperature: 0.3, thinking: true });
+      const g = String(j.semester_goal || '').trim();
+      if (!g) throw new Error('학기목표 문장을 받지 못했어요.');
+      setGoal(toCanDo(g));
+      if (findNegative(g).length) toast('⚠ 부정 진술이 남아 있어요 — 무엇을 하는지(대체행동)로 고쳐 주세요.');
+      toast('기능·대체행동·강점을 반영한 학기목표를 만들었어요. 다음: 관련 성취기준 연결.');
+    } catch (e) { toast('학기목표 생성 실패: ' + e.message); }
     finally { setGoalAiBusy(false); }
   }
 
@@ -1622,6 +1737,20 @@ export default function IepPage({ onNavigate }) {
       ? `[평가초점] (성취기준 분석→해석으로 개발 — 교육목표·교육내용·교육방법·평가를 하나로 잇는 축)\n${evalFoci.filter((f) => f.trim()).map((f) => '· ' + f.trim()).join('\n')}\n`
       : '';
     const stepsArr = (taskSteps || []).map((t) => t.trim()).filter(Boolean);
+    // 0908(기능중심 B): 대체행동 단계 → 주 목표 순서로 구간 배정(규칙 초안과 같은 축) + PBS 3전략 지시.
+    const funcAlt = flowMode === 'goal' ? String(funcPlan.alt || '').trim() : '';
+    const bipD = data?.bip || {};
+    const funcBlock = funcAlt
+      ? `[기능중심 IEP 구조] (기능기반 IEPBS 방식 — 이 계획의 축)\n` +
+        `  행동 기능: ${funcPlan.func || '(미지정)'}${bipD.opdef ? ` / 문제행동: ${bipD.opdef}` : ''}\n` +
+        `  단기목표(대체행동 — 문제행동과 같은 기능을 하는 바람직한 방법): ${funcAlt}${funcPlan.skill ? ` [핵심기술: ${funcPlan.skill}]` : ''}\n` +
+        `  학생 강점(대체행동을 이 방식으로 고른 근거): ${strengthsText() || '(미입력)'}\n` +
+        `  주 목표(학기목표): ${goal}\n` +
+        (stepsArr.length ? `  대체행동 과제분석 단계: ${stepsArr.map((t, k) => `${k + 1}) ${t}`).join(' → ')}\n` : '') +
+        `  → 월별 교육목표는 앞 구간에 대체행동(과제분석 단계가 있으면 그 순서대로)을, 뒤 구간에 주 목표 수행·일반화를 배정해 학기말에 주 목표에 도달하게 할 것.\n` +
+        `  → 교육방법 3구조를 PBS 3전략으로 채울 것: ① 지도전략 = 교수(핵심기술에 맞는 방법 하나 — 지금 기술은 ${FUNC_TEACH_METHOD(funcPlan.skill)}), ② 지원수준 = 선행 예방(환경·과제 조정)+촉구, ③ 강화 = 후속결과(대체행동에는 기능과 같은 강화를 즉시 주고, 문제행동에는 그 기능을 주지 않음, 차별강화).\n` +
+        `  → 교육내용은 대체행동을 연습할 실제 상황·자료를 "~하기"로 쓰고, 학생 강점을 활용하는 활동을 반드시 포함할 것.\n`
+      : '';
     const stepsBlock = isTask
       ? (stepsArr.length
           ? `[과제 단계] (과제분석 — 학생이 순서대로 수행할 단계)\n${stepsArr.map((t, k) => `${k + 1}) ${t}`).join('\n')}\n`
@@ -1658,7 +1787,7 @@ export default function IepPage({ onNavigate }) {
       qabfFunction: behaviorRelated ? topQabfLabel(data) : '',
     });
     // 기능기반 IEPBS(0819): 행동·사회성 목표일 때 추정 기능의 대체 핵심기술 + PBS 3전략 예시 주입.
-    const funcSkillsB = behaviorRelated ? functionSkillsBlock(topQabfLabel(data)) : '';
+    const funcSkillsB = funcAlt ? functionSkillsBlock(funcPlan.func) : (behaviorRelated ? functionSkillsBlock(topQabfLabel(data)) : '');
     return (
       `너는 특수교육 IEP 작성 전문가다. 아래 "학생 자료"와 "전년도 IEP"를 실제로 반영해, 선택한 성취기준에 대한 개별화교육계획을 작성하라.\n\n` +
       `[학생 자료]\n${summary}\n${priorBlock}\n` +
@@ -1674,6 +1803,7 @@ export default function IepPage({ onNavigate }) {
         ? `[성취기준별 목표] (학기목표의 근거 — 월별 구간은 이 순서대로 배정)\n${sgGen.map((x, i) => `${i + 1}. [${x.code}] ${x.goal}`).join('\n')}\n` +
           `  → 구간마다 성취기준별 목표를 순서대로 배정해, 그 구간의 교육목표·교육내용은 배정된 목표의 소재를 다룰 것(목표보다 구간이 많으면 앞 목표부터 이어서 여러 구간에, 적으면 한 구간에 여러 목표). 지원 수준·평가 기준의 점증은 학기 전체 흐름(규칙 2·5)을 그대로 따른다.\n`
         : '') +
+      funcBlock +
       // P15(0720 현장 피드백): 교사가 학기 수준에서 잡은 교육내용·교육방법 방향을 월별에 구체화.
       (String(semContent || '').trim()
         ? `[학기 교육내용(교사 방향)]\n${String(semContent).trim()}\n  → 월별 교육내용(content)은 이 방향의 활동을 월 순서에 맞게 나누어 구체화·심화할 것(방향에 없는 활동을 새로 만들 수 있으나, 위 방향과 어긋나지 않게).\n`
@@ -1708,7 +1838,9 @@ export default function IepPage({ onNavigate }) {
       `10) semester_goal에는 위 [학기목표(확정)] 문장을 그대로 출력할 것(새로 쓰거나 바꾸지 말 것).\n` +
       `11) "Tier 1/2/3" 같은 단계 라벨을 결과 텍스트에 그대로 쓰지 말 것. 지원 단계를 언급해야 하면 그 단계가 실제로 어떤 지원인지(예: 소그룹 CICO·일일 행동점검표 등)를 구체적으로 풀어서 서술해, 제출본만 읽어도 이해되게 할 것.\n` +
       `12) 표현은 일상에서 자주 쓰는 쉬운 우리말로 쓸 것. 영어 단어(모니터링·피드백·케이스 등)와 어려운 한자어(제고·함양·도모 등)는 쓰지 말고 쉬운 말로 바꿀 것(교육방법의 증거기반실제 명칭은 예외 — 우리말 명칭+약어 병기). 동사도 잘 안 쓰는 표현 대신 교사·보호자가 바로 이해하는 익숙한 말을 쓸 것.\n` +
-      `13) 이 IEP 목표는 성취기준 기반의 학습 목표다. 행동중재(BIP)·Tier 지원·기능평가(QABF) 정보는 '현행수준 파악'과 '지원 강도·교수 방법 선택'의 참고로만 쓰고, 교육목표·교육내용 자체가 문제행동 감소로 치우치지 않게 한다(배워야 할 학습 내용·기능적 기술 습득이 중심이며, 사회·정서 목표도 바람직한 대체기술 습득으로 긍정적으로 진술).\n` +
+      (funcAlt
+        ? `13) 이 IEP 목표는 행동 기능에 근거한 기능중심 목표다. 성취기준은 관련 근거로만 연결하고, 교육목표·교육내용·교육방법은 위 [기능중심 IEP 구조]를 따를 것. 문제행동 감소가 아니라 대체행동·주 목표 습득을 긍정적으로 진술한다.\n`
+        : `13) 이 IEP 목표는 성취기준 기반의 학습 목표다. 행동중재(BIP)·Tier 지원·기능평가(QABF) 정보는 '현행수준 파악'과 '지원 강도·교수 방법 선택'의 참고로만 쓰고, 교육목표·교육내용 자체가 문제행동 감소로 치우치지 않게 한다(배워야 할 학습 내용·기능적 기술 습득이 중심이며, 사회·정서 목표도 바람직한 대체기술 습득으로 긍정적으로 진술).\n`) +
       `14) 출력 전에 맞춤법·띄어쓰기·문장 오류를 스스로 점검해 바로잡을 것.\n` +
       `15) monthly의 goal·content·eval·eval_plan 문자열에서 항목 구분은 반드시 줄바꿈(\\n)으로 할 것 — 항목들을 쉼표로 이어 붙이지 말 것.\n\n` +
       `반드시 아래 JSON만 출력(설명 금지):\n` +
@@ -1956,6 +2088,10 @@ export default function IepPage({ onNavigate }) {
             .filter((x) => x && x.code && (x.code === sel.code || selExtra.some((s) => s.code === x.code)))
             .map((x, _i, arr) => ({ code: x.code, std: String(x.std || ''), goal: String(arr.length === 1 ? goal : (x.goal || '')).trim() }))
           : [],
+        // 0908(기능중심 B): 행동 기능·핵심기술·대체행동(단기목표). 경로A는 {}.
+        func_plan: flowMode === 'goal'
+          ? { func: String(funcPlan.func || ''), skill: String(funcPlan.skill || ''), alt: String(funcPlan.alt || '').trim() }
+          : {},
         crit_type: critType, crit_start: +cStart, crit_end: +cEnd,
         support_tier: supportTier,
         tier2_group_id: myTierGroups[0]?.id ?? null,
@@ -2130,22 +2266,89 @@ export default function IepPage({ onNavigate }) {
 
   // 경로별 카드 번호 (A: 성취기준→학기목표 / B: 학기목표→성취기준)
   const stepNo = flowMode === 'goal'
-    ? { goal: '①', std: '②', foci: '③', editor: '④' }
+    ? { func: '①', goal: '②', std: '③', foci: '④', editor: '⑤' }
     : { std: '①', goal: '②', foci: '③', editor: '④' };
+
+  // ── 0908 기능중심 IEP(경로B) ① 카드 재료 ───────────────────────
+  const strengthsText = () => String(curStu?.strengths || '').trim();
+  const qabfFunc = (() => { const lb = topQabfLabel(curStuData); return lb ? { label: lb, func: qabfLabelToFunc(lb) } : null; })();
+  const funcRecs = funcPlan.func && FUNCTION_SKILLS[funcPlan.func] ? FUNCTION_SKILLS[funcPlan.func] : [];
+  const pickFuncSkill = (s) => setFuncPlan((p) => ({ ...p, skill: s.name, alt: toCanDoText(s.goal).replace(/할 수 있다\.?$/, '한다.') }));
+  const strengthChips = strengthsText().split(/[,·\n;]/).map((s) => s.trim()).filter(Boolean).slice(0, 8);
+  const funcCard = (
+    <div className="card" id="iep-func">
+      <div className="card-title">🔀 {stepNo.func} 행동 기능과 대체행동(단기목표)</div>
+      <div className="card-subtitle">
+        문제행동이 얻던 것(기능)을 더 적절한 방법으로 얻게 하는 <strong>대체행동</strong>을 정하세요. 이 대체행동이 단기목표가 되어 과제분석 단계로 월별 목표에 배정되고,
+        학기말에 주 목표(학기목표)로 이어집니다. 대체행동은 <strong>학생 강점</strong>을 살려 고릅니다.
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label className="form-label">행동 기능 {qabfFunc?.label
+            ? <span style={{ color: 'var(--muted)', fontWeight: 500 }}>(QABF 최상위: {qabfFunc.label})</span>
+            : <span style={{ color: '#b45309', fontWeight: 500 }}>(QABF 미실시 — 직접 고르세요)</span>}</label>
+          <select className="form-select" value={funcPlan.func} onChange={(e) => setFuncPlan((p) => ({ ...p, func: e.target.value, skill: '' }))}>
+            <option value="">선택</option>
+            {FUNC_ORDER.map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">학생 강점 <span style={{ color: 'var(--muted)', fontWeight: 500 }}>(학생 기초정보에서)</span></label>
+          {strengthChips.length
+            ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{strengthChips.map((s) => <span key={s} className="qchip on" style={{ background: '#15803d' }}>{s}</span>)}</div>
+            : <div style={{ fontSize: '.8rem', color: '#b45309' }}>강점이 비어 있어요 — 학생 관리에서 강점을 적으면 대체행동을 강점에 맞춰 제안합니다.</div>}
+        </div>
+      </div>
+      {curStuData?.bip?.opdef && (
+        <div style={{ fontSize: '.8rem', color: 'var(--sub)', marginBottom: 6 }}>문제행동(BIP 조작적 정의): {curStuData.bip.opdef}</div>
+      )}
+      {funcRecs.length > 0 && (
+        <div className="form-group">
+          <label className="form-label">⭐ 추천 핵심기술 — 기능 '{funcPlan.func}' (누르면 대체행동 칸에 채워져요)</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {funcRecs.map((s) => (
+              <button key={s.name} type="button" className={'qchip' + (funcPlan.skill === s.name ? ' on' : '')} title={s.when || s.goal} onClick={() => pickFuncSkill(s)}>{s.name}</button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="form-group" style={{ marginBottom: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+          <label className="form-label" style={{ margin: 0 }}>대체행동 (단기목표 · 한 문장 · 수정 가능)</label>
+          {aiOn && (
+            <button type="button" className="btn btn-ok btn-sm" onClick={aiFuncAlt} disabled={goalAiBusy || !funcPlan.func}>
+              {goalAiBusy ? '제안 중…' : '✨ AI로 대체행동 제안 (기능·강점 반영)'}
+            </button>
+          )}
+        </div>
+        <textarea className="form-textarea" rows={2} style={{ marginTop: 6 }} value={funcPlan.alt} onChange={(e) => setFuncPlan((p) => ({ ...p, alt: e.target.value }))}
+          placeholder="예: 과제가 어려울 때 휴식 카드를 교사에게 건네 2분 쉬기를 요청한다." />
+        <div style={{ fontSize: '.72rem', color: 'var(--muted)', marginTop: 4 }}>
+          교수 방법은 핵심기술 성격에 따라 하나로 정해져요 — 요청류는 기능적 의사소통 훈련(FCT), 놀이·대화류는 모델링+사회적 이야기, 기다리기·협상류는 행동기술훈련(BST), 조절류는 자기관리전략.
+          {funcPlan.skill ? ` 지금 선택: ${FUNC_TEACH_METHOD(funcPlan.skill)}.` : ''}
+        </div>
+      </div>
+    </div>
+  );
 
   // 학기목표 설정 카드 — 경로A(성취기준 다음)·경로B(맨 처음) 공용 (0719 피드백: 학기목표 선행).
   const goalCard = (
     <div className="card" id="iep-goal">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        <div className="card-title" style={{ marginBottom: 0 }}>🎯 {stepNo.goal} 학기목표 설정</div>
+        <div className="card-title" style={{ marginBottom: 0 }}>🎯 {stepNo.goal} {flowMode === 'goal' ? '학기목표(주 목표 — 바람직한 행동) 설정' : '학기목표 설정'}</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {flowMode === 'std' && aiOn && !!sel && (
             <button className="btn btn-ok btn-sm" onClick={aiGoalFromStd} disabled={goalAiBusy}>
               {goalAiBusy ? '생성 중…' : '✨ AI로 성취기준별 목표·학기목표 생성 (성취기준+학생 자료)'}
             </button>
           )}
+          {flowMode === 'goal' && aiOn && !!String(funcPlan.alt || '').trim() && (
+            <button className="btn btn-ok btn-sm" onClick={aiGoalFromFunc} disabled={goalAiBusy}>
+              {goalAiBusy ? '생성 중…' : '✨ 학기목표 AI 생성 (기능·대체행동·강점 반영)'}
+            </button>
+          )}
           {flowMode === 'goal' && aiOn && (
-            <button className="btn btn-ok btn-sm" onClick={aiRefineGoal} disabled={goalAiBusy}>
+            <button className="btn btn-ghost btn-sm" onClick={aiRefineGoal} disabled={goalAiBusy}>
               {goalAiBusy ? '다듬는 중…' : '✨ AI 문장 다듬기'}
             </button>
           )}
@@ -2153,8 +2356,8 @@ export default function IepPage({ onNavigate }) {
       </div>
       <div className="card-subtitle">
         {flowMode === 'goal'
-          ? '학생에게 지금 필요한 기술·내용 중심으로 한 학기 동안 도달할 목표를 먼저 적으세요. 다음 단계에서 관련 성취기준을 연결합니다. (생활 지원 중심)'
-          : '선택한 성취기준마다 이 학생 수준으로 조정한 목표를 확정하고, 학기목표 한 문장은 그 묶음의 요약으로 정리하세요. (교과 중심)'}
+          ? '대체행동이 자리 잡은 뒤 학기말에 학생이 보일 바람직한 행동을 주 목표 한 문장으로 확정하세요(기능·대체행동·강점 반영). 다음 단계에서 관련 성취기준을 연결합니다.'
+          : '선택한 성취기준마다 이 학생 수준으로 조정한 목표를 확정하고, 학기목표 한 문장은 그 묶음의 요약으로 정리하세요.'}
         {' '}학기목표를 먼저 확정하면 평가초점과 월별 계획이 이 목표에서 나옵니다.
       </div>
       {/* 0903(B안): 성취기준별 목표 — 성취기준 자체가 아니라 학생 수준으로 조정한 목표 1개씩. 평가초점·월별의 앵커.
@@ -2213,13 +2416,18 @@ export default function IepPage({ onNavigate }) {
                 이 단계에 이미 있는 학기목표·성취기준을 재료로 초안을 만든다. */}
             <button type="button" className="btn btn-ghost btn-sm" title="학기목표와 선택한 성취기준에서 학기 교육내용 초안을 만듭니다"
               onClick={() => {
-                const srcs = [...new Set([
-                  ...[sel, ...selExtra].filter(Boolean).map((x) => String(x.text || '').trim()),
-                  String(goal || '').trim(),
-                ].filter(Boolean))];
+                // 0908: 성취기준별 목표가 2개 이상이면 그 목표마다 1줄씩(목표 수가 늘어도 구조는 같음) — 성취기준 원문과
+                // 학기목표 한 덩어리에서 뽑던 종전 방식은 목표가 많아질수록 활동이 뒤섞였다.
+                const sg = (flowMode === 'std' ? stdGoals : []).filter((x) => x && String(x.goal || '').trim());
+                const srcs = sg.length >= 2
+                  ? sg.map((x) => String(x.goal).trim())
+                  : [...new Set([
+                      ...[sel, ...selExtra].filter(Boolean).map((x) => String(x.text || '').trim()),
+                      String(goal || '').trim(),
+                    ].filter(Boolean))];
                 if (!srcs.length) { toast('학기목표를 적거나 성취기준을 선택하면 초안을 채울 수 있어요.'); return; }
                 setSemContent(srcs.map((s) => `- ${toActivityPhrase(s)}`).join('\n'));
-                toast('학기목표·성취기준에서 학기 교육내용 초안을 채웠어요 — 다듬어 쓰세요.');
+                toast(sg.length >= 2 ? '성취기준별 목표마다 학기 교육내용 초안을 1줄씩 채웠어요 — 다듬어 쓰세요.' : '학기목표·성취기준에서 학기 교육내용 초안을 채웠어요 — 다듬어 쓰세요.');
               }}>↻ 목표·성취기준에서 채우기</button>
           </div>
           <textarea className="form-textarea" rows={3} style={{ marginTop: 6 }} value={semContent} onChange={(e) => setSemContent(e.target.value)}
@@ -2286,8 +2494,9 @@ export default function IepPage({ onNavigate }) {
       {(() => {
         const stdStep = { label: flowMode === 'goal' ? '성취기준 연결' : '성취기준 선택', done: !!sel, id: 'iep-std' };
         const goalStep = { label: '학기목표', done: !!String(goal).trim(), id: 'iep-goal' };
+        const funcStep = { label: '기능·대체행동', done: !!String(funcPlan.alt || '').trim(), id: 'iep-func' };
         const steps = [
-          ...(flowMode === 'goal' ? [goalStep, stdStep] : [stdStep, goalStep]),
+          ...(flowMode === 'goal' ? [funcStep, goalStep, stdStep] : [stdStep, goalStep]),
           { label: '평가초점', done: (evalFoci || []).some((f) => String(f).trim()), id: 'iep-foci' },
           { label: '월별 계획 생성', done: monthly.length > 0, id: 'iep-editor' },
           { label: '저장', done: !!editingId, id: 'iep-editor' },
@@ -2380,7 +2589,12 @@ export default function IepPage({ onNavigate }) {
             { key: 'std', t: 'A. 성취기준 먼저 → 학기목표', d: '성취기준(교과·일상생활 활동)을 먼저 고르고, 학생에 맞게 재구성해 학기목표를 만듭니다.' },
             { key: 'goal', t: 'B. 학기목표 먼저 → 성취기준', d: '학생에게 필요한 기술·내용 중심으로 학기목표를 먼저 쓰고, 관련 성취기준을 연결합니다.' },
           ].map((m) => (
-            <button key={m.key} type="button" onClick={() => { setFlowMode(m.key); setStdRecs([]); if (m.key === 'goal' && !editingId) { setStdGoals([]); autoSummaryRef.current = ''; } }}
+            <button key={m.key} type="button" onClick={() => {
+                setFlowMode(m.key); setStdRecs([]);
+                if (m.key === 'goal' && !editingId) { setStdGoals([]); autoSummaryRef.current = ''; }
+                // 0908: 경로B로 들어오면 QABF 최상위 기능을 기본값으로 제안(신체(통증)이면 비움 — 의료적 접근 우선).
+                if (m.key === 'goal' && !funcPlan.func && qabfFunc?.func) setFuncPlan((p) => ({ ...p, func: qabfFunc.func }));
+              }}
               aria-pressed={flowMode === m.key}
               style={{ textAlign: 'left', border: '2px solid ' + (flowMode === m.key ? '#3b6ef5' : '#e3e6eb'), background: flowMode === m.key ? '#eaf0ff' : '#fff', borderRadius: 10, padding: '10px 12px', cursor: 'pointer' }}>
               <div style={{ fontWeight: 700, color: flowMode === m.key ? '#3b6ef5' : '#374151' }}>{flowMode === m.key ? '✓ ' : ''}{m.t}</div>
@@ -2390,7 +2604,8 @@ export default function IepPage({ onNavigate }) {
         </div>
       </div>
 
-      {/* 경로B: 학기목표 카드가 맨 앞 */}
+      {/* 경로B(0908 기능중심): ① 기능·대체행동 → ② 학기목표(주 목표) → ③ 성취기준 연결 */}
+      {flowMode === 'goal' && funcCard}
       {flowMode === 'goal' && goalCard}
 
       {/* 성취기준 선택/연결 — 경로A: 첫 단계, 경로B: 학기목표 다음 */}
@@ -2411,6 +2626,10 @@ export default function IepPage({ onNavigate }) {
               </span>
             ))}
             <span style={{ fontSize: '.72rem', color: 'var(--muted)' }}>계획서의 과목·영역 칸에는 첫 번째로 선택한 성취기준의 교과({sel?.subject || ''})가 쓰여요.</span>
+            {/* 0908: 성취기준마다 목표·교육내용이 1줄씩 늘어나므로 5개 이상은 한 학기에 다루기 어렵다. */}
+            {(1 * !!sel + selExtra.length) > 4 && (
+              <span style={{ fontSize: '.72rem', color: '#b45309', fontWeight: 700 }}>⚠ 5개 이상은 한 학기에 다루기 어려워요 — 4개 이하를 권장해요</span>
+            )}
           </div>
         )}
         {flowMode === 'goal' && (
