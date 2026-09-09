@@ -22,7 +22,7 @@ import { functionSkillsBlock, FUNCTION_SKILLS, FUNC_ORDER, qabfLabelToFunc } fro
 import AssessmentLauncher from '../student/AssessmentLauncher';
 import { FORMAT_EX_MATH, FORMAT_EX_COMM, findExampleEchoes } from '../../lib/exampleGuard';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
-import { methodsForType, methodsForTask, buildDisabilityMethodBlock, TEACH_SCENES } from '../../lib/disabilityMethods';
+import { methodsForType, methodsForTask, buildDisabilityMethodBlock, curriculumMethodBlock, CURRICULUM_METHOD, TEACH_SCENES } from '../../lib/disabilityMethods';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import { GRADES_BY_LEVEL } from '../modals/EditStudentModal';
 
@@ -38,7 +38,8 @@ const FUNC_TEACH_METHOD = (skill) => {
   if (/놀이|대화|주고받/.test(s)) return '모델링 + 사회적 담화(사회적 이야기)';
   if (/기다리|협상|한계|수용|전환/.test(s)) return '행동기술훈련(BST)';
   if (/안정|조절|도구|선택/.test(s)) return '자기관리전략';
-  return '행동기술훈련(BST)';
+  // 0908(2차 피드백) 기술이 특정되지 않으면 기능 중심 교육과정의 기본값(DTT)으로 — 위 4개 매칭이 있으면 그쪽이 우선.
+  return CURRICULUM_METHOD.func.method;
 };
 // 기능중심 B의 구간별 중점(습득 → 삽입 → 유지 → 주 목표 일반화). 교수 방법은 위에서 고른 하나만 쓴다.
 const FUNC_PHASES = (method) => [
@@ -1396,6 +1397,14 @@ export default function IepPage({ onNavigate }) {
     finally { setGoalAiBusy(false); }
   }
 
+  // 0908(2차 피드백): 이 목표가 어떤 교육과정 성격인지 — 교과 중심 / 일상생활 교육과정 / 기능 중심(경로B).
+  //   교수 방법 기본값(직접교수 / BST / DTT)을 프롬프트와 EBP 후보 선정에 함께 넘긴다.
+  const curriculumKind = () => {
+    if (flowMode === 'goal' && String(funcPlan.alt || '').trim()) return 'func';
+    const subj = [sel, ...selExtra].filter(Boolean).map((x) => x.subject || '').join(' ');
+    return subj.includes(DAILY_SUBJECT) ? 'daily' : 'subject';
+  };
+
   // P16(0720 현장 피드백): 학기 교육내용·교육방법을 연수자료(대전 개별화연수) 양식으로 AI 초안.
   //   교육내용 = 학기목표를 잘게 쪼갠 "~하기" 활동 목록,
   //   교육방법 = 교사의 실제 교수 행동 + 지원을 점차 줄이는 단계 흐름("→" 서술).
@@ -1430,8 +1439,9 @@ export default function IepPage({ onNavigate }) {
         '   [중요] "→" 단계 흐름의 첫 단계는 위 [현행수준]·[출발점 — 수행 가능 수준]에 적힌 이 학생의 실제 촉진 수준(예: 신체 촉진, 언어·시각 촉진, 시간지연)에서 시작할 것. "최대-최소 촉진에서 시간지연으로 촉구를 점차 줄여 독립 수행으로" 같은 일반 문구를 그대로 쓰지 말고, 이 학기목표의 실제 활동·자료·촉진 방법을 담아 이 학생만의 문장으로 쓸 것.\n' +
         '3) 각 항목은 "- "로 시작하는 한 줄. 쉬운 우리말, 학생 실명·영어 단어 금지.\n' +
         '4) [부정 진술 금지] 교육내용에 "~하지 않기"처럼 무엇을 안 하는지를 쓰지 말고, 대신 무엇을 하는지(대체행동)로 쓸 것.\n' +
-        (curStu?.disability ? '5) 교육방법의 핵심 방법은 이 학생 장애영역의 기본 교수전략에서 1~2개를 고를 것. "→" 단계 흐름은 습득 초기 방법에서 시작해 일과 속 자연적 중재로 넘어가는 순서로 쓰되, 습득 초기 방법은 목표 성격에 맞춰 하나만 고를 것 — 학업·기초 기술은 구조화된 1:1 시행(비연속 시행 훈련, DTT), 사회성·안전·자기관리 같은 행동 기술은 행동기술훈련(BST). 아래 [유사 방법 구분]을 지켜 서로 섞어 쓰지 말 것.\n' : '') +
-        '\n' + buildDisabilityMethodBlock(curStu?.disability) + '\n' +
+        (curStu?.disability ? '5) 교육방법의 핵심 방법은 아래 [교육과정 성격]의 기본값을 먼저 고려하고, 그 학생에게 더 맞으면 장애영역 기본 교수전략에서 1~2개를 고를 것. "→" 단계 흐름은 습득 초기 방법에서 시작해 일과 속 자연적 중재로 넘어가는 순서로 쓰되, 습득 초기 방법은 목표 성격에 맞춰 하나만 고를 것 — 교과(학업) 기술은 직접교수, 기초 기술의 1:1 반복은 비연속 시행 훈련(DTT), 사회성·안전·자기관리 같은 행동 기술은 행동기술훈련(BST). 아래 [유사 방법 구분]을 지켜 서로 섞어 쓰지 말 것.\n' : '') +
+        '\n' + curriculumMethodBlock(curriculumKind(), flowMode === 'goal' && funcPlan.skill ? FUNC_TEACH_METHOD(funcPlan.skill) : '') +
+        buildDisabilityMethodBlock(curStu?.disability) + '\n' +
         '반드시 JSON만 출력: {"content":"- ...하기\\n- ...하기","methods":"- ...\\n- ... → ... → ..."}';
       const j = await llmJSON('학기 교육내용·방법 생성(연수자료 방식)', prompt, { tier: 'fast', temperature: 0.5 });
       const c = String(j.content || '').trim(), m = String(j.methods || '').trim();
@@ -1795,7 +1805,10 @@ export default function IepPage({ onNavigate }) {
       goalType: critType,
       goalText: goal || sel?.text || '',
       qabfFunction: behaviorRelated ? topQabfLabel(data) : '',
+      curriculum: curriculumKind(),
     });
+    // 0908(2차 피드백): 교육과정 성격별 교수 방법 기본값. 경로B처럼 방법이 이미 정해졌으면 그쪽을 못박는다.
+    const currBlock = curriculumMethodBlock(curriculumKind(), funcAlt && funcPlan.skill ? FUNC_TEACH_METHOD(funcPlan.skill) : '');
     // 기능기반 IEPBS(0819): 행동·사회성 목표일 때 추정 기능의 대체 핵심기술 + PBS 3전략 예시 주입.
     const funcSkillsB = funcAlt ? functionSkillsBlock(funcPlan.func) : (behaviorRelated ? functionSkillsBlock(topQabfLabel(data)) : '');
     return (
@@ -1822,7 +1835,7 @@ export default function IepPage({ onNavigate }) {
         ? `[학기 교육방법(교사 방향)]\n${String(semMethods).trim()}\n  → 월별 교육방법(methods)의 지도전략은 이 방향을 우선 반영할 것. 이 방향에 "→"로 이어진 단계 흐름이 있으면 무관한 새 흐름을 만들지 말고 그 단계들을 구간 순서대로 배분할 것 — 각 구간의 ②지원수준·③강화 스케줄 문장 앞에 "[학기 계획 n/m단계]"를 붙여 학기 방향의 몇 번째 단계인지 표시하고, 그 단계를 이 구간의 교육내용 활동·자료에 맞게 구체화할 것(학기 방향 문장을 그대로 복사하지 말 것).\n`
         : '') +
       `[대상 월(구간)] ${ms.map((x) => x + '월').join(', ')} (총 ${ms.length}구간 — 월을 묶은 구간은 한 행으로 작성)\n` +
-      critLine + tierLine + buildDisabilityMethodBlock(curStu?.disability) + ebpBlock + funcSkillsB +
+      critLine + tierLine + currBlock + buildDisabilityMethodBlock(curStu?.disability) + ebpBlock + funcSkillsB +
       `\n[형식 본보기 — 일부러 고른 "다른 교과"의 한 구간 예시]\n` +
       `아래 예시는 지금 작성하는 교과(${sel.subject})와 무관하다. 구조(개조식 content, methods 3구조, 질문형 eval_plan의 측면 구성)와 어미만 본보기로 삼을 것. 예시의 소재·활동·문장은 이 교과와 맞지 않으므로 가져다 쓰지 말 것.\n` +
       `${/수학|과학/.test(sel.subject || '') ? FORMAT_EX_COMM : FORMAT_EX_MATH}\n\n` +
