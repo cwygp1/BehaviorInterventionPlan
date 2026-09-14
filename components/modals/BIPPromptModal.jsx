@@ -24,7 +24,7 @@ function topQabfFunction(data) {
 
 function buildPrompt(stu, data) {
   const abc = (data?.abc || []).slice(0, 8).map((r, i) =>
-    `[${i + 1}] ${r.date || ''} ${r.time || ''}\n  A: ${r.a || ''}\n  B: ${r.b || ''}\n  C: ${r.c || ''}`
+    `[${i + 1}] ${r.date || ''} ${r.time || ''}${r.setting ? `\n  배경사건(그날 조건): ${r.setting}` : ''}\n  A: ${r.a || ''}\n  B: ${r.b || ''}\n  C: ${r.c || ''}`
   ).join('\n');
   const qabfArr = data?.qabf || [];
   const qabfTotals = { 관심: 0, 회피: 0, 자동감각: 0, 신체: 0, 강화물: 0 };
@@ -68,7 +68,7 @@ ${abc || '(기록 없음)'}
 [PREV] (예방 전략 — 줄바꿈으로 3~5가지)
 [TEACH] (교수 전략 — 줄바꿈으로 3~5가지)
 [REINF] (강화 전략 — 줄바꿈으로 3~5가지)
-[RESP] (반응 절차 — 줄바꿈으로 3~5가지)`;
+[RESP] (반응 절차 — 줄바꿈으로 3~5가지. 추정 기능에 맞는 소거 절차를 반드시 1가지 포함: 관심→계획된 무시+대체행동에 즉시 반응 / 회피→요구 유지·도움 제공으로 도피 차단 / 강화물 획득→요구한 것 주지 않기 / 자동·감각→반응 차단·감각 대체물. 소거 시작 뒤 며칠간 행동이 늘 수 있음(소거폭발)에 대한 일관성·안전 대비 1줄 포함)`;
 }
 
 function parseResponse(text) {

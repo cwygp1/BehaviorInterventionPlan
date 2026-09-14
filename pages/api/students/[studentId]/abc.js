@@ -30,6 +30,7 @@ export default requireStudentAccess(async function handler(req, res) {
     date: fmtDateKst(row.date),
     created_at: fmtKst(row.created_at),
     time: row.time_context,
+    setting: row.setting_event || '',
     a: row.antecedent,
     b: row.behavior,
     c: row.consequence,
@@ -52,12 +53,15 @@ export default requireStudentAccess(async function handler(req, res) {
         const antecedent = body.antecedent ?? body.a ?? '';
         const behavior = body.behavior ?? body.b ?? '';
         const consequence = body.consequence ?? body.c ?? '';
+        // 0914(홍준표 부록): 배경사건(setting event) — 그날 학생을 더 예민하게 만든 조건(수면 부족·투약 변경 등). 선택 입력.
+        const setting_event = String(body.setting_event ?? body.setting ?? '').slice(0, 300);
         if (!date) {
           return res.status(400).json({ error: 'date is required' });
         }
+        await sql`ALTER TABLE abc_records ADD COLUMN IF NOT EXISTS setting_event VARCHAR(300) DEFAULT ''`;
         const result = await sql`
-          INSERT INTO abc_records (student_id, date, time_context, antecedent, behavior, consequence)
-          VALUES (${studentId}, ${date}, ${time_context}, ${antecedent}, ${behavior}, ${consequence})
+          INSERT INTO abc_records (student_id, date, time_context, antecedent, behavior, consequence, setting_event)
+          VALUES (${studentId}, ${date}, ${time_context}, ${antecedent}, ${behavior}, ${consequence}, ${setting_event})
           RETURNING *
         `;
         return res.status(201).json({ record: toResponse(result.rows[0]) });

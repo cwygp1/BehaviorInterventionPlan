@@ -21,6 +21,8 @@ const ABC_PLACES = ['교실', '복도', '운동장', '급식실', '특별실', '
 const A_CHIPS = ['지시 받음', '활동 전환 시', '휴식 끝날 때', '또래와 갈등', '감각 자극(소음/조명)', '낯선 환경', '대기 시간', '평가/시험 시작', '좋아하는 활동 종료', '요구 거절됨'];
 const B_CHIPS = ['자리 이탈', '소리 지르기', '물건 던지기', '거부', '회피', '공격 행동', '자해', '반복 행동', '울기', '도주', '무반응', '자기 자극'];
 const C_CHIPS = ['교사 개입', '활동 중단', '또래 분리', '심리안정실 이용', '강화 제공', '계획적 무시', '대체행동 촉진', '위기관리팀 호출', '보호자 통보', '학생 진정'];
+// 0914(홍준표 부록): 배경사건(setting event) — 행동 직전 사건(A)이 아니라 그날 학생을 더 예민하게 만든 조건. 선택 입력.
+const SETTING_CHIPS = ['수면 부족', '투약 변경', '아침 갈등(가정)', '일정 변경', '아픔·컨디션 저하', '식사 거름·배고픔', '전날 행사·피로', '새 학기·환경 변화'];
 
 // 빈 칸이면 채우고, 내용이 있으면 줄바꿈으로 덧붙인다(빠른 입력 분배·붙여넣기 공용).
 function mergeField(prev, val) {
@@ -33,9 +35,9 @@ function mergeField(prev, val) {
 function buildSplitPrompt(text) {
   return (
     '다음 한국어 문장을 ABC 행동관찰의 세 요소로 나눠라.\n' +
-    'A=선행사건(행동 직전 상황), B=행동(관찰 가능한 행동), C=후속결과(행동 직후 일어난 일).\n' +
+    'A=선행사건(행동 직전 상황), B=행동(관찰 가능한 행동), C=후속결과(행동 직후 일어난 일), S=배경사건(그날의 조건: 수면 부족·투약 변경·아침 갈등·일정 변경·아픔 등 — 문장에 없으면 빈 문자열).\n' +
     '각 요소는 관찰 가능한 사실로 간결하게. 반드시 JSON 객체 하나만 출력:\n' +
-    '{"a":"...","b":"...","c":"..."}\n\n문장: ' + String(text || '').trim()
+    '{"a":"...","b":"...","c":"...","s":""}\n\n문장: ' + String(text || '').trim()
   );
 }
 
@@ -54,6 +56,7 @@ export default function ObservePage({ onNavigate }) {
   const [a, setA] = useState('');
   const [b, setB] = useState('');
   const [c, setC] = useState('');
+  const [setting, setSetting] = useState(''); // 0914: 배경사건(선택)
   const [busy, setBusy] = useState(false);
   // 0819 피드백: 저장 성공 후 "다음 단계(기능평가)로 이동" 배너 — 새 기록을 입력하면 숨김.
   const [savedOk, markSaved] = useSavedFlag([a, b, c]);
@@ -97,22 +100,22 @@ export default function ObservePage({ onNavigate }) {
       const raw = sessionStorage.getItem(draftKey);
       if (raw) {
         const d = JSON.parse(raw);
-        setA(d.a || ''); setB(d.b || ''); setC(d.c || '');
+        setA(d.a || ''); setB(d.b || ''); setC(d.c || ''); setSetting(d.setting || '');
         setTimeVal(d.timeVal || ''); setPlaceVal(d.placeVal || '');
         if (d.date) setDate(d.date);
       } else {
-        setA(''); setB(''); setC(''); setTimeVal(''); setPlaceVal('');
+        setA(''); setB(''); setC(''); setSetting(''); setTimeVal(''); setPlaceVal('');
       }
     } catch (_) { /* ignore */ }
   }, [draftKey]);
   useEffect(() => {
     if (!draftKey) return;
     try {
-      const empty = !a && !b && !c && !timeVal && !placeVal;
+      const empty = !a && !b && !c && !setting && !timeVal && !placeVal;
       if (empty) sessionStorage.removeItem(draftKey);
-      else sessionStorage.setItem(draftKey, JSON.stringify({ a, b, c, timeVal, placeVal, date }));
+      else sessionStorage.setItem(draftKey, JSON.stringify({ a, b, c, setting, timeVal, placeVal, date }));
     } catch (_) { /* ignore */ }
-  }, [a, b, c, timeVal, placeVal, date, draftKey]);
+  }, [a, b, c, setting, timeVal, placeVal, date, draftKey]);
 
   if (!curStu) return <><StuHero /><NoStudentHint /></>;
   // 서버 데이터 도착 전 입력 UI를 띄우지 않는다 — 로드 중 입력이 덮어써지는 것 방지.
@@ -136,6 +139,7 @@ export default function ObservePage({ onNavigate }) {
     if (j.a != null) setA((prev) => mergeField(prev, j.a));
     if (j.b != null) setB((prev) => mergeField(prev, j.b));
     if (j.c != null) setC((prev) => mergeField(prev, j.c));
+    if (j.s) setSetting((prev) => mergeField(prev, j.s)); // 배경사건은 문장에 있을 때만
   }
 
   // AI 연결 시: 한 문장을 직접 호출로 A·B·C 분배.
@@ -202,7 +206,7 @@ export default function ObservePage({ onNavigate }) {
   function recallLast() {
     const last = abcSorted[0]; // 관찰일 기준 최신 기록
     if (!last) { toast('불러올 지난 기록이 없어요.'); return; }
-    setA(last.a || ''); setB(last.b || ''); setC(last.c || '');
+    setA(last.a || ''); setB(last.b || ''); setC(last.c || ''); setSetting(last.setting || '');
     if (last.time) {
       const parts = String(last.time).split('/').map((s) => s.trim());
       setTimeVal(parts[0] || ''); setPlaceVal(parts[1] || '');
@@ -214,11 +218,11 @@ export default function ObservePage({ onNavigate }) {
     if (!a.trim() || !b.trim() || !c.trim()) { toast('A, B, C를 모두 입력해주세요.'); return; }
     setBusy(true);
     try {
-      const body = { date, time: timeText, a, b, c };
+      const body = { date, time: timeText, setting, a, b, c };
       const res = await apiCreateABC(curStuId, body);
       const newRec = res.record;
       updateStudentData(curStuId, (cur) => ({ ...cur, abc: [newRec, ...cur.abc] }));
-      setA(''); setB(''); setC(''); setTimeVal(''); setPlaceVal('');
+      setA(''); setB(''); setC(''); setSetting(''); setTimeVal(''); setPlaceVal('');
       try { if (draftKey) sessionStorage.removeItem(draftKey); } catch (_) { /* ignore */ }
       toast('ABC 기록 저장 완료', 'success');
       markSaved(); hintNextStep('qabf'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
@@ -331,6 +335,12 @@ export default function ObservePage({ onNavigate }) {
             <EditableChipGroup label="장소" storageKey="abc_place" defaults={ABC_PLACES} mode="set" target={placeVal} onChange={setPlaceVal} />
           </div>
         </div>
+        {/* 0914(홍준표 부록): 배경사건 — 가설문 “〔배경사건〕이 있는 날” 절과 예방 전략 조정의 재료 */}
+        <div className="form-group" data-tour="ob-setting">
+          <label className="form-label">배경사건 (Setting event · 선택) <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: '.76rem' }}>— 행동 직전 사건(A)이 아니라, 그날 학생을 더 예민하게 만든 조건</span></label>
+          <TokenField value={setting} onChange={setSetting} options={SETTING_CHIPS} storageKey="abc_setting" editPlaceholder="예: 수면 부족, 투약 변경 (없으면 비워 두세요)" />
+          <div style={{ fontSize: '.74rem', color: 'var(--muted)', marginTop: 4 }}>기록해 두면 중재 계획(BIP)의 가설문에 “〔배경사건〕이 있는 날”로 들어가고, 그런 날엔 예방 전략을 더 두텁게 쓸 수 있어요.</div>
+        </div>
         <div className="form-group" data-tour="ob-a">
           <label className="form-label">A (선행사건, Antecedent)</label>
           <TokenField value={a} onChange={setA} options={A_CHIPS} storageKey="abc_a" editPlaceholder="행동 직전에 어떤 상황이 있었나요?" />
@@ -370,6 +380,7 @@ export default function ObservePage({ onNavigate }) {
                   <span className="data-item-date">{r.time || ''}<span style={{ marginLeft: 8, fontSize: '.72rem', color: 'var(--muted)' }}>작성 {r.created_at || '-'}</span></span>
                 </div>
                 <div className="data-item-body">
+                  {r.setting && <><strong>배경:</strong> {String(r.setting).replace(/\n/g, ' · ')}<br /></>}
                   <strong>A:</strong> {r.a}<br />
                   <strong>B:</strong> {r.b}<br />
                   <strong>C:</strong> {r.c}

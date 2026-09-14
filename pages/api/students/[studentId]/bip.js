@@ -38,7 +38,7 @@ export default requireStudentAccess(async function handler(req, res) {
 
       case 'POST':
       case 'PUT': {
-        const { alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest, hypothesis, interview } = req.body || {};
+        const { alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest, hypothesis, interview, roles } = req.body || {};
         // 0719 피드백: 조작적 정의(opdef)·행동목표(bgoal) — /api/migrate 전에도 동작하도록 셀프힐.
         await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS opdef TEXT NOT NULL DEFAULT ''`;
         await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS bgoal TEXT NOT NULL DEFAULT ''`;
@@ -47,13 +47,16 @@ export default requireStudentAccess(async function handler(req, res) {
         // 0822 워크플로 개편: ⑤ 행동기능 가설문 · ① 초기면담지(JSON) — 셀프힐 컬럼 추가.
         await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS hypothesis TEXT NOT NULL DEFAULT ''`;
         await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS interview JSONB NOT NULL DEFAULT '{}'`;
+        // 0914(홍준표 부록): 실행 역할분담표 [{task, owner, period, check, decision}] — 셀프힐 컬럼.
+        await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS roles JSONB NOT NULL DEFAULT '[]'`;
+        const rolesJson = roles === undefined ? null : JSON.stringify(Array.isArray(roles) ? roles.slice(0, 30) : []);
         const dest = bgoal_dest === undefined ? undefined : (['iep', 'subject'].includes(bgoal_dest) ? bgoal_dest : '');
         const interviewJson = interview === undefined ? null : JSON.stringify(interview || {});
         // 부분 업데이트: 전달되지 않은(undefined) 필드는 기존 값을 유지한다 —
         // 초기면담지 모달처럼 일부만 저장하는 화면이 BIP 본문을 지우지 않게(반대도 동일).
         const result = await sql`
-          INSERT INTO bip_data (student_id, alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest, hypothesis, interview, updated_at)
-          VALUES (${studentId}, ${alt || ''}, ${fct || ''}, ${crit || ''}, ${prev || ''}, ${teach || ''}, ${reinf || ''}, ${resp || ''}, ${opdef || ''}, ${bgoal || ''}, ${dest || ''}, ${hypothesis || ''}, ${interviewJson || '{}'}::jsonb, NOW())
+          INSERT INTO bip_data (student_id, alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest, hypothesis, interview, roles, updated_at)
+          VALUES (${studentId}, ${alt || ''}, ${fct || ''}, ${crit || ''}, ${prev || ''}, ${teach || ''}, ${reinf || ''}, ${resp || ''}, ${opdef || ''}, ${bgoal || ''}, ${dest || ''}, ${hypothesis || ''}, ${interviewJson || '{}'}::jsonb, ${rolesJson || '[]'}::jsonb, NOW())
           ON CONFLICT (student_id)
           DO UPDATE SET
             alt = COALESCE(${alt ?? null}, bip_data.alt),
@@ -68,6 +71,7 @@ export default requireStudentAccess(async function handler(req, res) {
             bgoal_dest = COALESCE(${dest ?? null}, bip_data.bgoal_dest),
             hypothesis = COALESCE(${hypothesis ?? null}, bip_data.hypothesis),
             interview = COALESCE(${interviewJson}::jsonb, bip_data.interview),
+            roles = COALESCE(${rolesJson}::jsonb, bip_data.roles),
             updated_at = NOW()
           RETURNING *
         `;

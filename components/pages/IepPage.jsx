@@ -816,6 +816,7 @@ export default function IepPage({ onNavigate }) {
       '3) "손 씻기", "자리에 앉기" 같은 일반적 준비 행동이나 목표와 무관한 행동은 절대 넣지 말 것.\n' +
       '4) 아래 맥락(동사·대상·평가초점)을 반드시 반영할 것.\n' +
       '5) 단계 설명은 영어 단어·어려운 한자어 없이, 일상에서 자주 쓰는 쉬운 우리말로 쓸 것.\n' +
+      '6) 각 단계는 서로 독립된 행동 단위로 나눠, 나중에 3회 연속 정반응인 단계를 인접 단계와 합칠 수 있게 할 것.\n' +
       `학기목표: ${target}\n` +
       (sel?.text ? `성취기준: ${sel.text}\n` : '') +
       (ctx.length ? `맥락:\n- ${ctx.join('\n- ')}\n` : '') +
@@ -3056,6 +3057,19 @@ export default function IepPage({ onNavigate }) {
                     <option value="sim">동시촉진 (촉진 동시 후 점검)</option>
                   </select></div>
               </div>
+              {/* 0914(홍준표 부록 반영): 연쇄 유형별 오류 처리·5초 규칙·3회 연속 병합 — 표준 절차 설명 */}
+              <details className="fold-inline" style={{ marginTop: 8, background: '#fff' }}>
+                <summary>❓ 연쇄 유형별 오류 처리 · 5초 규칙 · 3회 연속 병합 (표준 절차)</summary>
+                <div style={{ fontSize: '.8rem', color: 'var(--sub)', lineHeight: 1.7 }}>
+                  <div><strong>전진형</strong> — 1단계부터 가르칩니다. 목표 단계에서 틀리면 바로 촉진해 고치고 다시 시도, 아직 가르치지 않은 뒤 단계는 교사가 대신 수행(또는 최대 촉진)해 과제를 끝냅니다.</div>
+                  <div><strong>후진형</strong> — 마지막 단계부터 가르칩니다. 앞 단계는 교사가 수행하고, 학생이 마지막 단계를 마치면 과제 완성이라는 자연스러운 결과로 강화됩니다. 틀리면 촉진 → 재시도.</div>
+                  <div><strong>전체과제 제시형</strong> — 매 회기 모든 단계를 순서대로 시도하게 하고, 틀린 단계만 그 자리에서 촉진합니다. 표준 기준은 <strong>3회기 연속 100%</strong>.</div>
+                  <div style={{ marginTop: 4 }}><strong>오류 처리 3방식</strong> — ① 무시하고 다음 단계로 ② 무오류 학습(틀리기 전에 촉진) ③ 다시-다시 촉진(틀리면 촉진 뒤 즉시 재시도). 학생·과제에 맞게 한 가지를 정해 일관되게 쓰세요.</div>
+                  <div><strong>5초 규칙(기초선 평가)</strong> — 지시 뒤 도움 없이 <strong>5초</strong> 기다리고, 시작하지 않으면 환경만 만들어 준 뒤 다음 단계로 넘어가 기록합니다(가르치지 않고 현재 수준만 확인).</div>
+                  <div><strong>3회 연속 병합</strong> — 3회기 연속 정반응인 하위 단계는 인접 단계와 합쳐 단계 수를 줄입니다("⊟ 쪼개기"의 반대). 표준 기준값: <strong>2회기 연속 80%</strong>, 전과제형 <strong>3회기 연속 100%</strong>, 반응 대기 <strong>5초</strong>.</div>
+                  <div style={{ color: 'var(--muted)', marginTop: 4 }}>결손행동(아직 못 하는 기술)은 기초선을 오래 볼 필요가 없어요 — 5초 규칙으로 현재 수준을 확인한 뒤 바로 지도로 넘어갑니다.</div>
+                </div>
+              </details>
               {(() => {
                 const f = taskSteps.filter((t) => t.trim()).length;
                 if (!f) return null;

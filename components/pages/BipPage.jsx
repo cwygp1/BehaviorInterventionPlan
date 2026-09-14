@@ -41,6 +41,16 @@ function objParticle(word) {
 
 // 선행사건 → "~일 때" 절. ABC의 A는 "예고 없이 일과표 변경됨"처럼 명사절로 끝나는
 // 경우가 많아, 끝말에 맞춰 자연스럽게 접붙인다("변경됨일 때" 방지).
+// 받침 유무에 따른 주격 조사(이/가) — "수면 부족이 있는 날", "컨디션 저하가 있는 날".
+function subjParticle(word) {
+  const w = String(word || '').trim();
+  if (!w) return '이';
+  const ch = w[w.length - 1];
+  const code = ch.charCodeAt(0) - 0xac00;
+  if (code < 0 || code > 11171) return '이(가)';
+  return code % 28 === 0 ? '가' : '이';
+}
+
 function whenClause(ante) {
   const a = String(ante || '').trim();
   if (!a) return '[선행사건]일 때';
@@ -52,11 +62,15 @@ function whenClause(ante) {
 
 const ALT_CHIPS = ['쉬어 카드 들기', '"도와주세요" 카드', '심호흡 3회', '감각 도구 요청', '휴식 신호', '대안 활동 선택'];
 const FCT_CHIPS = ['"도와주세요" 카드', '"쉬고 싶어요" 카드', '"이해 안 돼요" 카드', '"그만" 카드', 'PECS 그림 카드', 'AAC 음성 출력'];
-const CRIT_CHIPS = ['하루 3회 미만', '주 5회 이상', '2주 연속', '한 달 연속', '80% 이상', '강도 2 이하'];
-const PREV_CHIPS = ['시각적 일과표 제공', '선택권 2~3가지 제공', '환경 조정(파티션)', '과제 난이도 조정', '사전 예고 5분 전', '감각 휴식 시간 배치', '4:1 긍정 비율 유지', '좌석 배치 변경', '시각 단서 카드', '작업 분량 시각적 표시'];
+// 0914(홍준표 부록): 표준 기준값(2회기 연속 80% · 10회 중 8회 도움 없이 · 전과제형 3회기 연속 100%)을 앞에 둔다.
+const CRIT_CHIPS = ['2회기 연속 80% 이상', '10회 기회 중 8회 도움 없이', '3회기 연속 100%(전과제형)', '하루 3회 미만', '주 5회 이상', '2주 연속', '한 달 연속', '강도 2 이하'];
+const PREV_CHIPS = ['시각적 일과표 제공', '선택권 2~3가지 제공', '환경 조정(파티션)', '과제 난이도 조정', '사전 예고 5분 전', '감각 휴식 시간 배치', '4:1 긍정 비율 유지', '좌석 배치 변경', '시각 단서 카드', '작업 분량 시각적 표시', '비수반적 강화(NCR: 정해진 간격마다 관심·휴식 미리 제공)', '일정 조정(어려운 과제 앞뒤에 쉬운 과제·휴식)', '풍족한 환경(선호 활동·자료 넉넉히 두기)'];
 const TEACH_CHIPS = ['FCT 직접 교수', '모델링 후 역할극', '사회적 이야기(Carol Gray)', '비디오 모델링', '자기관리 훈련', '또래 매개 중재(PMI)', '과제 분석 단계별', '점진적 촉진 줄이기'];
 const REINF_CHIPS = ['차별강화 DRA(대체행동)', '차별강화 DRO(부재 강화)', '토큰 경제', '즉각 칭찬 + 스티커', '활동 강화(선호 활동)', '4:1 긍정:재지도 비율', '자연 강화 활용'];
-const RESP_CHIPS = ['계획적 무시 10초', '대체행동 즉각 촉진', '안전 거리 확보', '심리안정실 이동', '위기관리팀 호출', '보호자 연락', '그라운딩 5-4-3-2-1', '신체적 개입(최후 수단)'];
+const RESP_CHIPS = ['계획적 무시 10초', '대체행동 즉각 촉진', '안전 거리 확보', '심리안정실 이동', '위기관리팀 호출', '보호자 연락', '그라운딩 5-4-3-2-1', '신체적 개입(최후 수단)', '소거: 관심 주지 않기(계획된 무시) + 대체행동에 즉시 반응', '소거: 과제 회피 차단(요구 유지·도움 제공)', '소거: 요구한 물건·활동 주지 않기', '소거: 감각 반응 차단·감각 대체물 제공'];
+// 0914(홍준표 부록): 역할분담표 열 정의 — 과제·담당·기간·점검일·결정.
+const ROLE_COLS = [['task', '예: 예방 전략 실행', 200], ['owner', '예: 담임·실무사', 120], ['period', '예: 2주', 90], ['check', '예: 매주 금', 100], ['decision', '예: 충실도 80% 미달 시 절차 단순화', 220]];
+const emptyRole = () => ({ task: '', owner: '', period: '', check: '', decision: '' });
 // 0825 동료 피드백: 행동 계약서는 Tier 2 수준 중재(CICO·집단강화·행동계약) — Tier2Page로 이동.
 
 export default function BipPage({ onNavigate }) {
@@ -77,12 +91,13 @@ export default function BipPage({ onNavigate }) {
   const [teach, setTeach] = useState('');
   const [reinf, setReinf] = useState('');
   const [resp, setResp] = useState('');
+  const [roles, setRoles] = useState([]); // 0914: 실행 역할분담표 [{task, owner, period, check, decision}]
   const [bgoal, setBgoal] = useState(''); // 0719: 중재계획 다음 단계 — 메이거식 행동목표
   // 0814 전문가 자문: 행동목표의 IEP 반영 방식은 선생님의 선택 —
   // 'iep'(개별화 목표로 가져감) | 'subject'(교과 목표에 녹임) | ''(미선택).
   const [bgoalDest, setBgoalDest] = useState('');
   // 0819 피드백: 저장 성공 후 "다음 단계(행동 데이터)로 이동" 배너 — 내용을 다시 수정하면 숨김.
-  const [savedOk, markSaved] = useSavedFlag([alt, fct, crit, prev, teach, reinf, resp, bgoal, bgoalDest, hypothesis]);
+  const [savedOk, markSaved] = useSavedFlag([alt, fct, crit, prev, teach, reinf, resp, bgoal, bgoalDest, hypothesis, roles]);
   const [bgoalBusy, setBgoalBusy] = useState(false);
 
   const [busy, setBusy] = useState(false);
@@ -98,15 +113,18 @@ export default function BipPage({ onNavigate }) {
     setPrev(b.prev || ''); setTeach(b.teach || ''); setReinf(b.reinf || ''); setResp(b.resp || '');
     setBgoal(b.bgoal || ''); setBgoalDest(b.bgoal_dest || '');
     setHypothesis(b.hypothesis || '');
+    setRoles(Array.isArray(b.roles) ? b.roles : []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [curStuId, curStuDataLoaded]);
 
   // 자동 저장(0824 퀵윈①) — 입력이 서버값과 다르면 타이핑이 멎은 뒤 저장.
   // 텍스트 위주 페이지라 디바운스를 2초로 넉넉히. 상태는 상단바 SaveBadge에 표시.
   // opdef는 관찰 화면 소유(0825) — 이 화면의 저장 본문에서 제외(부분 업데이트라 기존 값 유지).
-  const bipBody = { alt, fct, crit, prev, teach, reinf, resp, bgoal, bgoal_dest: bgoalDest, hypothesis };
+  const bipBody = { alt, fct, crit, prev, teach, reinf, resp, bgoal, bgoal_dest: bgoalDest, hypothesis, roles };
   const savedBip = curStuData?.bip || {};
-  const bipDirty = Object.entries(bipBody).some(([k, v]) => String(v || '') !== String(savedBip[k] || ''));
+  const bipDirty = Object.entries(bipBody).some(([k, v]) => (k === 'roles'
+    ? JSON.stringify(v || []) !== JSON.stringify(Array.isArray(savedBip.roles) ? savedBip.roles : [])
+    : String(v || '') !== String(savedBip[k] || '')));
   useAutoSave({
     enabled: !!curStuId && curStuDataLoaded,
     dirty: bipDirty,
@@ -122,7 +140,7 @@ export default function BipPage({ onNavigate }) {
   // 실제 저장(공통) — 자동 저장은 조용히 호출, 수동 [저장]은 토스트·다음단계 안내까지.
   // (함수 선언 호이스팅으로 위 useAutoSave에서 참조 가능)
   async function saveCore() {
-    const body = { alt, fct, crit, prev, teach, reinf, resp, bgoal, bgoal_dest: bgoalDest, hypothesis };
+    const body = { alt, fct, crit, prev, teach, reinf, resp, bgoal, bgoal_dest: bgoalDest, hypothesis, roles };
     await apiSaveBIP(curStuId, body);
     // 캐시는 병합으로 갱신 — interview(초기면담지)처럼 이 화면이 다루지 않는 필드를 지우지 않는다.
     updateStudentData(curStuId, (cur) => ({ ...cur, bip: { ...(cur.bip || {}), ...body } }));
@@ -156,7 +174,10 @@ export default function BipPage({ onNavigate }) {
       '자동·감각': '감각 자극(자동강화)', 신체: '신체적 불편의 표현·완화', 강화물: '원하는 물건·활동',
     };
     const fn = rec?.qabfLabel ? (FUNC_TEXT[rec.qabfLabel] || rec.qabfLabel) : '[기능]';
-    setHypothesis(`${whenClause(ante)}, 학생은 ${beh}${objParticle(beh)} 하며, 이는 ${fn}${objParticle(fn)} 얻기 위한 것이다.`);
+    // 0914(홍준표 부록): 관찰 기록의 배경사건이 있으면 “〔배경사건〕이 있는 날,” 절을 앞에 붙인다.
+    const setting = String(((curStuData?.abc || []).find((r) => String(r.setting || '').trim()) || {}).setting || '').replace(/\n/g, '·').trim();
+    const settingClause = setting ? `${setting}${subjParticle(setting)} 있는 날, ` : '';
+    setHypothesis(`${settingClause}${whenClause(ante)}, 학생은 ${beh}${objParticle(beh)} 하며, 이는 ${fn}${objParticle(fn)} 얻기 위한 것이다.`);
     toast('ABC·QABF에서 가설문 초안을 채웠어요 — 문장을 학생에 맞게 다듬어 주세요.');
   }
 
@@ -206,9 +227,26 @@ export default function BipPage({ onNavigate }) {
       note: curStu.note,
       teacherName: user?.name,
       school: user?.school,
-      bip: { alt, fct, crit, prev, teach, reinf, resp },
+      bip: { alt, fct, crit, prev, teach, reinf, resp, roles },
     });
   }
+
+  // 0914(홍준표 부록): 역할분담표 — PTR 4갈래 + 반응을 기본 행으로(있는 행은 유지).
+  function fillRolesFromPTR() {
+    const first = (v) => String(v || '').split(/\n|,\s*/).map((t) => t.trim()).filter(Boolean)[0] || '';
+    const base = [
+      ['🛡 예방 전략 실행', prev], ['📖 대체행동 지도(교수)', teach], ['⭐ 강화 제공', reinf], ['🚨 반응 절차(소거·안전)', resp],
+    ].map(([task, v]) => ({
+      task: first(v) ? `${task} — ${first(v)}` : task,
+      owner: '담임', period: '2주', check: '매주 금', decision: '충실도 80% 미달 시 절차 단순화·재교육',
+    }));
+    setRoles((rs) => {
+      const have = new Set(rs.map((r) => String(r.task || '').split(' — ')[0]));
+      return [...rs, ...base.filter((b) => !have.has(b.task.split(' — ')[0]))];
+    });
+    toast('예방·교수·강화·반응 4줄을 채웠어요. 담당·점검일을 우리 반 상황에 맞게 고치세요.');
+  }
+  function editRole(i, k, v) { setRoles((rs) => rs.map((r, j) => (j === i ? { ...r, [k]: v } : r))); }
 
   return (
     <>
@@ -245,7 +283,7 @@ export default function BipPage({ onNavigate }) {
           <button className="btn btn-ghost btn-sm" onClick={draftHypothesis}>↻ ABC·QABF에서 초안 채우기</button>
         </div>
         <div style={{ fontSize: '.8rem', color: '#274690', background: '#eef4ff', border: '1px solid #b9cdf0', borderRadius: 8, padding: '8px 12px', margin: '8px 0', lineHeight: 1.7 }}>
-          <strong>입력 양식</strong> — “[선행사건]일 때, 학생은 [행동]을 하며, 이는 [기능]을 얻기 위한 것이다.”
+          <strong>입력 양식</strong> — “〔배경사건〕이 있는 날, [선행사건]일 때, 학생은 [행동]을 하며, 이는 [기능]을 얻기 위한 것이다.” <span style={{ color: '#5b6b8c' }}>(배경사건 절은 관찰 기록의 ‘배경사건’ 칸이 있을 때만)</span>
           <br /><strong>예시</strong> — “아침 학습 시간에 여러 단계로 이루어진 쓰기 과제가 제시될 때, 로라는 자료를 던지거나 ‘싫어요’라고 말하거나 자리에서 벗어나며, 이는 선호하지 않는 학업 요구를 도피·회피하기 위한 것이다.”
         </div>
         <textarea className="form-textarea" rows={2} value={hypothesis} onChange={(e) => setHypothesis(e.target.value)}
@@ -334,13 +372,18 @@ export default function BipPage({ onNavigate }) {
                 {row(rec?.reinf, reinf, setReinf)}
                 <TokenField value={reinf} onChange={setReinf} options={REINF_CHIPS} storageKey="bip_reinf" editPlaceholder="이 학생 맥락의 강화 전략" />
               </div>
+              <div className="form-group">
+                <label className="form-label">🚨 반응 절차</label>
+                {/* 0914(홍준표 부록): 기능별 소거 추천 + 소거폭발 안내 */}
+                {row(rec?.resp, resp, setResp)}
+                <TokenField value={resp} onChange={setResp} options={RESP_CHIPS} storageKey="bip_resp" editPlaceholder="이 학생 맥락의 반응 절차" />
+                <div style={{ fontSize: '.76rem', color: '#9a3412', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '6px 10px', marginTop: 6, lineHeight: 1.6 }}>
+                  ℹ <strong>소거</strong>(문제행동에 그동안 따르던 결과를 끊기)를 시작하면 며칠간 행동이 더 세지거나 늘 수 있어요(<strong>소거폭발</strong>). 그래도 일관되게 유지하고, 대체행동은 즉시 강화하며, 안전 절차를 함께 두세요. 신체적 개입은 학교 규정 안에서 최후 수단·최소 제한으로만.
+                </div>
+              </div>
             </>
           );
         })()}
-        <div className="form-group">
-          <label className="form-label">🚨 반응 절차</label>
-          <TokenField value={resp} onChange={setResp} options={RESP_CHIPS} storageKey="bip_resp" editPlaceholder="이 학생 맥락의 반응 절차" />
-        </div>
 
         {/* 0719 피드백(E-3): 선택한 전략을 BIP 인쇄 표처럼 화면에서 바로 정리해 보여준다 */}
         {(prev.trim() || teach.trim() || reinf.trim() || resp.trim() || alt.trim() || crit.trim()) && (
@@ -389,6 +432,50 @@ export default function BipPage({ onNavigate }) {
           message="✅ BIP 저장 완료"
           hint="중재를 실행하며 오른쪽 버튼(행동 데이터)에서 변화를 매일 기록해보세요"
         />
+      </div>
+
+      {/* 0914(홍준표 부록): 실행 역할분담표 — 과제·담당·기간·점검일·결정. 매일 실행 여부는 행동 데이터 화면의 충실도 체크로. */}
+      <div className="card" data-tour="bip-roles">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <div className="card-title" style={{ marginBottom: 0 }}>🤝 실행 역할분담 — 누가·언제·어떻게 점검하나</div>
+            <div className="card-subtitle">계획이 실제로 실행되려면 과제마다 담당·기간·점검일·결정 기준이 있어야 해요. 매일의 실행 여부는 <strong>행동 데이터 화면의 BIP 실행 충실도</strong> 체크로 기록됩니다.</div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button className="btn btn-ghost btn-sm" onClick={fillRolesFromPTR} title="예방·교수·강화·반응 4줄을 기본값으로 채워요(이미 있는 줄은 그대로)">↻ PTR 전략에서 채우기</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setRoles((rs) => [...rs, emptyRole()])}>+ 행 추가</button>
+          </div>
+        </div>
+        {roles.length === 0 ? (
+          <div className="empty-state" style={{ padding: 12, marginTop: 8 }}>아직 역할분담이 없어요. “PTR 전략에서 채우기”로 시작하세요.</div>
+        ) : (
+          <div style={{ overflowX: 'auto', marginTop: 8 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.84rem', minWidth: 640 }}>
+              <thead>
+                <tr style={{ background: 'var(--surface2)' }}>
+                  {['과제(무엇을)', '담당(누가)', '기간', '점검일', '결정(유지·수정·종료 기준)', ''].map((h) => (
+                    <th key={h || 'x'} style={{ border: '1px solid var(--border)', padding: '6px 8px', textAlign: 'left', fontWeight: 700 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {roles.map((r, i) => (
+                  <tr key={i}>
+                    {ROLE_COLS.map(([k, ph, w]) => (
+                      <td key={k} style={{ border: '1px solid var(--border)', padding: 4, width: w }}>
+                        <input className="form-input" style={{ padding: '6px 8px', fontSize: '.84rem' }} value={r[k] || ''} placeholder={ph} onChange={(e) => editRole(i, k, e.target.value)} />
+                      </td>
+                    ))}
+                    <td style={{ border: '1px solid var(--border)', padding: 4, width: 36, textAlign: 'center' }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setRoles((rs) => rs.filter((_, j) => j !== i))} aria-label="행 삭제" title="삭제">✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div style={{ fontSize: '.76rem', color: 'var(--muted)', marginTop: 6 }}>표는 BIP 인쇄/PDF에 함께 나가요. 결정 기준 예: “2주 뒤 충실도 80% 미달이면 절차 단순화”, “대체행동 주 5회 이상 2주 연속이면 강화 간격 늘리기”.</div>
       </div>
 
       {/* 0719 피드백(A-3): ③ 행동목표 — 중재계획을 참고해 메이거식으로 작성, IEP 학기목표로 연계 */}

@@ -367,6 +367,13 @@ ${bText}
           )}
         </div>
         <div className="card-subtitle">오늘 BIP를 얼마나 충실하게 실행했는지 체크하세요. <strong>위의 [데이터 저장]을 누르면 함께 저장</strong>되고, 같은 날 다시 저장하면 기존 기록이 갱신됩니다.</div>
+        {/* 0914(홍준표 부록): BIP 실행 역할분담표가 있으면 누가·언제 점검하는지 함께 보여준다(편집은 BIP 화면). */}
+        {Array.isArray(curStuData?.bip?.roles) && curStuData.bip.roles.some((r) => r && String(r.task || r.owner || '').trim()) && (
+          <div style={{ fontSize: '.78rem', color: 'var(--sub)', background: 'var(--surface2)', border: '1px dashed var(--border)', borderRadius: 8, padding: '6px 10px', marginBottom: 8, lineHeight: 1.6 }}>
+            🤝 <strong>역할분담(BIP)</strong> — {curStuData.bip.roles.filter((r) => r && String(r.task || r.owner || '').trim()).map((r) => `${r.task || '과제'}: ${r.owner || '담당 미정'}${r.check ? ` · 점검 ${r.check}` : ''}`).join(' / ')}
+            <span style={{ color: 'var(--muted)' }}> · 아래 체크가 이 표의 점검 기록이 돼요</span>
+          </div>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
             <input type="checkbox" checked={fidPrev} onChange={(e) => setFidPrev(e.target.checked)} /> 예방 전략 실행

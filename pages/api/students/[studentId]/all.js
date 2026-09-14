@@ -50,6 +50,7 @@ export default requireStudentAccess(async function handler(req, res) {
         date: fmtDate(r.date),
         created_at: fmtKst(r.created_at),
         time: r.time_context,
+        setting: r.setting_event || '', // 0914: 배경사건
         a: r.antecedent,
         b: r.behavior,
         c: r.consequence,
