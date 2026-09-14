@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Modal from '../ui/Modal';
 import ExternalAIModal from '../ui/ExternalAIModal';
+import LineTable from '../ui/LineTable';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -2515,8 +2516,11 @@ export default function IepPage({ onNavigate }) {
                 toast(sg.length >= 2 ? '성취기준별 목표마다 학기 교육내용 초안을 1줄씩 채웠어요 — 다듬어 쓰세요.' : '학기목표·성취기준에서 학기 교육내용 초안을 채웠어요 — 다듬어 쓰세요.');
               }}>↻ 목표·성취기준에서 채우기</button>
           </div>
-          <textarea className="form-textarea" rows={3} style={{ marginTop: 6 }} value={semContent} onChange={(e) => setSemContent(e.target.value)}
-            placeholder={'이 학기에 다룰 학습내용·활동의 큰 방향 (예: - 짧은 글 읽고 주요 내용 찾기 활동)'} />
+          {/* 0915: 칸이 작아 한눈에 안 들어온다는 피드백 — 한 줄 = 한 행 표(저장은 그대로 "- " 줄 문자열) */}
+          <div style={{ marginTop: 6 }}>
+            <LineTable value={semContent} onChange={setSemContent}
+              placeholder="이 학기에 다룰 활동 한 줄 (예: 짧은 글 읽고 주요 내용 찾기) — Enter로 다음 줄" />
+          </div>
         </div>
         <div className="form-group" style={{ marginBottom: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
@@ -2542,8 +2546,10 @@ export default function IepPage({ onNavigate }) {
                 toast('출발점 수행 수준을 반영해 학기 교육방법 초안을 채웠어요 — 학생·과목에 맞게 다듬어 쓰세요.');
               }}>↻ 기본 전략으로 채우기</button>
           </div>
-          <textarea className="form-textarea" rows={3} style={{ marginTop: 6 }} value={semMethods} onChange={(e) => setSemMethods(e.target.value)}
-            placeholder={'이 학기에 쓸 지도전략·지원 방법의 큰 방향 (예: - 시각적 지원과 직접교수 중심)'} />
+          <div style={{ marginTop: 6 }}>
+            <LineTable value={semMethods} onChange={setSemMethods} labeled
+              placeholder="지도전략·지원 방법 한 줄 (예: 시각적 지원과 직접교수 중심) — Enter로 다음 줄" />
+          </div>
         </div>
       </div>
       <div style={{ fontSize: '.76rem', color: 'var(--muted)', marginTop: 4 }}>

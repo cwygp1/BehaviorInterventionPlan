@@ -210,6 +210,22 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 @media(max-width:600px){.form-row{grid-template-columns:1fr}}
 @media(max-width:900px){.eval-top-grid{grid-template-columns:1fr!important}}
 .form-hint{font-size:.75rem;color:var(--muted);margin-top:4px}
+/* LineTable — "- " 여러 줄을 한 줄 = 한 행 표로 */
+.line-table table{width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);table-layout:fixed}
+.line-table td{border-top:1px solid var(--border);vertical-align:top;padding:0}
+.line-table tr:first-child td{border-top:none}
+.line-table tr:focus-within td{background:var(--pri-soft)}
+.line-table textarea{display:block;box-sizing:border-box;width:100%;border:none;resize:none;overflow:hidden;background:transparent;color:var(--text);font:inherit;font-size:.88rem;line-height:1.5;padding:7px 8px;min-height:0}
+.line-table textarea:focus{outline:none}
+.line-table .lt-num{width:28px;text-align:center;color:var(--muted);font-size:.74rem;padding-top:9px;background:var(--surface2)}
+.line-table tr:focus-within .lt-num{color:var(--pri);font-weight:700}
+.line-table .lt-label{width:78px;border-right:1px dashed var(--border)}
+.line-table .lt-label textarea{font-weight:700;color:var(--sub);font-size:.82rem;padding-top:8px}
+.line-table .lt-del{width:28px;text-align:center}
+.line-table .lt-del button{border:none;background:none;color:var(--muted);font-size:.74rem;padding:8px 4px;opacity:.35;cursor:pointer}
+.line-table tr:hover .lt-del button,.line-table tr:focus-within .lt-del button{opacity:1}
+.line-table .lt-del button:hover{color:#dc2626}
+.line-table .lt-add{margin-top:4px;border:none;background:none;color:var(--pri);font-size:.78rem;font-weight:600;padding:2px 4px;cursor:pointer}
 
 /* === Buttons === */
 .btn{padding:10px 18px;border-radius:var(--r-sm);font-size:.87rem;font-weight:600;border:none;transition:.15s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
