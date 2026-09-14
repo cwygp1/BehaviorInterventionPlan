@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStudents } from '../../../contexts/StudentContext';
 import { fetchDashboard } from '../../../lib/api/dashboard';
 
@@ -143,10 +143,20 @@ export function Chip({ kind = 'muted', children, onClick, title }) {
 }
 
 // ── 검토가 필요한 항목 ─────────────────────────────────────────
-export function ReviewList({ items, emptyText = '검토할 항목이 없어요. 잘 관리되고 있습니다 👍' }) {
-  if (!items.length) return <div className="dz-review-empty">{emptyText}</div>;
+export function ReviewList({ items, emptyText = '할 일이 없어요. 잘 관리되고 있습니다 👍' }) {
+  // 홈 카드의 '🔦 할 일 n건' 배지에서 왔으면 이 목록으로 스크롤(0914 P0) — 플래그는 1회용.
+  const ref = useRef(null);
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('kb_focus_reviews') === '1') {
+        sessionStorage.removeItem('kb_focus_reviews');
+        setTimeout(() => { try { ref.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_e) { /* noop */ } }, 300);
+      }
+    } catch (_e) { /* noop */ }
+  }, []);
+  if (!items.length) return <div className="dz-review-empty" ref={ref}>{emptyText}</div>;
   return (
-    <ul className="dz-review">
+    <ul className="dz-review" ref={ref}>
       {items.map((it, i) => (
         <li key={i} className={'dz-review-item ' + (it.level || 'warn')}>
           <span className="ri-dot" aria-hidden="true" />

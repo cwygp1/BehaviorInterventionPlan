@@ -10,6 +10,7 @@ import { useLLM } from '../../contexts/LLMContext';
 import PromptResultBlock from '../modals/PromptResultBlock';
 import AIActionBar from '../ui/AIActionBar';
 import ResourceDownloads from '../ui/ResourceDownloads';
+import FoldCard from '../ui/FoldCard';
 
 // Tier 1 예시 문서 (public/docs/tier1/) — 다운로드해 학급 상황에 맞게 수정 사용.
 const TIER1_DOCS = [
@@ -314,7 +315,7 @@ ${question}
             ))}
             <div style={{ flex: 1 }} />
             <button
-              onClick={() => setCurrent(0)}
+              onClick={() => { if (window.confirm('누적 포인트를 0으로 되돌릴까요?\n(보상 항목과 목표는 그대로 남아요.)')) setCurrent(0); }}
               style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.4)', color: '#fff', padding: '8px 14px', borderRadius: 99, cursor: 'pointer', fontSize: '.82rem' }}
             >↺ 리셋</button>
           </div>
@@ -368,6 +369,10 @@ ${question}
           </div>
         )}
 
+        {/* 더 보기(0914 P0): 표·실태는 접어 두고 기대행동 칩·버튼만 기본 화면에 */}
+        {(sv.matrix.length > 0 || sv.places || sv.times || sv.behaviors) && (
+          <details className="fold-inline" style={{ marginTop: 14 }}>
+            <summary>📐 기대행동 × 장소 표 · 설문에서 파악된 우리 반 실태 보기</summary>
         {sv.matrix.length > 0 && (
           <div style={{ marginTop: 16 }}>
             <div style={{ fontWeight: 700, fontSize: '.88rem', color: 'var(--sub)', marginBottom: 8 }}>기대행동 × 장소 생활규칙 (설문 12번)</div>
@@ -408,11 +413,12 @@ ${question}
             {sv.rulePlaces && <div>· 생활규칙 우선 적용 장소: {sv.rulePlaces}</div>}
           </div>
         )}
+          </details>
+        )}
       </div>
 
-      {/* Goal config card */}
-      <div className="card" data-tour="cp-target">
-        <div className="card-title">⚙ 목표 포인트 설정</div>
+      {/* Goal config — 더 보기(0914 P0): 상태 한 줄은 머리줄에 항상 */}
+      <FoldCard id="cp-target" tourAnchor="cp-target" title="⚙ 목표 포인트 설정" summary={`목표 ${target}점 · 현재 ${current}점`} storageKey="kb_fold_cp_target">
         <div className="form-row">
           <div className="form-group">
             <label className="form-label">목표 포인트</label>
@@ -423,7 +429,7 @@ ${question}
             <input type="number" className="form-input" value={current} onChange={(e) => setCurrent(Math.max(0, +e.target.value))} min="0" />
           </div>
         </div>
-      </div>
+      </FoldCard>
 
       {/* Rewards card */}
       <div className="card" data-tour="cp-rewards">
@@ -519,7 +525,9 @@ ${question}
         </div>
       </div>
 
-      <div data-tour="cp-docs">
+      {/* 더 보기(0914 P0): 자료실·4:1 원칙은 접어 둔다 — 파일·문구는 그대로 */}
+      <FoldCard id="cp-docs" tourAnchor="cp-docs" title="📎 Tier 1 자료실 · 4:1 긍정 비율" summary="예시 문서 4종 · 핵심 원칙" storageKey="kb_fold_cp_docs">
+      <div>
         <ResourceDownloads
           title="📎 Tier 1 자료실 (예시 문서)"
           subtitle="기대행동 매트릭스·월별 기대행동·충실도 체크·공간/시간/절차 지원 예시를 내려받아 활용하세요."
@@ -534,6 +542,7 @@ ${question}
           학생 한 명이 재지도를 받았다면, 그 학생의 바람직한 행동을 4번 이상 인식·강화해야 합니다.
         </p>
       </div>
+      </FoldCard>
 
       <div className="card" data-tour="cp-coach">
         <div className="card-title">💡 AI 학급 운영 코칭</div>

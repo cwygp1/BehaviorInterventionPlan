@@ -120,10 +120,11 @@ export default function Tier2Dashboard({ onNavigate }) {
       <KpiBody icon="📝" value={memberIds.length ? `${todayDone}/${memberIds.length}` : '-'} label="오늘 CICO 기록" hint={memberIds.length ? (todayDone === memberIds.length ? '오늘 기록 완료!' : '다음: 미기록 학생 체크인') : '대상 학생 없음'} onClick={() => onNavigate('tier2')} /> ) },
     { id: 'kpi-avg', title: '평균 수행률', x: 9, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="📈" value={avgAll != null ? `${avgAll}%` : '-'} label="최근 2주 평균 수행률" hint={avgList.length ? `기록 있는 학생 ${avgList.length}명 기준` : '기록이 쌓이면 표시돼요'} /> ) },
-    { id: 'groups', title: '👥 소그룹 현황', x: 0, y: 2, w: 12, h: 5, minW: 4, minH: 3, body: groupsTable },
-    { id: 'daily', title: '📊 최근 2주 수행률 — 요일 패턴', x: 0, y: 7, w: 12, h: 4, minW: 4, minH: 3, body: dailyBars },
-    { id: 'reviews', title: `🔎 검토가 필요한 항목${reviews.filter((r) => r.level !== 'ok').length ? ` (${reviews.filter((r) => r.level !== 'ok').length})` : ''}`, x: 0, y: 11, w: 6, h: 5, minW: 3, minH: 3, body: <ReviewList items={reviews} /> },
-    { id: 'recent', title: '🕒 최근 CICO 기록', x: 6, y: 11, w: 6, h: 5, minW: 3, minH: 3, body: recentList },
+    // 기본 배치(0914 P0): KPI → 🔦 다음 할 일 + 최근 기록 → 점검 그룹 현황 → 요일 패턴. 저장된 배치가 있는 사용자는 그대로.
+    { id: 'reviews', title: `🔦 다음 할 일${reviews.filter((r) => r.level !== 'ok').length ? ` (${reviews.filter((r) => r.level !== 'ok').length})` : ''}`, x: 0, y: 2, w: 6, h: 5, minW: 3, minH: 3, body: <ReviewList items={reviews} /> },
+    { id: 'recent', title: '🕒 최근 CICO 기록', x: 6, y: 2, w: 6, h: 5, minW: 3, minH: 3, body: recentList },
+    { id: 'groups', title: '👥 점검 그룹(소그룹) 현황', x: 0, y: 7, w: 12, h: 5, minW: 4, minH: 3, body: groupsTable },
+    { id: 'daily', title: '📊 최근 2주 수행률 — 요일 패턴', x: 0, y: 12, w: 12, h: 4, minW: 4, minH: 3, body: dailyBars },
   ];
 
   return <DashGrid dashKey="dash2" color={C} widgets={widgets} />;

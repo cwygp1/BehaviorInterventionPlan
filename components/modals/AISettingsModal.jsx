@@ -151,7 +151,7 @@ export default function AISettingsModal({ open, onClose }) {
 
   return (
     <Modal open={open} onClose={onClose} maxWidth={unlocked ? 780 : 540}>
-      <h3>🤖 AI 어시스턴트 연결 <span style={{ fontSize: '.7rem', fontWeight: 600, color: 'var(--pri-d)', background: 'var(--pri-soft)', borderRadius: 'var(--r-sm)', padding: '2px 8px', marginLeft: 6, verticalAlign: 'middle' }}>전체 공용</span></h3>
+      <h3>🤖 AI 연결 설정 <span style={{ fontSize: '.7rem', fontWeight: 600, color: 'var(--pri-d)', background: 'var(--pri-soft)', borderRadius: 'var(--r-sm)', padding: '2px 8px', marginLeft: 6, verticalAlign: 'middle' }}>전체 공용</span></h3>
       <p style={{ fontSize: '.86rem', color: 'var(--sub)', margin: '6px 0 12px', lineHeight: 1.6 }}>
         이 연결 설정은 <strong>모든 선생님에게 동일하게 적용</strong>되는 공용 설정입니다.
         평소에는 보기 전용이며, 수정하려면 관리 비밀번호가 필요합니다.

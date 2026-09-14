@@ -49,8 +49,8 @@ export default function ObservationPeriodModal({ open, onClose }) {
     <Modal open={open} onClose={onClose} maxWidth={600}>
       <h3>📍 새 관찰 기간 시작</h3>
       <p style={{ fontSize: '.84rem', color: 'var(--sub)', margin: '6px 0 14px', lineHeight: 1.6 }}>
-        새 Tier를 시작하면 현재 진행 중인 관찰 기간은 자동으로 어제 날짜로 종료됩니다.
-        결과 평가 차트의 Phase 전환선이 이 시점을 기준으로 그려집니다.
+        새 기간을 시작하면 현재 진행 중인 관찰 기간은 자동으로 그 전날로 종료됩니다.
+        관찰 기간은 행동 데이터 화면의 '현재 기간' 표시와 기록 정리에 쓰여요. 결과 평가 차트의 기초선(A)/중재(B) 구분은 기록마다 고른 Phase 값으로 그려집니다.
       </p>
 
       {activePeriod && (

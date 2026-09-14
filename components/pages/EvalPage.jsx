@@ -5,6 +5,7 @@ import EvalPromptModal from '../modals/EvalPromptModal';
 import EvalReportModal from '../modals/EvalReportModal';
 import { pnd, pndInterpretation, tauU, tauUInterpretation } from '../../lib/utils/effectSize';
 import QabfFnChart from '../ui/QabfFnChart';
+import FoldCard from '../ui/FoldCard';
 
 const METRIC_LABELS = { freq: '발생 빈도 (회)', dur: '지속 시간 (분)', int: '강도 (1~5)', dbr: '일일 행동 평정 DBR (0~10)' };
 
@@ -55,6 +56,13 @@ export default function EvalPage() {
   const mon = curStuData?.mon || [];
   const fid = curStuData?.fid || [];
   const sz = curStuData?.sz || [];
+  const hasQabf = qabf.some((v) => v >= 0);
+  // 결과 보고서 직전에 접힌 차트를 모두 펼친다(0914 P0) — 캡처는 clip 접기라 원래 비지 않지만 안전망.
+  const [forceAll, setForceAll] = useState(false);
+  function openReport() {
+    setForceAll(true);
+    setTimeout(() => setReportOpen(true), 160);
+  }
 
   // QABF Radar
   useChart(radarRef, () => {
@@ -211,23 +219,8 @@ export default function EvalPage() {
 
       <div style={{ marginBottom: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }} data-tour="ev-actions">
         <button className="btn btn-pri" onClick={() => setAiOpen(true)}>💡 AI 성과 분석</button>
-        <button className="btn btn-ok" onClick={() => setReportOpen(true)}>📊 결과 보고서 생성</button>
+        <button className="btn btn-ok" onClick={openReport}>📊 결과 보고서 생성</button>
         <span style={{ fontSize: '.78rem', color: 'var(--muted)' }}>차트·표·BIP·교사 의견을 통합한 A4 PDF</span>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 14 }} data-tour="ev-func">
-        <div className="card">
-          <div className="card-title">🕸 QABF 행동 기능 분석 (레이더)</div>
-          <div style={{ position: 'relative', height: 280 }}><canvas ref={radarRef} /></div>
-        </div>
-        <div className="card">
-          <div className="card-title">📈 QABF 기능·심각도 그래프 (공식 양식)</div>
-          <QabfFnChart responses={qabf} />
-        </div>
-        <div className="card">
-          <div className="card-title">💚 심리안정실 사유 분포</div>
-          <div style={{ position: 'relative', height: 280 }}><canvas ref={szDonutRef} /></div>
-        </div>
       </div>
 
       <div className="card" data-tour="ev-trend">
@@ -245,10 +238,33 @@ export default function EvalPage() {
         <div style={{ position: 'relative', height: 250 }}><canvas ref={fidRef} /></div>
       </div>
 
-      <div className="card">
-        <div className="card-title">💚 심리안정실 월별 이용</div>
-        <div style={{ position: 'relative', height: 240 }}><canvas ref={szBarRef} /></div>
-      </div>
+      {/* 더 보기(0914 P0): 부속 차트는 접되 캔버스는 DOM에 그대로(clip) — 결과 보고서의 canvas 캡처가 비지 않는다.
+          데이터가 있으면 기본 펼침. height:0 접기는 responsive 차트를 0으로 만들므로 금지. */}
+      <FoldCard key={`f-${curStu.id}-${hasQabf}`} id="ev-func" tourAnchor="ev-func" mode="clip" title="🕸 기능 분석 — QABF 레이더 · 기능/심각도" summary={hasQabf ? 'QABF 응답 있음' : 'QABF 응답 없음 — 행동의 이유 찾기(QABF) 뒤에 채워져요'} defaultOpen={hasQabf} forceOpen={forceAll}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
+          <div>
+            <div className="card-title">🕸 QABF 행동 기능 분석 (레이더)</div>
+            <div style={{ position: 'relative', height: 280 }}><canvas ref={radarRef} /></div>
+          </div>
+          <div>
+            <div className="card-title">📈 QABF 기능·심각도 그래프 (공식 양식)</div>
+            <QabfFnChart responses={qabf} />
+          </div>
+        </div>
+      </FoldCard>
+
+      <FoldCard key={`s-${curStu.id}-${sz.length > 0}`} id="ev-sz" mode="clip" title="💚 위기 기록 — 심리안정실 사유 · 월별 이용" summary={sz.length ? `기록 ${sz.length}건` : '심리안정실 기록 없음'} defaultOpen={sz.length > 0} forceOpen={forceAll}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
+          <div>
+            <div className="card-title">💚 심리안정실 사유 분포</div>
+            <div style={{ position: 'relative', height: 280 }}><canvas ref={szDonutRef} /></div>
+          </div>
+          <div>
+            <div className="card-title">💚 심리안정실 월별 이용</div>
+            <div style={{ position: 'relative', height: 240 }}><canvas ref={szBarRef} /></div>
+          </div>
+        </div>
+      </FoldCard>
 
       <div className="card" data-tour="ev-compare">
         <div className="card-title">⚖ 기간별 비교 (효과크기 포함)</div>
@@ -318,7 +334,7 @@ export default function EvalPage() {
       <EvalPromptModal open={aiOpen} onClose={() => setAiOpen(false)} />
       <EvalReportModal
         open={reportOpen}
-        onClose={() => setReportOpen(false)}
+        onClose={() => { setReportOpen(false); setForceAll(false); }}
         chartRefs={{
           radar: radarRef.current,
           behavior: behRef.current,

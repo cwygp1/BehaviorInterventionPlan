@@ -176,7 +176,7 @@ export default function GeneratorPage() {
     return (
       <>
         <div className="card" style={{ background: 'linear-gradient(135deg,#eef2ff 0%,#e0e7ff 100%)', borderColor: '#a5b4fc' }}>
-          <div className="card-title" style={{ marginBottom: 4 }}>🤖 AI 생성기</div>
+          <div className="card-title" style={{ marginBottom: 4 }}>✨ 문서 초안 만들기 <span style={{ fontSize: '.78rem', fontWeight: 500, color: 'var(--muted)' }}>(AI 생성기)</span></div>
           <p style={{ fontSize: '.9rem', color: '#3730a3', margin: 0, lineHeight: 1.6 }}>
             도구를 고르고 칸을 채우면 텍스트를 자동 생성합니다. <strong>학생을 선택하면</strong> 그 학생의
             QABF·ABC·기능수준이 <strong>자동 반영</strong>돼요. 생성물은 초안이며 최종 검토는 선생님 몫입니다.

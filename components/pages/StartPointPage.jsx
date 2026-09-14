@@ -132,7 +132,7 @@ export default function StartPointPage({ onNavigate }) {
     setBusy(true);
     try {
       await saveStartpoint(curStuId, f);
-      toast('출발점(모듈1) 저장 완료');
+      toast('출발점 분석 저장 완료');
       markSaved(); hintNextStep('iep'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
     } catch (e) {
       toast('저장 실패: ' + e.message);
@@ -212,11 +212,11 @@ export default function StartPointPage({ onNavigate }) {
 
       {/* 핵심 질문 배너 */}
       <div className="card" style={{ background: 'linear-gradient(135deg,#eef4ff 0%,#e6eeff 100%)', borderColor: '#b9cdf0' }} data-tour="sp-intro">
-        <div className="card-title" style={{ marginBottom: 4 }}>🧭 모듈1 · 출발점 (학습자 분석)</div>
+        <div className="card-title" style={{ marginBottom: 4 }}>🧭 출발점 분석 (학습자 분석)</div>
         <p style={{ fontSize: '.92rem', color: '#274690', lineHeight: 1.6, margin: 0 }}>
           핵심 질문 — <strong>"이 학생은 지금 삶에서 무엇이 어려운가?"</strong><br />
           행동문제를 <strong>'문제'가 아니라 '지원 요구의 신호'</strong>로 해석합니다. 아래 5가지를 모아
-          생활지원 요구·기능·수행 수준을 도출하고, 이것이 IEP 목표(모듈2)의 출발점이 됩니다.
+          생활지원 요구·기능·수행 수준을 도출하고, 이것이 IEP 목표 만들기의 출발점이 됩니다.
         </p>
       </div>
 
@@ -380,7 +380,7 @@ export default function StartPointPage({ onNavigate }) {
         <NextStepBanner
           show={savedOk}
           message="✅ 출발점 저장 완료"
-          hint="이 산출물이 IEP 목표(모듈2)의 출발점이 됩니다 — ③ 버튼으로 바로 이어가세요"
+          hint="이 산출물이 IEP 목표 만들기의 출발점이 됩니다 — ③ 버튼으로 바로 이어가세요"
         />
       </div>
     </>

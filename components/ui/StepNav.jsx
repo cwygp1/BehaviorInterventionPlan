@@ -1,22 +1,18 @@
 import { useStudents } from '../../contexts/StudentContext';
+import { pageLabel } from '../../lib/tiers';
 
 // Tier 3 개별 중재 화면 이동 순서. 0822 워크플로 개편으로 정식 절차는 8단계(개요 보드 참조)이며,
 // 이 내비는 실제 입력 "화면" 5곳(관찰·QABF·BIP·데이터·평가)을 순서대로 오가는 용도다.
-export const TIER3_FLOW = [
-  { id: 'observe', label: '학생 관찰 / ABC' },
-  { id: 'qabf', label: '기능평가 (QABF)' },
-  { id: 'bip', label: '중재계획 (BIP)' },
-  { id: 'monitor', label: '행동 데이터' },
-  { id: 'eval', label: '결과 평가' },
-];
+// 라벨은 PAGE_META 단일 출처(0914 P0) — 사이드바·상단 제목과 같은 이름.
+export const TIER3_FLOW = ['observe', 'qabf', 'bip', 'monitor', 'eval'].map((id) => ({ id, label: pageLabel(id) }));
 
 // IEP 작성 4단계 순서 (0819 피드백: IEP 영역에도 단계 이동 내비 적용).
 // 전년도 IEP는 자료가 없을 수도 있어 '선택' 단계로 표기한다.
 export const IEP_FLOW = [
-  { id: 'priorIep', label: '전년도 IEP', optional: true },
-  { id: 'startpoint', label: '출발점 분석 (현행수준)' },
-  { id: 'iep', label: 'IEP 목표 생성' },
-  { id: 'iepReport', label: 'IEP 계획서(완성·출력)' },
+  { id: 'priorIep', label: pageLabel('priorIep').replace(' (선택)', ''), optional: true },
+  { id: 'startpoint', label: pageLabel('startpoint') },
+  { id: 'iep', label: pageLabel('iep') },
+  { id: 'iepReport', label: pageLabel('iepReport') },
 ];
 
 const FLOWS = {

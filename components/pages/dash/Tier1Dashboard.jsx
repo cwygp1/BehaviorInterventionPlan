@@ -22,10 +22,10 @@ export default function Tier1Dashboard({ onNavigate }) {
   const rewards = Array.isArray(pbs?.rewards) ? pbs.rewards : [];
 
   const flow = [
-    { key: 'survey', icon: '📋', label: '기초 설문조사', state: t1.surveyDone ? 'done' : 'now', hint: t1.surveyDone ? '작성 완료' : '다음: 실태 파악하기', onClick: () => onNavigate('pbssurvey') },
+    { key: 'survey', icon: '📋', label: '기초조사 ① 설문', state: t1.surveyDone ? 'done' : 'now', hint: t1.surveyDone ? '작성 완료' : '다음: 실태 파악하기', onClick: () => onNavigate('pbssurvey') },
     { key: 'goal', icon: '🎯', label: '규칙·목표 설정', state: pbs?.goal ? 'done' : (t1.surveyDone ? 'now' : 'todo'), hint: pbs?.goal ? `"${String(pbs.goal).slice(0, 14)}…"` : '다음: 학급 목표 정하기', onClick: () => onNavigate('classpbs') },
     { key: 'points', icon: '⭐', label: '포인트 운영', state: current > 0 ? 'done' : (pbs?.goal ? 'now' : 'todo'), hint: target ? `${current}/${target}점` : '보상판 운영', onClick: () => onNavigate('classpbs') },
-    { key: 'check', icon: '✅', label: '학급관리 점검', state: t1.checklistDone ? 'done' : 'todo', hint: t1.checklistDone ? `점검 ${agoLabel(t1.checklistUpdated)}` : '체크리스트로 점검', onClick: () => onNavigate('classcheck') },
+    { key: 'check', icon: '📑', label: '학급관리 자가점검', state: t1.checklistDone ? 'done' : 'todo', hint: t1.checklistDone ? `점검 ${agoLabel(t1.checklistUpdated)}` : '체크리스트로 점검', onClick: () => onNavigate('classcheck') },
   ];
 
   // 검토 규칙은 lib/dashReviews.js 단일 출처 — 여기서 onClick만 입힌다.
@@ -37,14 +37,13 @@ export default function Tier1Dashboard({ onNavigate }) {
     { id: 'kpi-points', title: '목표 진행률', x: 3, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="⭐" value={target ? `${pct}%` : '-'} label="학급 목표 진행률" hint={target ? `${current} / ${target}점` : '포인트 목표 미설정'} onClick={() => onNavigate('classpbs')} /> ) },
     { id: 'kpi-survey', title: '기초 설문', x: 6, y: 0, w: 3, h: 2, body: (
-      <KpiBody icon="📋" value={t1.surveyDone ? '완료' : '미작성'} label="기초 설문조사" hint={t1.surveyDone ? agoLabel(t1.surveyUpdated) + ' 수정' : '다음: 설문 작성'} onClick={() => onNavigate('pbssurvey')} /> ) },
+      <KpiBody icon="📋" value={t1.surveyDone ? '완료' : '미작성'} label="기초조사 ① 설문" hint={t1.surveyDone ? agoLabel(t1.surveyUpdated) + ' 수정' : '다음: 설문 작성'} onClick={() => onNavigate('pbssurvey')} /> ) },
     { id: 'kpi-check', title: '학급관리 점검', x: 9, y: 0, w: 3, h: 2, body: (
-      <KpiBody icon="✅" value={t1.checklistDone ? '완료' : '미점검'} label="학급관리 실행충실도" hint={t1.checklistDone ? agoLabel(t1.checklistUpdated) + ' 점검' : '다음: 자가 점검'} onClick={() => onNavigate('classcheck')} /> ) },
-    { id: 'flow', title: '🧭 Tier 1 업무 흐름', x: 0, y: 2, w: 12, h: 3, minW: 4, body: (
-      <FlowStrip color={C} steps={flow} /> ) },
-    { id: 'reviews', title: `🔎 검토가 필요한 항목${reviews.length ? ` (${reviews.length})` : ''}`, x: 0, y: 5, w: 6, h: 5, minW: 3, minH: 3, body: (
+      <KpiBody icon="✅" value={t1.checklistDone ? '완료' : '미점검'} label="학급관리 자가점검" hint={t1.checklistDone ? agoLabel(t1.checklistUpdated) + ' 점검' : '다음: 자가 점검'} onClick={() => onNavigate('classcheck')} /> ) },
+    // 기본 배치(0914 P0): KPI → 🔦 다음 할 일 + 보상판 → 업무 흐름. 저장된 배치가 있는 사용자는 그대로.
+    { id: 'reviews', title: `🔦 다음 할 일${reviews.length ? ` (${reviews.length})` : ''}`, x: 0, y: 2, w: 6, h: 5, minW: 3, minH: 3, body: (
       <ReviewList items={reviews} /> ) },
-    { id: 'goalboard', title: '⭐ 학급 목표 & 보상판', x: 6, y: 5, w: 6, h: 5, minW: 3, minH: 3, body: (
+    { id: 'goalboard', title: '⭐ 학급 목표 & 보상판', x: 6, y: 2, w: 6, h: 5, minW: 3, minH: 3, body: (
       pbs?.goal ? (
         <>
           <div className="dz-goal">“{pbs.goal}”</div>
@@ -60,6 +59,8 @@ export default function Tier1Dashboard({ onNavigate }) {
         <div className="dz-review-empty">아직 학급 목표가 없어요. <button className="btn btn-sm btn-ghost" onClick={() => onNavigate('classpbs')} style={{ marginLeft: 6 }}>목표 만들기</button></div>
       )
     ) },
+    { id: 'flow', title: '🧭 Tier 1 업무 흐름', x: 0, y: 7, w: 12, h: 3, minW: 4, body: (
+      <FlowStrip color={C} steps={flow} /> ) },
   ];
 
   return <DashGrid dashKey="dash1" color={C} widgets={widgets} />;

@@ -247,7 +247,6 @@ ${bText}
             <div className="card-title" style={{ marginBottom: 0 }}>📍 현재 관찰 단계 (Phase)</div>
             <div className="card-subtitle">단일대상연구의 핵심 — <strong>A(기초선)</strong>는 중재 전 현재 수준, <strong>B(중재)</strong>는 BIP·전략을 <u>실제로 적용한 이후</u>의 데이터입니다. 두 단계를 명확히 구분해야 결과 차트가 의미를 가집니다.</div>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={() => setPeriodModalOpen(true)}>📍 새 관찰 기간 시작</button>
         </div>
         <div className="qchip-area" style={{ marginTop: 10 }} role="group" aria-label="관찰 단계 선택">
           <span
@@ -279,6 +278,19 @@ ${bText}
             return null;
           })()}
         </p>
+        {/* 더 보기(0914 P0): 새 관찰 기간 시작·이력은 접어 두고, 현재 기간 배지는 위에 항상 표시 */}
+        <details className="fold-inline" style={{ marginTop: 10 }} data-tour="mon-periods">
+          <summary>🗓 관찰 기간 이력 · 새 기간 시작</summary>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '.8rem' }}>
+            {(curStuData?.periods || []).length === 0 && <span style={{ color: 'var(--muted)' }}>아직 기록된 관찰 기간이 없어요. 기초선(A)부터 시작해 보세요.</span>}
+            {(curStuData?.periods || []).map((p, i) => (
+              <div key={p.id || `${p.start_date}-${i}`}>
+                <strong>{p.tier === 'baseline' ? '기초선' : p.tier}</strong> · {p.start_date} ~ {p.end_date || '진행 중'}
+              </div>
+            ))}
+            <button className="btn btn-ghost btn-sm" onClick={() => setPeriodModalOpen(true)} style={{ alignSelf: 'flex-start' }}>📍 새 관찰 기간 시작</button>
+          </div>
+        </details>
       </div>
       <ObservationPeriodModal open={periodModalOpen} onClose={() => setPeriodModalOpen(false)} />
 
@@ -292,7 +304,7 @@ ${bText}
             </button>
           )}
         </div>
-        <div className="card-subtitle">CICO (Check-In/Check-Out) — 매일 행동 데이터를 기록합니다. <strong>기록 날짜</strong>는 행동을 관찰한 그 날짜로 적으세요(작성일과 달라도 됩니다). 숫자 칸에서 <strong>Enter</strong>를 누르면 바로 저장돼요.</div>
+        <div className="card-subtitle">매일 행동 데이터를 기록합니다. <strong>기록 날짜</strong>는 행동을 관찰한 그 날짜로 적으세요(작성일과 달라도 됩니다). 숫자 칸에서 <strong>Enter</strong>를 누르면 바로 저장돼요.</div>
         <div className="form-group">
           <label className="form-label">기록 날짜 (행동을 관찰한 날)</label>
           <input type="date" className="form-input" value={date} onChange={(e) => setDate(e.target.value)} />

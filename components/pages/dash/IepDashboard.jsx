@@ -33,10 +33,10 @@ export default function IepDashboard({ onNavigate }) {
   }));
 
   const flow = [
-    { key: 'prior', icon: '🗓', label: '전년도 IEP', hint: '이력 확인·이어받기', state: 'todo', onClick: () => onNavigate('priorIep') },
-    { key: 'sp', icon: '🧭', label: '출발점 분석', hint: `${spDone}/${rows.length}명 완료`, state: rows.length && spDone === rows.length ? 'done' : 'now', onClick: () => onNavigate('startpoint') },
-    { key: 'goal', icon: '📋', label: '목표 생성', hint: `${curSemester}학기 목표 ${totalGoals}개`, state: totalGoals > 0 ? (goalStudents === rows.length ? 'done' : 'now') : 'todo', onClick: () => onNavigate('iep') },
-    { key: 'report', icon: '📄', label: '계획서 완성·출력', hint: '나이스 양식 출력', state: 'todo', onClick: () => onNavigate('iepReport') },
+    { key: 'prior', icon: '🗓', label: '① 작년 IEP (선택)', hint: '이력 확인·이어받기', state: 'todo', onClick: () => onNavigate('priorIep') },
+    { key: 'sp', icon: '🧭', label: '② 출발점 분석', hint: `${spDone}/${rows.length}명 완료`, state: rows.length && spDone === rows.length ? 'done' : 'now', onClick: () => onNavigate('startpoint') },
+    { key: 'goal', icon: '📋', label: '③ 목표 만들기', hint: `${curSemester}학기 목표 ${totalGoals}개`, state: totalGoals > 0 ? (goalStudents === rows.length ? 'done' : 'now') : 'todo', onClick: () => onNavigate('iep') },
+    { key: 'report', icon: '📄', label: '④ 계획서 다듬기·출력', hint: '나이스 양식 출력', state: 'todo', onClick: () => onNavigate('iepReport') },
   ];
 
   const roster = rows.length === 0 ? (
@@ -89,10 +89,11 @@ export default function IepDashboard({ onNavigate }) {
           : '이번 달 월별 평가 모두 작성됨 👏'}
         onClick={() => onNavigate('iepReport')}
       /> ) },
-    { id: 'flow', title: '🧭 IEP 업무 흐름 — Tier 1·2·3 기록이 이 흐름의 재료가 돼요', x: 0, y: 2, w: 12, h: 3, minW: 4, body: (
+    // 기본 배치(0914 P0): KPI → 🔦 다음 할 일 → 학생별 진행 → 업무 흐름. 저장된 배치가 있는 사용자는 그대로.
+    { id: 'reviews', title: `🔦 다음 할 일${reviews.filter((r) => r.level !== 'ok').length ? ` (${reviews.filter((r) => r.level !== 'ok').length})` : ''}`, x: 0, y: 2, w: 12, h: 5, minW: 3, minH: 3, body: <ReviewList items={reviews} /> },
+    { id: 'roster', title: '🗂 학생별 IEP 진행', x: 0, y: 7, w: 12, h: 7, minW: 6, minH: 4, body: roster },
+    { id: 'flow', title: '🧭 IEP 업무 흐름 — Tier 1·2·3 기록이 이 흐름의 재료가 돼요', x: 0, y: 14, w: 12, h: 3, minW: 4, body: (
       <FlowStrip color={C} steps={flow} /> ) },
-    { id: 'roster', title: '🗂 학생별 IEP 진행', x: 0, y: 5, w: 12, h: 7, minW: 6, minH: 4, body: roster },
-    { id: 'reviews', title: `🔎 검토가 필요한 항목${reviews.filter((r) => r.level !== 'ok').length ? ` (${reviews.filter((r) => r.level !== 'ok').length})` : ''}`, x: 0, y: 12, w: 12, h: 5, minW: 3, minH: 3, body: <ReviewList items={reviews} /> },
   ];
 
   return <DashGrid dashKey="dashIep" color={C} widgets={widgets} />;

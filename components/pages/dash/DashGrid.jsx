@@ -17,6 +17,10 @@ import { fetchDashLayout, saveDashLayout, resetDashLayout } from '../../../lib/a
 //   hidden 플래그로 기록하고 위치는 보존해 복원 시 원래 자리 근처로 돌아온다.
 // TODO(위젯 갤러리): 전체 위젯 카탈로그에서 골라 "추가"하는 방식은 각 대시보드에
 //   하드코딩된 위젯 정의를 카탈로그로 리팩터링한 뒤에 — 지금은 숨김/복원만 제공.
+// 0914 P0(mds/30 §3-5 dash): 편집 모드에 들어가지 않고도 '⚙ 보기 설정' 체크리스트로 위젯을
+//   즉시 보이거나 숨길 수 있다(같은 hidden 플래그·같은 저장). 드래그·폭 조절은 '배치 바꾸기(고급)'
+//   = 기존 편집 모드 그대로. ↺ 기본 배치는 확인창을 거친다. 높이는 내용에 맞춰 자동(sizeToContent)이라
+//   손으로 늘린 높이는 유지되지 않는다 — 힌트 문구도 그 사실대로.
 //
 // props:
 //   dashKey : 'dash1' | 'dash2' | 'dash3' | 'dashIep' (저장 키)
@@ -35,6 +39,7 @@ export default function DashGrid({ dashKey, color, widgets }) {
   const [editing, setEditing] = useState(false);
   const [hidden, setHidden] = useState(() => new Set()); // 숨긴 위젯 id
   const [gen, setGen] = useState(0); // 위젯 목록이 바뀔 때 그리드 재마운트용 세대 번호
+  const [settingsOpen, setSettingsOpen] = useState(false); // ⚙ 보기 설정 드롭다운
 
   // 1) 저장된 배치 로드(1회) → 기본값과 병합해 posRef·숨김 목록 확정
   useEffect(() => {
@@ -145,6 +150,7 @@ export default function DashGrid({ dashKey, color, widgets }) {
   }
 
   async function reset() {
+    if (!window.confirm('위젯 배치와 숨김을 기본값으로 되돌릴까요?\n(기록·데이터는 그대로예요. 화면 배치만 바뀝니다.)')) return;
     suppressSave.current = true;
     try {
       syncPosFromGrid();
@@ -173,12 +179,34 @@ export default function DashGrid({ dashKey, color, widgets }) {
       <div className="dz-gridbar">
         {editing ? (
           <>
-            <span className="dz-gridhint">⠿ 머리줄을 끌어 위치를 바꾸고, 모서리로 크기 조절, ✕로 숨기기 — 자동 저장됩니다.</span>
+            <span className="dz-gridhint">⠿ 머리줄을 끌어 위치를 바꾸고, 모서리로 폭을 조절, ✕로 숨기기 — 자동 저장됩니다. (높이는 내용에 맞춰 자동)</span>
             <button className="btn btn-sm btn-ghost" onClick={reset}>↺ 기본 배치</button>
             <button className="btn btn-sm btn-pri" onClick={toggleEdit}>✅ 편집 완료</button>
           </>
         ) : (
-          <button className="btn btn-sm btn-ghost" onClick={toggleEdit} title="위젯을 정리하거나 숨기고, 배치를 저장해요">🧩 위젯 편집</button>
+          <>
+            <div className="dz-settings">
+              <button className="btn btn-sm btn-ghost" onClick={() => setSettingsOpen((o) => !o)} aria-expanded={settingsOpen} aria-haspopup="menu" title="보일 위젯을 고르세요 — 바로 적용돼요">
+                ⚙ 보기 설정 {settingsOpen ? '▴' : '▾'}{hiddenWidgets.length ? ` · 숨김 ${hiddenWidgets.length}` : ''}
+              </button>
+              {settingsOpen && (
+                <>
+                  <div className="dz-settings-backdrop" onClick={() => setSettingsOpen(false)} aria-hidden="true" />
+                  <div className="dz-settings-drop" role="menu" aria-label="보일 위젯 선택">
+                    <div className="dz-settings-title">보일 위젯 (체크를 풀면 바로 숨겨져요)</div>
+                    {widgets.map((w) => (
+                      <label key={w.id} className="dz-settings-item">
+                        <input type="checkbox" checked={!hidden.has(w.id)} onChange={(e) => setWidgetHidden(w.id, !e.target.checked)} />
+                        <span>{w.title}</span>
+                      </label>
+                    ))}
+                    <button className="btn btn-sm btn-ghost" style={{ marginTop: 6 }} onClick={() => { setSettingsOpen(false); toggleEdit(); }}>🧩 배치 바꾸기 (고급) — 끌어서 위치·폭 조절</button>
+                    <button className="btn btn-sm btn-ghost" onClick={() => { setSettingsOpen(false); reset(); }}>↺ 기본 배치로</button>
+                  </div>
+                </>
+              )}
+            </div>
+          </>
         )}
       </div>
       {editing && hiddenWidgets.length > 0 && (

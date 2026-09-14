@@ -3,14 +3,16 @@ import { useGuide } from './GuideContext';
 import { getTour } from '../../lib/tours';
 import { glossaryById } from '../../lib/glossary';
 import { placeTour, isUsableRect, TOUR_PAD } from '../../lib/tourPlace';
+import { FOLD_OPEN_EVENT } from '../ui/FoldCard';
 
 // 스포트라이트 투어 엔진 — 의존성 0, 자체 구현 (mds/23 기능③).
 //
 // 동작:
 //   - step.el(선택자)이 있으면 그 요소를 밝게 남기고 나머지를 어둡게(스포트라이트),
 //     없으면 화면 중앙 카드로 개념을 설명한다.
-//   - 요소를 폴링(180ms×8)으로 기다리고, 끝내 없거나 화면 밖(접힌 사이드바 등)이면
-//     그 스텝을 자동으로 건너뛴다.
+//   - 요소를 폴링(180ms×8)으로 기다린다. 접힌 카드(FoldCard·<details>·사이드바 더 보기) 안이면
+//     먼저 펼치도록 요청한다(0914 P0). 끝내 없거나 화면 밖이면 건너뛰지 않고 가운데 카드로
+//     설명만 보여준다(이전엔 조용히 건너뛰어 '접기' 도입 시 스텝이 사라질 수 있었다).
 //   - 스크롤 컨테이너가 window가 아니라 .main/.content 라서 position:fixed +
 //     getBoundingClientRect 로 좌표를 잡고, scroll(capture)·resize에 따라 갱신한다.
 //   - 좌표 계산은 lib/tourPlace.js(순수 함수)가 담당한다. 팝오버 크기를 실측해서
@@ -36,6 +38,7 @@ export default function SpotlightTour() {
   const [ready, setReady] = useState(false);
   const [view, setView] = useState({ w: 1024, h: 768 });
   const [popSize, setPopSize] = useState({ w: POP_MAX_W, h: 220 });
+  const [fallback, setFallback] = useState(false); // 대상 요소를 못 찾아 가운데 카드로 대신 보여주는 중
   const elRef = useRef(null);
   const popRef = useRef(null);
 
@@ -59,18 +62,35 @@ export default function SpotlightTour() {
     let tries = 0;
     setReady(false);
     setRect(null);
+    setFallback(false);
     elRef.current = null;
 
     const readView = () => ({ w: window.innerWidth, h: window.innerHeight });
+
+    // 접힌 컨테이너 안의 요소면 펼침을 요청한다 — FoldCard/사이드바 '더 보기'(data-fold-id)·<details>.
+    function reveal(el) {
+      if (!el) return;
+      try {
+        const fold = el.closest('[data-fold-id]');
+        if (fold) window.dispatchEvent(new CustomEvent(FOLD_OPEN_EVENT, { detail: { id: fold.getAttribute('data-fold-id') } }));
+        let p = el.parentElement;
+        while (p) { if (p.tagName === 'DETAILS' && !p.open) p.open = true; p = p.parentElement; }
+      } catch (_) { /* noop */ }
+    }
 
     function locate() {
       if (!alive) return;
       const el = step.el ? document.querySelector(step.el) : null;
       const v = readView();
       if (step.el && !isUsableRect(rectOf(el), v.w, v.h)) {
+        if (tries === 0) reveal(el);
         if (++tries <= 8) { setTimeout(locate, 180); return; }
-        // 요소가 없거나 화면 밖이면 이 스텝은 건너뛴다 (마지막이면 종료)
-        if (idx < total - 1) setIdx(idx + 1); else finish();
+        // 요소가 없거나 화면 밖 — 이 스텝은 가운데 카드로 설명만 보여준다(작은 화면·접힘 등).
+        elRef.current = null;
+        setFallback(true);
+        setView(v);
+        setRect(null);
+        setReady(true);
         return;
       }
       elRef.current = el;
@@ -175,6 +195,7 @@ export default function SpotlightTour() {
         <div className="tour-count">{idx + 1} / {total}</div>
         <div className="tour-title">{step.title}</div>
         <div className="tour-desc">{step.desc}</div>
+        {fallback && <div className="tour-fallback">이 화면 크기·상태에서는 해당 요소가 보이지 않아 설명만 보여드려요.</div>}
         {term && (
           <button className="tour-term" onClick={() => openGlossary(term.id)}>
             📖 쉬운 말 풀이: {term.term}

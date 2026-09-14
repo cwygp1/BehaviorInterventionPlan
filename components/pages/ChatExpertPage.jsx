@@ -312,7 +312,7 @@ export default function ChatExpertPage() {
       {/* ── 우: 대화창 ── */}
       <div className="card" style={{ flex: 1, minWidth: 300, display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <div className="card-title" style={{ margin: 0 }}>🗨️ AI 전문가 채팅</div>
+          <div className="card-title" style={{ margin: 0 }}>🗨️ AI에게 묻기 <span style={{ fontSize: '.78rem', fontWeight: 500, color: 'var(--muted)' }}>(AI 전문가 채팅)</span></div>
           <span style={{ ...noteStyle, fontWeight: 700 }}>{curMode.icon} {curMode.label}</span>
           {consultStudent && (
             <span style={{

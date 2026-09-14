@@ -750,3 +750,50 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
   .pulse-dot{animation:none}
   .tour-hole{transition:none}
 }
+
+/* ── 0914 단순화 P0(mds/30): 접이식 카드 · 사이드바 더 보기 · 홈 안내 슬롯 · 현황판 보기 설정 ── */
+.fold-card{padding:14px 18px}
+.fold-card.open{padding-bottom:20px}
+.fold-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fold-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:8px;border:none;background:none;text-align:left;padding:4px 0;font:inherit;color:var(--text);min-height:36px;cursor:pointer}
+.fold-toggle:hover .fold-title{color:var(--pri)}
+.fold-caret{width:16px;color:var(--muted);font-size:.9rem;flex-shrink:0}
+.fold-title{font-weight:700;font-size:.98rem}
+.fold-summary{font-size:.8rem;color:var(--muted);font-weight:500;margin-left:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fold-right{flex-shrink:0}
+.fold-body{margin-top:12px}
+.fold-body.closed{display:none}
+.fold-body.clip.closed{display:block;max-height:0;overflow:hidden;visibility:hidden;margin:0}
+.fold-body > .card{border:none;box-shadow:none;background:transparent;padding:0;margin:0 0 12px}
+.fold-body > .card:last-child{margin-bottom:0}
+.fold-inline{margin-top:10px;border:1px dashed var(--border);border-radius:var(--r-sm);padding:8px 12px;background:var(--surface2)}
+.fold-inline > summary{cursor:pointer;font-weight:700;font-size:.84rem;color:var(--sub);list-style:none;display:flex;align-items:center;gap:6px;min-height:28px}
+.fold-inline > summary::-webkit-details-marker{display:none}
+.fold-inline > summary::before{content:'▸';color:var(--muted)}
+.fold-inline[open] > summary::before{content:'▾'}
+.fold-inline[open] > summary{margin-bottom:8px}
+@media(max-width:640px){.fold-summary{display:none}}
+.t3-page-chip{font-size:.72rem;color:var(--pri-d);background:var(--pri-soft);border-radius:999px;padding:2px 8px;font-weight:700}
+.nav-label-soft{text-transform:none;letter-spacing:0;font-weight:600;color:var(--muted);padding-top:6px;padding-bottom:2px;font-size:.7rem}
+.nav-more{color:var(--muted);font-weight:600}
+.nav-more .icon{font-size:.85rem}
+.portal-hintbox .hint-close{display:block;margin-top:6px;border:none;background:none;color:var(--pri);font-size:.72rem;font-weight:700;cursor:pointer;padding:0}
+.next-step-banner .nsb-actions{display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;align-items:center}
+.next-step-banner .nsb-sample{margin-bottom:6px;padding-bottom:6px;border-bottom:1px dashed #ffd591}
+.nsb-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.nsb-chips-k{font-size:.76rem;color:var(--sub);margin-right:2px}
+.nsb-chip{border:1px solid var(--border);background:#fff;border-radius:999px;padding:4px 11px;min-height:30px;font-size:.76rem;font-weight:700;color:var(--pri-d);cursor:pointer}
+.nsb-chip:hover{border-color:var(--pri);background:var(--pri-soft)}
+.pcard .ph-todo{margin-left:6px;color:#c0392b;font-weight:700;cursor:pointer;text-decoration:underline dotted}
+.portal-bridge .bridge-i{border:none;background:none;color:var(--muted);cursor:pointer;font-size:.8rem;margin-left:4px;padding:0 2px}
+.portal-bridge .bridge-more{font-weight:500;color:var(--sub)}
+.pquick{flex-direction:column;align-items:flex-start}
+.pquick-items{display:flex;gap:8px;flex-wrap:wrap;width:100%}
+.pquick .pquick-toggle{color:var(--muted)}
+.dz-settings{position:relative}
+.dz-settings-backdrop{position:fixed;inset:0;z-index:40}
+.dz-settings-drop{position:absolute;right:0;top:calc(100% + 6px);z-index:41;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh-lg);padding:10px;min-width:260px;display:flex;flex-direction:column;gap:2px}
+.dz-settings-title{font-size:.72rem;color:var(--muted);font-weight:700;padding:2px 6px 6px}
+.dz-settings-item{display:flex;gap:8px;align-items:center;font-size:.84rem;padding:6px 8px;border-radius:8px;cursor:pointer;min-height:34px}
+.dz-settings-item:hover{background:var(--pri-soft)}
+.tour-fallback{font-size:.74rem;color:var(--muted);margin-top:6px}

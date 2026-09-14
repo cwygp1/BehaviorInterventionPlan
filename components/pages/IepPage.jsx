@@ -2972,11 +2972,11 @@ export default function IepPage({ onNavigate }) {
                 <option value="qual">질적 · 평가초점 기반 서술(내러티브)</option>
                 <option value="task">과제 분석 · 단계별 점증(과제 분해)</option>
               </select></div>
-            <div className="form-group"><label className="form-label">지원체계 (모듈4)</label>
+            <div className="form-group"><label className="form-label">지원 강도 (Tier 1·2·3)</label>
               <select className="form-input" value={supportTier} onChange={(e) => setSupportTier(e.target.value)}>
                 <option value="">미지정</option>
                 <option value="Tier 1 (보편적 지원)">Tier 1 · 보편적 지원</option>
-                <option value="Tier 2 (소그룹 지원)">Tier 2 · 소그룹 지원</option>
+                <option value="Tier 2 (소그룹 지원)">Tier 2 · 표적 학생 지원</option>
                 <option value="Tier 3 (개별 집중 지원)">Tier 3 · 개별 집중 지원</option>
               </select></div>
             {critType !== 'qual' ? (

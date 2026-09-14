@@ -8,6 +8,8 @@ import { QABF_QUESTIONS, QABF_FUNCTION_LABELS } from '../../lib/qabf';
 import { downloadTier3Doc } from '../../lib/utils/printTier3';
 import { buildFullStudentContext } from '../../lib/tierContext';
 import { interviewProgress } from '../modals/InitialInterviewModal';
+import FoldCard from '../ui/FoldCard';
+import { pageLabel } from '../../lib/tiers';
 
 // QABF 응답(0~3, 25문항)에서 심각도 합이 가장 큰 기능(들)을 행동의 기능 문구로.
 function qabfFunctionText(responses) {
@@ -117,8 +119,9 @@ export default function Tier3Page({ onNavigate }) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
         <div style={{ fontSize: '2.4rem', marginBottom: 8 }}>🏫</div>
-        Tier 3 대상은 <strong>Tier 2 소그룹 구성원 중 일부</strong>를 선택해 지정합니다.<br />
-        상단에서 학급을 먼저 선택하고, Tier 2에서 소그룹/구성원을 만들어주세요.
+        Tier 3 대상은 <strong>표적 학생 지원(Tier 2) 점검 그룹 구성원 중 일부</strong>를 골라 지정합니다.<br />
+        상단에서 학급을 먼저 선택하고, 매일 점검표(CICO·DPR) 화면에서 그룹·구성원을 만들어주세요.
+        <div style={{ marginTop: 12 }}><button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('tier2')}>👥 {pageLabel('tier2')}로 →</button></div>
       </div>
     );
   }
@@ -135,7 +138,7 @@ export default function Tier3Page({ onNavigate }) {
         <div style={{ position: 'absolute', top: -30, right: -30, fontSize: '8rem', opacity: 0.1 }}>🎯</div>
         <div style={{ position: 'relative' }}>
           <div style={{ fontSize: '.78rem', opacity: 0.9, letterSpacing: 3, marginBottom: 4 }}>3-TIER MODEL · TIER 3</div>
-          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: 10 }}>🎯 개별 맞춤형 중재</h2>
+          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: 10 }}>🎯 한 학생 집중 지원 — 절차 안내</h2>
           <p style={{ fontSize: '.92rem', lineHeight: 1.7, opacity: 0.95 }}>
             전체 학생의 <strong>1~5%</strong>가 대상인 가장 집중적 지원 단계입니다.
             행동 확인·기본 정보 → 표적행동 선정 → 기초선 측정 → ABC·환경 분석 → 가설 설정 →
@@ -152,9 +155,9 @@ export default function Tier3Page({ onNavigate }) {
       {/* Tier 3 대상 학생 — Tier 2 소그룹 구성원 중 'Tier 3' 표시된 학생 */}
       <div className="card">
         <div className="card-title">🎯 Tier 3 대상 학생 <span className="badge badge-pri">{tier3Students.length}명</span></div>
-        <div className="card-subtitle">
-          Tier 2 소그룹에서 <strong>Tier 3</strong>로 표시한 학생이 개별 중재 대상입니다.
-          대상 지정은 <strong>Tier 2 · 소그룹 지원</strong> 화면에서 체크하세요.
+        <div className="card-subtitle" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span>표적 학생 지원(Tier 2)의 점검 그룹에서 <strong>Tier 3</strong>로 표시한 학생이 개별 중재 대상입니다.</span>
+          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('tier2')}>👥 {pageLabel('tier2')}에서 지정하기 →</button>
         </div>
         {tier3Students.length === 0 ? (
           <div className="empty-state" style={{ marginTop: 10 }}>
@@ -193,28 +196,12 @@ export default function Tier3Page({ onNavigate }) {
       <>
       <StuHero />
 
-      {/* Tier 3 통합 문서 — 흩어진 모듈을 한 양식으로 */}
-      <div className="card" style={{ background: 'linear-gradient(135deg,#fff1f4 0%,#ffe7ee 100%)', borderColor: '#f4a8be' }} data-tour="t3-export">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <div className="card-title" style={{ marginBottom: 4, color: '#c43653' }}>📄 Tier 3 통합 문서</div>
-            <div style={{ fontSize: '.85rem', color: '#a13050', lineHeight: 1.6 }}>
-              연간·월별 목표(IEP) + 행동중재계획(BIP·QABF) + 모니터링 계획을 <strong>하나의 Word 문서</strong>로 모아 출력합니다.
-              저장값이 없는 칸은 편집형 틀로 채워져, 받은 뒤 바로 수정·결재할 수 있어요.
-            </div>
-          </div>
-          <button className="btn btn-pri" onClick={onExportTier3} disabled={exporting} style={{ flexShrink: 0 }}>
-            {exporting ? '생성 중…' : '📄 통합 문서 Word'}
-          </button>
-        </div>
-      </div>
-
-      {/* 8단계 워크플로 */}
+      {/* 8단계 워크플로 — 정식 절차(0822). 입력 화면은 5곳(왼쪽 메뉴 1~5)이고, 단계 카드가 그 화면으로 안내한다. */}
       <div className="card" data-tour="t3-steps">
         <div className="card-title">📋 8단계 개별 중재 워크플로</div>
-        <div className="card-subtitle">현재 학생 <strong>{curStu.code}</strong>의 진행 상황입니다. 카드를 클릭하면 해당 단계로 이동합니다.</div>
+        <div className="card-subtitle">현재 학생 <strong>{curStu.code}</strong>의 진행 상황입니다. 카드를 누르면 그 단계를 입력하는 화면으로 이동합니다. (왼쪽 메뉴의 1~5는 <em>화면</em> 순서, 여기 1~8은 <em>절차</em> 순서예요.)</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
-          {STEPS.map((s, i) => {
+          {STEPS.map((s) => {
             const v = s.measure(curStuData);
             const label = typeof s.measureLabel === 'function' ? s.measureLabel(v) : `${v}${s.measureLabel}`;
             const done = v > 0;
@@ -237,10 +224,11 @@ export default function Tier3Page({ onNavigate }) {
                   fontSize: '1.3rem', fontWeight: 800, flexShrink: 0,
                 }}>{s.n}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '1.02rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontSize: '1.02rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span>{s.icon}</span><span>{s.title}</span>
                     {done && <span style={{ fontSize: '.72rem', background: '#0a7d4e', color: '#fff', padding: '2px 8px', borderRadius: 99, fontWeight: 700 }}>✓ {label}</span>}
                     {!done && <span style={{ fontSize: '.72rem', color: 'var(--muted)' }}>— 시작 전</span>}
+                    <span className="t3-page-chip" title="이 단계를 입력하는 화면">→ {pageLabel(s.page)}</span>
                   </div>
                   <div style={{ fontSize: '.84rem', color: 'var(--sub)', marginTop: 4, lineHeight: 1.55 }}>{s.desc}</div>
                 </div>
@@ -251,59 +239,73 @@ export default function Tier3Page({ onNavigate }) {
         </div>
       </div>
 
-      {/* 핵심 개념 — FCT / DRA / DRO */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-        <div className="card">
-          <div className="card-title">💬 FCT — 기능적 의사소통 훈련</div>
-          <p style={{ fontSize: '.88rem', lineHeight: 1.7, color: 'var(--sub)', marginTop: 6 }}>
-            <strong>Functional Communication Training</strong>. 학생이 문제행동으로 표현하던 의도를
-            적절한 의사소통 수단(말·카드·AAC)으로 대체하도록 가르치는 기법입니다.
-          </p>
-          <div style={{ background: 'var(--pri-soft)', padding: 12, borderRadius: 8, marginTop: 10, fontSize: '.82rem', lineHeight: 1.7 }}>
-            <strong style={{ color: 'var(--pri)' }}>예시</strong><br />
-            <span style={{ color: 'var(--err)' }}>❌ 문제행동:</span> 휴식 원할 때 책상을 밀친다<br />
-            <span style={{ color: 'var(--ok)' }}>✅ 대체 행동:</span> "쉬고 싶어요" 카드를 든다
+      {/* Tier 3 통합 문서 — 흩어진 모듈을 한 양식으로 (0914 P0: 8단계 보드 아래로) */}
+      <div className="card" style={{ background: 'linear-gradient(135deg,#fff1f4 0%,#ffe7ee 100%)', borderColor: '#f4a8be' }} data-tour="t3-export">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div className="card-title" style={{ marginBottom: 4, color: '#c43653' }}>📄 Tier 3 통합 문서</div>
+            <div style={{ fontSize: '.85rem', color: '#a13050', lineHeight: 1.6 }}>
+              연간·월별 목표(IEP) + 행동중재계획(BIP·QABF) + 모니터링 계획을 <strong>하나의 Word 문서</strong>로 모아 출력합니다.
+              저장값이 없는 칸은 편집형 틀로 채워져, 받은 뒤 바로 수정·결재할 수 있어요.
+            </div>
           </div>
-        </div>
-
-        <div className="card">
-          <div className="card-title">⭐ DRA / DRO — 차별 강화</div>
-          <p style={{ fontSize: '.88rem', lineHeight: 1.7, color: 'var(--sub)', marginTop: 6 }}>
-            <strong>DRA(Differential Reinforcement of Alternative)</strong>: 대체 행동을 할 때만 강화 제공.<br />
-            <strong>DRO(Differential Reinforcement of Other)</strong>: 정해진 시간 동안 문제행동이 없으면 강화.
-          </p>
-          <div style={{ background: 'var(--ok-l)', padding: 12, borderRadius: 8, marginTop: 10, fontSize: '.82rem', lineHeight: 1.7 }}>
-            <strong style={{ color: 'var(--ok)' }}>4:1 황금률</strong> — 문제행동 1회 재지도에 대해, 바람직한 행동 4번 이상 인식·강화. PBS의 핵심 비율 원칙.
-          </div>
-        </div>
-
-        {/* 0825 동료 피드백: '4영역'이 아니라 PTR(Prevent-Teach-Reinforce) 3요소가
-            근거 이론 — 반응(위기 대응)은 PTR과 별도의 안전 요소로 구분해 표기. */}
-        <div className="card">
-          <div className="card-title">📋 중재 전략의 틀 — PTR (예방·교수·강화)</div>
-          <ul style={{ listStyle: 'none', padding: 0, fontSize: '.85rem', lineHeight: 1.9, color: 'var(--sub)' }}>
-            <li>🛡 <strong>예방 (Prevent)</strong> — 문제행동을 부르는 선행사건·환경을 미리 조정</li>
-            <li>📖 <strong>교수 (Teach)</strong> — 대체 행동을 직접 가르침 (FCT, 모델링)</li>
-            <li>⭐ <strong>강화 (Reinforce)</strong> — 대체 행동에 기능에 맞는 보상 (DRA/DRO)</li>
-            <li style={{ borderTop: '1px dashed var(--border)', marginTop: 4, paddingTop: 4 }}>🚨 <strong>+ 반응 (Response)</strong> — 문제행동 발생 시 안전·대응 절차 <span style={{ fontSize: '.78em', color: 'var(--muted)' }}>(PTR 3요소와 별도로 함께 계획)</span></li>
-          </ul>
-          <div style={{ fontSize: '.72rem', color: 'var(--muted)', marginTop: 6 }}>
-            PTR: 학교 기반 개별 긍정적 행동지원 모델 (Prevent-Teach-Reinforce · Dunlap, Iovannone, Kincaid 외, 2010)
-          </div>
+          <button className="btn btn-pri" onClick={onExportTier3} disabled={exporting} style={{ flexShrink: 0 }}>
+            {exporting ? '생성 중…' : '📄 통합 문서 Word'}
+          </button>
         </div>
       </div>
 
-      {/* 빠른 작업 */}
-      <div className="card" style={{ background: 'var(--pri-soft)', borderColor: 'var(--pri-l)' }} data-tour="t3-quick">
-        <div className="card-title">⚡ 빠른 시작</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 10 }}>
-          <button className="btn btn-pri btn-sm" onClick={() => onNavigate?.('observe')}>🔍 ABC 기록 시작</button>
-          <button className="btn btn-pri btn-sm" onClick={() => onNavigate?.('qabf')}>📊 QABF 평가 시작</button>
-          <button className="btn btn-pri btn-sm" onClick={() => onNavigate?.('bip')}>📝 BIP 작성 (AI 자동 생성)</button>
-          <button className="btn btn-pri btn-sm" onClick={() => onNavigate?.('monitor')}>📈 행동 데이터 입력</button>
-          <button className="btn btn-pri btn-sm" onClick={() => onNavigate?.('eval')}>✅ 결과 차트 보기</button>
+      {/* 더 보기(0914 P0): 개념 설명·빠른 시작은 접어 두고 머리줄에 요약만 — 기능은 그대로 */}
+      <FoldCard id="t3-concepts" title="📚 개념 한눈에 — FCT · DRA/DRO · PTR" summary="대체행동 가르치기 · 차별 강화 · 예방-교수-강화 틀" storageKey="kb_fold_t3_concepts">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+          <div className="card">
+            <div className="card-title">💬 FCT — 기능적 의사소통 훈련</div>
+            <p style={{ fontSize: '.88rem', lineHeight: 1.7, color: 'var(--sub)', marginTop: 6 }}>
+              <strong>Functional Communication Training</strong>. 학생이 문제행동으로 표현하던 의도를
+              적절한 의사소통 수단(말·카드·AAC)으로 대체하도록 가르치는 기법입니다.
+            </p>
+            <div style={{ background: 'var(--pri-soft)', padding: 12, borderRadius: 8, marginTop: 10, fontSize: '.82rem', lineHeight: 1.7 }}>
+              <strong style={{ color: 'var(--pri)' }}>예시</strong><br />
+              <span style={{ color: 'var(--err)' }}>❌ 문제행동:</span> 휴식 원할 때 책상을 밀친다<br />
+              <span style={{ color: 'var(--ok)' }}>✅ 대체 행동:</span> "쉬고 싶어요" 카드를 든다
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-title">⭐ DRA / DRO — 차별 강화</div>
+            <p style={{ fontSize: '.88rem', lineHeight: 1.7, color: 'var(--sub)', marginTop: 6 }}>
+              <strong>DRA(Differential Reinforcement of Alternative)</strong>: 대체 행동을 할 때만 강화 제공.<br />
+              <strong>DRO(Differential Reinforcement of Other)</strong>: 정해진 시간 동안 문제행동이 없으면 강화.
+            </p>
+            <div style={{ background: 'var(--ok-l)', padding: 12, borderRadius: 8, marginTop: 10, fontSize: '.82rem', lineHeight: 1.7 }}>
+              <strong style={{ color: 'var(--ok)' }}>4:1 황금률</strong> — 문제행동 1회 재지도에 대해, 바람직한 행동 4번 이상 인식·강화. PBS의 핵심 비율 원칙.
+            </div>
+          </div>
+
+          {/* 0825 동료 피드백: '4영역'이 아니라 PTR(Prevent-Teach-Reinforce) 3요소가
+              근거 이론 — 반응(위기 대응)은 PTR과 별도의 안전 요소로 구분해 표기. */}
+          <div className="card">
+            <div className="card-title">📋 중재 전략의 틀 — PTR (예방·교수·강화)</div>
+            <ul style={{ listStyle: 'none', padding: 0, fontSize: '.85rem', lineHeight: 1.9, color: 'var(--sub)' }}>
+              <li>🛡 <strong>예방 (Prevent)</strong> — 문제행동을 부르는 선행사건·환경을 미리 조정</li>
+              <li>📖 <strong>교수 (Teach)</strong> — 대체 행동을 직접 가르침 (FCT, 모델링)</li>
+              <li>⭐ <strong>강화 (Reinforce)</strong> — 대체 행동에 기능에 맞는 보상 (DRA/DRO)</li>
+              <li style={{ borderTop: '1px dashed var(--border)', marginTop: 4, paddingTop: 4 }}>🚨 <strong>+ 반응 (Response)</strong> — 문제행동 발생 시 안전·대응 절차 <span style={{ fontSize: '.78em', color: 'var(--muted)' }}>(PTR 3요소와 별도로 함께 계획)</span></li>
+            </ul>
+            <div style={{ fontSize: '.72rem', color: 'var(--muted)', marginTop: 6 }}>
+              PTR: 학교 기반 개별 긍정적 행동지원 모델 (Prevent-Teach-Reinforce · Dunlap, Iovannone, Kincaid 외, 2010)
+            </div>
+          </div>
         </div>
-      </div>
+      </FoldCard>
+
+      <FoldCard id="t3-quick" tourAnchor="t3-quick" title="⚡ 화면 바로 가기" summary="관찰 · 이유 찾기 · 중재 계획 · 행동 데이터 · 결과 평가" storageKey="kb_fold_t3_quick">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+          {['observe', 'qabf', 'bip', 'monitor', 'eval'].map((id) => (
+            <button key={id} className="btn btn-pri btn-sm" onClick={() => onNavigate?.(id)}>{pageLabel(id)}</button>
+          ))}
+        </div>
+      </FoldCard>
       </>
       )}
     </>

@@ -56,7 +56,7 @@ export default function Tier3Dashboard({ onNavigate }) {
       <div className="dz-table-wrap" data-tour="t3-roster">
         <table className="dz-table">
           <thead>
-            <tr><th>학생</th><th>① 관찰(ABC)</th><th>② 기능평가</th><th>③ BIP</th><th>행동목표 → IEP</th><th>④ 데이터</th><th>📉 추이(14일) · Phase</th><th>⑤ 평가</th></tr>
+            <tr><th>학생</th><th>관찰 기록 (ABC)</th><th>이유 찾기 (QABF)</th><th>중재 계획 (BIP)</th><th>행동목표 → IEP</th><th>행동 데이터</th><th>📉 추이(14일) · Phase</th><th>결과 평가</th></tr>
           </thead>
           <tbody>
             {rows.map((r) => {
@@ -136,16 +136,17 @@ export default function Tier3Dashboard({ onNavigate }) {
 
   const widgets = [
     { id: 'kpi-students', title: '학급 학생', x: 0, y: 0, w: 3, h: 2, body: (
-      <KpiBody icon="🧑‍🎓" value={`${rows.length}명`} label="학급 학생" hint={tier3Ids.size ? `이 중 Tier 3 지정 ${tier3Ids.size}명 🎯` : 'Tier 3 지정은 소그룹에서'} /> ) },
+      <KpiBody icon="🧑‍🎓" value={`${rows.length}명`} label="학급 학생" hint={tier3Ids.size ? `이 중 Tier 3 지정 ${tier3Ids.size}명 🎯` : 'Tier 3 지정은 매일 점검표(Tier 2)에서'} /> ) },
     { id: 'kpi-abc', title: 'ABC 누적', x: 3, y: 0, w: 3, h: 2, body: (
-      <KpiBody icon="🔍" value={totalAbc} label="ABC 관찰 누적" hint="다음: 관찰 → 기능평가" onClick={() => onNavigate('observe')} /> ) },
+      <KpiBody icon="🔍" value={totalAbc} label="ABC 관찰 누적" hint="다음: 관찰 → 이유 찾기(QABF)" onClick={() => onNavigate('observe')} /> ) },
     { id: 'kpi-mon', title: '행동 데이터', x: 6, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="📈" value={totalMon} label="행동 데이터 누적" hint="중재 효과의 근거가 돼요" onClick={() => onNavigate('monitor')} /> ) },
     { id: 'kpi-fid', title: '충실도', x: 9, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="✅" value={fidAvg != null ? `${fidAvg}%` : '-'} label="최근 2주 BIP 실행 충실도" hint={fidList.length ? `기록 있는 학생 ${fidList.length}명 평균` : '행동 데이터 페이지에서 체크해요'} onClick={() => onNavigate('monitor')} /> ) },
-    { id: 'roster', title: '🗂 학생별 진행 명부', x: 0, y: 2, w: 12, h: 7, minW: 6, minH: 4, body: roster },
-    { id: 'reviews', title: `🔎 검토가 필요한 항목${reviews.length ? ` (${reviews.length})` : ''}`, x: 0, y: 9, w: 6, h: 6, minW: 3, minH: 3, body: <div data-tour="t3-reviews"><ReviewList items={reviews} /></div> },
-    { id: 'sz', title: `🧯 심리안정실 · 최근 30일${szTotal30 ? ` (${szTotal30}회)` : ''}`, x: 6, y: 9, w: 6, h: 6, minW: 3, minH: 3, body: szList },
+    // 기본 배치(0914 P0): KPI → 🔦 다음 할 일 + 심리안정실 → 학생별 진행 명부 → 최근 기록. 저장된 배치가 있는 사용자는 그대로.
+    { id: 'reviews', title: `🔦 다음 할 일${reviews.length ? ` (${reviews.length})` : ''}`, x: 0, y: 2, w: 6, h: 6, minW: 3, minH: 3, body: <div data-tour="t3-reviews"><ReviewList items={reviews} /></div> },
+    { id: 'sz', title: `🧯 심리안정실 · 최근 30일${szTotal30 ? ` (${szTotal30}회)` : ''}`, x: 6, y: 2, w: 6, h: 6, minW: 3, minH: 3, body: szList },
+    { id: 'roster', title: '🗂 학생별 진행 명부', x: 0, y: 8, w: 12, h: 7, minW: 6, minH: 4, body: roster },
     { id: 'recent', title: '🕒 최근 관찰 기록', x: 0, y: 15, w: 12, h: 5, minW: 3, minH: 3, body: recentList },
   ];
 

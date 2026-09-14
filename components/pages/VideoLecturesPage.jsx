@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react';
+import { PAGE_META, pageLabel } from '../../lib/tiers';
+import { EBP_GROUPS } from '../../lib/ebp';
+const EBP_TOTAL = EBP_GROUPS.reduce((s, g) => s + g.items.length, 0);
 // 0819 감사: 기관 포털 링크가 교사 지원 탭과 각각 하드코딩되어 있었음 → 공용 카탈로그 사용.
 import { ORG_PORTALS } from '../../lib/officialDocs';
 
@@ -68,7 +71,7 @@ const TOPICS = [
 
 const TIPS = [
   { n: 1, t: '필요한 주제 선택', d: '학급에서 겪고 있는 가장 시급한 문제와 관련된 영상부터 시청하세요.' },
-  { n: 2, t: 'AI 코칭과 연계', d: '영상 시청 후 궁금한 점은 PBS Q&A 메뉴에서 AI에게 질문해 보세요.' },
+  { n: 2, t: 'AI 코칭과 연계', d: '영상 시청 후 궁금한 점은 "AI에게 묻기" 메뉴에서 AI 전문가에게 질문해 보세요.' },
   { n: 3, t: '동료 교사와 공유', d: '유용한 강의를 동료와 공유해 학교 차원의 PBS 문화를 함께 만들어가세요.' },
 ];
 
@@ -262,12 +265,10 @@ export default function VideoLecturesPage({ onNavigate }) {
       <div className="card">
         <div className="card-title">🔗 영상 시청 후 바로 적용해 보세요</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 12 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('classpbs')}>🏫 학급 차원 PBS</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('tier2')}>👥 Tier 2 CICO/DPR</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('tier3')}>🎯 Tier 3 개요</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('chatExpert')}>🗨️ AI 전문가 채팅</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('crisis')}>🚨 위기행동 대처</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('support')}>📚 EBP 27종 가이드</button>
+          {['classpbs', 'tier2', 'tier3', 'chatExpert', 'crisis'].map((id) => (
+            <button key={id} className="btn btn-ghost btn-sm" onClick={() => onNavigate?.(id)}>{PAGE_META[id].icon} {pageLabel(id)}</button>
+          ))}
+          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('support')}>📚 EBP {EBP_TOTAL}종 가이드</button>
         </div>
       </div>
     </>
