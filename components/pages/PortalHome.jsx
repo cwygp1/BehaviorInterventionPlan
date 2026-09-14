@@ -15,6 +15,7 @@ import { useDashboard } from './dash/DashBits';
 //
 // 0914 단순화 P0(mds/30 §3-4):
 //   · 배너 3종(🔦 다음 할 일 · 🚀 시작하기 · 🧪 샘플 체험 중)을 '오늘의 안내' 한 장으로 — 문구·버튼은 모두 유지.
+// 0915 현장 요청: 순서를 IEP 카드 → Tier 1·2·3 카드 → '오늘의 안내'(맨 아래)로 바꿨다(화면 투어 순서도 같이).
 //   · 안내 슬롯에 '지금 학생'의 다음 화면 칩(관찰·이유 찾기·중재 계획·행동 데이터).
 //   · 🔦 다음 할 일 CTA는 학생이 선택돼 있으면 현황판 대신 그 화면으로 바로.
 //   · 카드 CTA는 영역별 문구('학급 전체 현황판 →'), 배지는 '🔦 할 일 n건'(누르면 현황판의 할 일 목록으로).
@@ -142,10 +143,37 @@ export default function PortalHome({ onNavigate }) {
     <div className="portal">
       <div className="dash-hello">
         <h2>안녕하세요, {user?.name} 선생님 <span className="wave">👋</span></h2>
-        <p>{today.getFullYear()}년 {today.getMonth() + 1}월 {today.getDate()}일 ({wd}) · 카드를 누르면 그 영역만 열려요. 오늘 할 일은 아래 안내 한 장에 모아 두었어요.</p>
+        <p>{today.getFullYear()}년 {today.getMonth() + 1}월 {today.getDate()}일 ({wd}) · 카드를 누르면 그 영역만 열려요.{noStudents ? " 처음이라면 맨 아래 '오늘의 안내'에서 샘플로 체험부터 눌러보세요." : ' 오늘 할 일은 맨 아래 안내 한 장에 모아 두었어요.'}</p>
       </div>
 
-      {/* 🔦 오늘의 안내 — 배너 3종을 한 장으로 (문구·버튼은 모두 유지) */}
+      {/* 0915 현장 요청: IEP 카드를 맨 위로 — 특수교사가 가장 자주 여는 영역. Tier 1·2·3 카드는 그 아래. */}
+      <div className="pgrid">
+        <button className="pcard iepwide" style={{ '--c': SECTIONS.iep.color, '--cs': SECTIONS.iep.soft }} onClick={() => onNavigate(SECTIONS.iep.dash)} data-tour="pcard-iep">
+          <span className="ic" aria-hidden="true">{SECTIONS.iep.icon}</span>
+          <span className="bdg">IEP · Tier와 별개</span>
+          <h4>{SECTIONS.iep.title}</h4>
+          <p>{SECTIONS.iep.desc}</p>
+          <span className="ph-hint">{hint.iep}{todoBadge('iep', SECTIONS.iep.dash)}</span>
+          <span className="go">{ctaOf(SECTIONS.iep.dash)}</span>
+        </button>
+        <div className="portal-bridge">
+          ⬆ 아래 학급·학생 지원(Tier 1·2·3) 기록이 위의 <b>개별화교육계획(IEP)</b>에 이어져요
+          <button type="button" className="bridge-i" onClick={() => setBridgeOpen((o) => !o)} aria-expanded={bridgeOpen} title="자세히 보기">ⓘ</button>
+          {bridgeOpen && <span className="bridge-more"> — Tier 3의 행동목표는 '개별화 목표로 가져가기'와 '교과 목표에 녹이기' 중에서 중재 계획(BIP) 화면에서 선택해요.</span>}
+        </div>
+        {sections.filter((s) => s.key !== 'iep').map((s) => (
+          <button key={s.key} className="pcard" style={{ '--c': s.color, '--cs': s.soft }} onClick={() => onNavigate(s.dash)} data-tour={'pcard-' + s.key}>
+            <span className="ic" aria-hidden="true">{s.icon}</span>
+            <span className="bdg">{s.badge}</span>
+            <h4>{s.title}</h4>
+            <p>{s.desc}</p>
+            <span className="ph-hint">{hint[s.key]}{todoBadge(s.key, s.dash)}</span>
+            <span className="go">{ctaOf(s.dash)}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* 🔦 오늘의 안내 — 배너 3종을 한 장으로 (문구·버튼은 모두 유지). 0915 현장 요청으로 영역 카드 아래(맨 아래)로 이동 */}
       {studentsLoaded && (
         <div className="card next-step-banner" data-tour="next-step">
           <span className="pulse-dot" aria-hidden="true" />
@@ -205,32 +233,6 @@ export default function PortalHome({ onNavigate }) {
           </div>
         </div>
       )}
-
-      <div className="pgrid">
-        {sections.filter((s) => s.key !== 'iep').map((s) => (
-          <button key={s.key} className="pcard" style={{ '--c': s.color, '--cs': s.soft }} onClick={() => onNavigate(s.dash)} data-tour={'pcard-' + s.key}>
-            <span className="ic" aria-hidden="true">{s.icon}</span>
-            <span className="bdg">{s.badge}</span>
-            <h4>{s.title}</h4>
-            <p>{s.desc}</p>
-            <span className="ph-hint">{hint[s.key]}{todoBadge(s.key, s.dash)}</span>
-            <span className="go">{ctaOf(s.dash)}</span>
-          </button>
-        ))}
-        <div className="portal-bridge">
-          ⬇ 학급·학생 지원 기록이 <b>개별화교육계획(IEP)</b>에 이어져요
-          <button type="button" className="bridge-i" onClick={() => setBridgeOpen((o) => !o)} aria-expanded={bridgeOpen} title="자세히 보기">ⓘ</button>
-          {bridgeOpen && <span className="bridge-more"> — Tier 3의 행동목표는 '개별화 목표로 가져가기'와 '교과 목표에 녹이기' 중에서 중재 계획(BIP) 화면에서 선택해요.</span>}
-        </div>
-        <button className="pcard iepwide" style={{ '--c': SECTIONS.iep.color, '--cs': SECTIONS.iep.soft }} onClick={() => onNavigate(SECTIONS.iep.dash)} data-tour="pcard-iep">
-          <span className="ic" aria-hidden="true">{SECTIONS.iep.icon}</span>
-          <span className="bdg">IEP · Tier와 별개</span>
-          <h4>{SECTIONS.iep.title}</h4>
-          <p>{SECTIONS.iep.desc}</p>
-          <span className="ph-hint">{hint.iep}{todoBadge('iep', SECTIONS.iep.dash)}</span>
-          <span className="go">{ctaOf(SECTIONS.iep.dash)}</span>
-        </button>
-      </div>
 
       {/* 자주 쓰는 메뉴 — 사이드바와 같은 목적지. 넓은 화면에서는 접고, 사이드바가 서랍인 좁은 화면에서는 펼침. */}
       <div className="pquick" data-tour="pquick">
