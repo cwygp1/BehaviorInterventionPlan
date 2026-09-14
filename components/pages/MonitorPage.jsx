@@ -10,6 +10,7 @@ import PromptResultBlock from '../modals/PromptResultBlock';
 import { createMonitor, updateMonitor, deleteMonitor as apiDelMon, createFidelity } from '../../lib/api/students';
 import ObservationPeriodModal from '../modals/ObservationPeriodModal';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
+import ProgramSessionPanel from '../student/ProgramSessionPanel';
 
 const STD_BEHS = ['자리 이탈', '소리 지르기', '자해', '공격 행동', '거부', '회피', '반복 행동', '울기', '물건 던지기', '도주'];
 
@@ -44,6 +45,9 @@ export default function MonitorPage({ onNavigate }) {
   const [fidResp, setFidResp] = useState(false);
 
   const [busy, setBusy] = useState(false);
+  // 0915(mds/31 · 갑 결정): 탭 2개 — 문제행동 데이터 | 교수 회기 기록(과제분석). 메뉴는 늘리지 않는다.
+  const [tab, setTab] = useState(() => { try { return sessionStorage.getItem('kb_monitor_tab') || 'behavior'; } catch (_) { return 'behavior'; } });
+  const pickTab = (t) => { setTab(t); try { sessionStorage.setItem('kb_monitor_tab', t); } catch (_) { /* 무시 */ } };
   const [periodModalOpen, setPeriodModalOpen] = useState(false);
 
   // 학생을 처음 열 때(데이터 도착 후) 한 번만 적절한 단계로 초기화.
@@ -79,8 +83,15 @@ export default function MonitorPage({ onNavigate }) {
   }, [curStuId, date, curStuData?.fid]);
 
   if (!curStu) return <><StuHero /><NoStudentHint /></>;
+  const tabBar = (
+    <div className="tabs" role="tablist" aria-label="행동 데이터 종류">
+      <button type="button" role="tab" className={'tab' + (tab === 'behavior' ? ' on' : '')} aria-selected={tab === 'behavior'} onClick={() => pickTab('behavior')}>🔴 문제행동 데이터</button>
+      <button type="button" role="tab" className={'tab' + (tab === 'sessions' ? ' on' : '')} aria-selected={tab === 'sessions'} onClick={() => pickTab('sessions')}>🧩 교수 회기 기록 (과제분석)</button>
+    </div>
+  );
+  if (tab === 'sessions') return <><StuHero />{tabBar}<ProgramSessionPanel onNavigate={onNavigate} /></>;
   // 서버 데이터 도착 전 입력 UI를 띄우지 않는다 — 로드 중 입력이 덮어써지는 것 방지.
-  if (!curStuDataLoaded) return <><StuHero /><FormLoading label="행동 데이터를 불러오는 중…" /></>;
+  if (!curStuDataLoaded) return <><StuHero />{tabBar}<FormLoading label="행동 데이터를 불러오는 중…" /></>;
 
   const monRecords = curStuData?.mon || [];
   const todayFid = (curStuData?.fid || []).find((r) => r.date === date);
@@ -239,6 +250,7 @@ ${bText}
   return (
     <>
       <StuHero />
+      {tabBar}
 
       {/* B3 Phase A/B 명시적 전환 + B4 관찰 기간 */}
       <div className="card" style={{ background: phase === 'A' ? '#fff5f5' : '#f0f7ff' }} data-tour="mon-phase">

@@ -827,7 +827,8 @@ export default function IepPage({ onNavigate }) {
 
   // 학기목표·성취기준을 순차 단계(과제분석)로 분해 — LLM 사용, 실패 시 기본 골격.
   async function aiStepsNow() {
-    if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
+    // 0915(갑): 성취기준은 선택 사항 — 학기목표만 있어도 진행.
+    if (!sel && !String(goal).trim()) { toast('학기목표를 먼저 쓰거나 성취기준을 선택하세요.'); return; }
     if (!aiOn) { ruleStepsNow(); return; }
     setTaskBusy(true);
     try {
@@ -846,7 +847,7 @@ export default function IepPage({ onNavigate }) {
   }
 
   function generate() {
-    if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
+    if (!sel && !String(goal).trim()) { toast('학기목표를 먼저 쓰거나 성취기준을 선택하세요.'); return; }
     const groups = parseMonthGroups(monthGroups, months, sem), n = groups.length;
     if (!n) { toast('포함할 월을 한 개 이상 선택하세요.'); return; }
     if (!supportTier) toast('참고: 지원체계(모듈4)가 미지정이에요 — 지정하면 현행수준·교육방법에 지원 강도가 반영됩니다.');
@@ -891,7 +892,7 @@ export default function IepPage({ onNavigate }) {
       return critType === 'rate' ? `독립 수행 ${v}%` : `10회 중 ${Math.max(1, Math.min(10, v))}회 성공`;
     };
     const support = (i) => SUP[Math.min(SUP.length - 1, Math.round(frac(i) * (SUP.length - 1)))];
-    const stem = (verb || sel.verb || '').replace(/하기$|기$/, '');
+    const stem = (verb || sel?.verb || '').replace(/하기$|기$/, '');
     const obj = (descriptor || base).trim();
     const phaseIdx = (i) => Math.min(CONTENT_SUFFIX.length - 1, Math.floor(i / (n / CONTENT_SUFFIX.length)));
     const phase = (i) => CONTENT_SUFFIX[phaseIdx(i)];
@@ -980,7 +981,7 @@ export default function IepPage({ onNavigate }) {
               : `- 실제 수업·일과 상황에서 '${base}' 스스로 하기 (대체행동을 쓴 뒤 주 목표 행동으로 이어가기)`) : null,
             // P15: 교사가 적은 학기 교육내용을 월별로 배분해 활동으로 반영.
             ...semCFor(i).map((c) => `- ${c}`),
-            `- ${sel.area ? sel.area + ' ' : ''}${obj} ${phase(i)}`,
+            `- ${sel?.area ? sel.area + ' ' : ''}${obj} ${phase(i)}`,
             `- 교사 시범 후 ${stem ? stem + '하기를 ' : ''}단계별(과제분석)로 따라 하기`,
             `- ${i < n - 1 ? '구조화된 학습 자료로' : '실제·모의 상황에서'} ${stem ? stem + '하기 ' : ''}반복·적용하기`,
           ].filter(Boolean)).join('\n');
@@ -1853,7 +1854,9 @@ export default function IepPage({ onNavigate }) {
       `너는 특수교육 IEP 작성 전문가다. 아래 "학생 자료"와 "전년도 IEP"를 실제로 반영해, 선택한 성취기준에 대한 개별화교육계획을 작성하라.\n\n` +
       `[학생 자료]\n${summary}\n${priorBlock}\n` +
       tierLinkage +
-      `[성취기준] ${[sel, ...selExtra].map((x) => `[${x.code}] ${x.text}`).join(' / ')} (교과 ${sel.subject}${sel.area ? ' · ' + sel.area : ''})\n` +
+      (sel
+        ? `[성취기준] ${[sel, ...selExtra].map((x) => `[${x.code}] ${x.text}`).join(' / ')} (교과 ${sel.subject}${sel.area ? ' · ' + sel.area : ''})\n`
+        : '[성취기준] 선택하지 않음 — 아래 학기목표와 학생 자료만으로 작성할 것(성취기준 코드를 지어내지 말 것).\n') +
       (selExtra.length
         ? `  → 성취기준이 여러 개다. 학기목표와 월별 교육내용이 선택된 성취기준들을 통합적으로 다루도록 반영할 것. [크로스체크 — 중요] 각 성취기준의 핵심 내용이 최소 1개 구간의 교육내용(content)에 구체 활동으로 나타나야 한다. 출력 전에 성취기준별로 "어느 구간에 반영했는지" 스스로 점검하고, 빠진 성취기준이 있으면 해당 구간 교육내용에 활동을 보탤 것.\n`
         : '') +
@@ -1861,7 +1864,7 @@ export default function IepPage({ onNavigate }) {
       `[학기목표(확정)] ${goal}\n` +
       `  → 이 학기목표가 월별 계획 전체의 축이다(학기목표 선 확정 → 월별 후 작성). 각 구간(월)의 교육목표·교육내용은 이 학기목표에 도달하기 위한 중간 단계로 설계하고, 마지막 구간은 학기목표 수준에 도달하게 할 것.\n` +
       // 0910(현장 예시): 월별 교육목표의 점증도 "행동은 같고 지원·범위·조건만 옮겨 간다"로 — 경로B(기능중심)는 대체행동 구조가 축이라 생략.
-      (funcAlt ? '' : goalLadderBlock({ hint: `${sel.subject || ''} ${sel.text || ''}`, monthly: true })) +
+      (funcAlt ? '' : goalLadderBlock({ hint: `${sel?.subject || ''} ${sel?.text || goal || ''}`, monthly: true })) +
       (sgGen.length >= 2
         ? `[성취기준별 목표] (학기목표의 근거 — 월별 구간은 이 순서대로 배정)\n${sgGen.map((x, i) => `${i + 1}. [${x.code}] ${x.goal}`).join('\n')}\n` +
           `  → 구간마다 성취기준별 목표를 순서대로 배정해, 그 구간의 교육목표·교육내용은 배정된 목표의 소재를 다룰 것(목표보다 구간이 많으면 앞 목표부터 이어서 여러 구간에, 적으면 한 구간에 여러 목표). 지원 수준·평가 기준의 점증은 학기 전체 흐름(규칙 2·5)을 그대로 따른다.\n`
@@ -1877,8 +1880,8 @@ export default function IepPage({ onNavigate }) {
       `[대상 월(구간)] ${ms.map((x) => x + '월').join(', ')} (총 ${ms.length}구간 — 월을 묶은 구간은 한 행으로 작성)\n` +
       critLine + tierLine + currBlock + buildDisabilityMethodBlock(curStu?.disability) + ebpBlock + funcSkillsB +
       `\n[형식 본보기 — 일부러 고른 "다른 교과"의 한 구간 예시]\n` +
-      `아래 예시는 지금 작성하는 교과(${sel.subject})와 무관하다. 구조(개조식 content, methods 3구조, 질문형 eval_plan의 측면 구성)와 어미만 본보기로 삼을 것. 예시의 소재·활동·문장은 이 교과와 맞지 않으므로 가져다 쓰지 말 것.\n` +
-      `${/수학|과학/.test(sel.subject || '') ? FORMAT_EX_COMM : FORMAT_EX_MATH}\n\n` +
+      `아래 예시는 지금 작성하는 ${sel ? `교과(${sel.subject})` : '목표'}와 무관하다. 구조(개조식 content, methods 3구조, 질문형 eval_plan의 측면 구성)와 어미만 본보기로 삼을 것. 예시의 소재·활동·문장은 이 교과와 맞지 않으므로 가져다 쓰지 말 것.\n` +
+      `${/수학|과학/.test(sel?.subject || '') ? FORMAT_EX_COMM : FORMAT_EX_MATH}\n\n` +
       `요구사항:\n` +
       `1) 현행수준(plop)은 이 성취기준·평가초점에 대한 학생의 현재 수행 수준(무엇을 어디까지 하는지)을 중심으로 쓰고, 행동·지원 정보(ABC·BIP·안정실 등)는 학습에 영향을 주는 범위에서만 보조적으로 덧붙인다.\n` +
       `2) 구간이 지날수록 지원 수준을 점차 줄이며(도움받아→부분→독립→적용) 목표를 점증시킬 것.${funcAlt ? '' : ' 교육목표의 행동(동사)은 학기목표·성취기준별 목표 그대로 두고, 구간마다 옮겨 가는 것은 위 [수준 조정의 원칙]의 지원의 정도·다루는 범위·붙는 조건이다(더 쉬운 다른 행동으로 바꾸지 말 것).'}\n` +
@@ -2026,7 +2029,7 @@ export default function IepPage({ onNavigate }) {
   }
 
   async function aiGenerateFromData() {
-    if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
+    if (!sel && !String(goal).trim()) { toast('학기목표를 먼저 쓰거나 성취기준을 선택하세요.'); return; }
     if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
     if (!supportTier) toast('참고: 지원체계(모듈4)가 미지정이에요 — 지정하면 교육방법에 지원 강도가 반영됩니다.');
     setAiGenBusy(true);
@@ -2105,7 +2108,7 @@ export default function IepPage({ onNavigate }) {
 
   // AI 미연결: 프롬프트를 만들어 복사 → 외부 AI 응답을 붙여넣어 파싱.
   async function openManualPrompt() {
-    if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
+    if (!sel && !String(goal).trim()) { toast('학기목표를 먼저 쓰거나 성취기준을 선택하세요.'); return; }
     setManualOpen(true); setPasteText(''); setPromptText('프롬프트 생성 중…');
     try { setPromptText(await buildGenPrompt()); } catch (e) { setPromptText('프롬프트 생성 실패: ' + e.message); }
   }
@@ -2128,18 +2131,20 @@ export default function IepPage({ onNavigate }) {
 
 
   async function save() {
-    if (!curStuId || !sel) { toast('학생과 성취기준을 선택하세요.'); return; }
+    if (!curStuId) { toast('학생을 선택하세요.'); return; }
+    if (!sel && !String(goal).trim()) { toast('학기목표를 먼저 쓰거나 성취기준을 선택하세요.'); return; }
     if (!monthly.length) { toast('월별 목표를 먼저 생성하세요.'); return; }
     // P7: 성취기준 코드 화이트리스트 검증(방어용, 차단하지 않음).
-    warnUnknownStandard(sel.code);
+    if (sel) warnUnknownStandard(sel.code);
     setBusy(true);
     try {
       // P2: 실제 데이터로서의 Tier 연동 — 이 학생의 현재 Tier 2 소그룹 id를 함께 저장.
       const myTierGroups = (tier2Groups || []).filter((g) => (g.members || []).some((m) => m.student_id === curStuId));
       const body = {
         school_year: schoolYear,
-        subject: sel.subject, grade_code: sel.gradeCode, area: sel.area,
-        standard_code: sel.code, standard_text: sel.text,
+        // 0915: 성취기준 없이 저장하면 과목·영역·성취기준 칸은 빈 값(전년도 IEP 입력과 같은 형태).
+        subject: sel?.subject || '', grade_code: sel?.gradeCode || 0, area: sel?.area || '',
+        standard_code: sel?.code || '', standard_text: sel?.text || '',
         // 0720: 관련 성취기준(다중 선택) — 연수자료 양식의 "관련성취기준" 목록.
         related_stds: selExtra.map((x) => ({ code: x.code, text: x.text, subject: x.subject, area: x.area, grade_code: x.gradeCode })),
         semester: +sem, semester_goal: goal, plop,
@@ -2148,7 +2153,7 @@ export default function IepPage({ onNavigate }) {
         // 단일 성취기준이면 학기목표가 곧 그 줄이므로 학기목표 문장을 그대로 담는다.
         std_goals: (flowMode === 'std' || editingId)
           ? (stdGoals || [])
-            .filter((x) => x && x.code && (x.code === sel.code || selExtra.some((s) => s.code === x.code)))
+            .filter((x) => x && x.code && (x.code === sel?.code || selExtra.some((s) => s.code === x.code)))
             .map((x, _i, arr) => ({ code: x.code, std: String(x.std || ''), goal: String(arr.length === 1 ? goal : (x.goal || '')).trim() }))
           : [],
         // 0908(기능중심 B): 행동 기능·핵심기술·대체행동(단기목표). 경로A는 {}.
@@ -2210,6 +2215,13 @@ export default function IepPage({ onNavigate }) {
   }
 
   // 과제분석 단계별 평가 기록지(데이터 수집 체크리스트) 인쇄용 Word 출력 — 진짜 .docx (0824)
+  // 0915(mds/31): 저장된 과제분석 목표의 회기 기록 화면(행동 데이터 기록 › 교수 회기 기록 탭)으로 이동.
+  function openSessionLog() {
+    if (!editingId) { toast('목표를 먼저 저장해 주세요 — 저장한 목표에 회기 기록이 붙어요.'); return; }
+    try { sessionStorage.setItem('kb_session_goal', String(editingId)); sessionStorage.setItem('kb_monitor_tab', 'sessions'); } catch (_) { /* 무시 */ }
+    onNavigate?.('monitor');
+  }
+
   function downloadTaskSheetNow() {
     const steps = (taskSteps || []).map((t) => t.trim()).filter(Boolean);
     if (!steps.length) { toast('단계를 먼저 만들어 주세요.'); return; }
@@ -2313,8 +2325,9 @@ export default function IepPage({ onNavigate }) {
   };
   const extCfg = EXT_CONFIGS[extKind];
   function openExt(kind) {
-    if (!sel && kind !== 'pyeong') { toast('성취기준을 먼저 선택하세요.'); return; }
-    if (kind === 'pyeong' && !sel) { toast('성취기준을 먼저 선택하세요.'); return; }
+    // 0915: 성취기준 분석·교과 평어만 성취기준이 필요하고, 과제분석 단계 등은 학기목표만으로 된다.
+    if (!sel && (kind === 'analyze' || kind === 'pyeong')) { toast('성취기준을 먼저 선택하세요.'); return; }
+    if (!sel && !String(goal).trim()) { toast('학기목표를 먼저 쓰거나 성취기준을 선택하세요.'); return; }
     if (kind === 'verbs' && !(verb || sel?.verb)) { toast('먼저 측정 가능한 동사를 입력하거나 분석을 실행하세요.'); return; }
     setExtKind(kind);
   }
@@ -2564,7 +2577,8 @@ export default function IepPage({ onNavigate }) {
 
       {/* 작성 순서 진행바(스텝퍼) — 성취기준 → 평가초점 → 목표 생성 → 저장 → 계획서 */}
       {(() => {
-        const stdStep = { label: flowMode === 'goal' ? '성취기준 연결' : '성취기준 선택', done: !!sel, id: 'iep-std' };
+        // 0915(갑): 성취기준은 선택 사항 — 학기목표를 썼으면 건너뛴 것으로 보고 완료 처리.
+        const stdStep = { label: flowMode === 'goal' ? '성취기준 연결(선택)' : '성취기준(선택)', done: !!sel || !!String(goal).trim(), id: 'iep-std' };
         const goalStep = { label: '학기목표', done: !!String(goal).trim(), id: 'iep-goal' };
         const funcStep = { label: '기능·대체행동', done: !!String(funcPlan.alt || '').trim(), id: 'iep-func' };
         const steps = [
@@ -2618,7 +2632,7 @@ export default function IepPage({ onNavigate }) {
             <div key={g.id} style={{ border: '1px solid ' + (editingId === g.id ? '#7c4dff' : '#e3e6eb'), background: editingId === g.id ? '#f5f0ff' : '#fff', borderRadius: 9, padding: '10px 12px', marginTop: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <div style={{ minWidth: 220, flex: 1 }}>
-                  <div style={{ fontSize: 12, color: '#3b6ef5', fontWeight: 700 }}>[{g.standard_code}]{Array.isArray(g.related_stds) && g.related_stds.length ? ` 외 ${g.related_stds.length}개` : ''} {g.subject}{g.area ? ' · ' + g.area : ''} · {GRADE[g.grade_code]} · {g.semester}학기</div>
+                  <div style={{ fontSize: 12, color: '#3b6ef5', fontWeight: 700 }}>{g.standard_code ? `[${g.standard_code}]` : '성취기준 없음'}{Array.isArray(g.related_stds) && g.related_stds.length ? ` 외 ${g.related_stds.length}개` : ''} {g.subject}{g.area ? ' · ' + g.area : ''}{g.subject && GRADE[g.grade_code] ? ' · ' + GRADE[g.grade_code] : ''} · {g.semester}학기</div>
                   <div style={{ fontSize: 13, marginTop: 3 }}>{g.semester_goal}</div>
                   <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 3 }}>월별 {Array.isArray(g.monthly) ? g.monthly.length : 0}개월 · 수정 {g.updated_at}</div>
                 </div>
@@ -2684,7 +2698,7 @@ export default function IepPage({ onNavigate }) {
       {(flowMode === 'std' || !!String(goal).trim()) && (
       <div className="card" id="iep-std">
         <div className="card-title">📋 {stepNo.std} {flowMode === 'goal' ? '성취기준 연결 (학기목표와 관련된 기준 선택)' : '성취기준 선택'}</div>
-        <div className="card-subtitle">2022 개정 교육과정 성취기준 {rows.length || ''}개(기본교육과정 {currCounts.기본} · 공통교육과정 {currCounts.공통})에서 교육과정·교과·학년군·영역으로 좁혀 선택합니다. 교육과정 구분은 학생 장애영역에 맞춰 미리 골라집니다. <strong>여러 개 선택 가능</strong> — 누르면 담기고, 다시 누르면 빠집니다.</div>
+        <div className="card-subtitle">2022 개정 교육과정 성취기준 {rows.length || ''}개(기본교육과정 {currCounts.기본} · 공통교육과정 {currCounts.공통})에서 교육과정·교과·학년군·영역으로 좁혀 선택합니다. 교육과정 구분은 학생 장애영역에 맞춰 미리 골라집니다. <strong>여러 개 선택 가능</strong> — 누르면 담기고, 다시 누르면 빠집니다. <strong>선택하지 않아도 됩니다</strong> — 성취기준과 맞지 않는 목표는 {flowMode === 'goal' ? '위에 쓴 학기목표 그대로' : '아래 학기목표 칸에 바로 써서'} 평가초점·월별 계획으로 넘어가세요.</div>
         {/* 0720: 선택된 성취기준 목록 — 단순 토글(대표 개념 없음) */}
         {(sel || selExtra.length > 0) && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', margin: '4px 0 8px', padding: '8px 10px', background: '#f3f6fc', border: '1px solid #d5e0f5', borderRadius: 8 }}>
@@ -2810,15 +2824,15 @@ export default function IepPage({ onNavigate }) {
       )}
 
       {/* 경로A: 성취기준 다음에 학기목표 카드 */}
-      {flowMode === 'std' && sel && goalCard}
+      {flowMode === 'std' && goalCard}
 
       {/* 평가초점 개발 — 확정한 학기목표를 쪼개어 개발 (0719 피드백: 성취기준을 바로 나누지 않음) */}
-      {sel && !!String(goal).trim() && (
+      {!!String(goal).trim() && (
         <div className="card" id="iep-foci">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div>
               <div className="card-title" style={{ marginBottom: 0 }}>🔍 {stepNo.foci} 평가초점 개발 (학기목표 쪼개기)</div>
-              <div className="card-subtitle">학기목표: {goal} <span style={{ color: '#9ca3af' }}>· 성취기준 [{sel.code}]{selExtra.length ? ` 외 ${selExtra.length}개` : ''}</span></div>
+              <div className="card-subtitle">학기목표: {goal} <span style={{ color: '#9ca3af' }}>· {sel ? <>성취기준 [{sel.code}]{selExtra.length ? ` 외 ${selExtra.length}개` : ''}</> : '성취기준 없음'}</span></div>
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
               {/* 0720: AI 버튼 3개(쪼개기/성취기준 분석/동사 펼치기) → 1개로 통합(혼동 방지). */}
@@ -2923,7 +2937,7 @@ export default function IepPage({ onNavigate }) {
       )}
 
       {/* 월별 계획 생성 — 확정된 학기목표 기반 (0719: 학기목표 선 작성 → 월별 후 작성) */}
-      {sel && !!String(goal).trim() && (
+      {!!String(goal).trim() && (
         <div className="card" id="iep-editor">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>📅 {stepNo.editor} 월별 계획 생성 (학기목표 기반 점증)
@@ -3043,6 +3057,9 @@ export default function IepPage({ onNavigate }) {
                 복잡한 행동·기술을 학생이 순서대로 수행할 단계로 나눕니다(예: 손 씻기 → 자리 앉기 → …). 전체 {taskSteps.filter((t) => t.trim()).length || '–'}단계 · 독립 수행 단계가 매월 늘고, 단계별 촉진은 점차 약화됩니다.
               </div>
               <div className="form-row" style={{ marginTop: 8 }}>
+                  {/* 0915(mds/31): 앱에서 바로 회기 기록 — 저장된 목표만(회기는 목표 id에 붙는다) */}
+                  <button className="btn btn-ghost btn-sm" onClick={openSessionLog}
+                    title={editingId ? '행동 데이터 기록 › 교수 회기 기록 탭에서 + − P I로 기록' : '목표를 먼저 저장하면 회기 기록을 열 수 있어요'}>📈 회기 기록</button>
                 <div className="form-group"><label className="form-label">교수 순서(연쇄)</label>
                   <select className="form-input" value={chainType} onChange={(e) => setChainType(e.target.value)}>
                     <option value="forward">전진형 — 1단계부터 독립 확대</option>
