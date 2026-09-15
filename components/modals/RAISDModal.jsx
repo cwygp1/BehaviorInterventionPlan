@@ -234,7 +234,8 @@ export default function RAISDModal({ open, onClose }) {
 
   return (
     <Modal open={open} onClose={onClose} maxWidth={980}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+      {/* modal-head — 오른쪽 '저장' 단추가 모달 닫기(×)와 겹치지 않게 자리를 비워 둔다(globals.css) */}
+      <div className="modal-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
         <h3 style={{ margin: 0 }}>💡 선호/강화물 탐색 (RAISD)</h3>
         <button className={'btn btn-sm ' + (raisdDirty ? 'btn-pri' : 'btn-ghost')} onClick={onSave} disabled={busy || !raisdDirty}>{raisdDirty ? '💾 저장' : '✓ 저장됨'}</button>
       </div>

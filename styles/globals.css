@@ -341,7 +341,9 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 .modal{position:relative}
 /* Reserve space at the top-right of every modal so headers don't collide
    with the × close button. */
-.modal > h3:first-child{padding-right:40px}
+/* 0915: 닫기 단추가 모달의 첫 자식이라 :first-child 규칙은 어디에도 맞지 않았다 — 닫기 단추 바로 다음의
+   제목(h3)과 오른쪽에 단추를 둔 머리줄(.modal-head)에 자리를 비워 둔다(RAISD '저장됨' 단추가 ×와 겹치던 문제). */
+.modal > h3:first-child,.modal > .modal-close + h3,.modal > .modal-close + .modal-head{padding-right:40px}
 .empty-state{text-align:center;padding:48px 20px;color:var(--muted);font-size:.9rem}
 .empty-state .emoji{font-size:2.5rem;display:block;margin-bottom:10px;opacity:.5}
 
