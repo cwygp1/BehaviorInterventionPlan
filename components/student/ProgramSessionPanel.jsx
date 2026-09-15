@@ -51,7 +51,7 @@ export default function ProgramSessionPanel({ onNavigate }) {
   const goal = (goals || []).find((g) => String(g.id) === goalId) || null;
   const steps = cleanSteps(goal);
   const chainType = goal?.chain_type || 'forward';
-  const mine = useMemo(() => sessions.filter((s) => String(s.goal_id) === goalId), [sessions, goalId]);
+  const mine = useMemo(() => sessions.filter((s) => (s.kind || 'chain') === 'chain' && String(s.goal_id) === goalId), [sessions, goalId]);
   const mastery = defaultMastery(chainType);
 
   // 목표를 바꾸거나 새 기록으로 돌아가면 입력 칸을 직전 회기 기준으로 준비한다(단계·목표 단계 이어받기).
@@ -106,13 +106,13 @@ export default function ProgramSessionPanel({ onNavigate }) {
         const next = sessions.map((s) => (s.id === editingId ? r.session : s));
         setSessions(next);
         toast(`회기 기록을 고쳤어요 · 정반응률 ${r.session.pct}%`);
-        resetForm(next.filter((s) => String(s.goal_id) === goalId));
+        resetForm(next.filter((s) => (s.kind || 'chain') === 'chain' && String(s.goal_id) === goalId));
       } else {
         const r = await createSession(curStuId, body);
         const next = [...sessions, r.session].sort((a, b) => (a.date + String(a.session_no).padStart(3, '0')).localeCompare(b.date + String(b.session_no).padStart(3, '0')));
         setSessions(next);
         toast(`${r.session.date} ${r.session.session_no}회기 저장 · 정반응률 ${r.session.pct}%`);
-        resetForm(next.filter((s) => String(s.goal_id) === goalId));
+        resetForm(next.filter((s) => (s.kind || 'chain') === 'chain' && String(s.goal_id) === goalId));
       }
     } catch (e) {
       toast('저장 실패: ' + e.message);
@@ -137,7 +137,7 @@ export default function ProgramSessionPanel({ onNavigate }) {
       const next = sessions.filter((s) => s.id !== editingId);
       setSessions(next);
       toast('삭제했어요.');
-      resetForm(next.filter((s) => String(s.goal_id) === goalId));
+      resetForm(next.filter((s) => (s.kind || 'chain') === 'chain' && String(s.goal_id) === goalId));
     } catch (e) { toast('삭제 실패: ' + e.message); }
   }
 

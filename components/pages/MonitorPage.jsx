@@ -10,7 +10,7 @@ import PromptResultBlock from '../modals/PromptResultBlock';
 import { createMonitor, updateMonitor, deleteMonitor as apiDelMon, createFidelity } from '../../lib/api/students';
 import ObservationPeriodModal from '../modals/ObservationPeriodModal';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
-import ProgramSessionPanel from '../student/ProgramSessionPanel';
+import TeachingRecordPanel from '../student/TeachingRecordPanel';
 
 const STD_BEHS = ['자리 이탈', '소리 지르기', '자해', '공격 행동', '거부', '회피', '반복 행동', '울기', '물건 던지기', '도주'];
 
@@ -86,10 +86,10 @@ export default function MonitorPage({ onNavigate }) {
   const tabBar = (
     <div className="tabs" role="tablist" aria-label="행동 데이터 종류">
       <button type="button" role="tab" className={'tab' + (tab === 'behavior' ? ' on' : '')} aria-selected={tab === 'behavior'} onClick={() => pickTab('behavior')}>🔴 문제행동 데이터</button>
-      <button type="button" role="tab" className={'tab' + (tab === 'sessions' ? ' on' : '')} aria-selected={tab === 'sessions'} onClick={() => pickTab('sessions')}>🧩 교수 회기 기록 (과제분석)</button>
+      <button type="button" role="tab" className={'tab' + (tab === 'sessions' ? ' on' : '')} aria-selected={tab === 'sessions'} onClick={() => pickTab('sessions')}>🧩 교수 회기 기록 (과제분석·DTT)</button>
     </div>
   );
-  if (tab === 'sessions') return <><StuHero />{tabBar}<ProgramSessionPanel onNavigate={onNavigate} /></>;
+  if (tab === 'sessions') return <><StuHero />{tabBar}<TeachingRecordPanel onNavigate={onNavigate} /></>;
   // 서버 데이터 도착 전 입력 UI를 띄우지 않는다 — 로드 중 입력이 덮어써지는 것 방지.
   if (!curStuDataLoaded) return <><StuHero />{tabBar}<FormLoading label="행동 데이터를 불러오는 중…" /></>;
 
