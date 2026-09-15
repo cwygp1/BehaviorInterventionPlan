@@ -7,8 +7,8 @@ import {
 } from '../../lib/api/students';
 import {
   DTT_CODES, codeMeta, codeText, nextDttCode, PHASES, TRIAL_OPTIONS, ITEM_STATUS, PROMPT_METHODS, ERROR_CORRECTIONS,
-  normalizeTrials, scoreDtt, countText, masteryOf, masteryText, defaultDttMastery, masteryReached,
-  itemHistory, stuckItem, dttSummary,
+  normalizeTrials, scoreDtt, countText, masteryOf, masteryText, defaultDttMastery,
+  itemHistory, dttSummary, dttItemJudgement,
 } from '../../lib/programSessions';
 
 // 0915(mds/32 · 현장 의견 "DTT면 독립 수행 비율이나 기회 중 성공 횟수"): DTT(개별시행) 기록.
@@ -357,13 +357,11 @@ export default function DttPanel() {
       {program && !draft && (
         <>
           {/* 표적별 판정 배지 */}
-          {items.some((x) => { const h = itemHistory(mine, x.id); return h.length && (masteryReached(h, mastery) || stuckItem(h)); }) && (
+          {items.some((x) => { const j = dttItemJudgement(x.status, itemHistory(mine, x.id), mastery); return j.reached || j.stuck || j.dropped; }) && (
             <div className="card" style={{ padding: '10px 14px' }}>
               {items.map((x) => {
-                const h = itemHistory(mine, x.id);
-                const reached = h.length > 0 && masteryReached(h, mastery);
-                const stuck = h.length > 0 && stuckItem(h);
-                if (!reached && !stuck) return null;
+                const { reached, stuck, dropped } = dttItemJudgement(x.status, itemHistory(mine, x.id), mastery);
+                if (!reached && !stuck && !dropped) return null;
                 return (
                   <div key={x.id} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '.84rem', padding: '3px 0' }}>
                     {reached && x.status !== 'maintain' && x.status !== 'mastered' && (
@@ -374,7 +372,7 @@ export default function DttPanel() {
                       <><span style={{ color: '#15803d' }}>🏅 ‘{x.text}’ 습득</span>
                         <button className="btn btn-ghost btn-sm" onClick={() => setItemStatus(x.id, 'maintain')}>유지·일반화로 옮기기</button></>
                     )}
-                    {x.status === 'maintain' && !reached && (
+                    {dropped && (
                       <><span style={{ color: '#b45309' }}>↩ ‘{x.text}’ 유지 점검에서 기준 아래</span>
                         <button className="btn btn-ghost btn-sm" onClick={() => setItemStatus(x.id, 'teach')}>다시 지도</button></>
                     )}
