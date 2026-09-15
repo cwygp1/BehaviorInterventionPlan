@@ -22,6 +22,8 @@ import WeekStrip from '../ui/WeekStrip';
 //   · 카드 CTA는 영역별 문구('학급 전체 현황판 →'), 배지는 '🔦 할 일 n건'(누르면 현황판의 할 일 목록으로).
 //   · 사이드바와 100% 겹치는 빠른 메뉴는 768px 초과 화면에서 접힘(사이드바가 서랍인 좁은 화면에서는 펼침).
 const QUICK_IDS = ['students', 'crisis', 'support', 'videos'];
+// 0915 현장 요청(IEP 칸이 작아 잘 안 보임): IEP 카드 안에 작성 순서 ①~④를 바로 가기로 — 누르면 그 화면으로(학생 선택 가드는 그대로).
+const IEP_STEPS = ['priorIep', 'startpoint', 'iep', 'iepReport'];
 const AI_IDS = ['chatExpert', 'generator', 'builder'];
 const STU_CHIPS = [['observe', '관찰 기록'], ['qabf', '이유 찾기'], ['bip', '중재 계획'], ['monitor', '행동 데이터']];
 const HINT_SEEN_KEY = 'kb_portal_hint_seen';
@@ -149,14 +151,33 @@ export default function PortalHome({ onNavigate }) {
 
       {/* 0915 현장 요청: IEP 카드를 맨 위로 — 특수교사가 가장 자주 여는 영역. Tier 1·2·3 카드는 그 아래. */}
       <div className="pgrid">
-        <button className="pcard iepwide" style={{ '--c': SECTIONS.iep.color, '--cs': SECTIONS.iep.soft }} onClick={() => onNavigate(SECTIONS.iep.dash)} data-tour="pcard-iep">
-          <span className="ic" aria-hidden="true">{SECTIONS.iep.icon}</span>
-          <span className="bdg">IEP · Tier와 별개</span>
-          <h4>{SECTIONS.iep.title}</h4>
-          <p>{SECTIONS.iep.desc}</p>
-          <span className="ph-hint">{hint.iep}{todoBadge('iep', SECTIONS.iep.dash)}</span>
-          <span className="go">{ctaOf(SECTIONS.iep.dash)}</span>
-        </button>
+        {/* 0915 현장 요청: IEP 칸을 크게 — 큰 제목·설명, 오른쪽 현황판 단추, 아래 작성 순서 ①~④ 바로 가기.
+            카드 안에 단추가 여럿이라 카드 전체를 버튼 하나로 두지 않고, 왼쪽 제목 영역과 오른쪽 단추가 각각 현황판을 연다. */}
+        <div className="pcard iepwide" style={{ '--c': SECTIONS.iep.color, '--cs': SECTIONS.iep.soft }} data-tour="pcard-iep">
+          <button type="button" className="iep-main" onClick={() => onNavigate(SECTIONS.iep.dash)} aria-label={`${SECTIONS.iep.title} — ${ctaOf(SECTIONS.iep.dash)}`}>
+            <span className="ic" aria-hidden="true">{SECTIONS.iep.icon}</span>
+            <span className="iep-text">
+              <span className="bdg">IEP · Tier와 별개</span>
+              <h4>{SECTIONS.iep.title}</h4>
+              <p>{SECTIONS.iep.desc}</p>
+            </span>
+          </button>
+          <div className="iep-side">
+            <span className="ph-hint">{hint.iep}{todoBadge('iep', SECTIONS.iep.dash)}</span>
+            <button type="button" className="iep-cta" onClick={() => onNavigate(SECTIONS.iep.dash)}>{ctaOf(SECTIONS.iep.dash)}</button>
+          </div>
+          <div className="iep-steps" role="group" aria-label="IEP 작성 순서">
+            <span className="iep-steps-k">작성 순서</span>
+            {IEP_STEPS.map((id, i) => (
+              <span key={id} className="iep-step-wrap">
+                {i > 0 && <span className="iep-arrow" aria-hidden="true">→</span>}
+                <button type="button" className="iep-step" onClick={() => onNavigate(id)} title={pageTitle(id)}>
+                  {['①', '②', '③', '④'][i]} {pageLabel(id)}
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
         <div className="portal-bridge">
           ⬆ 아래 학급·학생 지원(Tier 1·2·3) 기록이 위의 <b>개별화교육계획(IEP)</b>에 이어져요
           <button type="button" className="bridge-i" onClick={() => setBridgeOpen((o) => !o)} aria-expanded={bridgeOpen} title="자세히 보기">ⓘ</button>

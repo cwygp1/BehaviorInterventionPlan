@@ -571,11 +571,35 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 .pcard p{font-size:.78rem;color:var(--muted);line-height:1.5;min-height:36px}
 .pcard .ph-hint{font-size:.73rem;font-weight:600;color:var(--sub);background:#fff;border:1px dashed var(--border);border-radius:8px;padding:4px 9px;margin-top:6px;align-self:flex-start}
 .pcard .go{margin-top:10px;font-size:.8rem;font-weight:800;color:var(--c)}
-.pcard.iepwide{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center;gap:4px 14px}
-.pcard.iepwide .ic{margin:0}
-.pcard.iepwide h4{margin:0}
-.pcard.iepwide p{min-height:0;flex:1 1 240px;margin:0}
-.pcard.iepwide .go{margin:0 0 0 auto}
+/* 0915 현장 요청: IEP 칸을 크게 — 큰 제목·설명 + 오른쪽 현황판 단추 + 아래 작성 순서 바로 가기 */
+.pcard.iepwide{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px 24px;padding:24px 26px;cursor:default;background:linear-gradient(135deg,var(--cs,#eff6ff) 0%,#fff 75%)}
+.pcard.iepwide:hover{transform:none;box-shadow:var(--sh-lg)}
+.pcard.iepwide .iep-main{display:flex;align-items:flex-start;gap:16px;border:none;background:none;padding:0;margin:0;text-align:left;cursor:pointer;font:inherit;color:inherit;min-width:0}
+.pcard.iepwide .ic{font-size:2.8rem;line-height:1;margin:2px 0 0}
+.pcard.iepwide .iep-text{display:flex;flex-direction:column;gap:5px;min-width:0}
+.pcard.iepwide .bdg{font-size:.72rem;padding:3px 11px}
+.pcard.iepwide h4{font-size:1.4rem;margin:2px 0 0;letter-spacing:-.01em}
+.pcard.iepwide .iep-main:hover h4{color:var(--c)}
+.pcard.iepwide p{font-size:.92rem;color:var(--sub);min-height:0;margin:0;line-height:1.55}
+.pcard.iepwide .iep-side{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.pcard.iepwide .ph-hint{margin:0;font-size:.82rem;padding:5px 11px;align-self:flex-end}
+.pcard.iepwide .iep-cta{border:none;background:var(--c);color:#fff;font-weight:800;font-size:1rem;padding:12px 22px;border-radius:12px;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(37,99,235,.28);transition:.15s}
+.pcard.iepwide .iep-cta:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(37,99,235,.36)}
+.pcard.iepwide .iep-steps{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:14px;border-top:1px dashed rgba(37,99,235,.28)}
+.pcard.iepwide .iep-steps-k{font-size:.8rem;font-weight:700;color:var(--muted);margin-right:2px}
+.pcard.iepwide .iep-step-wrap{display:inline-flex;align-items:center;gap:8px}
+.pcard.iepwide .iep-arrow{color:var(--muted);font-size:.85rem}
+.pcard.iepwide .iep-step{border:1px solid rgba(37,99,235,.35);background:#fff;color:var(--c);font-weight:700;font-size:.86rem;padding:7px 13px;min-height:38px;border-radius:999px;cursor:pointer;transition:.15s}
+.pcard.iepwide .iep-step:hover{background:var(--cs);border-color:var(--c)}
+@media(max-width:640px){
+  .pcard.iepwide{grid-template-columns:1fr;padding:18px}
+  .pcard.iepwide .ic{font-size:2.1rem}
+  .pcard.iepwide h4{font-size:1.2rem}
+  .pcard.iepwide .iep-side{align-items:stretch}
+  .pcard.iepwide .ph-hint{align-self:flex-start}
+  .pcard.iepwide .iep-cta{width:100%}
+  .pcard.iepwide .iep-arrow{display:none}
+}
 .portal-bridge{grid-column:1/-1;text-align:center;font-size:.76rem;font-weight:600;color:var(--muted);margin:-4px 0}
 .portal-bridge b{color:#2563eb}
 .pquick{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
