@@ -4,6 +4,7 @@ import { FormLoading } from '../../lib/hooks/useFormLoad';
 import useAutoSave from '../../lib/hooks/useAutoSave';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useEntryDate } from '../../lib/hooks/useEntryDate';
 import { useLLM } from '../../contexts/LLMContext';
 import { EditableChipGroup } from '../ui/QChip';
 import TokenField from '../ui/TokenField';
@@ -50,7 +51,8 @@ export default function ObservePage({ onNavigate }) {
   const { callDetailed, status: llmStatus } = useLLM();
   const aiOn = llmStatus !== 'off';
 
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const entryDate = useEntryDate('observe'); // 기록 달력에서 고른 날짜(mds/33)
+  const [date, setDate] = useState(() => entryDate || new Date().toISOString().slice(0, 10));
   const [timeVal, setTimeVal] = useState('');
   const [placeVal, setPlaceVal] = useState('');
   const [a, setA] = useState('');
@@ -102,7 +104,7 @@ export default function ObservePage({ onNavigate }) {
         const d = JSON.parse(raw);
         setA(d.a || ''); setB(d.b || ''); setC(d.c || ''); setSetting(d.setting || '');
         setTimeVal(d.timeVal || ''); setPlaceVal(d.placeVal || '');
-        if (d.date) setDate(d.date);
+        if (d.date && !entryDate) setDate(d.date); // 달력에서 날짜를 골라 왔으면 그 날짜가 우선
       } else {
         setA(''); setB(''); setC(''); setSetting(''); setTimeVal(''); setPlaceVal('');
       }

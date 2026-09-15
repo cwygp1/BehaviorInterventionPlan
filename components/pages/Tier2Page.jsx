@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import StuHero from '../student/StuHero';
 import Tier2GroupPanel from '../student/Tier2GroupPanel';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useEntryDate } from '../../lib/hooks/useEntryDate';
+import { semesterOf } from '../../lib/utils/calendarRules';
 import { useLLM } from '../../contexts/LLMContext';
 import { saveCICO, deleteCICO } from '../../lib/api/students';
 import { useAutoSaveBody } from '../../lib/hooks/useAutoSave';
@@ -45,7 +47,7 @@ function readPeriodData(scores, periodName) {
 }
 
 export default function Tier2Page({ onNavigate }) {
-  const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData, curClassId, tier2Groups } = useStudents();
+  const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData, curClassId, tier2Groups, curYear, curSemester, selectSemester } = useStudents();
   const toast = useToast();
   const { call, status: llmStatus } = useLLM();
 
@@ -53,7 +55,8 @@ export default function Tier2Page({ onNavigate }) {
   const [aiOutput, setAiOutput] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
 
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const entryDate = useEntryDate('tier2'); // 기록 달력에서 고른 날짜(mds/33)
+  const [date, setDate] = useState(() => entryDate || new Date().toISOString().slice(0, 10));
   const [goalsInput, setGoalsInput] = useState('');
   const [goals, setGoals] = useState([]);
   const [periodList, setPeriodList] = useState([]);
@@ -69,6 +72,30 @@ export default function Tier2Page({ onNavigate }) {
   useEffect(() => {
     if (groupId && !tier2Groups.some((g) => g.id === groupId)) setGroupId(null);
   }, [tier2Groups, groupId]);
+
+  // 달력에서 날짜를 골라 왔으면 그 학생이 속한 소그룹을 바로 열어 점검표 입력 칸까지 보여준다(그룹 목록 로드 뒤 1회).
+  const entryGroupDone = useRef(false);
+  // 소그룹은 학기 단위 — 고른 날짜가 같은 학년도의 다른 학기면 학기부터 맞춘다(4월 기록 → 1학기 소그룹).
+  const entrySemDone = useRef(false);
+  useEffect(() => {
+    if (!entryDate || entrySemDone.current) return;
+    entrySemDone.current = true;
+    const { schoolYear, semester } = semesterOf(entryDate);
+    if (schoolYear === curYear && semester !== curSemester) {
+      selectSemester(semester);
+      toast(`${+entryDate.slice(5, 7)}월 기록이라 ${semester}학기 소그룹으로 바꿨어요.`);
+    }
+  }, [entryDate, curYear, curSemester, selectSemester, toast]);
+  useEffect(() => {
+    if (!entryDate || entryGroupDone.current || groupId || !curStuId || !tier2Groups.length) return;
+    // 학기를 막 바꿨으면 이전 학기 목록이 잠깐 남아 있다 — 고른 날짜의 학기 소그룹이 올 때까지 기다린다.
+    const { semester } = semesterOf(entryDate);
+    if (tier2Groups.some((x) => Number(x.semester) !== semester) && curSemester === semester) return;
+    const g = tier2Groups.find((x) => Number(x.semester) === curSemester && (x.members || []).some((m) => m.student_id === curStuId));
+    entryGroupDone.current = true;
+    if (g) setGroupId(g.id);
+    else toast(`${curStu?.code || '이 학생'}이(가) 들어 있는 ${curSemester}학기 소그룹이 없어요. 소그룹을 고르거나 학생을 추가하면 점검표가 열려요.`);
+  }, [entryDate, tier2Groups, curStuId, groupId, curSemester, curStu, toast]);
 
   // 학생을 바꾸면 이전 학생의 AI 요약이 남지 않도록 초기화.
   useEffect(() => { setAiOutput(''); setAiBusy(false); }, [curStuId]);

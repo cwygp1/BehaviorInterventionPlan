@@ -2,6 +2,7 @@ import { useState } from 'react';
 import StuHero from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useEntryDate } from '../../lib/hooks/useEntryDate';
 import { EditableChipGroup, makeAppender } from '../ui/QChip';
 import CrisisPromptModal from '../modals/CrisisPromptModal';
 import ResourceDownloads from '../ui/ResourceDownloads';
@@ -65,7 +66,8 @@ export default function CrisisPage() {
   const [aiOpen, setAiOpen] = useState(false);
 
   // SZ form state
-  const [szDate, setSzDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const entryDate = useEntryDate('crisis'); // 기록 달력에서 고른 날짜(mds/33)
+  const [szDate, setSzDate] = useState(() => entryDate || new Date().toISOString().slice(0, 10));
   const [szReason, setSzReason] = useState('불안');
   const [szIn, setSzIn] = useState('');
   const [szOut, setSzOut] = useState('');

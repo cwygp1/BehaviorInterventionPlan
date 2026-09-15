@@ -3,6 +3,7 @@ import StuHero, { NoStudentHint } from '../student/StuHero';
 import { FormLoading } from '../../lib/hooks/useFormLoad';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useEntryDate } from '../../lib/hooks/useEntryDate';
 import { useLLM } from '../../contexts/LLMContext';
 import { EditableChipGroup } from '../ui/QChip';
 import AIActionBar from '../ui/AIActionBar';
@@ -23,7 +24,8 @@ export default function MonitorPage({ onNavigate }) {
   const [aiOutput, setAiOutput] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
 
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const entryDate = useEntryDate('monitor'); // 기록 달력에서 고른 날짜(mds/33)
+  const [date, setDate] = useState(() => entryDate || new Date().toISOString().slice(0, 10));
   const [beh, setBeh] = useState('');
   const [freq, setFreq] = useState(0);
   const [dur, setDur] = useState(0);

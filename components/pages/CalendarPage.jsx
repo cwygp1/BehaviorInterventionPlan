@@ -4,15 +4,18 @@ import { fetchCalendar } from '../../lib/api/calendar';
 import { KINDS, KIND_ORDER, MISSING, PERIOD, CAL_VIEW_KEY, studentColor, goLabel } from '../../lib/calendarKinds';
 import { monthGrid, shiftMonth, addDays, dow, todayKst, WEEKDAY_KO } from '../../lib/utils/calendarRules';
 import { holidayName } from '../../lib/utils/holidays';
+import { setEntryDate } from '../../lib/hooks/useEntryDate';
 
 // 0915(mds/33 P0): 일정·기록 달력 — 이미 저장한 기록을 날짜별로 모아 보는 화면.
 //   · 나이스 월간일정처럼 일~토 격자, 오늘 강조, 날짜를 누르면 오른쪽에 그날 기록.
 //   · 새로 적는 칸 없음 — 항목을 누르면 그 학생을 선택하고 입력 화면으로 이동.
 //   · 빠진 날(매일 기록 누락)은 빗금. 규칙은 lib/utils/calendarRules.js.
 //   · 좁은 화면(≤720px)은 격자 대신 날짜 목록(CSS가 전환).
-// 보던 달·선택한 날은 sessionStorage(CAL_VIEW_KEY)에 두어 입력 화면에 갔다 와도 그대로.
+// 보던 달·선택한 날·고른 학생은 sessionStorage(CAL_VIEW_KEY)에 두어 입력 화면에 갔다 와도 그대로.
 const KINDS_KEY = 'kb_cal_kinds';
 const MAX_TAGS = 3;
+// 날짜 패널 '기록하기' 칩 — 날짜 칸이 있는 입력 화면만(가정 통신은 날짜를 고르지 않음).
+const ADD_KINDS = ['abc', 'mon', 'cico', 'sz', 'session'];
 
 const readJson = (store, key) => { try { return JSON.parse(window[store].getItem(key) || 'null'); } catch (_e) { return null; } };
 const writeJson = (store, key, v) => { try { window[store].setItem(key, JSON.stringify(v)); } catch (_e) { /* 사생활 모드 등 */ } };
@@ -25,7 +28,7 @@ export default function CalendarPage({ onNavigate }) {
   const [view] = useState(() => (typeof window === 'undefined' ? null : readJson('sessionStorage', CAL_VIEW_KEY)));
   const [month, setMonth] = useState(() => (/^\d{4}-\d{2}$/.test(view?.month || '') ? view.month : today.slice(0, 7)));
   const [sel, setSel] = useState(() => (/^\d{4}-\d{2}-\d{2}$/.test(view?.sel || '') ? view.sel : today));
-  const [stuSel, setStuSel] = useState('all');
+  const [stuSel, setStuSel] = useState(() => (typeof view?.stu === 'string' && view.stu ? view.stu : 'all'));
   const [kindsOn, setKindsOn] = useState(() => Object.fromEntries(KIND_ORDER.map((k) => [k, true])));
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -37,7 +40,7 @@ export default function CalendarPage({ onNavigate }) {
     const k = readJson('localStorage', KINDS_KEY);
     if (k && typeof k === 'object') setKindsOn((cur) => ({ ...cur, ...k }));
   }, []);
-  useEffect(() => { writeJson('sessionStorage', CAL_VIEW_KEY, { month, sel }); }, [month, sel]);
+  useEffect(() => { writeJson('sessionStorage', CAL_VIEW_KEY, { month, sel, stu: stuSel }); }, [month, sel, stuSel]);
 
   const grid = useMemo(() => monthGrid(month), [month]);
 
@@ -83,8 +86,10 @@ export default function CalendarPage({ onNavigate }) {
   const days = [];
   for (let d = grid.start; d <= grid.end; d = addDays(d, 1)) days.push(d);
 
-  const go = async (sid, page, monitorTab) => {
+  // 항목 → 그 학생 선택 + (entry가 있으면) 이 날짜를 입력 화면 날짜 칸으로 넘기고 이동.
+  const go = async (sid, page, monitorTab, entry) => {
     if (sid) await selectStudent(Number(sid));
+    if (entry) setEntryDate(entry, sel);
     if (monitorTab) { try { sessionStorage.setItem('kb_monitor_tab', monitorTab); } catch (_e) { /* noop */ } }
     onNavigate(page);
   };
@@ -299,8 +304,8 @@ export default function CalendarPage({ onNavigate }) {
                 <div className="cal-row miss" key={'m' + i}>
                   <span className="kc" style={{ '--c': '#b7791f', '--cs': '#fff7e6' }}>기록 없음</span>
                   <p>{MISSING[x.kind].text}</p>
-                  <button type="button" className="go" onClick={() => go(sid, MISSING[x.kind].page, MISSING[x.kind].monitorTab)}>
-                    {goLabel(MISSING[x.kind].page)}에서 입력 →
+                  <button type="button" className="go" onClick={() => go(sid, MISSING[x.kind].page, MISSING[x.kind].monitorTab, MISSING[x.kind].entry)}>
+                    {goLabel(MISSING[x.kind].page)}에서 {md(sel)} 입력 →
                   </button>
                 </div>
               ))}
@@ -310,11 +315,24 @@ export default function CalendarPage({ onNavigate }) {
                   <div className="cal-row" key={'e' + i}>
                     <span className="kc" style={{ '--c': k.color, '--cs': k.soft }}>{k.label}</span>
                     <p>{k.detail(e)}</p>
-                    <button type="button" className="go" onClick={() => go(sid, k.page, k.monitorTab)}>{goLabel(k.page)} 열기 →</button>
+                    <button type="button" className="go" onClick={() => go(sid, k.page, k.monitorTab, k.entry)}>{goLabel(k.page)}{k.entry ? ` · ${md(sel)}` : ''} 열기 →</button>
                   </div>
                 );
               })}
             </div>
+          ))}
+          {/* 이 날짜로 새 기록 — 한 학생을 골랐을 때만(누구의 기록인지 분명해야 함). 미래 날짜는 제외. */}
+          {sel <= today && (stuSel !== 'all' ? (
+            <div className="cal-add">
+              <span className="k">{stuCode(stuSel)} · {md(sel)} 기록하기</span>
+              {ADD_KINDS.map((k) => (
+                <button key={k} type="button" className="cal-chip" onClick={() => go(stuSel, KINDS[k].page, KINDS[k].monitorTab, KINDS[k].entry)}>
+                  <span className="cal-sw" style={{ background: KINDS[k].color }} aria-hidden="true" />{KINDS[k].label}
+                </button>
+              ))}
+            </div>
+          ) : students.length > 0 && (
+            <div className="cal-add-hint">위에서 학생을 고르면 이 날짜로 바로 기록할 수 있어요.</div>
           ))}
           {selPeriods.length > 0 && (
             <div className="cal-pnote">

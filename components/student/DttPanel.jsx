@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useEntryDate } from '../../lib/hooks/useEntryDate';
 import {
   fetchIEP, fetchSessions, createSession, updateSession, deleteSession,
   fetchPrograms, createProgram, updateProgram, deleteProgram,
@@ -35,7 +36,8 @@ export default function DttPanel() {
   const [programId, setProgramId] = useState('');
   const [draft, setDraft] = useState(null); // 프로그램 카드 편집 중이면 객체
   // 회기 입력
-  const [date, setDate] = useState(today);
+  const entryDate = useEntryDate('sessions'); // 기록 달력에서 고른 날짜(mds/33)
+  const [date, setDate] = useState(() => entryDate || today());
   const [phase, setPhase] = useState('baseline');
   const [formItems, setFormItems] = useState([]); // [{id,text}] — 새 회기는 프로그램 표적, 고치기는 그 회기 스냅샷
   const [rows, setRows] = useState([]);

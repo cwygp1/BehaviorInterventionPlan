@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useEntryDate } from '../../lib/hooks/useEntryDate';
 import { fetchIEP, fetchSessions, createSession, updateSession, deleteSession } from '../../lib/api/students';
 import {
   SESSION_CODES, codeMeta, codeText, PHASES, isScoredStep, normalizeCodes, scoreSession,
@@ -20,7 +21,8 @@ export default function ProgramSessionPanel({ onNavigate }) {
   const [goals, setGoals] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [goalId, setGoalId] = useState('');
-  const [date, setDate] = useState(today);
+  const entryDate = useEntryDate('sessions'); // 기록 달력에서 고른 날짜(mds/33)
+  const [date, setDate] = useState(() => entryDate || today());
   const [phase, setPhase] = useState('teach');
   const [targetStep, setTargetStep] = useState('');
   const [codes, setCodes] = useState([]);

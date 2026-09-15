@@ -76,6 +76,9 @@
 .cal-row p{margin:0;font-size:.8rem;color:var(--text);word-break:keep-all;overflow-wrap:anywhere}
 .cal-row .go{grid-column:2;justify-self:start;border:0;background:none;padding:0;color:var(--pri);font-size:.76rem;font-weight:700}
 .cal-row .go:hover{text-decoration:underline}
+.cal-add{display:flex;flex-wrap:wrap;gap:6px;align-items:center;border-top:1px dashed var(--border);padding-top:10px}
+.cal-add .k{width:100%;font-size:.76rem;font-weight:700;color:var(--sub)}
+.cal-add-hint{font-size:.76rem;color:var(--muted);border-top:1px dashed var(--border);padding-top:10px}
 .cal-pnote{font-size:.76rem;color:var(--muted);border-top:1px dashed var(--border);padding-top:10px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
 .cal-pnote button{border:0;background:none;padding:0;color:var(--sub);font:inherit;text-decoration:underline dotted}
 
