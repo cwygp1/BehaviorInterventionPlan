@@ -23,8 +23,9 @@ const SECTION_ITEMS = Object.fromEntries(
 );
 
 // 공통 메뉴 단일 정의. always: 워크스페이스에서 항상 보이는 항목(나머지는 '더 보기').
+// 0915(mds/33): 기록 달력 추가 — 영역 화면에서도 바로 열 수 있게 always.
 const COMMON_MENU = [
-  { group: '우리 반·학생', items: ['home', 'students'], always: ['students'] },
+  { group: '우리 반·학생', items: ['home', 'students', 'calendar'], always: ['students', 'calendar'] },
   { group: '도움·자료', items: ['crisis', 'qaBoard', 'support', 'videos'], always: ['crisis', 'qaBoard'] },
   { group: 'AI 도우미', items: ['chatExpert', 'generator', 'builder'], always: [] },
 ];

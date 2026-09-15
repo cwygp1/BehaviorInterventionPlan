@@ -9,6 +9,7 @@ import { SECTIONS, PAGE_META, pageLabel, pageTitle } from '../../lib/tiers';
 import { computeNextStep } from '../../lib/nextStep';
 import { reviewCounts } from '../../lib/dashReviews';
 import { useDashboard } from './dash/DashBits';
+import WeekStrip from '../ui/WeekStrip';
 
 // 홈 = 런처 포털(시안 B). 큰 카드로 영역(Tier 1·2·3·IEP)을 고르면
 // 그 영역의 현황판으로 들어가고, 사이드바에는 그 영역 메뉴만 남는다.
@@ -172,6 +173,9 @@ export default function PortalHome({ onNavigate }) {
           </button>
         ))}
       </div>
+
+      {/* 0915(mds/33): 이번 주 기록 한 줄 — 영역 카드 아래, 오늘의 안내 위. 누르면 기록 달력으로. */}
+      <WeekStrip onNavigate={onNavigate} />
 
       {/* 🔦 오늘의 안내 — 배너 3종을 한 장으로 (문구·버튼은 모두 유지). 0915 현장 요청으로 영역 카드 아래(맨 아래)로 이동 */}
       {studentsLoaded && (

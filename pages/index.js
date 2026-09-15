@@ -13,6 +13,7 @@ import Tier2Dashboard from '../components/pages/dash/Tier2Dashboard';
 import Tier3Dashboard from '../components/pages/dash/Tier3Dashboard';
 import IepDashboard from '../components/pages/dash/IepDashboard';
 import StudentsPage from '../components/pages/StudentsPage';
+import CalendarPage from '../components/pages/CalendarPage';
 import StartPointPage from '../components/pages/StartPointPage';
 import ObservePage from '../components/pages/ObservePage';
 import QabfPage from '../components/pages/QabfPage';
@@ -43,7 +44,7 @@ import StepNav from '../components/ui/StepNav';
 // 화면 id 전체 목록 — 주소 해시(#dash3 등)로 화면을 복원할 때 유효성 검사에 쓴다.
 // PageRouter의 case와 반드시 일치해야 한다(새 페이지 추가 시 여기도 추가).
 const VALID_PAGES = new Set([
-  'home', 'dash1', 'dash2', 'dash3', 'dashIep', 'students', 'startpoint',
+  'home', 'dash1', 'dash2', 'dash3', 'dashIep', 'students', 'calendar', 'startpoint',
   'observe', 'qabf', 'bip', 'monitor', 'eval', 'iep', 'priorIep', 'iepReport',
   'builder', 'crisis', 'support', 'classpbs', 'pbssurvey', 'schoolrules', 'classcheck', 'classcheck2',
   'tier2', 'contract', 'tier3', 'videos', 'generator', 'admin', 'qaBoard', 'chatExpert',
@@ -217,6 +218,7 @@ function PageRouter({ activePage, onNavigate }) {
     case 'dash3': return <Tier3Dashboard onNavigate={onNavigate} />;
     case 'dashIep': return <IepDashboard onNavigate={onNavigate} />;
     case 'students': return <StudentsPage />;
+    case 'calendar': return <CalendarPage onNavigate={onNavigate} />;
     // 0819 피드백: 저장 후 다음 단계로 바로 이동 — IEP 영역에도 StepNav + 페이지 내 CTA 배너 적용.
     case 'startpoint': return <><StartPointPage onNavigate={onNavigate} /><StepNav flow="iep" cur="startpoint" onNavigate={onNavigate} /></>;
     case 'observe': return <><ObservePage onNavigate={onNavigate} /><StepNav flow="tier3" cur="observe" onNavigate={onNavigate} /></>;
