@@ -20,6 +20,7 @@ import { profileNarrative } from '../../lib/utils/splitNote';
 import { findHanja, findNegative, findCriterion } from '../../lib/utils/aiText';
 import { goalLadder, goalLadderBlock, GOAL_LEVELS } from '../../lib/utils/goalLadder';
 import { isQuestionList, guardEvalText } from '../../lib/utils/iepEvalGuard';
+import { strategyValue, replaceAutoStrategy } from '../../lib/utils/semStrategy';
 import { ebpBlockForGoal } from '../../lib/ebp';
 import { functionSkillsBlock, FUNCTION_SKILLS, FUNC_ORDER, qabfLabelToFunc } from '../../lib/functionSkills';
 import AssessmentLauncher from '../student/AssessmentLauncher';
@@ -44,6 +45,12 @@ const FUNC_TEACH_METHOD = (skill) => {
   // 0908(2차 피드백) 기술이 특정되지 않으면 기능 중심 교육과정의 기본값(DTT)으로 — 위 4개 매칭이 있으면 그쪽이 우선.
   return CURRICULUM_METHOD.func.method;
 };
+// 0915: '↻ 기본 전략으로 채우기'가 장애영역 목록으로 채우는 지도전략 값(평가 방식별 두 가지).
+//   경로B에서 학기 지도전략이 이 값 그대로면 교사가 고른 방향이 아니라 자동값으로 보고 핵심기술 방법 하나로 맞춘다.
+const autoStrategyValues = (disability, promptSystem) => [
+  methodsForType(disability).join(', '),
+  methodsForTask(disability, promptSystem).join(', '),
+];
 // 기능중심 B의 구간별 중점(습득 → 삽입 → 유지 → 주 목표 일반화). 교수 방법은 위에서 고른 하나만 쓴다.
 const FUNC_PHASES = (method) => [
   `대체행동 배우기 — ${method} 절차대로 짧게 자주 연습(다른 방법과 섞지 않기)`,
@@ -980,7 +987,9 @@ export default function IepPage({ onNavigate }) {
       // 교수 방법은 핵심기술 성격에 맞는 하나(FCT·모델링+사회적 이야기·BST·자기관리)로 고정한다.
       // 경로B에서는 장애영역 기본 목록(직접교수 등)을 나열하지 않고 핵심기술에 맞는 방법 하나만 고정한다(혼용 금지).
       const funcMethod = funcAlt ? FUNC_TEACH_METHOD(funcPlan.skill) : '';
-      const coreLine = funcAlt ? `${semStrategy || funcMethod} (대체행동 교수)` : (semStrategy || methods.join(', '));
+      // 0915: 학기 지도전략이 장애영역 목록 자동값 그대로면(예전 '기본 전략으로 채우기' 결과) 경로B에서는 쓰지 않고 핵심기술 방법 하나로.
+      const funcCore = funcAlt && autoStrategyValues(curStu?.disability, promptSystem).includes(semStrategy) ? funcMethod : (semStrategy || funcMethod);
+      const coreLine = funcAlt ? `${funcCore} (대체행동 교수)` : (semStrategy || methods.join(', '));
       const phaseTxt = funcAlt ? FUNC_PHASES(funcMethod)[Math.min(3, phaseIdx(i))] : PHASE_STRATEGY[phaseIdx(i)];
       const tag = funcAlt ? ['[교수] ', '[선행 예방·촉구] ', '[후속결과 — 대체행동에 기능과 같은 강화, 문제행동엔 주지 않기] '] : ['', '', ''];
       return [
@@ -1798,6 +1807,10 @@ export default function IepPage({ onNavigate }) {
     const stepsArr = (taskSteps || []).map((t) => t.trim()).filter(Boolean);
     // 0908(기능중심 B): 대체행동 단계 → 주 목표 순서로 구간 배정(규칙 초안과 같은 축) + PBS 3전략 지시.
     const funcAlt = flowMode === 'goal' ? String(funcPlan.alt || '').trim() : '';
+    // 0915: 경로B에서 학기 지도전략이 장애영역 목록 자동값 그대로면 AI에도 핵심기술 방법 하나로 넘긴다(규칙 초안과 같은 기준).
+    const semMethodsText = funcAlt
+      ? replaceAutoStrategy(String(semMethods || '').trim(), FUNC_TEACH_METHOD(funcPlan.skill), autoStrategyValues(curStu?.disability, promptSystem))
+      : String(semMethods || '').trim();
     const bipD = data?.bip || {};
     const funcBlock = funcAlt
       ? `[기능중심 IEP 구조] (기능기반 IEPBS 방식 — 이 계획의 축)\n` +
@@ -1874,8 +1887,8 @@ export default function IepPage({ onNavigate }) {
       (String(semContent || '').trim()
         ? `[학기 교육내용(교사 방향)]\n${String(semContent).trim()}\n  → 월별 교육내용(content)은 이 방향의 활동을 월 순서에 맞게 나누어 구체화·심화할 것(방향에 없는 활동을 새로 만들 수 있으나, 위 방향과 어긋나지 않게).\n`
         : '') +
-      (String(semMethods || '').trim()
-        ? `[학기 교육방법(교사 방향)]\n${String(semMethods).trim()}\n  → 월별 교육방법(methods)의 지도전략은 이 방향을 우선 반영할 것. 이 방향에 "→"로 이어진 단계 흐름이 있으면 무관한 새 흐름을 만들지 말고 그 단계들을 구간 순서대로 배분할 것 — 각 구간의 ②지원수준·③강화 스케줄 문장 앞에 "[학기 계획 n/m단계]"를 붙여 학기 방향의 몇 번째 단계인지 표시하고, 그 단계를 이 구간의 교육내용 활동·자료에 맞게 구체화할 것(학기 방향 문장을 그대로 복사하지 말 것).\n`
+      (semMethodsText
+        ? `[학기 교육방법(교사 방향)]\n${semMethodsText}\n  → 월별 교육방법(methods)의 지도전략은 이 방향을 우선 반영할 것. 이 방향에 "→"로 이어진 단계 흐름이 있으면 무관한 새 흐름을 만들지 말고 그 단계들을 구간 순서대로 배분할 것 — 각 구간의 ②지원수준·③강화 스케줄 문장 앞에 "[학기 계획 n/m단계]"를 붙여 학기 방향의 몇 번째 단계인지 표시하고, 그 단계를 이 구간의 교육내용 활동·자료에 맞게 구체화할 것(학기 방향 문장을 그대로 복사하지 말 것).\n`
         : '') +
       `[대상 월(구간)] ${ms.map((x) => x + '월').join(', ')} (총 ${ms.length}구간 — 월을 묶은 구간은 한 행으로 작성)\n` +
       critLine + tierLine + currBlock + buildDisabilityMethodBlock(curStu?.disability) + ebpBlock + funcSkillsB +
@@ -2349,7 +2362,15 @@ export default function IepPage({ onNavigate }) {
   const strengthsText = () => String(curStu?.strengths || '').trim();
   const qabfFunc = (() => { const lb = topQabfLabel(curStuData); return lb ? { label: lb, func: qabfLabelToFunc(lb) } : null; })();
   const funcRecs = funcPlan.func && FUNCTION_SKILLS[funcPlan.func] ? FUNCTION_SKILLS[funcPlan.func] : [];
-  const pickFuncSkill = (s) => setFuncPlan((p) => ({ ...p, skill: s.name, alt: toCanDoText(s.goal).replace(/할 수 있다\.?$/, '한다.') }));
+  // 0915: 대체행동이 정해진 경로B의 교수 방법(규칙 초안·AI 프롬프트와 같은 값). 비어 있으면 장애영역 기본 목록을 쓰는 경우.
+  const funcTeachMethod = flowMode === 'goal' && String(funcPlan.alt || '').trim() ? FUNC_TEACH_METHOD(funcPlan.skill) : '';
+  const pickFuncSkill = (s) => {
+    // 0915: 핵심기술을 고르면 학기 지도전략도 그 방법으로 맞춘다 — 자동으로 채운 값(장애영역 목록·이전 핵심기술 방법) 그대로일 때만.
+    const autos = autoStrategyValues(curStu?.disability, promptSystem);
+    if (funcTeachMethod) autos.push(funcTeachMethod);
+    setSemMethods((t) => replaceAutoStrategy(t, FUNC_TEACH_METHOD(s.name), autos));
+    setFuncPlan((p) => ({ ...p, skill: s.name, alt: toCanDoText(s.goal).replace(/할 수 있다\.?$/, '한다.') }));
+  };
   const strengthChips = strengthsText().split(/[,·\n;]/).map((s) => s.trim()).filter(Boolean).slice(0, 8);
   const funcCard = (
     <div className="card" id="iep-func">
@@ -2524,9 +2545,15 @@ export default function IepPage({ onNavigate }) {
         <div className="form-group" style={{ marginBottom: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
             <label className="form-label" style={{ margin: 0 }}>교육방법 (학기 방향 · 여러 줄 "-")</label>
-            <button type="button" className="btn btn-ghost btn-sm" title="장애유형·촉진체계와 출발점 수행 수준을 반영해 학기 교육방법 초안을 만듭니다"
+            <button type="button" className="btn btn-ghost btn-sm"
+              title={funcTeachMethod
+                ? `대체행동 핵심기술에 맞춘 교수 방법(${funcTeachMethod})과 출발점 수행 수준을 반영해 학기 교육방법 초안을 만듭니다`
+                : '장애유형·촉진체계와 출발점 수행 수준을 반영해 학기 교육방법 초안을 만듭니다'}
               onClick={() => {
-                const ms = critType === 'task' ? methodsForTask(curStu?.disability, promptSystem) : methodsForType(curStu?.disability);
+                // 0915: 경로B(대체행동이 정해진 기능 중심)는 지도전략을 핵심기술에 맞는 방법 하나로 채운다 — 장애영역 목록을 넣으면
+                //   규칙 초안이 이 줄을 우선해 월별 '[교수] 핵심 방법'에 목록 전체가 들어갔다(방법 하나 고정·혼용 금지 위반).
+                const ms = funcTeachMethod ? [funcTeachMethod]
+                  : critType === 'task' ? methodsForTask(curStu?.disability, promptSystem) : methodsForType(curStu?.disability);
                 // 0819(3차 피드백 — 구병모): 지원수준·강화 줄이 학생과 무관한 고정 문장이라
                 // 모든 학생·과목에서 똑같이 반복됨 → 출발점 '수행 가능 수준'(없으면 현행수준)에서
                 // 시작 단계를 앵커링해, 이 학생이 지금 어디서 출발하는지가 문장에 드러나게 한다.
@@ -2542,7 +2569,9 @@ export default function IepPage({ onNavigate }) {
                   ? `- 강화: 간헐 강화(변동비율)${topReinf ? ` — 선호 강화물(${topReinf}) 활용` : ''} → 자연적 강화 → 스스로 확인하기(자기강화)로 전환`
                   : `- 강화: 습득 단계 즉시(연속) 강화${topReinf ? `(선호: ${topReinf})` : ''} → 유지 단계 간헐 강화 → 자연적 강화로 전환`;
                 setSemMethods([`- 지도전략: ${ms.join(', ')}`, supLine, reinfLine].join('\n'));
-                toast('출발점 수행 수준을 반영해 학기 교육방법 초안을 채웠어요 — 학생·과목에 맞게 다듬어 쓰세요.');
+                toast(funcTeachMethod
+                  ? `대체행동 핵심기술에 맞춘 교수 방법(${funcTeachMethod}) 하나로 학기 교육방법 초안을 채웠어요 — 학생에 맞게 다듬어 쓰세요.`
+                  : '출발점 수행 수준을 반영해 학기 교육방법 초안을 채웠어요 — 학생·과목에 맞게 다듬어 쓰세요.');
               }}>↻ 기본 전략으로 채우기</button>
           </div>
           <div style={{ marginTop: 6 }}>
@@ -3164,7 +3193,19 @@ export default function IepPage({ onNavigate }) {
             <strong>규칙 초안</strong>은 AI 없이 고정된 틀로 즉시 만드는 기본형이고, <strong>✨ AI 생성</strong>은 학생 자료·평가초점을 반영해 문장을 새로 쓰는 방식이에요(AI 특성상 누를 때마다 표현이 조금씩 달라집니다).
             생성할 때마다 초안이 따로 보관되어(규칙 초안 · AI 1차 · AI 2차…) 아래 표 위의 <strong>초안 전환</strong> 버튼으로 오가며 비교할 수 있고, 마음에 드는 초안을 보이게 한 상태에서 저장하면 됩니다.
           </div>
-          <div className="card-subtitle" style={{ marginTop: 4 }}>교육방법 기본값은 학생 장애유형({curStu.disability || '미지정'})에 맞춰 채워집니다: {methodsForType(curStu.disability).join(', ')}</div>
+          <div className="card-subtitle" style={{ marginTop: 4 }}>
+            {funcTeachMethod ? (
+              <>
+                교육방법 기본값: 경로 B는 대체행동 핵심기술에 맞춘 교수 방법 한 가지({funcTeachMethod})로 채워지고, 장애유형 기본 목록은 쓰지 않아요.
+                {/* 0915: 예전에 채운 장애영역 목록이 학기 칸에 남아 있으면 알린다(월별 초안은 이미 방법 하나로 만들어짐). */}
+                {autoStrategyValues(curStu.disability, promptSystem).includes(strategyValue(semMethods)) && (
+                  <> 학기 교육방법의 지도전략에는 아직 장애유형 목록이 적혀 있어요 — 월별 초안은 {funcTeachMethod}로 만들어지고, 학기 칸 글은 {stepNo.goal} 학기목표 설정 카드의 &lsquo;↻ 기본 전략으로 채우기&rsquo;를 다시 누르면 바뀌어요.</>
+                )}
+              </>
+            ) : (
+              <>교육방법 기본값은 학생 장애유형({curStu.disability || '미지정'})에 맞춰 채워집니다: {methodsForType(curStu.disability).join(', ')}</>
+            )}
+          </div>
 
           {/* 교과 평어(세부능력·특기사항) 생성 */}
           <div style={{ marginTop: 14, padding: 12, border: '1px solid #fdba74', borderRadius: 8, background: '#fff7ed' }}>
