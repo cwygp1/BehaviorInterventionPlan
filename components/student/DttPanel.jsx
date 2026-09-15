@@ -7,7 +7,7 @@ import {
 } from '../../lib/api/students';
 import {
   DTT_CODES, codeMeta, codeText, nextDttCode, PHASES, TRIAL_OPTIONS, ITEM_STATUS, PROMPT_METHODS, ERROR_CORRECTIONS,
-  normalizeTrials, scoreDtt, countText, masteryOf, masteryText, defaultDttMastery,
+  normalizeTrials, scoreDtt, countText, masteryOf, masteryText, dttDefaultsFromGoal,
   itemHistory, dttSummary, dttItemJudgement,
 } from '../../lib/programSessions';
 
@@ -57,7 +57,16 @@ export default function DttPanel() {
         setSessions(s.sessions || []);
         setGoals(g.goals || []);
         const active = list.filter((x) => x.status !== 'closed');
-        setProgramId(active.length ? String(active[active.length - 1].id) : '');
+        // 0915: IEP 목표의 'DTT 기록 열기'로 들어왔으면 그 목표에 연결된 프로그램을, 없으면 목표 기준 새 프로그램 설정을 연다.
+        let wantGoal = '';
+        try { wantGoal = sessionStorage.getItem('kb_dtt_goal') || ''; sessionStorage.removeItem('kb_dtt_goal'); } catch (_) { /* 무시 */ }
+        const linked = wantGoal ? (active.find((x) => String(x.goal_id) === wantGoal) || list.find((x) => String(x.goal_id) === wantGoal)) : null;
+        setProgramId(linked ? String(linked.id) : (active.length ? String(active[active.length - 1].id) : ''));
+        const wantG = wantGoal && !linked ? (g.goals || []).find((x) => String(x.id) === wantGoal) : null;
+        if (wantG) {
+          setDraft({ ...blankProgram(), goal_id: String(wantG.id), title: String(wantG.semester_goal || '').slice(0, 60), ...dttDefaultsFromGoal(wantG) });
+          toast('이 IEP 목표에 연결된 DTT 프로그램이 없어요 — 목표 기준으로 채운 새 프로그램을 확인하고 저장하세요.');
+        }
       })
       .catch((e) => { if (alive) { setPrograms([]); toast('DTT 기록을 불러오지 못했어요: ' + e.message); } });
     return () => { alive = false; };
@@ -159,7 +168,7 @@ export default function DttPanel() {
   function linkGoal(gid) {
     const g = goals.find((x) => String(x.id) === gid);
     // IEP 목표에 연결하면 그 평가 방식(독립 수행 비율 / 기회 중 성공 횟수)으로 학습기준을 맞춘다.
-    setD({ goal_id: gid, ...(g ? { mastery: defaultDttMastery(g.crit_type, Number(draft.trials) || 10), title: draft.title || String(g.semester_goal || '').slice(0, 60) } : {}) });
+    setD({ goal_id: gid, ...(g ? { ...dttDefaultsFromGoal(g, Number(draft.trials) || 10), title: draft.title || String(g.semester_goal || '').slice(0, 60) } : {}) });
   }
   async function saveProgram() {
     const body = { ...draft, items: draft.items.filter((x) => String(x.text).trim()) };
@@ -259,7 +268,7 @@ export default function DttPanel() {
               <label className="form-label">IEP 목표 연결 (선택)</label>
               <select className="form-input" value={draft.goal_id} onChange={(e) => linkGoal(e.target.value)}>
                 <option value="">연결 안 함</option>
-                {goals.map((g) => <option key={g.id} value={g.id}>{g.semester}학기 · {String(g.semester_goal || '').slice(0, 40)} ({g.crit_type === 'freq' ? '기회 중 성공 횟수' : g.crit_type === 'rate' ? '독립 수행 비율' : g.crit_type === 'task' ? '과제분석' : '질적'})</option>)}
+                {goals.map((g) => <option key={g.id} value={g.id}>{g.semester}학기 · {String(g.semester_goal || '').slice(0, 40)} ({g.crit_type === 'freq' ? `${g.crit_of || 10}회 중 성공 횟수` : g.crit_type === 'rate' ? '독립 수행 비율' : g.crit_type === 'task' ? '과제분석' : '질적'})</option>)}
               </select>
             </div>
           </div>

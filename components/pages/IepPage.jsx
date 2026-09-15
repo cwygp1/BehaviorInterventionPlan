@@ -93,6 +93,16 @@ const CONTENT_SUFFIX = ['탐색·모방 활동', '구조화된 연습 활동', '
 // 규칙 초안·채우기 버튼·AI 프롬프트가 같은 표(장특법 11개 영역, EBP 명칭)를 읽는다.
 // 과제 분석 — 교수 순서(연쇄)·촉진 체계 라벨 및 서술 도우미.
 const CHAIN_LABEL = { forward: '전진형', backward: '후진형', total: '전체과제 제시형' };
+// 0915: '기회 중 성공 횟수' 평가의 분모(기회 수) 선택지 — 현장 예시 "5회 기회 중 4회"(예전엔 10회 고정).
+const CRIT_OF_CHOICES = [5, 10, 20];
+// 저장된 목표 목록의 평가 기준 한 줄 — 예전에 %로 저장된 횟수형 목표는 횟수로 환산해 보여 준다.
+const critSummary = (g) => {
+  if (g.crit_type === 'rate') return ` · 평가 ${g.crit_end}%`;
+  if (g.crit_type !== 'freq') return '';
+  const of = CRIT_OF_CHOICES.includes(Number(g.crit_of)) ? Number(g.crit_of) : 10;
+  const end = Number(g.crit_end) > of ? Math.round((Number(g.crit_end) / 100) * of) : Number(g.crit_end);
+  return ` · 평가 ${of}회 중 ${end}회`;
+};
 const PROMPT_LABEL = { mtl: '최대-최소촉진', slp: '최소촉진체계', td: '시간지연', sim: '동시촉진' };
 // 교수 순서(연쇄)에 따라 "이번 달 독립 수행 단계" 서술.
 function chainDesc(chainType, totalSteps, indep) {
@@ -445,6 +455,7 @@ export default function IepPage({ onNavigate }) {
   // 월 묶기 표기(예: "3-4/5/6-7"). 비워 두면 매월 한 행. — 현장 관행 반영(피드백4)
   const [monthGroups, setMonthGroups] = useState('');
   const [critType, setCritType] = useState('rate');
+  const [critOf, setCritOf] = useState(10); // 0915: 기회 중 성공 횟수의 분모 — 5·10·20
   const [supportTier, setSupportTier] = useState(''); // 모듈4: 지원체계(Tier 1/2/3)
   const [startpoint, setStartpoint] = useState(null); // 모듈1 출발점 산출물(연동용)
   const [pyeongLines, setPyeongLines] = useState([]); // 교과 평어 생성 결과
@@ -692,10 +703,12 @@ export default function IepPage({ onNavigate }) {
     setSchoolYear(g.school_year || new Date().getFullYear());
     setSem(String(g.semester || 1)); setCritType(g.crit_type || 'rate');
     setSupportTier(g.support_tier || '');
-    if ((g.crit_type || 'rate') === 'freq' && ((g.crit_start ?? 0) > 10 || (g.crit_end ?? 0) > 10)) {
-      // 예전 데이터 자가 치유: %처럼 저장된 값(30/80)을 10회 기회 중 성공 횟수(3/8)로 환산
-      setCStart(Math.min(10, Math.round((g.crit_start ?? 30) / 10)));
-      setCEnd(Math.min(10, Math.round((g.crit_end ?? 80) / 10)));
+    const gOf = CRIT_OF_CHOICES.includes(Number(g.crit_of)) ? Number(g.crit_of) : 10;
+    setCritOf(gOf);
+    if ((g.crit_type || 'rate') === 'freq' && ((g.crit_start ?? 0) > gOf || (g.crit_end ?? 0) > gOf)) {
+      // 예전 데이터 자가 치유: %처럼 저장된 값(30/80)을 기회 중 성공 횟수(10회 중 3/8)로 환산
+      setCStart(Math.min(gOf, Math.round(((g.crit_start ?? 30) / 100) * gOf)));
+      setCEnd(Math.min(gOf, Math.round(((g.crit_end ?? 80) / 100) * gOf)));
     } else {
       setCStart(g.crit_start ?? 30); setCEnd(g.crit_end ?? 80);
     }
@@ -718,6 +731,28 @@ export default function IepPage({ onNavigate }) {
       const el = typeof document !== 'undefined' && document.getElementById('iep-editor');
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 80);
+  }
+
+  // 0915: 분모를 바꾸면 시작·목표 횟수도 같은 비율로 옮긴다(10회 중 8회 → 5회 중 4회).
+  function changeCritOf(n) {
+    if (n === critOf) return;
+    const scale = (v) => Math.max(0, Math.min(n, Math.round(((Number(v) || 0) / critOf) * n)));
+    if (critType === 'freq') { setCStart(scale(cStart)); setCEnd(scale(cEnd)); }
+    setCritOf(n);
+  }
+
+  // 0915(mds/32): 독립 수행 비율·기회 중 성공 횟수 목표의 DTT 기록(행동 데이터 기록 › 교수 회기 기록 › DTT)으로 이동.
+  // 이 목표에 연결된 프로그램이 있으면 그걸 열고, 없으면 목표의 분모·학기말 목표로 채운 새 프로그램 설정을 연다.
+  function openDttLog(goalId) {
+    const id = goalId || editingId;
+    if (!id) { toast('목표를 먼저 저장해 주세요 — 저장한 목표에 DTT 기록이 붙어요.'); return; }
+    try {
+      sessionStorage.setItem('kb_dtt_goal', String(id));
+      sessionStorage.setItem('kb_session_kind', 'dtt');
+      sessionStorage.setItem('kb_monitor_tab', 'sessions');
+      sessionStorage.removeItem('kb_session_goal');
+    } catch (_) { /* 무시 */ }
+    onNavigate?.('monitor');
   }
 
   function newGoal() {
@@ -890,7 +925,7 @@ export default function IepPage({ onNavigate }) {
     const crit = (i) => {
       const v = Math.round(s + (e - s) * frac(i));
       if (isTask) return `${totalSteps}단계 중 ${stepCount(i)}단계 독립 수행`;
-      return critType === 'rate' ? `독립 수행 ${v}%` : `10회 중 ${Math.max(1, Math.min(10, v))}회 성공`;
+      return critType === 'rate' ? `독립 수행 ${v}%` : `${critOf}회 중 ${Math.max(1, Math.min(critOf, v))}회 성공`;
     };
     const support = (i) => SUP[Math.min(SUP.length - 1, Math.round(frac(i) * (SUP.length - 1)))];
     const stem = (verb || sel?.verb || '').replace(/하기$|기$/, '');
@@ -1056,7 +1091,7 @@ export default function IepPage({ onNavigate }) {
     if (critType === 'task') {
       return `학기말 ${totalSteps}단계 중 ${Math.max(0, Math.min(totalSteps, e))}단계 독립 수행 도달 여부와 함께, 단계별 촉진 수준의 감소 양상과 미습득 단계의 변화를 과제분석 점검표 기준으로 종합 평가. 유지·일반화(다양한 상황에 적용)와 스스로 하기(그림 촉진·동영상 따라하기) 수행 정도도 함께 기술.`;
     }
-    return `학기말 ${critType === 'rate' ? `${e}%` : `10회 중 ${e}회`} 기준 도달 여부와 함께, 평가초점 중심의 학습 과정 변화·일반화 정도를 질적으로 서술 평가.`;
+    return `학기말 ${critType === 'rate' ? `${e}%` : `${critOf}회 중 ${e}회`} 기준 도달 여부와 함께, 평가초점 중심의 학습 과정 변화·일반화 정도를 질적으로 서술 평가.`;
   }
 
   // ── 초안 보관·전환 (규칙 초안 · AI 1차 · AI 2차… 비교) ─────────────
@@ -1824,7 +1859,7 @@ export default function IepPage({ onNavigate }) {
       ? `[평가 방식] 질적 평가 — 수치·등급이 아니라 위 평가초점을 중심으로 학습 과정과 결과를 내러티브(서술형)로 평가.\n`
       : isTask
       ? `[평가 방식] 과제 분석 — 전체 ${stepsArr.length || cEnd}단계. 교수 순서: ${CHAIN_LABEL[chainType]}, 촉진 체계: ${PROMPT_LABEL[promptSystem]}. (a) 독립 수행 단계 수를 ${cStart}→${cEnd}단계로 ${CHAIN_LABEL[chainType]} 방식으로 매월 점증, (b) 각 단계 촉진을 ${PROMPT_LABEL[promptSystem]}로 점차 약화. 단계별 체크리스트로 평가. 비디오 모델링·시간지연·그림 촉진 등 결합 EBP를 교육방법에 포함.\n`
-      : `[평가 기준] ${critType === 'rate' ? '독립 수행 비율' : '10회 기회 중 성공 횟수'} 기준을 ${cStart}${u}에서 ${cEnd}${u}로 구간마다 점증(양적, 첫 구간부터 시작 수준보다 높게). 평가초점 중심의 질적 서술을 병행.\n`;
+      : `[평가 기준] ${critType === 'rate' ? '독립 수행 비율' : `${critOf}회 기회 중 성공 횟수`} 기준을 ${cStart}${u}에서 ${cEnd}${u}로 구간마다 점증(양적, 첫 구간부터 시작 수준보다 높게). 평가초점 중심의 질적 서술을 병행.\n`;
     const TIER_DESC = {
       1: '학급 전체에 적용하는 보편적 지원 — 시각 일과표·명확한 학급 규칙·일관된 칭찬과 강화 등 학급 차원 PBS. 또래와 같은 환경·자료에서 최소한의 조정으로 학습.',
       2: '소그룹 단위의 표적 지원 — 체크인·체크아웃(CICO), 소그룹 사회성/학습 지도, 일일 행동점검표(DPR), 주 단위 진전 점검 등. 보편적 지원에 더해 집단 중재를 병행.',
@@ -2161,7 +2196,7 @@ export default function IepPage({ onNavigate }) {
         func_plan: flowMode === 'goal'
           ? { func: String(funcPlan.func || ''), skill: String(funcPlan.skill || ''), alt: String(funcPlan.alt || '').trim() }
           : {},
-        crit_type: critType, crit_start: +cStart, crit_end: +cEnd,
+        crit_type: critType, crit_start: +cStart, crit_end: +cEnd, crit_of: +critOf,
         support_tier: supportTier,
         tier2_group_id: myTierGroups[0]?.id ?? null,
         eval_foci: (evalFoci || []).map((f) => f.trim()).filter(Boolean),
@@ -2640,12 +2675,15 @@ export default function IepPage({ onNavigate }) {
                 <div style={{ minWidth: 220, flex: 1 }}>
                   <div style={{ fontSize: 12, color: '#3b6ef5', fontWeight: 700 }}>{g.standard_code ? `[${g.standard_code}]` : '성취기준 없음'}{Array.isArray(g.related_stds) && g.related_stds.length ? ` 외 ${g.related_stds.length}개` : ''} {g.subject}{g.area ? ' · ' + g.area : ''}{g.subject && GRADE[g.grade_code] ? ' · ' + GRADE[g.grade_code] : ''} · {g.semester}학기</div>
                   <div style={{ fontSize: 13, marginTop: 3 }}>{g.semester_goal}</div>
-                  <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 3 }}>월별 {Array.isArray(g.monthly) ? g.monthly.length : 0}개월 · 수정 {g.updated_at}</div>
+                  <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 3 }}>월별 {Array.isArray(g.monthly) ? g.monthly.length : 0}개월{critSummary(g)} · 수정 {g.updated_at}</div>
                 </div>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <button className="btn btn-pri btn-sm" onClick={() => loadGoal(g)}>{editingId === g.id ? '수정 중' : '✏ 수정'}</button>
                   <button className="btn btn-ghost btn-sm" onClick={() => exportNiceWord([g])}>나이스 Word</button>
                   <button className="btn btn-ghost btn-sm" onClick={() => exportFormWord([g])}>양식 Word</button>
+                  {(g.crit_type === 'rate' || g.crit_type === 'freq') && (
+                    <button className="btn btn-ghost btn-sm" onClick={() => openDttLog(g.id)} title="이 목표의 DTT(개별시행) 기록 열기 — 연결된 프로그램이 없으면 새로 만들어요">🎯 DTT 기록</button>
+                  )}
                   <button className="btn btn-ghost btn-sm" onClick={() => removeGoal(g.id)}>삭제</button>
                 </div>
               </div>
@@ -2983,13 +3021,13 @@ export default function IepPage({ onNavigate }) {
                 const v = e.target.value;
                 if (v !== critType) {
                   if (v === 'task') { const cnt = (taskSteps || []).filter((t) => t.trim()).length; setCStart(0); setCEnd(cnt || 5); }
-                  else if (v === 'freq') { setCStart(3); setCEnd(8); } // 10회 기회 중 성공 횟수(0~10)
+                  else if (v === 'freq') { setCStart(Math.round(critOf * 0.3)); setCEnd(Math.round(critOf * 0.8)); } // 기회 중 성공 횟수(0~분모)
                   else if (v === 'rate') { setCStart(30); setCEnd(80); } // 독립 수행 비율(%)
                 }
                 setCritType(v);
               }}>
                 <option value="rate">양적 · 독립 수행 비율(%)</option>
-                <option value="freq">양적 · 기회 중 성공 횟수(10회 중)</option>
+                <option value="freq">양적 · 기회 중 성공 횟수(n회 중 m회)</option>
                 <option value="qual">질적 · 평가초점 기반 서술(내러티브)</option>
                 <option value="task">과제 분석 · 단계별 점증(과제 분해)</option>
               </select></div>
@@ -3002,8 +3040,8 @@ export default function IepPage({ onNavigate }) {
               </select></div>
             {critType !== 'qual' ? (
               <>
-                <div className="form-group"><label className="form-label">{critType === 'task' ? '시작 독립 단계' : critType === 'freq' ? '시작 수준 (10회 중 성공 횟수)' : '시작 수준 (%)'}</label><input type="number" className="form-input" min={0} max={critType === 'freq' ? 10 : undefined} value={cStart} onChange={(e) => setCStart(e.target.value)} /></div>
-                <div className="form-group"><label className="form-label">{critType === 'task' ? '목표 독립 단계' : critType === 'freq' ? '학기말 목표 (10회 중 성공 횟수)' : '학기말 목표 (%)'}</label><input type="number" className="form-input" min={0} max={critType === 'freq' ? 10 : undefined} value={cEnd} onChange={(e) => setCEnd(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">{critType === 'task' ? '시작 독립 단계' : critType === 'freq' ? `시작 수준 (${critOf}회 중 성공 횟수)` : '시작 수준 (%)'}</label><input type="number" className="form-input" min={0} max={critType === 'freq' ? critOf : undefined} value={cStart} onChange={(e) => setCStart(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">{critType === 'task' ? '목표 독립 단계' : critType === 'freq' ? `학기말 목표 (${critOf}회 중 성공 횟수)` : '학기말 목표 (%)'}</label><input type="number" className="form-input" min={0} max={critType === 'freq' ? critOf : undefined} value={cEnd} onChange={(e) => setCEnd(e.target.value)} /></div>
               </>
             ) : (
               <div className="form-group" style={{ flex: '2 1 280px' }}><label className="form-label">질적 평가 안내</label>
@@ -3011,6 +3049,27 @@ export default function IepPage({ onNavigate }) {
               </div>
             )}
           </div>
+          {/* 0915: 기회 중 성공 횟수의 분모(5·10·20) + 이 목표의 DTT(개별시행) 기록으로 바로 가기 */}
+          {(critType === 'freq' || critType === 'rate') && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '2px 0 6px' }}>
+              {critType === 'freq' && (
+                <>
+                  <span className="form-label" style={{ margin: 0 }}>기회 수 (분모)</span>
+                  <div className="qchip-area" role="group" aria-label="기회 수" style={{ margin: 0 }}>
+                    {CRIT_OF_CHOICES.map((n) => (
+                      <button key={n} type="button" className={'qchip' + (critOf === n ? ' on' : '')} aria-pressed={critOf === n} onClick={() => changeCritOf(n)}>{n}회 중</button>
+                    ))}
+                  </div>
+                  {(+cStart > critOf || +cEnd > critOf) && <span style={{ fontSize: '.78rem', color: '#b91c1c' }}>⚠ 시작·목표 횟수가 {critOf}회보다 커요.</span>}
+                </>
+              )}
+              <span style={{ flex: 1 }} />
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => openDttLog()}
+                title={editingId ? '행동 데이터 기록 › 교수 회기 기록 › DTT — 이 목표에 연결된 프로그램을 열어요(없으면 목표 기준으로 새로 만들기)' : '목표를 먼저 저장하면 DTT 기록을 열 수 있어요'}>
+                🎯 DTT 기록 열기
+              </button>
+            </div>
+          )}
           {/* IEP·Tier 관계 안내 — 'Tier 3 완료'가 IEP의 출발점이 아님을 명확히 한다 */}
           <div style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 4, lineHeight: 1.6 }}>
             ℹ️ IEP는 'Tier 3 완료'의 결과가 아니라 특수교육대상자 선정(진단·평가 → 특수교육운영위원회 → 배치 → 개별화교육지원팀)에서 시작됩니다. 여기서 'Tier'는 IEP 목표 달성을 위한 지원의 강도(보편/표적/집중)를 뜻하며, 행동지원(PBS·BIP)은 IEP에 포함되는 구성요소입니다.

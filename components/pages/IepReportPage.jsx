@@ -92,7 +92,7 @@ export default function IepReportPage() {
     return {
       id: g.id, school_year: g.school_year, subject: g.subject, grade_code: g.grade_code, area: g.area,
       standard_code: g.standard_code, standard_text: g.standard_text, semester: g.semester,
-      semester_goal: g.semester_goal, plop: g.plop, crit_type: g.crit_type, crit_start: g.crit_start, crit_end: g.crit_end,
+      semester_goal: g.semester_goal, plop: g.plop, crit_type: g.crit_type, crit_start: g.crit_start, crit_end: g.crit_end, crit_of: g.crit_of,
       support_tier: g.support_tier, eval_foci: g.eval_foci || [], task_steps: g.task_steps || [],
       chain_type: g.chain_type, prompt_system: g.prompt_system,
       monthly: g.monthly || [], semestral_eval: g.semestral_eval,
