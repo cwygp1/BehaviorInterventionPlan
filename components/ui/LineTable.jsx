@@ -7,19 +7,21 @@ import { parseRows, serializeRows } from '../../lib/utils/lineRows';
  * 칸마다 내용 길이만큼 높이가 늘어나 스크롤 없이 전부 보인다. 값은 항상 "- " 줄 문자열 — 저장 스키마·월별 계획·AI 프롬프트와 그대로 호환.
  * Enter = 커서 뒤를 새 행으로, 맨 앞에서 Backspace = 윗행과 합치기(빈 행이면 지우기), 여러 줄 붙여넣기 = 행으로 나눔.
  * labeled 이면 "지도전략: …"의 앞머리를 [구분] 칸으로 따로 보여 준다.
+ * bullet={false} 는 현행수준 같은 줄글 — "- "를 붙이지 않고 줄(문장)만 행으로 나눈다.
+ * compact 는 월별 계획 표처럼 좁은 칸 안에 넣을 때 — 바깥 테두리 없이 글씨·여백을 줄인다.
  *
  *   <LineTable value={semMethods} onChange={setSemMethods} labeled placeholder="…" />
  */
-export default function LineTable({ value = '', onChange, labeled = false, placeholder = '', addLabel = '+ 줄 추가' }) {
-  const [rows, setRows] = useState(() => parseRows(value, labeled));
+export default function LineTable({ value = '', onChange, labeled = false, compact = false, bullet = true, placeholder = '', addLabel = '+ 줄 추가' }) {
+  const [rows, setRows] = useState(() => parseRows(value, labeled, bullet));
   const refs = useRef([]);
   const pendingFocus = useRef(null); // { i, pos } — 행이 바뀐 뒤 커서를 옮길 곳
 
   // 바깥에서 값이 바뀌면(채우기 버튼·불러오기) 다시 나눈다. 편집 중인 빈 행은 저장값과 같으므로 유지.
   useEffect(() => {
-    if (value !== serializeRows(rows)) setRows(parseRows(value, labeled));
+    if (value !== serializeRows(rows, bullet)) setRows(parseRows(value, labeled, bullet));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, labeled]);
+  }, [value, labeled, bullet]);
 
   useEffect(() => {
     const f = pendingFocus.current;
@@ -32,7 +34,7 @@ export default function LineTable({ value = '', onChange, labeled = false, place
   const commit = (next) => {
     const safe = next.length ? next : [{ label: '', text: '' }];
     setRows(safe);
-    const s = serializeRows(safe);
+    const s = serializeRows(safe, bullet);
     if (s !== value) onChange?.(s);
   };
   const setCell = (i, key, v) => commit(rows.map((r, k) => (k === i ? { ...r, [key]: v } : r)));
@@ -70,7 +72,7 @@ export default function LineTable({ value = '', onChange, labeled = false, place
     const cur = rows[i].text;
     const before = cur.slice(0, el.selectionStart), after = cur.slice(el.selectionEnd);
     // 붙여넣은 줄은 각자 행이 된다. 커서 앞 글이 있으면 그 행은 남기고 아래로, 커서 뒤 글은 마지막 행 끝에 붙인다.
-    const pasted = parseRows(t, labeled);
+    const pasted = parseRows(t, labeled, bullet);
     pasted[pasted.length - 1] = { ...pasted[pasted.length - 1], text: pasted[pasted.length - 1].text + after };
     const head = before.trim() ? [{ ...rows[i], text: before }] : [];
     if (!head.length && rows[i].label && !pasted[0].label) pasted[0] = { ...pasted[0], label: rows[i].label };
@@ -84,7 +86,7 @@ export default function LineTable({ value = '', onChange, labeled = false, place
   const add = () => { pendingFocus.current = { i: rows.length, pos: 0 }; commit([...rows, { label: '', text: '' }]); };
 
   return (
-    <div className="line-table">
+    <div className={compact ? 'line-table compact' : 'line-table'}>
       <table>
         <tbody>
           {rows.map((r, i) => (

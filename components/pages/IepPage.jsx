@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Modal from '../ui/Modal';
 import ExternalAIModal from '../ui/ExternalAIModal';
 import LineTable from '../ui/LineTable';
+import useColumnWidths, { MONTHLY_COL_DEFAULT } from '../../lib/hooks/useColumnWidths';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -488,7 +489,8 @@ export default function IepPage({ onNavigate }) {
   const [editingId, setEditingId] = useState(null); // 수정 중인 저장 목표 id
   const [goalsLoading, setGoalsLoading] = useState(false);
   const [wordDone, setWordDone] = useState(false); // 이번 세션에서 계획서 Word를 출력했는지(진행바 마지막 단계)
-  const [colW, setColW] = useState([50, 210, 210, 170, 190, 220]); // 월별 표 열 너비(px) — 월/목표/내용/방법/평가계획/평가
+  // 월별 표 열 너비 — 헤더 경계 드래그로 조절, IEP 계획서 화면과 공유(localStorage 'iep_colw')
+  const { startResize, reset: resetColW, colgroup: monthlyColgroup } = useColumnWidths('iep_colw', MONTHLY_COL_DEFAULT);
 
   // Load achievement standards (public/data) once.
   useEffect(() => {
@@ -1134,44 +1136,6 @@ export default function IepPage({ onNavigate }) {
     setMonthly((prev) => prev.map((row, idx) => (idx === i
       ? { ...row, [key]: key === 'methods' ? val.split(/\r?\n/).map((x) => x.replace(/^\s*[-•·]\s*/, '').trim()).filter(Boolean) : val }
       : row)));
-  }
-
-  // 열 너비: localStorage에서 복원
-  useEffect(() => {
-    try {
-      const s = JSON.parse(localStorage.getItem('iep_colw'));
-      if (Array.isArray(s) && s.length === 6) setColW(s);
-    } catch (_) {}
-  }, []);
-  // 헤더 경계 드래그: idx 열과 오른쪽 이웃(idx+1) 열이 폭을 주고받아 전체 폭은 고정 유지.
-  function startResize(idx, e) {
-    e.preventDefault();
-    const startX = e.clientX;
-    const a = colW[idx];
-    const b = colW[idx + 1];
-    const move = (ev) => {
-      let d = ev.clientX - startX;
-      d = Math.max(d, 48 - a);
-      d = Math.min(d, b - 48);
-      setColW((prev) => {
-        const n = [...prev];
-        n[idx] = a + d;
-        n[idx + 1] = b - d;
-        return n;
-      });
-    };
-    const up = () => {
-      document.removeEventListener('mousemove', move);
-      document.removeEventListener('mouseup', up);
-      setColW((prev) => { try { localStorage.setItem('iep_colw', JSON.stringify(prev)); } catch (_) {} return prev; });
-    };
-    document.addEventListener('mousemove', move);
-    document.addEventListener('mouseup', up);
-  }
-  function resetColW() {
-    const d = [50, 210, 210, 170, 190, 220];
-    setColW(d);
-    try { localStorage.setItem('iep_colw', JSON.stringify(d)); } catch (_) {}
   }
 
   // 같은 의미 동사 목록(vs)을 받아, 각 동사를 쓰는 자연스러운 평가초점 1문장씩 생성해 배열로 반환.
@@ -2250,7 +2214,6 @@ export default function IepPage({ onNavigate }) {
       .catch((e) => toast('Word 생성 실패: ' + e.message));
   }
 
-  // 과제분석 단계별 평가 기록지(데이터 수집 체크리스트) 인쇄용 Word 출력 — 진짜 .docx (0824)
   // 0915(mds/31): 저장된 과제분석 목표의 회기 기록 화면(행동 데이터 기록 › 교수 회기 기록 탭)으로 이동.
   function openSessionLog() {
     if (!editingId) { toast('목표를 먼저 저장해 주세요 — 저장한 목표에 회기 기록이 붙어요.'); return; }
@@ -2258,6 +2221,7 @@ export default function IepPage({ onNavigate }) {
     onNavigate?.('monitor');
   }
 
+  // 과제분석 단계별 평가 기록지(데이터 수집 체크리스트) 인쇄용 Word 출력 — 진짜 .docx (0824)
   function downloadTaskSheetNow() {
     const steps = (taskSteps || []).map((t) => t.trim()).filter(Boolean);
     if (!steps.length) { toast('단계를 먼저 만들어 주세요.'); return; }
@@ -3001,7 +2965,7 @@ export default function IepPage({ onNavigate }) {
           <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: '.84rem' }}>
             <strong>학기목표</strong> — {goal} <span style={{ color: 'var(--muted)' }}>(수정은 위 {stepNo.goal} 학기목표 설정 카드에서)</span>
           </div>
-          <div className="form-group"><label className="form-label">현행수준 (학생 비식별 요약에서 연동 · 수정 가능)</label><textarea className="form-textarea" value={plop} onChange={(e) => setPlop(e.target.value)} /></div>
+          <div className="form-group"><label className="form-label">현행수준 (학생 비식별 요약에서 연동 · 수정 가능 · 한 줄씩)</label><LineTable bullet={false} value={plop || ''} onChange={setPlop} /></div>
           {/* P15: 학기 교육내용·교육방법 입력은 ② 학기목표 설정 카드로 이동(현장 피드백 — 학기목표와 함께 작성).
               여기서는 확정된 방향을 참고로만 보여준다. */}
           {(String(semContent || '').trim() || String(semMethods || '').trim()) && (
@@ -3116,15 +3080,15 @@ export default function IepPage({ onNavigate }) {
                   <button className="btn btn-ghost btn-sm" onClick={() => openExt('steps')} title="외부 AI로 단계 분해">🌐 외부AI</button> */}
                   <button className="btn btn-ghost btn-sm" onClick={addStep}>+ 단계 추가</button>
                   <button className="btn btn-ghost btn-sm" onClick={downloadTaskSheetNow} title="단계×회기 기록지 Word">📋 기록지</button>
+                  {/* 0915(mds/31): 앱에서 바로 회기 기록 — 저장된 목표만(회기는 목표 id에 붙는다) */}
+                  <button className="btn btn-ghost btn-sm" onClick={openSessionLog}
+                    title={editingId ? '행동 데이터 기록 › 교수 회기 기록 탭에서 + − P I로 기록' : '목표를 먼저 저장하면 회기 기록을 열 수 있어요'}>📈 회기 기록</button>
                 </div>
               </div>
               <div style={{ fontSize: '.8rem', color: '#5b3fb0', opacity: 0.85, marginTop: 4 }}>
                 복잡한 행동·기술을 학생이 순서대로 수행할 단계로 나눕니다(예: 손 씻기 → 자리 앉기 → …). 전체 {taskSteps.filter((t) => t.trim()).length || '–'}단계 · 독립 수행 단계가 매월 늘고, 단계별 촉진은 점차 약화됩니다.
               </div>
               <div className="form-row" style={{ marginTop: 8 }}>
-                  {/* 0915(mds/31): 앱에서 바로 회기 기록 — 저장된 목표만(회기는 목표 id에 붙는다) */}
-                  <button className="btn btn-ghost btn-sm" onClick={openSessionLog}
-                    title={editingId ? '행동 데이터 기록 › 교수 회기 기록 탭에서 + − P I로 기록' : '목표를 먼저 저장하면 회기 기록을 열 수 있어요'}>📈 회기 기록</button>
                 <div className="form-group"><label className="form-label">교수 순서(연쇄)</label>
                   <select className="form-input" value={chainType} onChange={(e) => setChainType(e.target.value)}>
                     <option value="forward">전진형 — 1단계부터 독립 확대</option>
@@ -3260,12 +3224,12 @@ export default function IepPage({ onNavigate }) {
               </div>
               <div>
                 <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, tableLayout: 'fixed' }}>
-                  <colgroup>{(() => { const t = colW.reduce((a, b) => a + b, 0); return colW.map((w, i) => <col key={i} style={{ width: (w / t * 100) + '%' }} />); })()}</colgroup>
+                  {monthlyColgroup}
                   <thead><tr>
                     {['월', '교육목표', '교육내용', '교육방법', '평가계획', '평가(서술형)'].map((h, i) => (
                       <th key={i} style={{ ...thS(), position: 'relative', whiteSpace: 'nowrap' }}>{h}
-                        {i < 5 && <span onMouseDown={(e) => startResize(i, e)} title="드래그하여 너비 조절"
-                          style={{ position: 'absolute', top: 0, right: -3, width: 8, height: '100%', cursor: 'col-resize', userSelect: 'none' }} />}
+                        {i < 5 && <span onPointerDown={(e) => startResize(i, e)} title="드래그하여 너비 조절"
+                          style={{ position: 'absolute', top: 0, right: -3, width: 8, height: '100%', cursor: 'col-resize', userSelect: 'none', touchAction: 'none', zIndex: 1 }} />}
                       </th>
                     ))}
                   </tr></thead>
@@ -3273,11 +3237,12 @@ export default function IepPage({ onNavigate }) {
                     {monthly.map((m, i) => (
                       <tr key={i}>
                         <td style={{ ...tdS, fontWeight: 700, textAlign: 'center', background: '#f3f6fc', color: '#3b6ef5' }}>{m.month}월</td>
-                        <td style={tdS}><textarea style={cellInput} value={m.goal} onChange={(e) => editMonth(i, 'goal', e.target.value)} /></td>
-                        <td style={tdS}><textarea style={cellInput} value={m.content} onChange={(e) => editMonth(i, 'content', e.target.value)} /></td>
-                        <td style={tdS}><textarea style={cellInput} value={(m.methods || []).map((x) => '- ' + x).join('\n')} onChange={(e) => editMonth(i, 'methods', e.target.value)} /></td>
-                        <td style={tdS}><textarea style={cellInput} value={m.eval_plan || ''} onChange={(e) => editMonth(i, 'eval_plan', e.target.value)} placeholder={'- …는가?'} /></td>
-                        <td style={tdS}><textarea style={cellInput} value={m.eval} onChange={(e) => editMonth(i, 'eval', e.target.value)} /></td>
+                        {/* 0915: 학기 칸과 같은 줄 단위 표 — methods만 배열(editMonth가 줄 문자열을 배열로 나눔), 나머지는 "- " 줄 문자열 */}
+                        <td style={tdS}><LineTable compact value={m.goal || ''} onChange={(v) => editMonth(i, 'goal', v)} /></td>
+                        <td style={tdS}><LineTable compact value={m.content || ''} onChange={(v) => editMonth(i, 'content', v)} /></td>
+                        <td style={tdS}><LineTable compact value={(m.methods || []).map((x) => '- ' + x).join('\n')} onChange={(v) => editMonth(i, 'methods', v)} /></td>
+                        <td style={tdS}><LineTable compact value={m.eval_plan || ''} onChange={(v) => editMonth(i, 'eval_plan', v)} placeholder="…는가?" /></td>
+                        <td style={tdS}><LineTable compact value={m.eval || ''} onChange={(v) => editMonth(i, 'eval', v)} /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -3341,5 +3306,4 @@ export default function IepPage({ onNavigate }) {
 
 const thS = (w) => ({ background: '#2f5496', color: '#fff', border: '1px solid #d9d9d9', padding: '8px 9px', fontSize: 12, ...(w ? { width: w } : {}) });
 const tdS = { border: '1px solid #e3e6eb', padding: 6, verticalAlign: 'top', wordBreak: 'break-word', overflow: 'hidden' };
-const cellInput = { width: '100%', border: 'none', outline: 'none', resize: 'vertical', fontFamily: 'inherit', fontSize: 12.5, background: 'transparent', lineHeight: 1.55, minHeight: 70, whiteSpace: 'pre-wrap' };
 const spinner = { display: 'inline-block', width: 18, height: 18, border: '3px solid rgba(79,107,237,.25)', borderTopColor: '#4f6bed', borderRadius: '50%', animation: 'spin .8s linear infinite' };

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Modal from '../ui/Modal';
+import LineTable from '../ui/LineTable';
+import useColumnWidths, { MONTHLY_COL_DEFAULT } from '../../lib/hooks/useColumnWidths';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -66,6 +68,8 @@ export default function IepReportPage() {
     delay: 2500,
     save: autoSaveDirtyGoals,
   });
+  // 월별 표 열 너비 — IEP 작성 화면과 공유(localStorage 'iep_colw'). 조기 return보다 위에서 호출.
+  const { startResize, reset: resetColW, colgroup: monthlyColgroup } = useColumnWidths('iep_colw', MONTHLY_COL_DEFAULT);
 
   if (!curStu) return (<><StuHero /><NoStudentHint /></>);
 
@@ -303,13 +307,13 @@ export default function IepReportPage() {
               <span style={{ ...secTag, background: '#4f6bed' }}>학기 단위</span>
             </div>
             <div className="form-row">
-              <div className="form-group"><label className="form-label">현행수준</label><textarea className="form-textarea" rows={3} value={g.plop || ''} onChange={(e) => updateGoal(g.id, { plop: e.target.value })} /></div>
-              <div className="form-group"><label className="form-label">학기목표 (여러 줄 "-")</label><textarea className="form-textarea" rows={3} value={g.semester_goal || ''} onChange={(e) => updateGoal(g.id, { semester_goal: e.target.value })} /></div>
+              <div className="form-group"><label className="form-label">현행수준 (한 줄씩 · Enter로 다음 줄)</label><LineTable bullet={false} value={g.plop || ''} onChange={(v) => updateGoal(g.id, { plop: v })} /></div>
+              <div className="form-group"><label className="form-label">학기목표 (한 줄씩 · Enter로 다음 줄)</label><LineTable value={g.semester_goal || ''} onChange={(v) => updateGoal(g.id, { semester_goal: v })} /></div>
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">학기 평가 (여러 줄 "-")</label>
+              <label className="form-label">학기 평가 (한 줄씩 · Enter로 다음 줄)</label>
               <div style={{ fontSize: '.74rem', color: '#92400e', margin: '0 0 4px' }}>📌 학기말 작성 칸 — 학기 중에는 평가 "기준·계획"만 적고, 실제 결과는 학기말에 기록하세요.</div>
-              <textarea className="form-textarea" rows={3} value={g.semestral_eval || ''} onChange={(e) => updateGoal(g.id, { semestral_eval: e.target.value })} />
+              <LineTable value={g.semestral_eval || ''} onChange={(v) => updateGoal(g.id, { semestral_eval: v })} />
             </div>
           </div>
 
@@ -318,20 +322,29 @@ export default function IepReportPage() {
             <div style={secHead}>
               <span style={secTitle}>📅 월별 개별화교육계획/평가</span>
               <span style={{ ...secTag, background: '#0d9488' }}>월 단위</span>
-              <span style={{ fontSize: '.74rem', color: '#6b7280' }}>· 모든 칸 직접 수정</span>
+              <span style={{ fontSize: '.74rem', color: '#6b7280' }}>· 모든 칸 직접 수정 · 헤더 경계를 끌어 열 너비 조절</span>
+              <button type="button" className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={resetColW}>열 너비 초기화</button>
             </div>
             <div style={{ overflowX: 'auto' }}>
-            <table style={tbl}>
-              <thead><tr><th style={{ ...th, width: 48 }}>월</th><th style={th}>교육목표</th><th style={th}>교육내용</th><th style={{ ...th, width: 150 }}>교육방법</th><th style={{ ...th, width: '18%' }}>평가계획</th><th style={{ ...th, width: '22%' }}>평가</th></tr></thead>
+            <table style={{ ...tbl, tableLayout: 'fixed' }}>
+              {monthlyColgroup}
+              <thead><tr>
+                {['월', '교육목표', '교육내용', '교육방법', '평가계획', '평가'].map((h, i) => (
+                  <th key={h} style={{ ...th, position: 'relative', whiteSpace: 'nowrap' }}>{h}
+                    {i < 5 && <span onPointerDown={(e) => startResize(i, e)} title="드래그하여 너비 조절" style={resizeHandle} />}
+                  </th>
+                ))}
+              </tr></thead>
               <tbody>
                 {(g.monthly || []).map((m, i) => (
                   <tr key={i}>
                     <td style={tc}>{m.month}월</td>
-                    <td style={tdc}><textarea style={cell} value={m.goal || ''} onChange={(e) => updateMonth(g.id, i, 'goal', e.target.value)} /></td>
-                    <td style={tdc}><textarea style={cell} value={m.content || ''} onChange={(e) => updateMonth(g.id, i, 'content', e.target.value)} /></td>
-                    <td style={tdc}><textarea style={cell} value={(m.methods || []).map((x) => '- ' + x).join('\n')} onChange={(e) => updateMonth(g.id, i, 'methods', e.target.value)} /></td>
-                    <td style={tdc}><textarea style={cell} value={m.eval_plan || ''} onChange={(e) => updateMonth(g.id, i, 'eval_plan', e.target.value)} placeholder="- …는가?" /></td>
-                    <td style={tdc}><textarea style={cell} value={m.eval || ''} onChange={(e) => updateMonth(g.id, i, 'eval', e.target.value)} /></td>
+                    {/* 0915: IEP 작성 화면과 같은 줄 단위 표 — methods만 배열(updateMonth가 줄 문자열을 나눔) */}
+                    <td style={tdc}><LineTable compact value={m.goal || ''} onChange={(v) => updateMonth(g.id, i, 'goal', v)} /></td>
+                    <td style={tdc}><LineTable compact value={m.content || ''} onChange={(v) => updateMonth(g.id, i, 'content', v)} /></td>
+                    <td style={tdc}><LineTable compact value={(m.methods || []).map((x) => '- ' + x).join('\n')} onChange={(v) => updateMonth(g.id, i, 'methods', v)} /></td>
+                    <td style={tdc}><LineTable compact value={m.eval_plan || ''} onChange={(v) => updateMonth(g.id, i, 'eval_plan', v)} placeholder="…는가?" /></td>
+                    <td style={tdc}><LineTable compact value={m.eval || ''} onChange={(v) => updateMonth(g.id, i, 'eval', v)} /></td>
                   </tr>
                 ))}
                 {(!g.monthly || g.monthly.length === 0) && <tr><td colSpan={6} style={{ ...tdc, color: '#6b7280', textAlign: 'center' }}>월별 계획이 없습니다. "IEP 목표 생성"에서 월별을 만들면 여기서 수정할 수 있어요.</td></tr>}
@@ -383,8 +396,8 @@ const secTag = { fontSize: '.72rem', fontWeight: 700, color: '#fff', borderRadiu
 const hl = { border: '1px solid #e3e6eb', background: '#f3f4f6', fontWeight: 700, padding: '7px 9px', width: 90, whiteSpace: 'nowrap' };
 const td = { border: '1px solid #e3e6eb', padding: '7px 9px' };
 const tbl = { width: '100%', borderCollapse: 'collapse', fontSize: 12.5, marginTop: 4 };
+const resizeHandle = { position: 'absolute', top: 0, right: -4, width: 8, height: '100%', cursor: 'col-resize', userSelect: 'none', touchAction: 'none', zIndex: 1 };
 const th = { background: '#2f5496', color: '#fff', border: '1px solid #d9d9d9', padding: '8px 9px', fontSize: 12, textAlign: 'center' };
 const tdc = { border: '1px solid #e3e6eb', padding: 4, verticalAlign: 'top' };
 const tc = { border: '1px solid #e3e6eb', padding: '7px 9px', textAlign: 'center', verticalAlign: 'top', background: '#f3f6fc', fontWeight: 700, whiteSpace: 'nowrap' };
-const cell = { width: '100%', border: 'none', outline: 'none', resize: 'vertical', fontFamily: 'inherit', fontSize: 12.5, background: 'transparent', lineHeight: 1.55, minHeight: 64, whiteSpace: 'pre-wrap' };
 const spinner = { display: 'inline-block', width: 18, height: 18, border: '3px solid rgba(79,107,237,.25)', borderTopColor: '#4f6bed', borderRadius: '50%', animation: 'spin .8s linear infinite' };
