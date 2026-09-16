@@ -8,6 +8,7 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
+import { guessWriteMode, resolveIepMode, flowModeOf } from '../../lib/teachMethods';
 import { fetchIEP, saveIEPGoal, deleteIEPGoal, fetchStartpoint, fetchClassPBS } from '../../lib/api/students';
 import { parseLooseJSON } from '../../lib/utils/looseJson';
 import { buildTermIndex, stdKeyTerms, goalCoverage, syncStdGoals, skeletonGoal, joinGoals, toCanDoText } from '../../lib/utils/stdTerms';
@@ -487,6 +488,20 @@ export default function IepPage({ onNavigate }) {
   const aiSeq = useRef(0); // AI 초안 차수 카운터
 
   const [savedGoals, setSavedGoals] = useState([]);
+  // 0916(mds/34 §4-2): 작성 방식은 목표를 따라간다 — 저장된 목표는 그 목표의 방식으로 열고,
+  //   새 목표는 이 학생의 올해 목표가 모두 같은 방식이면 그 방식으로 연다.
+  //   교사가 경로 카드를 직접 누르면 그 선택을 존중한다(pickedFlowRef).
+  const pickedFlowRef = useRef(false);
+  const goalWriteMode = (g) => guessWriteMode({
+    funcAlt: g?.func_plan?.alt,
+    subjects: [g?.subject, ...(Array.isArray(g?.related_stds) ? g.related_stds.map((x) => x.subject) : [])],
+  });
+  // 0916(mds/34 §15-6): 지금 쓰는 목표가 교과(직접교수)면 DTT 기록 단추를 띄우지 않는다. 판단이 안 서면 그대로 띄운다.
+  const dttFitsEditing = goalWriteMode({
+    func_plan: { alt: funcPlan.alt },
+    subject: sel?.subject,
+    related_stds: selExtra.map((x) => ({ subject: x.subject })),
+  }) !== 'subject';
   const [busy, setBusy] = useState(false);
   // 0819 피드백: 저장 성공 후 "다음 단계(IEP 계획서)로 이동" 배너 — 내용을 다시 수정하면 숨김.
   const [savedOk, markSaved] = useSavedFlag([goal, plop, monthly, semEval]);
@@ -529,12 +544,21 @@ export default function IepPage({ onNavigate }) {
     fetchIEP(curStuId).then((d) => setSavedGoals(d.goals || [])).catch(() => {}).finally(() => setGoalsLoading(false));
   }, [curStuId]);
 
+  // 0916: 저장된 목표가 오면 이 학생의 올해 목표 방식으로 화면을 연다(편집 중이거나 교사가 직접 고른 뒤에는 건드리지 않는다).
+  useEffect(() => {
+    if (editingId || pickedFlowRef.current) return;
+    const modes = (savedGoals || []).filter((g) => !schoolYear || g.school_year === schoolYear).map(goalWriteMode);
+    setFlowMode(flowModeOf(resolveIepMode({ goalModes: modes }).mode));
+  }, [savedGoals, schoolYear, editingId]);
+
   // 0819(동료 피드백): 학생을 바꾸면 이전 학생의 편집 내용(학기목표·월별·성취기준 선택 등)이
   // 화면에 그대로 남던 문제 — 학생 전환 시 편집 상태를 전부 초기화한다(저장된 자료는 위 효과가 다시 로드).
   const editStuRef = useRef(curStuId);
   useEffect(() => {
     if (editStuRef.current === curStuId) return;
     editStuRef.current = curStuId;
+    // 0916: 앞 학생의 작성 경로가 다음 학생에게 그대로 넘어가던 문제 — 경로도 함께 비운다(위 효과가 이 학생 목표로 다시 맞춘다).
+    pickedFlowRef.current = false; setFlowMode('std');
     setSel(null); setSelExtra([]); setStdRecs([]); setStdGoals([]); autoSummaryRef.current = ''; setFuncPlan(EMPTY_FUNC);
     setVerb(''); setVerbAlts([]); setIntent(''); setDescriptor(''); setEvalFoci([]);
     setGoal(''); setSemContent(''); setSemMethods('');
@@ -702,10 +726,15 @@ export default function IepPage({ onNavigate }) {
     }
     {
       // 0908(기능중심 B): 저장된 기능·대체행동이 있으면 경로B로 열린다.
+      // 0916: A 목표를 열 때 'std'로 되돌리지 않아 앞 목표의 경로가 남던 문제도 함께 고친다.
       const fp = g.func_plan && typeof g.func_plan === 'object' && !Array.isArray(g.func_plan) ? g.func_plan : {};
       const loadedFp = { func: String(fp.func || ''), skill: String(fp.skill || ''), alt: String(fp.alt || '') };
       setFuncPlan(loadedFp);
-      if (loadedFp.alt) setFlowMode('goal');
+      pickedFlowRef.current = false;
+      setFlowMode(flowModeOf(guessWriteMode({
+        funcAlt: loadedFp.alt,
+        subjects: [std?.subject, ...(Array.isArray(g.related_stds) ? g.related_stds.map((x) => x.subject) : [])],
+      })));
     }
     setGoal(g.semester_goal || ''); setPlop(g.plop || '');
     setSemContent(g.sem_content || ''); setSemMethods(g.sem_methods || '');
@@ -765,6 +794,8 @@ export default function IepPage({ onNavigate }) {
   }
 
   function newGoal() {
+    // 0916: 새 목표는 이 학생의 올해 목표 방식으로 연다(위 효과가 savedGoals로 다시 맞춘다).
+    pickedFlowRef.current = false;
     setSel(null); setSelExtra([]); setEditingId(null); setMonthly([]); setSemEval(''); setGoal('');
     setSemContent(''); setSemMethods(''); setStdGoals([]); autoSummaryRef.current = ''; setFuncPlan(EMPTY_FUNC);
     setVerb(''); setIntent(''); setDescriptor(''); setEvalFoci([]); setSupportTier(''); setTaskSteps([]);
@@ -2674,7 +2705,7 @@ export default function IepPage({ onNavigate }) {
                   <button className="btn btn-pri btn-sm" onClick={() => loadGoal(g)}>{editingId === g.id ? '수정 중' : '✏ 수정'}</button>
                   <button className="btn btn-ghost btn-sm" onClick={() => exportNiceWord([g])}>나이스 Word</button>
                   <button className="btn btn-ghost btn-sm" onClick={() => exportFormWord([g])}>양식 Word</button>
-                  {(g.crit_type === 'rate' || g.crit_type === 'freq') && (
+                  {(g.crit_type === 'rate' || g.crit_type === 'freq') && goalWriteMode(g) !== 'subject' && (
                     <button className="btn btn-ghost btn-sm" onClick={() => openDttLog(g.id)} title="이 목표의 DTT(개별시행) 기록 열기 — 연결된 프로그램이 없으면 새로 만들어요">🎯 DTT 기록</button>
                   )}
                   <button className="btn btn-ghost btn-sm" onClick={() => removeGoal(g.id)}>삭제</button>
@@ -2713,7 +2744,7 @@ export default function IepPage({ onNavigate }) {
             { key: 'goal', t: 'B. 학기목표 먼저 → 성취기준', d: '학생에게 필요한 기술·내용 중심으로 학기목표를 먼저 쓰고, 관련 성취기준을 연결합니다.' },
           ].map((m) => (
             <button key={m.key} type="button" onClick={() => {
-                setFlowMode(m.key); setStdRecs([]);
+                pickedFlowRef.current = true; setFlowMode(m.key); setStdRecs([]);
                 if (m.key === 'goal' && !editingId) { setStdGoals([]); autoSummaryRef.current = ''; }
                 // 0908: 경로B로 들어오면 QABF 최상위 기능을 기본값으로 제안(신체(통증)이면 비움 — 의료적 접근 우선).
                 if (m.key === 'goal' && !funcPlan.func && qabfFunc?.func) setFuncPlan((p) => ({ ...p, func: qabfFunc.func }));
@@ -3057,10 +3088,12 @@ export default function IepPage({ onNavigate }) {
                 </>
               )}
               <span style={{ flex: 1 }} />
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => openDttLog()}
-                title={editingId ? '행동 데이터 기록 › 교수 회기 기록 › DTT — 이 목표에 연결된 프로그램을 열어요(없으면 목표 기준으로 새로 만들기)' : '목표를 먼저 저장하면 DTT 기록을 열 수 있어요'}>
-                🎯 DTT 기록 열기
-              </button>
+              {dttFitsEditing && (
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => openDttLog()}
+                  title={editingId ? '행동 데이터 기록 › 교수 회기 기록 › DTT — 이 목표에 연결된 프로그램을 열어요(없으면 목표 기준으로 새로 만들기)' : '목표를 먼저 저장하면 DTT 기록을 열 수 있어요'}>
+                  🎯 DTT 기록 열기
+                </button>
+              )}
             </div>
           )}
           {/* IEP·Tier 관계 안내 — 'Tier 3 완료'가 IEP의 출발점이 아님을 명확히 한다 */}
