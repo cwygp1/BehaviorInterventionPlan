@@ -47,7 +47,8 @@ export default function MonitorPage({ onNavigate }) {
   const [fidResp, setFidResp] = useState(false);
 
   const [busy, setBusy] = useState(false);
-  // 0915(mds/31 · 갑 결정): 탭 2개 — 문제행동 데이터 | 교수 회기 기록(과제분석). 메뉴는 늘리지 않는다.
+  // 0915(mds/31 · 갑 결정): 탭 2개 — 문제행동 데이터 | 교수 회기 기록. 메뉴는 늘리지 않는다.
+  //   0916(mds/34 §15): 기록 형태가 늘어나 탭 이름에서 형태 목록을 뺐다(형태는 탭 안 칩에서 고른다).
   const [tab, setTab] = useState(() => { try { return sessionStorage.getItem('kb_monitor_tab') || 'behavior'; } catch (_) { return 'behavior'; } });
   const pickTab = (t) => { setTab(t); try { sessionStorage.setItem('kb_monitor_tab', t); } catch (_) { /* 무시 */ } };
   const [periodModalOpen, setPeriodModalOpen] = useState(false);
@@ -88,7 +89,7 @@ export default function MonitorPage({ onNavigate }) {
   const tabBar = (
     <div className="tabs" role="tablist" aria-label="행동 데이터 종류">
       <button type="button" role="tab" className={'tab' + (tab === 'behavior' ? ' on' : '')} aria-selected={tab === 'behavior'} onClick={() => pickTab('behavior')}>🔴 문제행동 데이터</button>
-      <button type="button" role="tab" className={'tab' + (tab === 'sessions' ? ' on' : '')} aria-selected={tab === 'sessions'} onClick={() => pickTab('sessions')}>🧩 교수 회기 기록 (과제분석·DTT)</button>
+      <button type="button" role="tab" className={'tab' + (tab === 'sessions' ? ' on' : '')} aria-selected={tab === 'sessions'} onClick={() => pickTab('sessions')}>🧩 교수 회기 기록</button>
     </div>
   );
   if (tab === 'sessions') return <><StuHero />{tabBar}<TeachingRecordPanel onNavigate={onNavigate} /></>;
