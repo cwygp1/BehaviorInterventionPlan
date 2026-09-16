@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import ProgramSessionPanel from './ProgramSessionPanel';
 import DttPanel from './DttPanel';
+import ScalePanel from './ScalePanel';
 import { RECORD_FRAMES, isReadyKind } from '../../lib/teachMethods';
 
 // 0915(mds/32): 교수 회기 기록 탭 — 기록 형태 고르기.
@@ -33,7 +34,9 @@ export default function TeachingRecordPanel({ onNavigate }) {
           )))}
         </div>
       </div>
-      {kind === 'dtt' ? <DttPanel /> : <ProgramSessionPanel onNavigate={onNavigate} />}
+      {kind === 'dtt' && <DttPanel />}
+      {kind === 'scale' && <ScalePanel />}
+      {kind !== 'dtt' && kind !== 'scale' && <ProgramSessionPanel onNavigate={onNavigate} />}
     </>
   );
 }

@@ -54,7 +54,8 @@ export default function DttPanel() {
     Promise.all([fetchPrograms(curStuId), fetchSessions(curStuId), fetchIEP(curStuId)])
       .then(([p, s, g]) => {
         if (!alive) return;
-        const list = p.programs || [];
+        // 0916: 5점 척도(BST) 프로그램은 이 화면에 섞이지 않게 뺀다.
+        const list = (p.programs || []).filter((x) => (x.kind || 'dtt') === 'dtt');
         setPrograms(list);
         setSessions(s.sessions || []);
         setGoals(g.goals || []);

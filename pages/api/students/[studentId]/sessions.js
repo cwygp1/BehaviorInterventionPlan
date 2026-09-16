@@ -2,6 +2,7 @@ import { sql } from '../../../../lib/db';
 import { requireStudentAccess } from '../../../../lib/auth';
 import { ensureProgramSessionsCached } from '../../../../lib/ensureSchema';
 import { normalizeCodes, scoreSession, normalizeTrials, scoreDtt, PHASES } from '../../../../lib/programSessions';
+import { normalizeScores, scoreBstSession, BST_TOP, SCALE_TRIALS_DEFAULT } from '../../../../lib/teachMethods';
 
 // 0915(mds/31): 교수 프로그램 회기 기록(IEP 과제분석 단계 × 회기).
 // 0915(mds/32): kind='dtt' — 프로그램(teaching_programs)의 표적마다 시행 n칸. codes = 표적별 시행 배열의 배열.
@@ -40,6 +41,25 @@ export default requireStudentAccess(async function handler(req, res) {
     };
   }
 
+  // 0916(mds/34 §15): BST 5점 척도 — 실제 상황(또는 역할극 연습)에서 기회마다 1~5점.
+  //   codes = 점수 배열, chain_type 칸에 장면(real·roleplay)을 담고, pct는 5점 비율이다.
+  function buildScale(body, trials, fallbackSetting = 'real') {
+    const phase = phaseOf(body.phase);
+    const setting = (body.setting || fallbackSetting) === 'roleplay' ? 'roleplay' : 'real';
+    const want = Math.max(Number(trials) || SCALE_TRIALS_DEFAULT, Array.isArray(body.codes) ? body.codes.length : 0);
+    const codes = normalizeScores(body.codes, want);
+    const r = scoreBstSession(codes);
+    const top = codes.filter((x) => x === BST_TOP).length;
+    return {
+      steps: [], chainType: setting, phase, targetStep: null, codes,
+      sc: { correct: top, indep: top, prompted: r.n - top, scored: r.n, pct: r.topRate || 0 },
+      itemStats: { n: r.n, avg: r.avg, top },
+      note: noteOf(body.note),
+    };
+  }
+
+  const SAVE_KINDS = ['chain', 'dtt', 'scale'];
+
   try {
     await ensureProgramSessionsCached();
     switch (req.method) {
@@ -51,9 +71,15 @@ export default requireStudentAccess(async function handler(req, res) {
       case 'POST': {
         const b = req.body || {};
         if (!b.date) return res.status(400).json({ error: 'date is required' });
-        const kind = b.kind === 'dtt' ? 'dtt' : 'chain';
+        const kind = b.kind ? (SAVE_KINDS.includes(b.kind) ? b.kind : null) : 'chain';
+        if (!kind) return res.status(400).json({ error: '모르는 기록 형태입니다.' });
         let v, goalId = null, programId = null;
-        if (kind === 'dtt') {
+        if (kind === 'scale') {
+          const p = (await sql`SELECT id, trials FROM teaching_programs WHERE id = ${b.program_id} AND student_id = ${studentId}`).rows[0];
+          if (!p) return res.status(404).json({ error: 'program not found' });
+          v = buildScale(b, p.trials);
+          programId = p.id;
+        } else if (kind === 'dtt') {
           const p = (await sql`SELECT id, items, trials FROM teaching_programs WHERE id = ${b.program_id} AND student_id = ${studentId}`).rows[0];
           if (!p) return res.status(404).json({ error: 'program not found' });
           // 표적 중 이번 회기에 기록한 것만(화면이 보낸 item_ids 순서) — 없으면 프로그램 전체.
@@ -72,8 +98,8 @@ export default requireStudentAccess(async function handler(req, res) {
           goalId = goal.id;
         }
         if (!v.sc.scored) return res.status(400).json({ error: '채점한 칸이 없습니다.' });
-        const no = kind === 'dtt'
-          ? await sql`SELECT COALESCE(MAX(session_no), 0) + 1 AS n FROM program_sessions WHERE student_id = ${studentId} AND kind = 'dtt' AND program_id = ${programId} AND date = ${b.date}`
+        const no = programId
+          ? await sql`SELECT COALESCE(MAX(session_no), 0) + 1 AS n FROM program_sessions WHERE student_id = ${studentId} AND kind = ${kind} AND program_id = ${programId} AND date = ${b.date}`
           : await sql`SELECT COALESCE(MAX(session_no), 0) + 1 AS n FROM program_sessions WHERE student_id = ${studentId} AND kind = 'chain' AND goal_id = ${goalId} AND date = ${b.date}`;
         const r = await sql`
           INSERT INTO program_sessions (student_id, kind, program_id, goal_id, goal_ref, date, session_no, phase, chain_type, target_step, steps_snapshot, codes,
@@ -93,7 +119,9 @@ export default requireStudentAccess(async function handler(req, res) {
         const row = (await sql`SELECT * FROM program_sessions WHERE id = ${b.id} AND student_id = ${studentId}`).rows[0];
         if (!row) return res.status(404).json({ error: 'session not found' });
         let v;
-        if (row.kind === 'dtt') {
+        if (row.kind === 'scale') {
+          v = buildScale(b, Array.isArray(row.codes) ? row.codes.length : SCALE_TRIALS_DEFAULT, row.chain_type);
+        } else if (row.kind === 'dtt') {
           const trials = Math.max(...(Array.isArray(row.codes) ? row.codes : []).map((x) => (Array.isArray(x) ? x.length : 0)), 1);
           v = buildDtt(b, Array.isArray(row.steps_snapshot) ? row.steps_snapshot : [], trials);
         } else {
@@ -101,7 +129,7 @@ export default requireStudentAccess(async function handler(req, res) {
         }
         if (!v.sc.scored) return res.status(400).json({ error: '채점한 칸이 없습니다.' });
         const r = await sql`
-          UPDATE program_sessions SET phase = ${v.phase}, target_step = ${v.targetStep}, codes = ${JSON.stringify(v.codes)}::jsonb,
+          UPDATE program_sessions SET phase = ${v.phase}, target_step = ${v.targetStep}, chain_type = ${v.chainType}, codes = ${JSON.stringify(v.codes)}::jsonb,
             item_stats = ${JSON.stringify(v.itemStats)}::jsonb,
             correct_count = ${v.sc.correct}, indep_count = ${v.sc.indep}, prompted_count = ${v.sc.prompted},
             scored_count = ${v.sc.scored}, pct = ${v.sc.pct}, note = ${v.note}

@@ -87,7 +87,8 @@ async function runQueries(userId, classId, readFrom, to, schoolYear, semester) {
   // 회기 기록은 0915 신설 테이블 — 아직 없는 DB에서도 달력 전체가 실패하지 않게 따로 받는다.
   const qSessions = sql`
     SELECT ps.student_id AS sid, to_char(ps.date, 'YYYY-MM-DD') AS d, COUNT(*)::int AS n,
-           ROUND(AVG(ps.pct))::int AS pct
+           -- 0916(mds/34 §15-6): 형태마다 숫자의 뜻이 달라 비율로 읽는 형태(과제분석·DTT)만 평균한다.
+           ROUND(AVG(ps.pct) FILTER (WHERE ps.kind IN ('chain', 'dtt')))::int AS pct
       FROM program_sessions ps JOIN students s ON s.id = ps.student_id
      WHERE s.user_id = ${userId} AND (${classId}::int IS NULL OR s.class_id = ${classId}::int)
        AND ps.date BETWEEN ${readFrom}::date AND ${to}::date
