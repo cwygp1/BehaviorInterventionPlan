@@ -3,7 +3,7 @@ import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
-import { saveQABF as apiSaveQABF } from '../../lib/api/students';
+import { saveQABF as apiSaveQABF, saveBIP as apiSaveBIP } from '../../lib/api/students';
 import QabfFnChart from '../ui/QabfFnChart';
 import AIActionBar from '../ui/AIActionBar';
 import PromptResultBlock from '../modals/PromptResultBlock';
@@ -90,6 +90,23 @@ export default function QabfPage({ onNavigate }) {
     save: saveCore,
   });
 
+  // 0917(현장 제보): QABF는 "이 행동이 왜 나타나는가"를 묻는데 정작 그 행동(표적행동 정의)이 화면에 없었다.
+  //   원본은 행동 관찰 기록(ABC) 화면이 쓰는 bip_data.opdef 그대로 — 여기서는 같은 값을 보여 주고 바로 고칠 수 있게만 한다
+  //   (복사 저장 없음: 같은 API로 opdef만 부분 저장하고 학생 캐시를 갱신해 관찰·BIP 화면도 같은 값을 본다).
+  const [opdef, setOpdef] = useState('');
+  useEffect(() => {
+    setOpdef(curStuData?.bip?.opdef || '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [curStuId, curStuDataLoaded]);
+  const opdefDirty = curStuDataLoaded && opdef !== String(curStuData?.bip?.opdef || '');
+  useAutoSave({
+    enabled: !!curStuId && curStuDataLoaded,
+    dirty: opdefDirty,
+    signal: opdef,
+    save: saveOpdefCore,
+    delay: 2000,
+  });
+
   if (!curStu) return <><StuHero /><NoStudentHint /></>;
   // 저장된 QABF가 도착하기 전에는 문항·붙여넣기 UI를 띄우지 않는다.
   // (로드 중 '적용'을 누르면 뒤늦게 온 서버 응답이 덮어써 아무 일도 안 일어난 것처럼 보였음)
@@ -131,7 +148,13 @@ export default function QabfPage({ onNavigate }) {
 
   const completed = responses.filter(qabfAnswered).length; // X(해당 없음)도 응답으로 집계
   // 목표행동 — BIP의 표적행동 조작적 정의를 그대로 인용(문서 지시문: 한 가지 목표행동을 구체적으로).
-  const targetBeh = String(curStuData?.bip?.opdef || '').trim();
+  const targetBeh = String(opdef || '').trim();
+
+  // 표적행동 정의 저장(자동 저장용) — bip_data에 opdef만 부분 저장. (함수 선언 호이스팅으로 위 useAutoSave에서 참조)
+  async function saveOpdefCore() {
+    await apiSaveBIP(curStuId, { opdef });
+    updateStudentData(curStuId, (cur) => ({ ...cur, bip: { ...(cur.bip || {}), opdef } }));
+  }
 
   // ── 0719: 기존 QABF 자료 불러오기 ─────────────────────────────
   // (a) 25개 응답 붙여넣기 — "0 1 2 3 X ..." / 쉼표·줄바꿈 구분 모두 허용. AI 불필요.
@@ -225,6 +248,25 @@ ${profile}
   return (
     <>
       <StuHero />
+      {/* 0917(현장 제보): 무엇을 평정하는지 먼저 보이게 — 표적행동 정의를 척도 바로 위에. 원본은 관찰(ABC) 화면과 같은 칸. */}
+      <div className="card" data-tour="qb-opdef">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <div className="card-title" style={{ marginBottom: 0 }}>🎯 표적행동 정의 — 지금 평정할 “이 행동”</div>
+            <div className="card-subtitle">
+              행동 관찰 기록(ABC)에서 작성한 “표적행동 조작적 정의”가 여기 표시됩니다. 여기서 고쳐도 같은 칸에 자동 저장돼요.
+            </div>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('observe')}>🔍 관찰 화면에서 {targetBeh ? '수정' : '작성'} →</button>
+        </div>
+        <textarea className="form-textarea" rows={2} value={opdef} onChange={(e) => setOpdef(e.target.value)}
+          placeholder='예: 과제를 제시받으면 3초 이내에 "싫어"라고 소리치며 책상 위 물건을 바닥으로 던진다.' />
+        {!targetBeh && (
+          <div style={{ marginTop: 6, fontSize: '.8rem', color: '#b45309' }}>
+            💡 아직 비어 있어요. 관찰(ABC) 기록의 행동(B)을 참고해 <strong>한 가지 행동</strong>을 눈으로 보고 셀 수 있게 적은 뒤 평정하세요.
+          </div>
+        )}
+      </div>
       <div className="card" data-tour="qb-intro">
         <div className="card-title">📊 QABF 척도 (Questions About Behavioral Function · 행동기능설문지)</div>
         <div className="card-subtitle">
@@ -234,8 +276,9 @@ ${profile}
         {/* 2026-08 최신화: 문서 지시문 반영 — 목표행동을 먼저 구체적으로 정하도록 안내 */}
         <div style={{ fontSize: '.8rem', color: 'var(--sub)', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', marginTop: 10, lineHeight: 1.6 }}>
           {QABF_INSTRUCTION}
-          {targetBeh && <div style={{ marginTop: 6, color: 'var(--pri-d)', fontWeight: 700 }}>🎯 목표행동: {targetBeh}</div>}
-          {!targetBeh && <div style={{ marginTop: 6, color: '#b45309' }}>💡 관찰(ABC) 기록의 행동(B)을 참고해 <strong>한 가지 행동</strong>을 마음에 정하고 평정하세요. 행동 관찰 기록(ABC) 화면의 “표적행동 조작적 정의” 칸에 적으면 여기에 자동 표시됩니다.</div>}
+          {targetBeh
+            ? <div style={{ marginTop: 6, color: 'var(--pri-d)', fontWeight: 700 }}>🎯 목표행동: {targetBeh}</div>
+            : <div style={{ marginTop: 6, color: '#b45309' }}>💡 위 “표적행동 정의” 칸에 한 가지 행동을 먼저 적고 평정하세요.</div>}
         </div>
         <div className="qabf-results" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginTop: 12 }}>
           {Object.keys(totals).map((f) => {
