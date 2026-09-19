@@ -28,6 +28,8 @@ import AssessmentLauncher from '../student/AssessmentLauncher';
 import { FORMAT_EX_MATH, FORMAT_EX_COMM, findExampleEchoes } from '../../lib/exampleGuard';
 import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
 import { methodsForType, methodsForTask, buildDisabilityMethodBlock, curriculumMethodBlock, CURRICULUM_METHOD, TEACH_SCENES } from '../../lib/disabilityMethods';
+import { loadDailyLifeGuide, guideUnits, dailyLifeGuideBlock, isDailyCode } from '../../lib/dailyLifeGuide';
+import FoldCard from '../ui/FoldCard';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import { GRADES_BY_LEVEL } from '../modals/EditStudentModal';
 
@@ -428,6 +430,25 @@ export default function IepPage({ onNavigate }) {
   // selExtra = 나머지 선택 목록. 저장·프롬프트에는 [sel, ...selExtra] 전체가 반영된다.
   const [sel, setSel] = useState(null);
   const [selExtra, setSelExtra] = useState([]);
+  // 0919: 일상생활 지도서(의사소통·자립생활) — 선택한 성취기준의 중활동·소활동을 화면과 프롬프트에.
+  const [dlGuide, setDlGuide] = useState(null);
+  const selCodes = [sel, ...selExtra].filter(Boolean).map((x) => x.code);
+  useEffect(() => {
+    if (dlGuide || !selCodes.some(isDailyCode)) return;
+    let alive = true;
+    loadDailyLifeGuide().then((g) => { if (alive && g) setDlGuide(g); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selCodes.join(','), dlGuide]);
+  const dlUnits = useMemo(() => guideUnits(dlGuide, selCodes), [dlGuide, selCodes.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 지도서 소활동 이름을 교육내용 줄로 추가(이미 있으면 건너뜀).
+  const addContentLines = (titles) => {
+    setSemContent((cur) => {
+      const lines = String(cur || '').split('\n').map((l) => l.trim()).filter(Boolean);
+      const add = titles.map((t) => `- ${t}`).filter((l) => !lines.includes(l));
+      return [...lines, ...add].join('\n');
+    });
+  };
 
   const [verb, setVerb] = useState('');
   const [verbAlts, setVerbAlts] = useState([]); // 대표 동사와 같은 의미의 측정 가능한 동사 목록
@@ -1511,7 +1532,7 @@ export default function IepPage({ onNavigate }) {
         (String(startpoint?.perfLevel || '').trim() ? `[출발점 — 수행 가능 수준] ${String(startpoint.perfLevel).replace(/\n/g, ' / ').trim()}\n` : '') +
         (curStu?.disability ? `[장애영역] ${curStu.disability}\n` : '') +
         '\n작성 규칙:\n' +
-        '1) content(교육내용): 학기목표에 도달하기 위한 구체 활동을 "~하기" 명사형으로 4~7개(위에 [성취기준별 목표]가 있으면 목표마다 1~2개씩). 활동을 잘게 쪼개고 실제 자료·상황을 담을 것. 학기목표에 여러 요소(예: 읽기와 대화)가 있으면 모든 요소를 고르게 다룰 것. "~하기"는 항목 끝에 1번만 쓸 것("돌리기하기"처럼 겹치면 안 됨).\n' +
+        '1) content(교육내용): 학기목표에 도달하기 위한 구체 활동을 "~하기" 명사형으로 4~7개(위에 [성취기준별 목표]가 있으면 목표마다 1~2개씩). 활동을 잘게 쪼개고 실제 자료·상황을 담을 것. 아래 [지도서 활동]이 있으면 그 소활동 이름을 소재로 우선 쓸 것(학생 수준에 맞게 고쳐 쓰되 지도서에 없는 활동을 지어내지 말 것). 학기목표에 여러 요소(예: 읽기와 대화)가 있으면 모든 요소를 고르게 다룰 것. "~하기"는 항목 끝에 1번만 쓸 것("돌리기하기"처럼 겹치면 안 됨).\n' +
         '   (서술 방식 예 — 내용은 베끼지 말 것: "화재경보기 소리와 다른 유사한 소리 구별하기" / "혼자서 버스 타기" / "버스 타고 내리기 순서 익히기")\n' +
         '2) methods(교육방법): 교사가 실제로 어떻게 가르치는지 2~4개 항목. 그중 1개 이상은 지원을 점차 줄여 독립 수행으로 가는 단계 흐름을 "→"로 이어 서술할 것.\n' +
         '   (서술 방식 예 — 내용은 베끼지 말 것: "교사가 학생의 손을 잡고 대피하기 → 대피 방법을 말로 설명하며 반복하기 → 설명 없이 함께 대피하기 → 교사가 한 걸음 뒤에서 지켜보기 → 학생이 머뭇거릴 때만 촉구 제공하며 스스로 대피하기")\n' +
@@ -1519,7 +1540,8 @@ export default function IepPage({ onNavigate }) {
         '3) 각 항목은 "- "로 시작하는 한 줄. 쉬운 우리말, 학생 실명·영어 단어 금지.\n' +
         '4) [부정 진술 금지] 교육내용에 "~하지 않기"처럼 무엇을 안 하는지를 쓰지 말고, 대신 무엇을 하는지(대체행동)로 쓸 것.\n' +
         (curStu?.disability ? '5) 교육방법의 핵심 방법은 아래 [교육과정 성격]의 기본값을 먼저 고려하고, 그 학생에게 더 맞으면 장애영역 기본 교수전략에서 1~2개를 고를 것. "→" 단계 흐름은 습득 초기 방법에서 시작해 일과 속 자연적 중재로 넘어가는 순서로 쓰되, 습득 초기 방법은 목표 성격에 맞춰 하나만 고를 것 — 교과(학업) 기술은 직접교수, 기초 기술의 1:1 반복은 비연속 시행 훈련(DTT), 사회성·안전·자기관리 같은 행동 기술은 행동기술훈련(BST). 아래 [유사 방법 구분]을 지켜 서로 섞어 쓰지 말 것.\n' : '') +
-        '\n' + curriculumMethodBlock(curriculumKind(), flowMode === 'goal' && funcPlan.skill ? FUNC_TEACH_METHOD(funcPlan.skill) : '') +
+        '\n' + dailyLifeGuideBlock(dlUnits) +
+        curriculumMethodBlock(curriculumKind(), flowMode === 'goal' && funcPlan.skill ? FUNC_TEACH_METHOD(funcPlan.skill) : '') +
         buildDisabilityMethodBlock(curStu?.disability) + '\n' +
         '반드시 JSON만 출력: {"content":"- ...하기\\n- ...하기","methods":"- ...\\n- ... → ... → ..."}';
       const j = await llmJSON('학기 교육내용·방법 생성(연수자료 방식)', prompt, { tier: 'fast', temperature: 0.5 });
@@ -1943,7 +1965,7 @@ export default function IepPage({ onNavigate }) {
         ? `[학기 교육방법(교사 방향)]\n${semMethodsText}\n  → 월별 교육방법(methods)의 지도전략은 이 방향을 우선 반영할 것. 이 방향에 "→"로 이어진 단계 흐름이 있으면 무관한 새 흐름을 만들지 말고 그 단계들을 구간 순서대로 배분할 것 — 각 구간의 ②지원수준·③강화 스케줄 문장 앞에 "[학기 계획 n/m단계]"를 붙여 학기 방향의 몇 번째 단계인지 표시하고, 그 단계를 이 구간의 교육내용 활동·자료에 맞게 구체화할 것(학기 방향 문장을 그대로 복사하지 말 것).\n`
         : '') +
       `[대상 월(구간)] ${ms.map((x) => x + '월').join(', ')} (총 ${ms.length}구간 — 월을 묶은 구간은 한 행으로 작성)\n` +
-      critLine + tierLine + currBlock + buildDisabilityMethodBlock(curStu?.disability) + ebpBlock + funcSkillsB +
+      critLine + tierLine + dailyLifeGuideBlock(dlUnits) + currBlock + buildDisabilityMethodBlock(curStu?.disability) + ebpBlock + funcSkillsB +
       `\n[형식 본보기 — 일부러 고른 "다른 교과"의 한 구간 예시]\n` +
       `아래 예시는 지금 작성하는 ${sel ? `교과(${sel.subject})` : '목표'}와 무관하다. 구조(개조식 content, methods 3구조, 질문형 eval_plan의 측면 구성)와 어미만 본보기로 삼을 것. 예시의 소재·활동·문장은 이 교과와 맞지 않으므로 가져다 쓰지 말 것.\n` +
       `${/수학|과학/.test(sel?.subject || '') ? FORMAT_EX_COMM : FORMAT_EX_MATH}\n\n` +
@@ -2806,6 +2828,39 @@ export default function IepPage({ onNavigate }) {
               <span style={{ fontSize: '.72rem', color: '#b45309', fontWeight: 700 }}>⚠ 5개 이상은 한 학기에 다루기 어려워요 — 4개 이하를 권장해요</span>
             )}
           </div>
+        )}
+        {/* 0919: 일상생활 성취기준을 고르면 지도서의 중활동·소활동이 여기 보인다 — 지도서를 다시 펴지 않아도 교육내용 소재를 고를 수 있게. */}
+        {dlUnits.length > 0 && (
+          <FoldCard id="iep-dl-guide" title="📖 지도서 활동 (일상생활 교사용 지도서)" defaultOpen
+            summary={`${dlUnits.length}개 성취기준 · 중활동 ${dlUnits.reduce((n, u) => n + u.midActivities.length, 0)}개 — 소활동을 누르면 학기 교육내용에 한 줄로 들어가요`}
+            style={{ margin: '4px 0 10px' }}>
+            {dlUnits.map((u) => (
+              <div key={u.code} style={{ marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, fontSize: '.86rem', color: '#1f3a8a' }}>[{u.code}] {u.standard} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {u.bookArea} 지도서 '{u.title}'</span></div>
+                {u.focus && <div style={{ fontSize: '.78rem', color: 'var(--sub)', margin: '2px 0 6px' }}>주안점: {u.focus}</div>}
+                {u.midActivities.map((m) => (
+                  <div key={m.no} style={{ margin: '4px 0 6px', paddingLeft: 8, borderLeft: '3px solid #c7d7f5' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: '.82rem' }}>
+                      <strong>중활동 {m.no}. {m.title}</strong>
+                      <button type="button" className="btn btn-ghost btn-sm" style={{ padding: '2px 8px', fontSize: '.72rem' }}
+                        onClick={() => { addContentLines(m.subActivities.map((x) => x.title)); toast(`소활동 ${m.subActivities.length}개를 교육내용에 넣었어요.`); }}>
+                        + 전부 넣기
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                      {m.subActivities.map((x) => (
+                        <button key={x.no} type="button" className="qchip" title={x.headings.length ? `절차: ${x.headings.join(' → ')}` : '누르면 교육내용에 추가'}
+                          onClick={() => { addContentLines([x.title]); toast('교육내용에 넣었어요: ' + x.title); }}>
+                          {x.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+            <div style={{ fontSize: '.74rem', color: 'var(--muted)' }}>출처: 2022 개정 특수교육 교육과정 일상생활 활동 교사용 지도서(의사소통·자립생활). 신체활동·여가활동·생활적응은 아직 없어요. AI 교육내용·월별 생성에도 이 활동이 재료로 들어갑니다.</div>
+          </FoldCard>
         )}
         {flowMode === 'goal' && (
           <div style={{ background: '#eef4ff', border: '1px solid #b9cdf0', borderRadius: 8, padding: '10px 12px', margin: '4px 0 10px' }}>
