@@ -2859,7 +2859,7 @@ export default function IepPage({ onNavigate }) {
                 ))}
               </div>
             ))}
-            <div style={{ fontSize: '.74rem', color: 'var(--muted)' }}>출처: 2022 개정 특수교육 교육과정 일상생활 활동 교사용 지도서(의사소통·자립생활). 신체활동·여가활동·생활적응은 아직 없어요. AI 교육내용·월별 생성에도 이 활동이 재료로 들어갑니다.</div>
+            <div style={{ fontSize: '.74rem', color: 'var(--muted)' }}>출처: 2022 개정 특수교육 교육과정 일상생활 활동 교사용 지도서(의사소통·자립생활·신체활동·여가활동 — 신체·여가는 스캔본을 글자로 읽은 것이라 오탈자가 있을 수 있어요). 생활적응은 아직 없어요. AI 교육내용·월별 생성에도 이 활동이 재료로 들어갑니다.</div>
           </FoldCard>
         )}
         {flowMode === 'goal' && (
