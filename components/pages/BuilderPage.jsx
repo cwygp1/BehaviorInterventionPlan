@@ -8,9 +8,11 @@ import { splitDisability } from '../../lib/disability';
 import {
   CATEGORIES, NEW_CHIPS, TOPIC_TEMPLATES, PRESETS, STUDENT_EXAMPLES, PURPOSE_RECIPES,
   AI_TIPS, AI_WARNINGS, COMPETENCIES, COMPETENCY_NOTE, CURRICULUM_ROLLOUT, ROLLOUT_NOTE,
-  FIELD_TIPS, SOURCE_NOTE, chipName,
+  FIELD_TIPS, SOURCE_NOTE, BUILDER_SETS_MAX, chipName,
 } from '../../lib/builderCatalog';
 import { buildBuilderPrompt } from '../../lib/builderPrompt';
+import { useAuth } from '../../contexts/AuthContext';
+import { fetchBuilderSets, createBuilderSet, updateBuilderSet, deleteBuilderSet } from '../../lib/api/builderSets';
 
 // ──────────────────────────────────────────────────────────────────────
 // 수업자료 주문서 — 칩을 골라 AI 요청문을 조립한다.
@@ -89,6 +91,22 @@ export default function BuilderPage() {
   // came from student vs. their own choice).
   const [autoSet, setAutoSet] = useState({ 장애: null, 학년군: null, 학급환경: null });
   const lastStuIdRef = useRef(null);
+  // 저장한 칩 조합(계정별, pages/api/me/builder-sets.js) — 0921
+  const { status: authStatus } = useAuth();
+  const [sets, setSets] = useState([]);
+  const [setsLoading, setSetsLoading] = useState(false);
+  const [setsLoaded, setSetsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (authStatus !== 'authed' || setsLoaded) return undefined;
+    let alive = true;
+    setSetsLoading(true);
+    fetchBuilderSets()
+      .then((r) => { if (alive) { setSets(r.sets || []); setSetsLoaded(true); } })
+      .catch((e) => { if (alive) toast('저장한 조합을 불러오지 못했어요: ' + e.message); })
+      .finally(() => { if (alive) setSetsLoading(false); });
+    return () => { alive = false; };
+  }, [authStatus, setsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync student profile chips whenever the selected student changes.
   // Replaces the previous student's auto-selected chips (장애/학년군/학급환경)
@@ -186,6 +204,68 @@ export default function BuilderPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // ── 칩 조합 저장·불러오기 ──
+  function currentSetData() {
+    const sels = {};
+    Object.entries(selected).forEach(([cat, set]) => {
+      if (set instanceof Set && set.size) sels[cat] = [...set];
+    });
+    return { sels, topic };
+  }
+  const canSaveSet = Object.values(selected).some((set) => set instanceof Set && set.size > 0) || !!topic.trim();
+
+  async function saveSet(name) {
+    if (!canSaveSet) { toast('저장할 칩이나 수업 내용이 없어요.'); return false; }
+    try {
+      const r = await createBuilderSet(name, currentSetData());
+      setSets((prev) => [r.set, ...prev]);
+      toast(`"${r.set.name}" 저장했어요.`);
+      return true;
+    } catch (e) { toast('저장 실패: ' + e.message); return false; }
+  }
+
+  function loadSet(s) {
+    const data = s.data || {};
+    const next = {};
+    Object.entries(data.sels || {}).forEach(([cat, items]) => {
+      if (Array.isArray(items) && items.length) next[cat] = new Set(items);
+    });
+    setSelected(next);
+    setTopic(data.topic || '');
+    setAiResult(''); setAiMeta(null);
+    toast(`"${s.name}" 불러왔어요. 검토 후 사용하세요.`);
+  }
+
+  async function overwriteSet(s) {
+    if (!canSaveSet) { toast('저장할 칩이나 수업 내용이 없어요.'); return; }
+    if (!window.confirm(`"${s.name}"을(를) 지금 고른 조합으로 덮어쓸까요?`)) return;
+    try {
+      const r = await updateBuilderSet(s.id, { data: currentSetData() });
+      setSets((prev) => [r.set, ...prev.filter((x) => x.id !== s.id)]);
+      toast(`"${r.set.name}" 덮어썼어요.`);
+    } catch (e) { toast('덮어쓰기 실패: ' + e.message); }
+  }
+
+  async function renameSet(s) {
+    const name = window.prompt('새 이름 (학생 이름·생년월일은 적지 마세요)', s.name);
+    if (name === null) return;
+    if (!name.trim()) { toast('이름을 적어 주세요.'); return; }
+    try {
+      const r = await updateBuilderSet(s.id, { name: name.trim() });
+      setSets((prev) => prev.map((x) => (x.id === s.id ? r.set : x)));
+      toast('이름을 바꿨어요.');
+    } catch (e) { toast('이름 바꾸기 실패: ' + e.message); }
+  }
+
+  async function removeSet(s) {
+    if (!window.confirm(`"${s.name}"을(를) 지울까요?`)) return;
+    try {
+      await deleteBuilderSet(s.id);
+      setSets((prev) => prev.filter((x) => x.id !== s.id));
+      toast('지웠어요.');
+    } catch (e) { toast('삭제 실패: ' + e.message); }
+  }
+
   const selectedCount = Object.values(selected).reduce((s, set) => s + (set instanceof Set ? set.size : 0), 0);
   const requiredOk = selected['결과물'] && selected['결과물'].size > 0;
 
@@ -240,6 +320,18 @@ export default function BuilderPage() {
           aiBusy={aiBusy}
           aiResult={aiResult}
           aiMeta={aiMeta}
+          setsCard={(
+            <SavedSetsCard
+              sets={sets}
+              loading={setsLoading}
+              canSave={canSaveSet}
+              onSave={saveSet}
+              onLoad={loadSet}
+              onOverwrite={overwriteSet}
+              onRename={renameSet}
+              onDelete={removeSet}
+            />
+          )}
         />
       )}
 
@@ -253,7 +345,7 @@ export default function BuilderPage() {
 // ──────────────────────────────────────────────────────────────────────
 // Builder tab
 // ──────────────────────────────────────────────────────────────────────
-function BuilderTab({ curStu, autoSet, selected, isSelected, toggle, topic, setTopic, appendTopic, reset, selectedCount, requiredOk, buildPrompt, runAI, aiBusy, aiResult, aiMeta }) {
+function BuilderTab({ curStu, autoSet, selected, isSelected, toggle, topic, setTopic, appendTopic, reset, selectedCount, requiredOk, buildPrompt, runAI, aiBusy, aiResult, aiMeta, setsCard }) {
   const promptText = useMemo(() => buildPrompt(), [selected, topic, buildPrompt]);
   const [showPreview, setShowPreview] = useState(false);
 
@@ -306,6 +398,9 @@ function BuilderTab({ curStu, autoSet, selected, isSelected, toggle, topic, setT
           </div>
         </div>
       </div>
+
+      {/* 저장한 칩 조합 */}
+      {setsCard}
 
       {/* Categories */}
       {CATEGORIES.map((cat) => (
@@ -385,6 +480,105 @@ function BuilderTab({ curStu, autoSet, selected, isSelected, toggle, topic, setT
         {(aiResult || aiBusy) && <PromptResultBlock prompt={promptText} output={aiResult} busy={aiBusy} meta={aiMeta} />}
       </div>
     </>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// 저장한 칩 조합 — 이름을 붙여 계정에 저장하고 다시 불러온다 (0921, Prompt Studio V3의 3슬롯에 해당)
+// ──────────────────────────────────────────────────────────────────────
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function SavedSetsCard({ sets, loading, canSave, onSave, onLoad, onOverwrite, onRename, onDelete }) {
+  const [name, setName] = useState('');
+  const [open, setOpen] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const full = sets.length >= BUILDER_SETS_MAX;
+
+  async function submit() {
+    const n = name.trim();
+    if (!n || busy) return;
+    setBusy(true);
+    const ok = await onSave(n);
+    setBusy(false);
+    if (ok) setName('');
+  }
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+        <div className="card-title" style={{ marginBottom: 0 }}>
+          💾 저장한 칩 조합 <span style={{ fontSize: '.74rem', color: 'var(--muted)', fontWeight: 600 }}>{sets.length}/{BUILDER_SETS_MAX}</span>
+        </div>
+        <span style={{ fontSize: '.78rem', color: 'var(--sub)' }}>같은 조합을 다음에 다시 쓸 때. 계정에 저장되어 다른 기기에서도 보여요.</span>
+        <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setOpen((v) => !v)}>
+          {open ? '▲ 접기' : '▼ 펼치기'}
+        </button>
+      </div>
+      {open && (
+        <>
+          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+            <input
+              className="form-input"
+              style={{ flex: 1, minWidth: 220 }}
+              value={name}
+              maxLength={60}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }}
+              placeholder="조합 이름 (예: 수학반 게임 세트) — 학생 이름·생년월일은 적지 마세요"
+            />
+            <button className="btn btn-pri btn-sm" disabled={!canSave || !name.trim() || busy || full} onClick={submit}>
+              💾 지금 조합 저장
+            </button>
+          </div>
+          <div style={{ fontSize: '.74rem', color: 'var(--muted)', marginTop: 4 }}>
+            {full
+              ? `조합은 ${BUILDER_SETS_MAX}개까지예요. 안 쓰는 것을 지우거나 덮어쓰세요.`
+              : canSave
+                ? '지금 고른 칩과 2-B 수업 내용이 함께 저장돼요. 학생 이름은 저장되지 않아요(학생 코드만).'
+                : '칩을 고르거나 2-B 수업 내용을 적으면 저장할 수 있어요.'}
+          </div>
+
+          {loading ? (
+            <div style={{ fontSize: '.82rem', color: 'var(--muted)', marginTop: 10 }}>불러오는 중…</div>
+          ) : sets.length === 0 ? (
+            <div style={{ fontSize: '.82rem', color: 'var(--muted)', marginTop: 10, padding: '10px 12px', background: 'var(--surface2)', borderRadius: 8 }}>
+              아직 저장한 조합이 없어요. 칩을 고른 뒤 이름을 적고 저장하면 여기에 쌓여요.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 8, marginTop: 10 }}>
+              {sets.map((s) => {
+                const sels = s.data?.sels || {};
+                const out = (sels['결과물'] || [])[0];
+                const n = Object.values(sels).reduce((a, arr) => a + (Array.isArray(arr) ? arr.length : 0), 0);
+                const topicLine = String(s.data?.topic || '').split('\n').map((t) => t.trim()).find(Boolean) || '';
+                return (
+                  <div key={s.id} style={{ padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <strong style={{ fontSize: '.9rem', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.name}>{s.name}</strong>
+                      <span style={{ fontSize: '.7rem', color: 'var(--muted)' }}>{fmtDate(s.updated_at)}</span>
+                    </div>
+                    <div style={{ fontSize: '.76rem', color: 'var(--sub)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={topicLine}>
+                      {out ? chipName(out) : '결과물 미선택'} · 칩 {n}개{topicLine ? ` · ${topicLine}` : ''}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                      <button className="btn btn-pri btn-sm" onClick={() => onLoad(s)}>📂 불러오기</button>
+                      <button className="btn btn-ghost btn-sm" disabled={!canSave} title="지금 고른 조합으로 덮어쓰기" onClick={() => onOverwrite(s)}>↻ 덮어쓰기</button>
+                      <button className="btn btn-ghost btn-sm" title="이름 바꾸기" onClick={() => onRename(s)}>✎</button>
+                      <button className="btn btn-ghost btn-sm" title="지우기" style={{ color: '#c92a2a' }} onClick={() => onDelete(s)}>🗑</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
