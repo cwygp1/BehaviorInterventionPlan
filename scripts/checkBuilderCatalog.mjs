@@ -1,7 +1,15 @@
 // 수업자료 주문서 데이터 검사 — node scripts/checkBuilderCatalog.mjs [--show <추천 id>]
 // 추천 프리셋의 칩 이름이 CATEGORIES에 있는지, 설명·종류 표가 칩과 맞는지 대조하고 요청문을 시험 조립한다.
-import { CATEGORIES, CHIP_TEXT, NEW_CHIPS, PRESETS, STUDENT_EXAMPLES } from '../lib/builderCatalog.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { CATEGORIES, CHIP_TEXT, NEW_CHIPS, PRESETS, STUDENT_EXAMPLES, dailyLifePresets } from '../lib/builderCatalog.js';
 import { OUTPUT_KIND, buildBuilderPrompt } from '../lib/builderPrompt.js';
+
+// 0921: 2025 일상생활 활동 수업 도움 자료 예시 32건 → 프리셋(화면은 fetch, 여기서는 파일로 읽어 같은 함수를 쓴다)
+const DL_PRESETS = dailyLifePresets(
+  JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public/data/daily-life-lesson-examples.json'), 'utf8')).examples,
+);
+const ALL_PRESETS = [...PRESETS, ...DL_PRESETS];
 
 const byCat = {};
 const all = new Set();
@@ -25,7 +33,7 @@ for (const it of byCat['결과물']) if (!OUTPUT_KIND[it]) errs.push(`OUTPUT_KIN
 for (const k of Object.keys(OUTPUT_KIND)) if (!byCat['결과물'].has(k)) errs.push(`OUTPUT_KIND에만 있는 결과물: ${k}`);
 
 const ids = new Set();
-for (const p of PRESETS) {
+for (const p of ALL_PRESETS) {
   if (ids.has(p.id)) errs.push(`추천 id 중복: ${p.id}`);
   ids.add(p.id);
   if (!p.presets?.['결과물']?.length) errs.push(`추천 #${p.id} 결과물 없음`);
@@ -37,8 +45,8 @@ for (const p of PRESETS) {
 }
 for (const ex of STUDENT_EXAMPLES) if (!ex.preset) errs.push(`학생 예시 프리셋 없음: ${ex.title}`);
 
-// 요청문 시험 조립 — 종류마다 하나씩
-for (const p of PRESETS) {
+// 요청문 시험 조립 — 종류마다 하나씩(일상생활 예시 32개 포함)
+for (const p of ALL_PRESETS) {
   const txt = buildBuilderPrompt({ sels: p.presets, topic: p.topic, student: { code: 'S01', note: '비식별 요약 예시' } });
   if (!txt || txt.length < 400) errs.push(`추천 #${p.id} 요청문이 너무 짧음`);
   if (/undefined|\[object/.test(txt)) errs.push(`추천 #${p.id} 요청문에 undefined`);
@@ -47,11 +55,11 @@ if (buildBuilderPrompt({}) !== '') errs.push('빈 입력인데 요청문이 나�
 
 const showIdx = process.argv.indexOf('--show');
 if (showIdx > 0) {
-  const p = PRESETS.find((x) => x.id === Number(process.argv[showIdx + 1] || 21));
+  const p = ALL_PRESETS.find((x) => x.id === Number(process.argv[showIdx + 1] || 21));
   console.log(buildBuilderPrompt({ sels: p.presets, topic: p.topic, student: { code: 'S01', note: '조용한 환경 선호, 그림 카드에 잘 반응' } }));
   console.log('\n────────\n');
 }
-console.log(`칩 ${all.size}개 · 설명 ${Object.keys(CHIP_TEXT).length}개 · 추천 ${PRESETS.length}개 · 결과물 종류 표 ${Object.keys(OUTPUT_KIND).length}개`);
+console.log(`칩 ${all.size}개 · 설명 ${Object.keys(CHIP_TEXT).length}개 · 추천 ${PRESETS.length}개 + 일상생활 예시 ${DL_PRESETS.length}개 · 결과물 종류 표 ${Object.keys(OUTPUT_KIND).length}개`);
 warns.forEach((w) => console.log('warn:', w));
 if (errs.length) { errs.forEach((e) => console.error('ERROR:', e)); process.exit(1); }
 console.log('OK');

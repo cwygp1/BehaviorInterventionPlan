@@ -8,9 +8,10 @@ import { splitDisability } from '../../lib/disability';
 import {
   CATEGORIES, NEW_CHIPS, TOPIC_TEMPLATES, PRESETS, STUDENT_EXAMPLES, PURPOSE_RECIPES,
   AI_TIPS, AI_WARNINGS, COMPETENCIES, COMPETENCY_NOTE, CURRICULUM_ROLLOUT, ROLLOUT_NOTE,
-  FIELD_TIPS, SOURCE_NOTE, BUILDER_SETS_MAX, chipName,
+  FIELD_TIPS, SOURCE_NOTE, BUILDER_SETS_MAX, chipName, dailyLifePresets,
 } from '../../lib/builderCatalog';
 import { buildBuilderPrompt } from '../../lib/builderPrompt';
+import { loadDailyLifeExamples } from '../../lib/dailyLifeGuide';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchBuilderSets, createBuilderSet, updateBuilderSet, deleteBuilderSet } from '../../lib/api/builderSets';
 
@@ -587,13 +588,27 @@ function SavedSetsCard({ sets, loading, canSave, onSave, onLoad, onOverwrite, on
 // ──────────────────────────────────────────────────────────────────────
 const PRESET_FILTERS = [
   { v: 'all', l: '전체' }, { v: '웹 앱', l: '🖥 웹 앱' }, { v: '문서', l: '📄 문서' }, { v: '시각', l: '🖼 시각 지원' }, { v: 'pe', l: '🏃 특수체육' },
+  { v: 'dl', l: '🧺 일상생활 활동 예시' },
 ];
+const DL_AREAS = ['의사소통', '자립생활', '신체활동', '여가활동'];
+// 설계 형태 뱃지 색 — IEP 지도서 카드(DailyLifeExampleCards)와 같은 색
+const DL_BADGE = { A: { bg: '#e0ecff', fg: '#1d4ed8' }, B: { bg: '#efe4ff', fg: '#6d28d9' }, C: { bg: '#dcf5e6', fg: '#15803d' }, D: { bg: '#ffedd5', fg: '#c2410c' } };
 
 function PresetsTab({ onApply }) {
   const [filter, setFilter] = useState('all');
-  const filtered = filter === 'all' ? PRESETS
+  const [dlArea, setDlArea] = useState('');
+  // 0921(갑 결정, mds/37 §9): 2025 일상생활 활동 수업 도움 자료 예시 32건 — JSON을 받아 프리셋으로 바꿔 뒤에 붙인다.
+  //   IEP 지도서 카드와 같은 데이터(public/data/daily-life-lesson-examples.json), 칩 규칙은 lib/builderCatalog dailyLifePresets.
+  const [dlPresets, setDlPresets] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    loadDailyLifeExamples().then((d) => { if (alive && d?.examples) setDlPresets(dailyLifePresets(d.examples)); });
+    return () => { alive = false; };
+  }, []);
+  const filtered = filter === 'all' ? [...PRESETS, ...dlPresets]
     : filter === 'pe' ? PRESETS.filter((p) => p.pe)
-      : PRESETS.filter((p) => p.tag === filter);
+      : filter === 'dl' ? dlPresets.filter((p) => !dlArea || p.area === dlArea)
+        : PRESETS.filter((p) => p.tag === filter);
 
   return (
     <>
@@ -601,16 +616,27 @@ function PresetsTab({ onApply }) {
         background: 'linear-gradient(135deg, #4f6bed 0%, #9c36b5 100%)',
         color: '#fff', border: 'none',
       }}>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 6 }}>⭐ 특수교육 Best Prompts {PRESETS.length}선</h2>
-        <p style={{ fontSize: '.9rem', opacity: 0.95 }}>현장 특수교사가 자주 쓰는 완성형 프롬프트. 카드 클릭 시 빌더에 자동 적용됩니다. 특수체육 5종·기능적 수학·TEACCH·전환평가는 0919에 새로 들어왔어요.</p>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 6 }}>⭐ 특수교육 Best Prompts {PRESETS.length}선{dlPresets.length ? ` + 일상생활 활동 예시 ${dlPresets.length}건` : ''}</h2>
+        <p style={{ fontSize: '.9rem', opacity: 0.95 }}>현장 특수교사가 자주 쓰는 완성형 프롬프트. 카드 클릭 시 빌더에 자동 적용됩니다. 특수체육 5종·기능적 수학·TEACCH·전환평가는 0919에, 일상생활 활동 수업 도움 자료 예시 32건(2025 설계 카드 → 지도안 주문서)은 0921에 새로 들어왔어요.</p>
       </div>
 
       <div className="card">
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
           {PRESET_FILTERS.map((f) => (
-            <span key={f.v} className={'qchip' + (filter === f.v ? ' on' : '')} onClick={() => setFilter(f.v)}>{f.l}</span>
+            <span key={f.v} className={'qchip' + (filter === f.v ? ' on' : '')} onClick={() => setFilter(f.v)}>{f.l}{f.v === 'dl' && dlPresets.length ? ` ${dlPresets.length}` : ''}</span>
           ))}
         </div>
+        {filter === 'dl' && (
+          <div style={{ margin: '-6px 0 12px', padding: '8px 10px', background: '#fffdf5', border: '1px solid #f1e3b3', borderRadius: 8, fontSize: '.78rem', color: '#92400e' }}>
+            <div style={{ marginBottom: 6 }}>「2025 일상생활 활동 수업 도움 자료 활용 안내」의 설계 카드 32장을 지도안 주문서로 바꾼 예시예요. 카드를 누르면 단원·활동 주제·설계 형태·연계·주안점이 2-B에 들어가니, 학생 현재 수준과 관심사만 덧붙여 만드세요. 설계 형태 — A 영역 내 선택 · B 영역 간 통합 · C 교과 연계 · D 창의적 체험활동 연계.</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <span className={'qchip' + (dlArea === '' ? ' on' : '')} onClick={() => setDlArea('')}>영역 전체</span>
+              {DL_AREAS.map((a) => (
+                <span key={a} className={'qchip' + (dlArea === a ? ' on' : '')} onClick={() => setDlArea(a)}>{a} {dlPresets.filter((p) => p.area === a).length}</span>
+              ))}
+            </div>
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10 }}>
           {filtered.map((p) => (
             <div
@@ -628,7 +654,8 @@ function PresetsTab({ onApply }) {
                 <span style={{ fontSize: '1.4rem' }}>{p.icon}</span>
                 <span style={{ background: 'var(--pri-soft)', color: 'var(--pri)', fontSize: '.68rem', fontWeight: 700, padding: '2px 7px', borderRadius: 99 }}>#{p.id}</span>
                 <span style={{ background: 'var(--surface2)', color: 'var(--sub)', fontSize: '.68rem', fontWeight: 700, padding: '2px 7px', borderRadius: 99 }}>{p.tag}</span>
-                {p.id > 20 && <span style={{ background: '#fde7e7', color: '#c92a2a', fontSize: '.62rem', fontWeight: 800, padding: '2px 6px', borderRadius: 99 }}>NEW</span>}
+                {p.dl && <span title={`설계 형태 ${p.design}`} style={{ background: DL_BADGE[p.design]?.bg || '#eee', color: DL_BADGE[p.design]?.fg || '#444', fontSize: '.62rem', fontWeight: 800, padding: '2px 6px', borderRadius: 99 }}>{p.design} {p.designShort}</span>}
+                {p.id > 20 && !p.dl && <span style={{ background: '#fde7e7', color: '#c92a2a', fontSize: '.62rem', fontWeight: 800, padding: '2px 6px', borderRadius: 99 }}>NEW</span>}
               </div>
               <div style={{ fontSize: '.92rem', fontWeight: 700, color: 'var(--text)', marginBottom: 6, lineHeight: 1.4 }}>{p.title}</div>
               <div style={{ fontSize: '.78rem', color: 'var(--muted)' }}>
