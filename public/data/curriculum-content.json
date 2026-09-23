@@ -1,715 +1,1129 @@
 {
-  "_meta": {
-    "title": "꼬박꼬박 IEP — 성취기준별 교과 단원·활동 키워드 (curriculum-content)",
-    "createdAt": "2026-09-18",
-    "curriculumVersion": "2022 개정 특수교육 교육과정(교육부 고시 제2022-33호)",
-    "scope": {
-      "curriculum": "기본",
-      "subject": "국어",
-      "gradeCode": 2,
-      "gradeLabel": "초등 1~2학년군",
-      "textbooks": [
-        "국어 가",
-        "국어 나"
-      ],
-      "standardCount": 10,
-      "filledCount": 10,
-      "note": "1단계. 이후 기본·공통 국어·수학 초등 전체로 확대 예정."
-    },
-    "sources": [
-      {
-        "id": "hyenam-2024",
-        "type": "학교교육과정 문서(공개 PDF)",
-        "title": "부산혜남학교 2024학년도 학교교육과정(2015&2022 개정 기본교육과정 초등학교) — 국어 1~2학년군 단원별 관련 성취기준·학습내용 표(pp.30~37)",
-        "url": "https://school.busanedu.net/upload/bbs/files/2024/spclschl/hyenam-s/ntt/5193750/04/489fb9ac9884f167db3346d9de4139e4.pdf",
-        "accessed": "2026-09-18"
-      },
-      {
-        "id": "hyenam-2025",
-        "type": "학교교육과정 문서(공개 PDF)",
-        "title": "부산혜남학교 2025학년도 학교교육과정(2022 개정 기본교육과정 초등 1~4학년) — 국어 1~2학년군 단원 표(pp.29~37)",
-        "url": "https://school.busanedu.net/upload/bbs/files/2025/spclschl/hyenam-s/ntt/5193750/03/2f0ad8eafcfcf20cfc485707b9eed8e7.pdf",
-        "accessed": "2026-09-18"
-      },
-      {
-        "id": "nise-eduable",
-        "type": "에듀에이블(국립특수교육원)",
-        "title": "교과별 학습자료(국어) 게시판 — '1-2학년군 국어과 단원지도계획'(2021, 2015 개정 기준) 목록만 공개, 본문·첨부는 교직원 로그인 필요",
-        "url": "https://www.nise.go.kr/boardCnts/list.do?boardID=102&m=1003&col1Cnts=kor&s=eduable",
-        "accessed": "2026-09-18"
-      }
-    ],
-    "sourceNotes": [
-      "단원명·차시(활동) 키워드는 위 공개 학교교육과정 문서 2종(2024·2025)에서 추출했으며 두 문서의 단원 구성·성취기준 연결이 동일함을 확인함.",
-      "에듀에이블의 '단원지도계획' 본문·첨부, 멀티미디어북, 교과용도서 전자책은 교직원 로그인이 필요해 열람하지 않음. 교사용 지도서 원본과의 직접 대조는 하지 않았음.",
-      "성취기준-단원 연결은 문서의 '관련 성취기준' 표 기준. primary = 해당 단원이 그 성취기준을 주로 다룸(표 첫 항목 또는 단독), related = 함께 제시된 단원.",
-      "출판사 교사지원 사이트(T셀파·엠티처·아이스크림 등)는 사용하지 않음."
-    ],
-    "copyright": "지도서·교과서 본문(해설·차시 전개·지문)은 수록하지 않았다. 단원명·차시명·자료명 수준의 짧은 키워드만 담았으며 코드당 keyword 본문 300자 이내로 제한했다. 에듀에이블 등 저작권법 제25조(학교교육 목적) 자료의 본문을 공개 웹앱에 복제하지 말 것.",
-    "confidenceLevels": {
-      "high": "공개 문서 2종 이상 일치 + 지도서 원본 대조 완료",
-      "medium": "공개 문서 2종 일치, 지도서 원본 대조 미실시",
-      "low": "단일 출처 또는 추정"
-    },
-    "schema": {
-      "<성취기준 코드>": {
-        "curriculum": "기본|공통",
-        "subject": "국어|수학",
-        "gradeCode": "학년군 코드(2/4/6)",
-        "area": "영역",
-        "text": "성취기준 문장(앱 데이터와 동일)",
-        "units": [
-          {
-            "book": "교과서명",
-            "unitNo": "단원 번호(null=부록/책읽기)",
-            "unit": "단원명",
-            "role": "primary|related"
-          }
-        ],
-        "activities": [
-          "활동 키워드(차시명 수준)"
-        ],
-        "materials": [
-          "자료 키워드"
-        ],
-        "keywordChars": "units+activities+materials 문자 수(≤300)",
-        "confidence": "high|medium|low",
-        "sources": [
-          "_meta.sources의 id"
-        ],
-        "verifiedAgainstGuide": false,
-        "notes": "비고/미확인 사유"
-      }
-    },
-    "gaps": []
+ "_meta": {
+  "title": "꼬박꼬박 IEP — 성취기준별 교과 단원·활동 키워드 (curriculum-content)",
+  "createdAt": "2026-09-18",
+  "curriculumVersion": "2022 개정 특수교육 교육과정(교육부 고시 제2022-33호)",
+  "scope": {
+   "curriculum": "기본",
+   "subject": "국어",
+   "gradeCode": 2,
+   "gradeLabel": "초등 1~2학년군",
+   "textbooks": [
+    "국어 가(①)",
+    "국어 나(②)"
+   ],
+   "standardCount": 10,
+   "filledCount": 10,
+   "note": "2단계(0923). 교사용 지도서 원본으로 대조·재생성. 이후 다른 교과·학년군은 같은 파일에 코드만 추가."
   },
-  "2국어01-01": {
-    "curriculum": "기본",
-    "subject": "국어",
-    "gradeCode": 2,
-    "area": "듣기·말하기",
-    "text": "여러 가지 소리의 의미를 이해하고 구별한다.",
+  "sources": [
+   {
+    "id": "guide-kor12",
+    "type": "교사용 지도서(사용자 제공 PDF)",
+    "title": "2022 개정 특수교육 기본교육과정 초등학교 1~2학년군 국어 ①·② 교사용 지도서 — 단원별 성취기준 표·단원 지도 계획·단원 평가·핵심 어휘",
+    "file": "06_분석문서/국어 1~2학년군 교사용 지도서.pdf (저장소 밖)",
+    "accessed": "2026-09-23",
+    "detail": "public/data/curriculum-guide-kor12.json (scripts/parse-korean-guide.mjs)"
+   },
+   {
+    "id": "hyenam-2024",
+    "type": "학교교육과정 문서(공개 PDF)",
+    "title": "부산혜남학교 2024학년도 학교교육과정(2015&2022 개정 기본교육과정 초등학교) — 국어 1~2학년군 단원별 관련 성취기준·학습내용 표(pp.30~37)",
+    "url": "https://school.busanedu.net/upload/bbs/files/2024/spclschl/hyenam-s/ntt/5193750/04/489fb9ac9884f167db3346d9de4139e4.pdf",
+    "accessed": "2026-09-18",
+    "note": "1단계(0922) 출처 — 지도서 대조 뒤에는 참고용"
+   },
+   {
+    "id": "hyenam-2025",
+    "type": "학교교육과정 문서(공개 PDF)",
+    "title": "부산혜남학교 2025학년도 학교교육과정(2022 개정 기본교육과정 초등 1~4학년) — 국어 1~2학년군 단원 표(pp.29~37)",
+    "url": "https://school.busanedu.net/upload/bbs/files/2025/spclschl/hyenam-s/ntt/5193750/03/2f0ad8eafcfcf20cfc485707b9eed8e7.pdf",
+    "accessed": "2026-09-18",
+    "note": "1단계(0922) 출처 — 지도서 대조 뒤에는 참고용"
+   },
+   {
+    "id": "nise-eduable",
+    "type": "에듀에이블(국립특수교육원)",
+    "title": "교과별 학습자료(국어) 게시판 — '1-2학년군 국어과 단원지도계획'(2021, 2015 개정 기준) 목록만 공개, 본문·첨부는 교직원 로그인 필요",
+    "url": "https://www.nise.go.kr/boardCnts/list.do?boardID=102&m=1003&col1Cnts=kor&s=eduable",
+    "accessed": "2026-09-18",
+    "note": "1단계(0922) 출처 — 지도서 대조 뒤에는 참고용"
+   }
+  ],
+  "sourceNotes": [
+   "0923: 단원·차시명·자료 전부를 교사용 지도서 원본(OCR)에서 다시 만들었고, 1단계의 공개 학교교육과정 문서 값은 버렸다(단원 구성은 같았음).",
+   "차시명은 단원 지도 계획 표의 \"차시명\" 열이며 정리 차시(공부한 내용 정리하기)는 뺐다. 자료는 핵심 어휘 + 학습 내용에 나온 그림책·동요 제목.",
+   "OCR이라 드물게 오탈자·띄어쓰기 오류가 있을 수 있다(원본 확인: 지도서 인쇄 쪽 = guidePage)."
+  ],
+  "copyright": "단원명·차시명·핵심 어휘 등 키워드 수준만 담음(지도서 본문·해설 없음). 내부 참고용.",
+  "confidenceLevels": {
+   "high": "공개 문서 2종 이상 일치 + 지도서 원본 대조 완료",
+   "medium": "공개 문서 2종 일치, 지도서 원본 대조 미실시",
+   "low": "단일 출처 또는 추정"
+  },
+  "schema": {
+   "<성취기준 코드>": {
+    "curriculum": "기본|공통",
+    "subject": "국어|수학",
+    "gradeCode": "학년군 코드(2/4/6)",
+    "area": "영역",
+    "text": "성취기준 문장(앱 데이터와 동일)",
     "units": [
-      {
-        "book": "국어 가",
-        "unitNo": 1,
-        "unit": "소리에는 뜻이 있어요",
-        "role": "primary"
-      },
-      {
-        "book": "국어 나",
-        "unitNo": 1,
-        "unit": "소리의 뜻을 찾아보아요",
-        "role": "primary"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 5,
-        "unit": "점, 선, 면으로 만나는 세상",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": null,
-        "unit": "책 읽기 「비가 오는 날에…」",
-        "role": "related"
-      }
+     {
+      "book": "교과서명",
+      "unitNo": "단원 번호(null=부록/책읽기)",
+      "unit": "단원명",
+      "role": "primary|related"
+     }
     ],
     "activities": [
-      "소리 나는 곳 찾기",
-      "알림 소리 구별하기",
-      "말소리 듣고 뜻 구별하기",
-      "탈것·동물·자연 소리 구별",
-      "위험·안내 신호 듣고 행동하기",
-      "말소리 크게·작게 내기",
-      "소리 듣고 적절하게 행동하기"
+     "활동 키워드(차시명 수준)"
     ],
     "materials": [
-      "교실·집·동네 소리",
-      "알림 소리",
-      "그림책"
+     "자료 키워드"
     ],
-    "keywordChars": 163,
-    "confidence": "medium",
+    "keywordChars": "units+activities+materials 문자 수(≤300)",
+    "confidence": "high|medium|low",
     "sources": [
-      "hyenam-2024",
-      "hyenam-2025"
+     "_meta.sources의 id"
     ],
     "verifiedAgainstGuide": false,
-    "notes": "단원명·활동은 공개 학교교육과정 문서의 '학습내용(차시명)'에서 발췌. 교사용 지도서 원본 미대조 — 검증 필요."
+    "notes": "비고/미확인 사유"
+   }
   },
-  "2국어01-02": {
-    "curriculum": "기본",
-    "subject": "국어",
-    "gradeCode": 2,
-    "area": "듣기·말하기",
-    "text": "표정과 몸짓의 의미를 이해하고, 표정과 몸짓으로 감정이나 요구를 표현한다.",
-    "units": [
-      {
-        "book": "국어 가",
-        "unitNo": 3,
-        "unit": "몸으로 말해요",
-        "role": "primary"
-      },
-      {
-        "book": "국어 나",
-        "unitNo": 3,
-        "unit": "마음을 나누어요",
-        "role": "primary"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 1,
-        "unit": "소리에는 뜻이 있어요",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 4,
-        "unit": "어떻게 표현할까",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": null,
-        "unit": "책 읽기 「비가 오는 날에…」",
-        "role": "related"
-      },
-      {
-        "book": "국어 나",
-        "unitNo": null,
-        "unit": "책을 만나요 「우리 같이 놀자!」",
-        "role": "related"
-      }
-    ],
-    "activities": [
-      "움직임 따라 하기",
-      "웃는·찡그린 표정 짓기",
-      "'좋아요'·'싫어요' 표현",
-      "같은 표정 찾기",
-      "상황에 알맞은 표정 짓기",
-      "표정·몸짓으로 요구하기",
-      "인물의 표정·몸짓 표현",
-      "오늘의 감정 일기 쓰기"
-    ],
-    "materials": [
-      "감정 일기",
-      "그림책"
-    ],
-    "keywordChars": 168,
-    "confidence": "medium",
-    "sources": [
-      "hyenam-2024",
-      "hyenam-2025"
-    ],
-    "verifiedAgainstGuide": false,
-    "notes": "단원명·활동은 공개 학교교육과정 문서의 '학습내용(차시명)'에서 발췌. 교사용 지도서 원본 미대조 — 검증 필요."
-  },
-  "2국어01-03": {
-    "curriculum": "기본",
-    "subject": "국어",
-    "gradeCode": 2,
-    "area": "듣기·말하기",
-    "text": "다양한 방법으로 의사소통을 시도한다.",
-    "units": [
-      {
-        "book": "국어 가",
-        "unitNo": 4,
-        "unit": "어떻게 표현할까",
-        "role": "primary"
-      },
-      {
-        "book": "국어 나",
-        "unitNo": 4,
-        "unit": "내 생각을 알려요",
-        "role": "primary"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 1,
-        "unit": "소리에는 뜻이 있어요",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 7,
-        "unit": "같은 것끼리 모아요",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 8,
-        "unit": "그림을 읽어 보아요",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": null,
-        "unit": "책 읽기 「비가 오는 날에…」",
-        "role": "related"
-      },
-      {
-        "book": "국어 나",
-        "unitNo": null,
-        "unit": "책을 만나요 「우리 같이 놀자!」",
-        "role": "related"
-      }
-    ],
-    "activities": [
-      "몸짓으로 대답·요구하기",
-      "여러 가지 말소리 내기",
-      "도구로 소리 내어 표현",
-      "사진·그림으로 표현하기",
-      "여러 방법으로 선생님 부르기",
-      "악기·운동·미술재료 선택 표현",
-      "교실·놀이터에서 의사소통 시도",
-      "자신에게 맞는 방법으로 표현"
-    ],
-    "materials": [
-      "사진",
-      "그림",
-      "악기",
-      "의사소통 판",
-      "그림책"
-    ],
-    "keywordChars": 207,
-    "confidence": "medium",
-    "sources": [
-      "hyenam-2024",
-      "hyenam-2025"
-    ],
-    "verifiedAgainstGuide": false,
-    "notes": "단원명·활동은 공개 학교교육과정 문서의 '학습내용(차시명)'에서 발췌. 교사용 지도서 원본 미대조 — 검증 필요."
-  },
-  "2국어01-04": {
-    "curriculum": "기본",
-    "subject": "국어",
-    "gradeCode": 2,
-    "area": "듣기·말하기",
-    "text": "의사소통에 자발적이고 적극적으로 참여한다.",
-    "units": [
-      {
-        "book": "국어 가",
-        "unitNo": 6,
-        "unit": "즐겁게 소통해요",
-        "role": "primary"
-      },
-      {
-        "book": "국어 나",
-        "unitNo": 6,
-        "unit": "서로서로 생각을 주고받아요",
-        "role": "primary"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 7,
-        "unit": "같은 것끼리 모아요",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 8,
-        "unit": "그림을 읽어 보아요",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": null,
-        "unit": "책 읽기 「비가 오는 날에…」",
-        "role": "related"
-      },
-      {
-        "book": "국어 나",
-        "unitNo": null,
-        "unit": "책을 만나요 「우리 같이 놀자!」",
-        "role": "related"
-      }
-    ],
-    "activities": [
-      "차례 지키며 주고받는 놀이",
-      "말하는 사람 바라보기",
-      "듣고 대답하기",
-      "다른 사람 부르기",
-      "원하는 것 요구하기",
-      "인사 주고받기",
-      "'네'·'아니요' 표현",
-      "감사·사과 표현",
-      "급식시간·놀이 중 대화",
-      "편의점 놀이",
-      "교실 보물찾기"
-    ],
-    "materials": [
-      "시간표",
-      "식단표",
-      "그림책"
-    ],
-    "keywordChars": 188,
-    "confidence": "medium",
-    "sources": [
-      "hyenam-2024",
-      "hyenam-2025"
-    ],
-    "verifiedAgainstGuide": false,
-    "notes": "단원명·활동은 공개 학교교육과정 문서의 '학습내용(차시명)'에서 발췌. 교사용 지도서 원본 미대조 — 검증 필요."
-  },
-  "2국어02-01": {
-    "curriculum": "기본",
-    "subject": "국어",
-    "gradeCode": 2,
-    "area": "읽기",
-    "text": "점, 선, 면으로 구성된 여러 가지 형태를 탐색한다.",
-    "units": [
-      {
-        "book": "국어 가",
-        "unitNo": 5,
-        "unit": "점, 선, 면으로 만나는 세상",
-        "role": "primary"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 2,
-        "unit": "마음대로 쓱쓱",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 3,
-        "unit": "몸으로 말해요",
-        "role": "related"
-      },
-      {
-        "book": "국어 나",
-        "unitNo": null,
-        "unit": "책을 만나요 「우리 같이 놀자!」",
-        "role": "related"
-      }
-    ],
-    "activities": [
-      "그림에서 점·선 살펴보기",
-      "곧은 선·굽은 선·면 살펴보기",
-      "같은 물건·그림·모양 찾기",
-      "손가락 점 놀이",
-      "노래에 맞추어 선·면 찾기",
-      "그림책에서 같은 모양 찾기",
-      "선과 모양 따라 움직이기",
-      "그림자놀이"
-    ],
-    "materials": [
-      "그림",
-      "그림책"
-    ],
-    "keywordChars": 150,
-    "confidence": "medium",
-    "sources": [
-      "hyenam-2024",
-      "hyenam-2025"
-    ],
-    "verifiedAgainstGuide": false,
-    "notes": "단원명·활동은 공개 학교교육과정 문서의 '학습내용(차시명)'에서 발췌. 교사용 지도서 원본 미대조 — 검증 필요."
-  },
-  "2국어02-02": {
-    "curriculum": "기본",
-    "subject": "국어",
-    "gradeCode": 2,
-    "area": "읽기",
-    "text": "글자의 기초가 되는 여러 가지 모양을 변별한다.",
-    "units": [
-      {
-        "book": "국어 나",
-        "unitNo": 5,
-        "unit": "모양 나라를 여행해요",
-        "role": "primary"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 2,
-        "unit": "마음대로 쓱쓱",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 5,
-        "unit": "점, 선, 면으로 만나는 세상",
-        "role": "related"
-      }
-    ],
-    "activities": [
-      "같은 모양 찾기",
-      "물건에서 모양 찾기",
-      "물건·그림에서 자음자 모양 찾기",
-      "그림에서 모음자 모양 찾기",
-      "그림 일부분 보고 같은 그림 찾기",
-      "모음자 모양 만들기",
-      "자모음자 모양 찾아 모으기"
-    ],
-    "materials": [
-      "실물",
-      "그림",
-      "그림책",
-      "자모음자 모양"
-    ],
-    "keywordChars": 139,
-    "confidence": "medium",
-    "sources": [
-      "hyenam-2024",
-      "hyenam-2025"
-    ],
-    "verifiedAgainstGuide": false,
-    "notes": "단원명·활동은 공개 학교교육과정 문서의 '학습내용(차시명)'에서 발췌. 교사용 지도서 원본 미대조 — 검증 필요."
-  },
-  "2국어02-03": {
-    "curriculum": "기본",
-    "subject": "국어",
-    "gradeCode": 2,
-    "area": "읽기",
-    "text": "일상생활에서 자주 볼 수 있는 실물, 그림, 상징, 기호에 관심을 가진다.",
-    "units": [
-      {
-        "book": "국어 가",
-        "unitNo": 7,
-        "unit": "같은 것끼리 모아요",
-        "role": "primary"
-      },
-      {
-        "book": "국어 나",
-        "unitNo": 7,
-        "unit": "그림으로 알 수 있어요",
-        "role": "primary"
-      },
-      {
-        "book": "국어 나",
-        "unitNo": 8,
-        "unit": "읽는 재미를 찾아보아요",
-        "role": "primary"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 4,
-        "unit": "어떻게 표현할까",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": null,
-        "unit": "책 읽기 「비가 오는 날에…」",
-        "role": "related"
-      }
-    ],
-    "activities": [
-      "똑같은 물건·사진·그림 찾기",
-      "같은 물건끼리 모으기",
-      "물건-사진-그림 짝짓기",
-      "그림으로 주문하기",
-      "학교생활 그림 읽기",
-      "금지 표지판 읽기",
-      "날씨 그림 읽기",
-      "광고지 속 그림 읽기",
-      "화살표 방향 읽기",
-      "그림 쪽지 읽고 심부름놀이",
-      "상징으로 일과표 만들기"
-    ],
-    "materials": [
-      "실물",
-      "사진",
-      "그림카드",
-      "표지판",
-      "광고지",
-      "그림 쪽지",
-      "그림 간판",
-      "의사소통 판"
-    ],
-    "keywordChars": 208,
-    "confidence": "medium",
-    "sources": [
-      "hyenam-2024",
-      "hyenam-2025"
-    ],
-    "verifiedAgainstGuide": false,
-    "notes": "단원명·활동은 공개 학교교육과정 문서의 '학습내용(차시명)'에서 발췌. 교사용 지도서 원본 미대조 — 검증 필요."
-  },
-  "2국어02-04": {
-    "curriculum": "기본",
-    "subject": "국어",
-    "gradeCode": 2,
-    "area": "읽기",
-    "text": "실물, 그림, 상징이 소리로 표현되는 것을 알고, 읽는 활동에 관심을 가진다.",
-    "units": [
-      {
-        "book": "국어 가",
-        "unitNo": 8,
-        "unit": "그림을 읽어 보아요",
-        "role": "primary"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 6,
-        "unit": "즐겁게 소통해요",
-        "role": "related"
-      },
-      {
-        "book": "국어 나",
-        "unitNo": 7,
-        "unit": "그림으로 알 수 있어요",
-        "role": "related"
-      },
-      {
-        "book": "국어 나",
-        "unitNo": 8,
-        "unit": "읽는 재미를 찾아보아요",
-        "role": "related"
-      },
-      {
-        "book": "국어 나",
-        "unitNo": null,
-        "unit": "책을 만나요 「우리 같이 놀자!」",
-        "role": "related"
-      }
-    ],
-    "activities": [
-      "가족을 부르는 말 알아보기",
-      "집·교실 물건 그림 읽기",
-      "행동을 나타내는 그림 읽기",
-      "표지판·기호 읽기",
-      "동화·동시 속 그림 읽기",
-      "알림장 속 그림 읽기",
-      "물건 이름 듣고 그림 찾기",
-      "그림 읽고 말놀이"
-    ],
-    "materials": [
-      "물건 그림",
-      "표지판",
-      "기호",
-      "동화책",
-      "동시",
-      "알림장",
-      "그림책"
-    ],
-    "keywordChars": 178,
-    "confidence": "medium",
-    "sources": [
-      "hyenam-2024",
-      "hyenam-2025"
-    ],
-    "verifiedAgainstGuide": false,
-    "notes": "단원명·활동은 공개 학교교육과정 문서의 '학습내용(차시명)'에서 발췌. 교사용 지도서 원본 미대조 — 검증 필요."
-  },
-  "2국어03-01": {
-    "curriculum": "기본",
-    "subject": "국어",
-    "gradeCode": 2,
-    "area": "쓰기",
-    "text": "끼적이기에 재미를 느끼며 자유롭게 끼적인다.",
-    "units": [
-      {
-        "book": "국어 가",
-        "unitNo": 2,
-        "unit": "마음대로 쓱쓱",
-        "role": "primary"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 1,
-        "unit": "소리에는 뜻이 있어요",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 5,
-        "unit": "점, 선, 면으로 만나는 세상",
-        "role": "related"
-      }
-    ],
-    "activities": [
-      "여러 가지 쓰기도구로 끼적이기",
-      "벽·바닥에 끼적이기",
-      "그림 위에 끼적이기",
-      "여러 재료에 끼적이기",
-      "바깥놀이하며 끼적이기",
-      "스마트 기기로 끼적이기",
-      "생각·느낌 끼적여 표현",
-      "노랫말 듣고 표현하기"
-    ],
-    "materials": [
-      "쓰기도구",
-      "여러 가지 재료",
-      "스마트 기기",
-      "그림책"
-    ],
-    "keywordChars": 148,
-    "confidence": "medium",
-    "sources": [
-      "hyenam-2024",
-      "hyenam-2025"
-    ],
-    "verifiedAgainstGuide": false,
-    "notes": "단원명·활동은 공개 학교교육과정 문서의 '학습내용(차시명)'에서 발췌. 교사용 지도서 원본 미대조 — 검증 필요."
-  },
-  "2국어03-02": {
-    "curriculum": "기본",
-    "subject": "국어",
-    "gradeCode": 2,
-    "area": "쓰기",
-    "text": "글자의 기초가 되는 선과 모양을 알고 다양한 방법으로 표현한다.",
-    "units": [
-      {
-        "book": "국어 나",
-        "unitNo": 2,
-        "unit": "선과 모양을 표현해요",
-        "role": "primary"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 2,
-        "unit": "마음대로 쓱쓱",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 3,
-        "unit": "몸으로 말해요",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 5,
-        "unit": "점, 선, 면으로 만나는 세상",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": 6,
-        "unit": "즐겁게 소통해요",
-        "role": "related"
-      },
-      {
-        "book": "국어 가",
-        "unitNo": null,
-        "unit": "책 읽기 「비가 오는 날에…」",
-        "role": "related"
-      }
-    ],
-    "activities": [
-      "선·모양 표현 도구 알기",
-      "방향·시작점·끝점 알기",
-      "가로선·세로선 표현",
-      "기울어진 선·굽은 선 표현",
-      "글자 기초 모양 표현",
-      "줄무늬 표현",
-      "음악 들으며 선·모양 표현",
-      "선과 모양으로 교실 꾸미기"
-    ],
-    "materials": [
-      "쓰기도구",
-      "그림책",
-      "음악"
-    ],
-    "keywordChars": 168,
-    "confidence": "medium",
-    "sources": [
-      "hyenam-2024",
-      "hyenam-2025"
-    ],
-    "verifiedAgainstGuide": false,
-    "notes": "단원명·활동은 공개 학교교육과정 문서의 '학습내용(차시명)'에서 발췌. 교사용 지도서 원본 미대조 — 검증 필요."
-  }
+  "gaps": [],
+  "updatedAt": "2026-09-23"
+ },
+ "2국어01-01": {
+  "curriculum": "기본",
+  "subject": "국어",
+  "gradeCode": 2,
+  "area": "듣기·말하기",
+  "text": "여러 가지 소리의 의미를 이해하고 구별한다.",
+  "units": [
+   {
+    "book": "국어 가",
+    "unitNo": 1,
+    "unit": "소리에는 뜻이 있어요",
+    "role": "primary",
+    "id": "1-1",
+    "guidePage": 108
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 1,
+    "unit": "소리의 뜻을 찾아보아요",
+    "role": "primary",
+    "id": "2-1",
+    "guidePage": 518
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 5,
+    "unit": "점, 선, 면으로 만나는 세상",
+    "role": "related",
+    "id": "1-5",
+    "guidePage": 246
+   },
+   {
+    "book": "국어 가",
+    "unitNo": null,
+    "unit": "책 읽기 「비가 오는 날에…」",
+    "role": "related",
+    "id": "1-책 읽기",
+    "guidePage": 386
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 5,
+    "unit": "모양 나라를 여행해요",
+    "role": "related",
+    "id": "2-5",
+    "guidePage": 660
+   },
+   {
+    "book": "국어 나",
+    "unitNo": null,
+    "unit": "책 읽기 「우리 같이 놀자!」",
+    "role": "related",
+    "id": "2-책 읽기",
+    "guidePage": 798
+   }
+  ],
+  "activities": [
+   "여러 가지 소리 듣기",
+   "여러 가지 알림 소리 듣기",
+   "교실에서 여러 가지 소리 듣기",
+   "여러 가지 알림 소리 구별하기",
+   "여러 가지 방법으로 알림 소리 내기",
+   "인사하기와 이름 부르기",
+   "말소리 듣고 뜻 구별하기",
+   "좋은 것과 싫은 것 표현하기",
+   "학교에서 들을 수 있는 소리 알아보기",
+   "집에서 들을 수 있는 소리 알아보기",
+   "말소리를 듣고 구별하기",
+   "몸에서 나는 소리 알아보기",
+   "동네에서 들을 수 있는 소리 구별하기",
+   "탈것의 소리 구별하기",
+   "동물의 소리 구별하기",
+   "자연의 소리 구별하기",
+   "집에서 들을 수 있는 소리를 듣고 적절하게 행동하기",
+   "말소리를 듣고 적절하게 행동하기",
+   "말소리를 크거나 작게 내기",
+   "위험 신호와 안내 신호를 듣고 적절하게 행동하기"
+  ],
+  "materials": [
+   "시작",
+   "끝",
+   "약속(규칙)",
+   "좋다",
+   "싫다",
+   "소리",
+   "듣다",
+   "말하다",
+   "학교",
+   "집",
+   "동네",
+   "『서우의 아침』"
+  ],
+  "keywordChars": 434,
+  "confidence": "high",
+  "sources": [
+   "guide-kor12"
+  ],
+  "verifiedAgainstGuide": true,
+  "notes": "교사용 지도서(국어 ①·②)의 단원별 성취기준 표(주요/관련)·단원 지도 계획 차시명·핵심 어휘에서 만듦. 차시별 학습 내용·학습 목표·평가 준거는 curriculum-guide-kor12.json의 같은 단원(id)에서 본다."
+ },
+ "2국어01-02": {
+  "curriculum": "기본",
+  "subject": "국어",
+  "gradeCode": 2,
+  "area": "듣기·말하기",
+  "text": "표정과 몸짓의 의미를 이해하고, 표정과 몸짓으로 감정이나 요구를 표현한다.",
+  "units": [
+   {
+    "book": "국어 가",
+    "unitNo": 3,
+    "unit": "몸으로 말해요",
+    "role": "primary",
+    "id": "1-3",
+    "guidePage": 176
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 3,
+    "unit": "마음을 나누어요",
+    "role": "primary",
+    "id": "2-3",
+    "guidePage": 588
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 1,
+    "unit": "소리에는 뜻이 있어요",
+    "role": "related",
+    "id": "1-1",
+    "guidePage": 108
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 4,
+    "unit": "어떻게 표현할까",
+    "role": "related",
+    "id": "1-4",
+    "guidePage": 212
+   },
+   {
+    "book": "국어 가",
+    "unitNo": null,
+    "unit": "책 읽기 「비가 오는 날에…」",
+    "role": "related",
+    "id": "1-책 읽기",
+    "guidePage": 386
+   },
+   {
+    "book": "국어 나",
+    "unitNo": null,
+    "unit": "책 읽기 「우리 같이 놀자!」",
+    "role": "related",
+    "id": "2-책 읽기",
+    "guidePage": 798
+   }
+  ],
+  "activities": [
+   "움직임 따라 하기",
+   "손으로 가리켜 표현하기",
+   "웃는 표정, 찡그린 표정 짓기",
+   "좋아요' 표현하기",
+   "싫어요' 표현하기",
+   "좋아요' 또는 '싫어요' 표현하기",
+   "하고 싶은 말 표현하기",
+   "표정 변화 알기",
+   "같은 표정 찾기",
+   "상황에 알맞은 표정 표현하기",
+   "감정에 따라 달라지는 표정과 몸짓 표현하기",
+   "표정과 몸짓 따라 하기",
+   "여러 가지 감정 이해하기",
+   "감정을 표정과 몸짓으로 표현하기",
+   "마음을 나누는 표정과 몸짓 익히기",
+   "표정과 몸짓으로 요구하기",
+   "원하는 것을 표정과 몸짓으로 요구하기",
+   "인물의 표정과 몸짓을 이해하고 표현하기",
+   "표정과 몸짓으로 마음 나누기"
+  ],
+  "materials": [
+   "좋아요",
+   "싫어요",
+   "가리켜요",
+   "슬퍼요",
+   "화나요",
+   "주세요",
+   "『얼굴』",
+   "기뻐요",
+   "무서워요",
+   "하고 싶어요",
+   "『컬러 몬스터』",
+   "『고마워 미안해 사랑해』"
+  ],
+  "keywordChars": 391,
+  "confidence": "high",
+  "sources": [
+   "guide-kor12"
+  ],
+  "verifiedAgainstGuide": true,
+  "notes": "교사용 지도서(국어 ①·②)의 단원별 성취기준 표(주요/관련)·단원 지도 계획 차시명·핵심 어휘에서 만듦. 차시별 학습 내용·학습 목표·평가 준거는 curriculum-guide-kor12.json의 같은 단원(id)에서 본다."
+ },
+ "2국어01-03": {
+  "curriculum": "기본",
+  "subject": "국어",
+  "gradeCode": 2,
+  "area": "듣기·말하기",
+  "text": "다양한 방법으로 의사소통을 시도한다.",
+  "units": [
+   {
+    "book": "국어 가",
+    "unitNo": 4,
+    "unit": "어떻게 표현할까",
+    "role": "primary",
+    "id": "1-4",
+    "guidePage": 212
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 4,
+    "unit": "내 생각을 알려요",
+    "role": "primary",
+    "id": "2-4",
+    "guidePage": 624
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 1,
+    "unit": "소리에는 뜻이 있어요",
+    "role": "related",
+    "id": "1-1",
+    "guidePage": 108
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 7,
+    "unit": "같은 것끼리 모아요",
+    "role": "related",
+    "id": "1-7",
+    "guidePage": 318
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 8,
+    "unit": "그림을 읽어 보아요",
+    "role": "related",
+    "id": "1-8",
+    "guidePage": 354
+   },
+   {
+    "book": "국어 가",
+    "unitNo": null,
+    "unit": "책 읽기 「비가 오는 날에…」",
+    "role": "related",
+    "id": "1-책 읽기",
+    "guidePage": 386
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 1,
+    "unit": "소리의 뜻을 찾아보아요",
+    "role": "related",
+    "id": "2-1",
+    "guidePage": 518
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 7,
+    "unit": "그림으로 알 수 있어요",
+    "role": "related",
+    "id": "2-7",
+    "guidePage": 726
+   },
+   {
+    "book": "국어 나",
+    "unitNo": null,
+    "unit": "책 읽기 「우리 같이 놀자!」",
+    "role": "related",
+    "id": "2-책 읽기",
+    "guidePage": 798
+   }
+  ],
+  "activities": [
+   "이야기 나누는 모습 살펴보기",
+   "몸짓으로 표현하기",
+   "여러 가지 말소리 내기",
+   "말소리를 다양하게 표현하기",
+   "도구로 소리 내어 표현하기",
+   "사진이나 그림으로 표현하기",
+   "여러 가지 방법으로 부르기",
+   "연주하고 싶은 악기 표현하기",
+   "하고 싶은 운동 표현하기",
+   "필요한 미술 재료 선택하기",
+   "다른 사람의 몸짓과 말에 주의 기울이기",
+   "그림책을 보고 표현하기",
+   "몸짓과 말소리로 의사소통 시작하기",
+   "다양한 방법 으로 의사 표현하기",
+   "다양한 방법으로 대답하기",
+   "다양한 방법으로 선택하기",
+   "교실에서 의사소통 시도하기",
+   "놀이터에서 의사소통 시도하기",
+   "상황에 알맞게 대답하기",
+   "상황을 구성하며 표현하기"
+  ],
+  "materials": [
+   "선생님",
+   "친구",
+   "몸짓",
+   "말소리",
+   "사진",
+   "그림",
+   "표정",
+   "요구하다",
+   "수용하다",
+   "거부하다",
+   "『어떻게 말할까?』",
+   "『꼭 잡아, 꼭!』"
+  ],
+  "keywordChars": 434,
+  "confidence": "high",
+  "sources": [
+   "guide-kor12"
+  ],
+  "verifiedAgainstGuide": true,
+  "notes": "교사용 지도서(국어 ①·②)의 단원별 성취기준 표(주요/관련)·단원 지도 계획 차시명·핵심 어휘에서 만듦. 차시별 학습 내용·학습 목표·평가 준거는 curriculum-guide-kor12.json의 같은 단원(id)에서 본다."
+ },
+ "2국어01-04": {
+  "curriculum": "기본",
+  "subject": "국어",
+  "gradeCode": 2,
+  "area": "듣기·말하기",
+  "text": "의사소통에 자발적이고 적극적으로 참여한다.",
+  "units": [
+   {
+    "book": "국어 가",
+    "unitNo": 6,
+    "unit": "즐겁게 소통해요",
+    "role": "primary",
+    "id": "1-6",
+    "guidePage": 282
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 6,
+    "unit": "서로서로 생각을 주고받아요",
+    "role": "primary",
+    "id": "2-6",
+    "guidePage": 694
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 7,
+    "unit": "같은 것끼리 모아요",
+    "role": "related",
+    "id": "1-7",
+    "guidePage": 318
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 8,
+    "unit": "그림을 읽어 보아요",
+    "role": "related",
+    "id": "1-8",
+    "guidePage": 354
+   },
+   {
+    "book": "국어 가",
+    "unitNo": null,
+    "unit": "책 읽기 「비가 오는 날에…」",
+    "role": "related",
+    "id": "1-책 읽기",
+    "guidePage": 386
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 7,
+    "unit": "그림으로 알 수 있어요",
+    "role": "related",
+    "id": "2-7",
+    "guidePage": 726
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 8,
+    "unit": "읽는 재미를 찾아보아요",
+    "role": "related",
+    "id": "2-8",
+    "guidePage": 762
+   },
+   {
+    "book": "국어 나",
+    "unitNo": null,
+    "unit": "책 읽기 「우리 같이 놀자!」",
+    "role": "related",
+    "id": "2-책 읽기",
+    "guidePage": 798
+   }
+  ],
+  "activities": [
+   "차례 지키며 주고받는 놀이 하기",
+   "말하는 사람 바라보기",
+   "다른 사람의 말을 듣고 대답하기",
+   "다른 사람 부르기",
+   "원하는 것 요구하기",
+   "• 음식 이야기하기",
+   "가족과 있었던 일 이야기하기",
+   "시간표와 식단 이야기하기",
+   "편의점 놀이를 하며 이야기하기",
+   "여러 가지 소리 주고받기",
+   "대화할 때 듣는 자세 알아보기",
+   "대화할 때 말하는 자세 알아보기",
+   "인사 주고받기",
+   "네'와 '아니요' 알아보기",
+   "감사와 사과 표현하기",
+   "그림책을 읽으며 대화하기",
+   "도움이 필요할 때 대화하기",
+   "급식 시간에 대화하기",
+   "놀이하며 대화하기"
+  ],
+  "materials": [
+   "주고받아요",
+   "바라보아요",
+   "웃어요",
+   "선생님!",
+   "끄덕여요",
+   "대답해요",
+   "불러요",
+   "『소풍 가요』",
+   "듣다",
+   "말하다",
+   "인사하다",
+   "네"
+  ],
+  "keywordChars": 386,
+  "confidence": "high",
+  "sources": [
+   "guide-kor12"
+  ],
+  "verifiedAgainstGuide": true,
+  "notes": "교사용 지도서(국어 ①·②)의 단원별 성취기준 표(주요/관련)·단원 지도 계획 차시명·핵심 어휘에서 만듦. 차시별 학습 내용·학습 목표·평가 준거는 curriculum-guide-kor12.json의 같은 단원(id)에서 본다."
+ },
+ "2국어03-01": {
+  "curriculum": "기본",
+  "subject": "국어",
+  "gradeCode": 2,
+  "area": "쓰기",
+  "text": "끼적이기에 재미를 느끼며 자유롭게 끼적인다.",
+  "units": [
+   {
+    "book": "국어 가",
+    "unitNo": 2,
+    "unit": "마음대로 쓱쓱",
+    "role": "primary",
+    "id": "1-2",
+    "guidePage": 140
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 1,
+    "unit": "소리에는 뜻이 있어요",
+    "role": "related",
+    "id": "1-1",
+    "guidePage": 108
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 5,
+    "unit": "점, 선, 면으로 만나는 세상",
+    "role": "related",
+    "id": "1-5",
+    "guidePage": 246
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 1,
+    "unit": "소리의 뜻을 찾아보아요",
+    "role": "related",
+    "id": "2-1",
+    "guidePage": 518
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 2,
+    "unit": "선과 모양을 표현해요",
+    "role": "related",
+    "id": "2-2",
+    "guidePage": 554
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 3,
+    "unit": "마음을 나누어요",
+    "role": "related",
+    "id": "2-3",
+    "guidePage": 588
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 4,
+    "unit": "내 생각을 알려요",
+    "role": "related",
+    "id": "2-4",
+    "guidePage": 624
+   }
+  ],
+  "activities": [
+   "여러 가지 쓰기 도구로 끼적이기",
+   "몸을 움직이며 끼적이기",
+   "그림 위에 끼적이기",
+   "여러 가지 재료에 끼적이기",
+   "바깥에서 놀이하며 끼적이기",
+   "스마트 기기를 사용해 끼적이기",
+   "선과 모양을 따라 움직이기",
+   "선과 모양으로 그림자놀이 하기",
+   "끼적이며 점, 선, 면과 친해지기",
+   "생각이나 느낌 표현하기",
+   "그림책을 보고 표현하기",
+   "노랫말을 듣고 표현하기"
+  ],
+  "materials": [
+   "끼적이다",
+   "색연필",
+   "크레파스",
+   "연필",
+   "선",
+   "모양",
+   "『진짜 내 소원』",
+   "『파도야 놀자』",
+   "『모두 다 꽃이야』"
+  ],
+  "keywordChars": 284,
+  "confidence": "high",
+  "sources": [
+   "guide-kor12"
+  ],
+  "verifiedAgainstGuide": true,
+  "notes": "교사용 지도서(국어 ①·②)의 단원별 성취기준 표(주요/관련)·단원 지도 계획 차시명·핵심 어휘에서 만듦. 차시별 학습 내용·학습 목표·평가 준거는 curriculum-guide-kor12.json의 같은 단원(id)에서 본다."
+ },
+ "2국어03-02": {
+  "curriculum": "기본",
+  "subject": "국어",
+  "gradeCode": 2,
+  "area": "쓰기",
+  "text": "글자의 기초가 되는 선과 모양을 알고 다양한 방법으로 표현한다.",
+  "units": [
+   {
+    "book": "국어 나",
+    "unitNo": 2,
+    "unit": "선과 모양을 표현해요",
+    "role": "primary",
+    "id": "2-2",
+    "guidePage": 554
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 2,
+    "unit": "마음대로 쓱쓱",
+    "role": "related",
+    "id": "1-2",
+    "guidePage": 140
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 3,
+    "unit": "몸으로 말해요",
+    "role": "related",
+    "id": "1-3",
+    "guidePage": 176
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 5,
+    "unit": "점, 선, 면으로 만나는 세상",
+    "role": "related",
+    "id": "1-5",
+    "guidePage": 246
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 6,
+    "unit": "즐겁게 소통해요",
+    "role": "related",
+    "id": "1-6",
+    "guidePage": 282
+   },
+   {
+    "book": "국어 가",
+    "unitNo": null,
+    "unit": "책 읽기 「비가 오는 날에…」",
+    "role": "related",
+    "id": "1-책 읽기",
+    "guidePage": 386
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 5,
+    "unit": "모양 나라를 여행해요",
+    "role": "related",
+    "id": "2-5",
+    "guidePage": 660
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 6,
+    "unit": "서로서로 생각을 주고받아요",
+    "role": "related",
+    "id": "2-6",
+    "guidePage": 694
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 8,
+    "unit": "읽는 재미를 찾아보아요",
+    "role": "related",
+    "id": "2-8",
+    "guidePage": 762
+   }
+  ],
+  "activities": [
+   "선과 모양을 표현하는 여러 가지 도구 알기",
+   "움직이는 방향, 시작점, 끝점 알기",
+   "가로선과 세로선 표현하기",
+   "기울어진 선 표현하기",
+   "굽은 선 표현하기",
+   "글자의 기초가 되는 모양 표현하기",
+   "줄무늬 표현하기",
+   "그림책 속 다양한 선 표현하기",
+   "음악을 들으며 선과 모양 표현하기",
+   "상상의 나라를 여러 가지 모양으로 표현하기"
+  ],
+  "materials": [
+   "가로선",
+   "세로선",
+   "그어요",
+   "모양",
+   "굽은 선",
+   "그려요",
+   "『눈물 문어』",
+   "『직선과 곡선』",
+   "『그림을 그려 봐』"
+  ],
+  "keywordChars": 303,
+  "confidence": "high",
+  "sources": [
+   "guide-kor12"
+  ],
+  "verifiedAgainstGuide": true,
+  "notes": "교사용 지도서(국어 ①·②)의 단원별 성취기준 표(주요/관련)·단원 지도 계획 차시명·핵심 어휘에서 만듦. 차시별 학습 내용·학습 목표·평가 준거는 curriculum-guide-kor12.json의 같은 단원(id)에서 본다."
+ },
+ "2국어02-01": {
+  "curriculum": "기본",
+  "subject": "국어",
+  "gradeCode": 2,
+  "area": "읽기",
+  "text": "점, 선, 면으로 구성된 여러 가지 형태를 탐색한다.",
+  "units": [
+   {
+    "book": "국어 가",
+    "unitNo": 5,
+    "unit": "점, 선, 면으로 만나는 세상",
+    "role": "primary",
+    "id": "1-5",
+    "guidePage": 246
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 2,
+    "unit": "마음대로 쓱쓱",
+    "role": "related",
+    "id": "1-2",
+    "guidePage": 140
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 3,
+    "unit": "몸으로 말해요",
+    "role": "related",
+    "id": "1-3",
+    "guidePage": 176
+   },
+   {
+    "book": "국어 나",
+    "unitNo": null,
+    "unit": "책 읽기 「우리 같이 놀자!」",
+    "role": "related",
+    "id": "2-책 읽기",
+    "guidePage": 798
+   }
+  ],
+  "activities": [
+   "그림에서 점과 선 살펴보기",
+   "점 살펴보기",
+   "곧은 선 살펴보기",
+   "굽은 선 살펴보기",
+   "면 살펴보기",
+   "같은 물건 찾기",
+   "같은 그림 찾기",
+   "같은 모양 찾기",
+   "손가락으로 점 놀이 하며 점 찾기",
+   "노래에 맞추어 선과 면 찾기",
+   "그림책에서 같은 모양 찾기",
+   "마주 보는 같은 모양 찾기"
+  ],
+  "materials": [
+   "점",
+   "곧은 선",
+   "굽은 선",
+   "동그라미",
+   "세모",
+   "네모"
+  ],
+  "keywordChars": 192,
+  "confidence": "high",
+  "sources": [
+   "guide-kor12"
+  ],
+  "verifiedAgainstGuide": true,
+  "notes": "교사용 지도서(국어 ①·②)의 단원별 성취기준 표(주요/관련)·단원 지도 계획 차시명·핵심 어휘에서 만듦. 차시별 학습 내용·학습 목표·평가 준거는 curriculum-guide-kor12.json의 같은 단원(id)에서 본다."
+ },
+ "2국어02-02": {
+  "curriculum": "기본",
+  "subject": "국어",
+  "gradeCode": 2,
+  "area": "읽기",
+  "text": "글자의 기초가 되는 여러 가지 모양을 변별한다.",
+  "units": [
+   {
+    "book": "국어 가",
+    "unitNo": 5,
+    "unit": "점, 선, 면으로 만나는 세상",
+    "role": "primary",
+    "id": "1-5",
+    "guidePage": 246
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 5,
+    "unit": "모양 나라를 여행해요",
+    "role": "primary",
+    "id": "2-5",
+    "guidePage": 660
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 2,
+    "unit": "마음대로 쓱쓱",
+    "role": "related",
+    "id": "1-2",
+    "guidePage": 140
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 2,
+    "unit": "선과 모양을 표현해요",
+    "role": "related",
+    "id": "2-2",
+    "guidePage": 554
+   }
+  ],
+  "activities": [
+   "그림에서 점과 선 살펴보기",
+   "점 살펴보기",
+   "곧은 선 살펴보기",
+   "굽은 선 살펴보기",
+   "면 살펴보기",
+   "같은 물건 찾기",
+   "같은 그림 찾기",
+   "같은 모양 찾기",
+   "손가락으로 점 놀이 하며 점 찾기",
+   "노래에 맞추어 선과 면 찾기",
+   "그림책에서 같은 모양 찾기",
+   "마주 보는 같은 모양 찾기",
+   "물건에서 모양 찾기",
+   "물건에서 자모음자 모양 찾기",
+   "그림에서 자음자 모양 찾기",
+   "그림에서 모음자 모양 갖기",
+   "그림의 일부분을 보고 같은 그림 찾기",
+   "그림책 속에서 같은 모양 찾기",
+   "자음자 모양 만들기",
+   "모음자 모양 만들기"
+  ],
+  "materials": [
+   "점",
+   "곧은 선",
+   "굽은 선",
+   "동그라미",
+   "세모",
+   "네모",
+   "모양",
+   "자음자 모양",
+   "모음자 모양",
+   "=cOT",
+   "금 출처:차이의 놀이",
+   "찾아요"
+  ],
+  "keywordChars": 332,
+  "confidence": "high",
+  "sources": [
+   "guide-kor12"
+  ],
+  "verifiedAgainstGuide": true,
+  "notes": "교사용 지도서(국어 ①·②)의 단원별 성취기준 표(주요/관련)·단원 지도 계획 차시명·핵심 어휘에서 만듦. 차시별 학습 내용·학습 목표·평가 준거는 curriculum-guide-kor12.json의 같은 단원(id)에서 본다."
+ },
+ "2국어02-03": {
+  "curriculum": "기본",
+  "subject": "국어",
+  "gradeCode": 2,
+  "area": "읽기",
+  "text": "일상생활에서 자주 볼 수 있는 실물, 그림, 상징, 기호에 관심을 가진다.",
+  "units": [
+   {
+    "book": "국어 가",
+    "unitNo": 7,
+    "unit": "같은 것끼리 모아요",
+    "role": "primary",
+    "id": "1-7",
+    "guidePage": 318
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 7,
+    "unit": "그림으로 알 수 있어요",
+    "role": "primary",
+    "id": "2-7",
+    "guidePage": 726
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 8,
+    "unit": "읽는 재미를 찾아보아요",
+    "role": "primary",
+    "id": "2-8",
+    "guidePage": 762
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 4,
+    "unit": "어떻게 표현할까",
+    "role": "related",
+    "id": "1-4",
+    "guidePage": 212
+   },
+   {
+    "book": "국어 가",
+    "unitNo": null,
+    "unit": "책 읽기 「비가 오는 날에…」",
+    "role": "related",
+    "id": "1-책 읽기",
+    "guidePage": 386
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 1,
+    "unit": "소리의 뜻을 찾아보아요",
+    "role": "related",
+    "id": "2-1",
+    "guidePage": 518
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 3,
+    "unit": "마음을 나누어요",
+    "role": "related",
+    "id": "2-3",
+    "guidePage": 588
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 4,
+    "unit": "내 생각을 알려요",
+    "role": "related",
+    "id": "2-4",
+    "guidePage": 624
+   },
+   {
+    "book": "국어 나",
+    "unitNo": null,
+    "unit": "책 읽기 「우리 같이 놀자!」",
+    "role": "related",
+    "id": "2-책 읽기",
+    "guidePage": 798
+   }
+  ],
+  "activities": [
+   "똑같은 것 찾기",
+   "같은 물건끼리 모으기",
+   "물건과 같은 사진 찾기",
+   "같은 물건의 사진끼리 모으기",
+   "사진과 같은 그림 찾기",
+   "같은 물건의 그림끼리 모으기",
+   "그림으로 주문하기",
+   "그림 보고 몸으로 표현하기",
+   "그림 보고 생각 표현하기",
+   "물건을 다양한 방법으로 표현하기",
+   "그림 읽고 몸동작으로 표현하기",
+   "학교에 도착해서 하는 일 그림 읽기",
+   "공부 시간에 하는 일 그림 읽기",
+   "쉬는 시간에 하는 일 그림 읽기",
+   "학교의 여러 장소 그림 읽기",
+   "선으로 표현한 그림 읽기",
+   "학교생활 그림 읽기",
+   "학교의 여러 장소에서 하는 일 그림 읽기",
+   "동시 속 그림 읽기",
+   "안내장 속 그림 읽기"
+  ],
+  "materials": [
+   "컵",
+   "가방",
+   "공",
+   "가위",
+   "신발",
+   "수박",
+   "앉아요",
+   "읽어요",
+   "마셔요",
+   "교실에 가요",
+   "화장실에 가요",
+   "뛰지 마세요"
+  ],
+  "keywordChars": 417,
+  "confidence": "high",
+  "sources": [
+   "guide-kor12"
+  ],
+  "verifiedAgainstGuide": true,
+  "notes": "교사용 지도서(국어 ①·②)의 단원별 성취기준 표(주요/관련)·단원 지도 계획 차시명·핵심 어휘에서 만듦. 차시별 학습 내용·학습 목표·평가 준거는 curriculum-guide-kor12.json의 같은 단원(id)에서 본다."
+ },
+ "2국어02-04": {
+  "curriculum": "기본",
+  "subject": "국어",
+  "gradeCode": 2,
+  "area": "읽기",
+  "text": "실물, 그림, 상징이 소리로 표현되는 것을 알고, 읽는 활동에 관심을 가진다.",
+  "units": [
+   {
+    "book": "국어 가",
+    "unitNo": 8,
+    "unit": "그림을 읽어 보아요",
+    "role": "primary",
+    "id": "1-8",
+    "guidePage": 354
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 7,
+    "unit": "그림으로 알 수 있어요",
+    "role": "primary",
+    "id": "2-7",
+    "guidePage": 726
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 8,
+    "unit": "읽는 재미를 찾아보아요",
+    "role": "primary",
+    "id": "2-8",
+    "guidePage": 762
+   },
+   {
+    "book": "국어 가",
+    "unitNo": 6,
+    "unit": "즐겁게 소통해요",
+    "role": "related",
+    "id": "1-6",
+    "guidePage": 282
+   },
+   {
+    "book": "국어 가",
+    "unitNo": null,
+    "unit": "책 읽기 「비가 오는 날에…」",
+    "role": "related",
+    "id": "1-책 읽기",
+    "guidePage": 386
+   },
+   {
+    "book": "국어 나",
+    "unitNo": 6,
+    "unit": "서로서로 생각을 주고받아요",
+    "role": "related",
+    "id": "2-6",
+    "guidePage": 694
+   },
+   {
+    "book": "국어 나",
+    "unitNo": null,
+    "unit": "책 읽기 「우리 같이 놀자!」",
+    "role": "related",
+    "id": "2-책 읽기",
+    "guidePage": 798
+   }
+  ],
+  "activities": [
+   "같은 것 찾기",
+   "가족을 부르는 말 알아보기",
+   "집에서 볼 수 있는 물건 그림 읽기",
+   "행동을 나타내는 그림 읽기",
+   "교실에서 볼 수 있는 물건 그림 읽기",
+   "주변에서 볼 수 있는 표지판 읽기",
+   "주변에서 볼 수 있는 기호 읽기",
+   "동화 속 그림 읽기",
+   "동시 속 그림 읽기",
+   "알림장 속 그림 읽기",
+   "그림 읽고 몸동작으로 표현하기",
+   "학교에 도착해서 하는 일 그림 읽기",
+   "공부 시간에 하는 일 그림 읽기",
+   "쉬는 시간에 하는 일 그림 읽기",
+   "학교의 여러 장소 그림 읽기",
+   "선으로 표현한 그림 읽기",
+   "학교생활 그림 읽기",
+   "학교의 여러 장소에서 하는 일 그림 읽기",
+   "안내장 속 그림 읽기",
+   "금지를 나타내는 표지판 읽기"
+  ],
+  "materials": [
+   "책상",
+   "의자",
+   "칠판",
+   "먹어요",
+   "씻어요",
+   "입어요",
+   "앉아요",
+   "읽어요",
+   "마셔요",
+   "교실에 가요",
+   "화장실에 가요",
+   "뛰지 마세요"
+  ],
+  "keywordChars": 426,
+  "confidence": "high",
+  "sources": [
+   "guide-kor12"
+  ],
+  "verifiedAgainstGuide": true,
+  "notes": "교사용 지도서(국어 ①·②)의 단원별 성취기준 표(주요/관련)·단원 지도 계획 차시명·핵심 어휘에서 만듦. 차시별 학습 내용·학습 목표·평가 준거는 curriculum-guide-kor12.json의 같은 단원(id)에서 본다."
+ }
 }

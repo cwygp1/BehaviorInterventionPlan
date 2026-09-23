@@ -30,8 +30,9 @@ import { qabfScores, QABF_SHORT_LABELS } from '../../lib/qabf';
 import { methodsForType, methodsForTask, buildDisabilityMethodBlock, curriculumMethodBlock, CURRICULUM_METHOD, TEACH_SCENES } from '../../lib/disabilityMethods';
 import { loadDailyLifeGuide, guideUnits, dailyLifeGuideBlock, isDailyCode, loadDailyLifeExamples, examplesForUnits, interleaveExamples, dailyLifeExamplesBlock } from '../../lib/dailyLifeGuide';
 import FoldCard from '../ui/FoldCard';
+import CurriculumGuideUnits from '../ui/CurriculumGuideUnits';
 import DailyLifeExampleCards from '../ui/DailyLifeExampleCards';
-import { loadCurriculumContent, contentEntries, curriculumContentBlock, CONTENT_CAVEAT } from '../../lib/curriculumContent';
+import { loadCurriculumContent, contentEntries, curriculumContentBlock, CONTENT_CAVEAT, hasUnverified, loadCurriculumGuide, guideUnitsFor, curriculumGuideBlock } from '../../lib/curriculumContent';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import { GRADES_BY_LEVEL } from '../modals/EditStudentModal';
 
@@ -465,6 +466,16 @@ export default function IepPage({ onNavigate }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selCodes.length > 0, ccData]);
   const ccEntries = useMemo(() => contentEntries(ccData, selCodes), [ccData, selCodes.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 0923(2단계): 교사용 지도서 단원·차시 자료 — 키워드 항목이 하나라도 있으면 490KB 파일을 한 번 받아 '주요 성취기준' 단원을 붙인다.
+  const [cgData, setCgData] = useState(null);
+  useEffect(() => {
+    if (cgData || !ccEntries.length) return;
+    let alive = true;
+    loadCurriculumGuide().then((d) => { if (alive && d) setCgData(d); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ccEntries.length > 0, cgData]);
+  const cgUnits = useMemo(() => guideUnitsFor(cgData, ccEntries), [cgData, ccEntries]);
   // 지도서 소활동 이름을 교육내용 줄로 추가(이미 있으면 건너뜀).
   const addContentLines = (titles) => {
     setSemContent((cur) => {
@@ -1564,7 +1575,7 @@ export default function IepPage({ onNavigate }) {
         '3) 각 항목은 "- "로 시작하는 한 줄. 쉬운 우리말, 학생 실명·영어 단어 금지.\n' +
         '4) [부정 진술 금지] 교육내용에 "~하지 않기"처럼 무엇을 안 하는지를 쓰지 말고, 대신 무엇을 하는지(대체행동)로 쓸 것.\n' +
         (curStu?.disability ? '5) 교육방법의 핵심 방법은 아래 [교육과정 성격]의 기본값을 먼저 고려하고, 그 학생에게 더 맞으면 장애영역 기본 교수전략에서 1~2개를 고를 것. "→" 단계 흐름은 습득 초기 방법에서 시작해 일과 속 자연적 중재로 넘어가는 순서로 쓰되, 습득 초기 방법은 목표 성격에 맞춰 하나만 고를 것 — 교과(학업) 기술은 직접교수, 기초 기술의 1:1 반복은 비연속 시행 훈련(DTT), 사회성·안전·자기관리 같은 행동 기술은 행동기술훈련(BST). 아래 [유사 방법 구분]을 지켜 서로 섞어 쓰지 말 것.\n' : '') +
-        '\n' + dailyLifeGuideBlock(dlUnits) + curriculumContentBlock(ccEntries) + dailyLifeExamplesBlock(dlExList) +
+        '\n' + dailyLifeGuideBlock(dlUnits) + curriculumContentBlock(ccEntries) + curriculumGuideBlock(cgUnits) + dailyLifeExamplesBlock(dlExList) +
         curriculumMethodBlock(curriculumKind(), flowMode === 'goal' && funcPlan.skill ? FUNC_TEACH_METHOD(funcPlan.skill) : '') +
         buildDisabilityMethodBlock(curStu?.disability) + '\n' +
         '반드시 JSON만 출력: {"content":"- ...하기\\n- ...하기","methods":"- ...\\n- ... → ... → ..."}';
@@ -1989,7 +2000,7 @@ export default function IepPage({ onNavigate }) {
         ? `[학기 교육방법(교사 방향)]\n${semMethodsText}\n  → 월별 교육방법(methods)의 지도전략은 이 방향을 우선 반영할 것. 이 방향에 "→"로 이어진 단계 흐름이 있으면 무관한 새 흐름을 만들지 말고 그 단계들을 구간 순서대로 배분할 것 — 각 구간의 ②지원수준·③강화 스케줄 문장 앞에 "[학기 계획 n/m단계]"를 붙여 학기 방향의 몇 번째 단계인지 표시하고, 그 단계를 이 구간의 교육내용 활동·자료에 맞게 구체화할 것(학기 방향 문장을 그대로 복사하지 말 것).\n`
         : '') +
       `[대상 월(구간)] ${ms.map((x) => x + '월').join(', ')} (총 ${ms.length}구간 — 월을 묶은 구간은 한 행으로 작성)\n` +
-      critLine + tierLine + dailyLifeGuideBlock(dlUnits) + curriculumContentBlock(ccEntries) + dailyLifeExamplesBlock(dlExList) + currBlock + buildDisabilityMethodBlock(curStu?.disability) + ebpBlock + funcSkillsB +
+      critLine + tierLine + dailyLifeGuideBlock(dlUnits) + curriculumContentBlock(ccEntries) + curriculumGuideBlock(cgUnits) + dailyLifeExamplesBlock(dlExList) + currBlock + buildDisabilityMethodBlock(curStu?.disability) + ebpBlock + funcSkillsB +
       `\n[형식 본보기 — 일부러 고른 "다른 교과"의 한 구간 예시]\n` +
       `아래 예시는 지금 작성하는 ${sel ? `교과(${sel.subject})` : '목표'}와 무관하다. 구조(개조식 content, methods 3구조, 질문형 eval_plan의 측면 구성)와 어미만 본보기로 삼을 것. 예시의 소재·활동·문장은 이 교과와 맞지 않으므로 가져다 쓰지 말 것.\n` +
       `${/수학|과학/.test(sel?.subject || '') ? FORMAT_EX_COMM : FORMAT_EX_MATH}\n\n` +
@@ -2894,14 +2905,17 @@ export default function IepPage({ onNavigate }) {
             <div style={{ fontSize: '.74rem', color: 'var(--muted)' }}>출처: 2022 개정 특수교육 교육과정 일상생활 활동 교사용 지도서(의사소통·자립생활·신체활동·여가활동 — 신체·여가는 스캔본을 글자로 읽은 것이라 오탈자가 있을 수 있어요). 생활적응은 아직 없어요. AI 교육내용·월별 생성에도 이 활동이 재료로 들어갑니다.</div>
           </FoldCard>
         )}
-        {/* 0922(1단계): 교과 성취기준을 고르면 단원·활동·자료 키워드 — 지도서 원본 대조 전 자료라 주의 문구를 함께. */}
+        {/* 0922(1단계): 교과 성취기준을 고르면 단원·활동·자료 키워드. 0923(2단계): 교사용 지도서 원본으로 대조·재생성했고
+            '주요 성취기준' 단원의 차시(단계·차시명·학습 내용·학습 목표)·단원 평가 준거·핵심 어휘를 아래에 붙인다. 대조 전 항목이 섞이면 주의 문구. */}
         {ccEntries.length > 0 && (
-          <FoldCard id="iep-cc-guide" title="📚 교과 단원·활동 키워드 (기본교육과정 국어 1~2학년군 · 1단계)" defaultOpen
-            summary={`${ccEntries.length}개 성취기준 · 활동 ${ccEntries.reduce((n, e) => n + (e.activities || []).length, 0)}개 — 활동을 누르면 학기 교육내용에 한 줄로 들어가요 · ⚠ 지도서 원본 대조 전`}
+          <FoldCard id="iep-cc-guide" title="📚 교과 단원·차시 (기본교육과정 국어 1~2학년군 · 교사용 지도서)" defaultOpen
+            summary={`${ccEntries.length}개 성취기준 · 활동 ${ccEntries.reduce((n, e) => n + (e.activities || []).length, 0)}개${cgUnits.length ? ` · 지도서 단원 ${cgUnits.length}개(차시 ${cgUnits.reduce((n, u) => n + (u.lessons || []).length, 0)}개)` : ''} — 차시명·학습 내용을 누르면 학기 교육내용에 한 줄로 들어가요${hasUnverified(ccEntries) ? ' · ⚠ 일부 지도서 대조 전' : ''}`}
             style={{ margin: '4px 0 10px' }}>
-            <div style={{ fontSize: '.78rem', color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '6px 10px', marginBottom: 8 }}>
-              ⚠ {CONTENT_CAVEAT}. 실제 수업은 교사용 지도서를 확인하세요.
-            </div>
+            {hasUnverified(ccEntries) && (
+              <div style={{ fontSize: '.78rem', color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '6px 10px', marginBottom: 8 }}>
+                ⚠ {CONTENT_CAVEAT}. 실제 수업은 교사용 지도서를 확인하세요.
+              </div>
+            )}
             {ccEntries.map((e) => {
               const units = [...(e.units || [])].sort((a, b) => (a.role === 'primary' ? 0 : 1) - (b.role === 'primary' ? 0 : 1));
               return (
@@ -2924,7 +2938,10 @@ export default function IepPage({ onNavigate }) {
                 </div>
               );
             })}
-            <div style={{ fontSize: '.74rem', color: 'var(--muted)' }}>출처: 부산혜남학교 학교교육과정(2024·2025) 공개 문서의 단원·차시명. 단원명·활동명·자료명 키워드만 담았고(코드당 300자 이내) 본문·해설은 없어요. AI 교육내용·월별 생성에도 이 키워드가 재료로 들어갑니다.</div>
+            {cgUnits.length > 0 && (
+              <CurriculumGuideUnits units={cgUnits} onAdd={(lines, label) => { addContentLines(lines); toast('교육내용에 넣었어요: ' + (label || lines[0])); }} />
+            )}
+            <div style={{ fontSize: '.74rem', color: 'var(--muted)' }}>출처: 2022 개정 기본교육과정 국어 ①·② 교사용 지도서(단원별 성취기준 표·단원 지도 계획·단원 평가·핵심 어휘). 단원명·차시명·학습 내용·학습 목표·평가 준거 수준만 담았고 수업 절차 본문·해설은 없어요. 지도서를 글자로 읽은 것이라 드물게 오탈자가 있을 수 있어요(쪽 번호로 원본 확인). AI 교육내용·월별 생성에도 이 자료가 재료로 들어갑니다.</div>
           </FoldCard>
         )}
         {flowMode === 'goal' && (
