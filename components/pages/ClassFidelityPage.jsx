@@ -109,7 +109,7 @@ ${lines}
 
   return (
     <>
-      <div className="card" style={{ background: 'linear-gradient(135deg,#eef4ff 0%,#e6eeff 100%)', borderColor: '#b9cdf0' }}>
+      <div className="card" data-help="cf-intro" style={{ background: 'linear-gradient(135deg,#eef4ff 0%,#e6eeff 100%)', borderColor: '#b9cdf0' }}>
         <div className="card-title" style={{ marginBottom: 4 }}>📋 학급관리 실행충실도 2 — 보편적 지원 실행충실도 점검지</div>
         <p style={{ fontSize: '.9rem', color: '#274690', margin: 0, lineHeight: 1.6 }}>
           학급 차원 긍정적 행동지원(Tier 1)의 핵심 요소가 <strong>얼마나 충실하게 실행되고 있는지</strong> 영역별 기준문으로 점검합니다.
@@ -122,7 +122,7 @@ ${lines}
       </div>
 
       {/* 요약 + 상단 저장 */}
-      <div className="card" style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="card" data-help="cf-summary" style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
           <div style={{ fontSize: '.78rem', color: 'var(--muted)', fontWeight: 700 }}>실행충실도 총점</div>
           <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--pri)' }}>{stats.score} <span style={{ fontSize: '.9rem', color: 'var(--muted)' }}>/ {stats.max}점 ({pct}%)</span></div>
@@ -134,7 +134,7 @@ ${lines}
       </div>
 
       {FIDELITY_AREAS.map((area, idx) => (
-        <div className="card" key={area.name}>
+        <div className="card" key={area.name} data-help="cf-area">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>{idx + 1}. {area.name}</div>
             {vals[idx] >= 0
@@ -147,6 +147,7 @@ ${lines}
               <button
                 key={score}
                 type="button"
+                data-help="cf-level"
                 onClick={() => pick(idx, score)}
                 title={on ? '다시 누르면 선택 해제' : `${score}점으로 선택`}
                 style={{
@@ -179,7 +180,7 @@ ${lines}
       ))}
 
       {/* 저장 + AI 해석 — 실행충실도 1과 같은 패턴 (0825 동료 피드백) */}
-      <div className="card">
+      <div className="card" data-help="cf-save">
         <div className="card-title">💾 저장 · ✨ AI 해석</div>
         <div className="card-subtitle">점검 결과를 저장하고, AI로 잘 되는 영역·보완 영역과 실행 전략을 받아보세요. (학급 정보만 사용 · 비식별)</div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12, flexWrap: 'wrap' }}>

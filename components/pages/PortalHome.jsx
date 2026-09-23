@@ -134,6 +134,7 @@ export default function PortalHome({ onNavigate }) {
   const todoBadge = (key, dash) => (badges && badges[key] > 0 ? (
     <span
       className="ph-todo"
+      data-help="ph-todo-badge"
       role="button"
       tabIndex={0}
       title="이 영역의 할 일 목록으로 바로 이동"
@@ -166,7 +167,7 @@ export default function PortalHome({ onNavigate }) {
             <span className="ph-hint">{hint.iep}{todoBadge('iep', SECTIONS.iep.dash)}</span>
             <button type="button" className="iep-cta" onClick={() => onNavigate(SECTIONS.iep.dash)}>{ctaOf(SECTIONS.iep.dash)}</button>
           </div>
-          <div className="iep-steps" role="group" aria-label="IEP 작성 순서">
+          <div className="iep-steps" role="group" aria-label="IEP 작성 순서" data-help="ph-iep-steps">
             <span className="iep-steps-k">작성 순서</span>
             {IEP_STEPS.map((id, i) => (
               <span key={id} className="iep-step-wrap">
@@ -178,7 +179,7 @@ export default function PortalHome({ onNavigate }) {
             ))}
           </div>
         </div>
-        <div className="portal-bridge">
+        <div className="portal-bridge" data-help="ph-bridge">
           ⬆ 아래 학급·학생 지원(Tier 1·2·3) 기록이 위의 <b>개별화교육계획(IEP)</b>에 이어져요
           <button type="button" className="bridge-i" onClick={() => setBridgeOpen((o) => !o)} aria-expanded={bridgeOpen} title="자세히 보기">ⓘ</button>
           {bridgeOpen && <span className="bridge-more"> — Tier 3의 행동목표는 '개별화 목표로 가져가기'와 '교과 목표에 녹이기' 중에서 중재 계획(BIP) 화면에서 선택해요.</span>}
@@ -243,18 +244,18 @@ export default function PortalHome({ onNavigate }) {
           <div className="nsb-actions">
             {noStudents && (
               <>
-                <button className="btn btn-pri" onClick={onStartSample} disabled={sampleBusy}>{sampleBusy ? '만드는 중…' : '🧪 샘플로 체험'}</button>
-                <button className="btn btn-ghost" onClick={openAddStudent}>＋ 내 학생 등록</button>
-                {!aiOn && <button className="btn btn-ghost" onClick={openAISettings}>🤖 AI 연결</button>}
+                <button className="btn btn-pri" onClick={onStartSample} disabled={sampleBusy} data-help="ph-sample">{sampleBusy ? '만드는 중…' : '🧪 샘플로 체험'}</button>
+                <button className="btn btn-ghost" onClick={openAddStudent} data-help="ph-add-student">＋ 내 학생 등록</button>
+                {!aiOn && <button className="btn btn-ghost" onClick={openAISettings} data-help="ph-ai-connect">🤖 AI 연결</button>}
               </>
             )}
             {!noStudents && hasSamples && (
               <>
-                <button className="btn btn-ghost" onClick={openAddStudent}>＋ 내 학생 등록</button>
-                <button className="btn btn-ghost" onClick={onClearSample} disabled={sampleBusy} style={{ color: '#c0392b' }}>{sampleBusy ? '정리 중…' : '🗑 샘플 삭제'}</button>
+                <button className="btn btn-ghost" onClick={openAddStudent} data-help="ph-add-student">＋ 내 학생 등록</button>
+                <button className="btn btn-ghost" onClick={onClearSample} disabled={sampleBusy} style={{ color: '#c0392b' }} data-help="ph-sample-clear">{sampleBusy ? '정리 중…' : '🗑 샘플 삭제'}</button>
               </>
             )}
-            {!noStudents && next && <button className="btn btn-pri" onClick={onNextCta}>{nextCta}</button>}
+            {!noStudents && next && <button className="btn btn-pri" onClick={onNextCta} data-help="ph-next-cta">{nextCta}</button>}
           </div>
         </div>
       )}
@@ -267,7 +268,7 @@ export default function PortalHome({ onNavigate }) {
         <div className="pquick-items" style={quickOpen ? undefined : { display: 'none' }}>
           {/* 샘플 체험 상시 진입점 — 학생이 이미 있어도 체험할 수 있게 둔다. 체험 중에는 안내 슬롯이 담당. */}
           {studentsLoaded && !hasSamples && (
-            <button onClick={onStartSample} disabled={sampleBusy}>
+            <button onClick={onStartSample} disabled={sampleBusy} data-help="ph-sample">
               {sampleBusy ? '⏳ 샘플 만드는 중…' : '🧪 샘플로 체험'}
             </button>
           )}
@@ -276,7 +277,7 @@ export default function PortalHome({ onNavigate }) {
           ))}
           {/* AI 도우미 3종은 한 버튼으로 묶는다(0824 간결화② · 0914 이름 통일) */}
           <span style={{ position: 'relative', display: 'inline-block' }}>
-            <button onClick={() => setAiMenuOpen((o) => !o)} aria-expanded={aiMenuOpen} aria-haspopup="menu">
+            <button onClick={() => setAiMenuOpen((o) => !o)} aria-expanded={aiMenuOpen} aria-haspopup="menu" data-help="ph-ai-menu">
               ✨ AI 도우미 {aiMenuOpen ? '▴' : '▾'}
             </button>
             {aiMenuOpen && (

@@ -225,7 +225,7 @@ export default function DttPanel() {
 
   return (
     <>
-      <div className="card">
+      <div className="card" data-help="mon-dtt-program">
         <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           🎯 DTT (개별시행) 기록
           <button className="btn btn-ghost btn-sm" onClick={() => openEditor(null)}>+ 새 프로그램</button>
@@ -260,7 +260,7 @@ export default function DttPanel() {
       </div>
 
       {draft && (
-        <div className="card" style={{ border: '2px solid var(--pri)' }}>
+        <div className="card" data-help="mon-dtt-editor" style={{ border: '2px solid var(--pri)' }}>
           <div className="card-title">{draft.id ? '✏ 프로그램 고치기' : '🆕 새 DTT 프로그램'}</div>
           <div className="form-row">
             <div className="form-group">
@@ -284,7 +284,7 @@ export default function DttPanel() {
             <label className="form-label">B 표적 (학습 항목) — 줄마다 하나</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {draft.items.map((x, i) => (
-                <div key={x.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto auto', gap: 6 }}>
+                <div key={x.id} data-help="mon-dtt-target" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto auto', gap: 6 }}>
                   <input className="form-input" value={x.text} placeholder={i === 0 ? '예: 빨강' : '예: 파랑'}
                     onChange={(e) => setD({ items: draft.items.map((y) => (y.id === x.id ? { ...y, text: e.target.value } : y)) })} />
                   <select className="form-input" style={{ width: 'auto' }} value={x.status}
@@ -375,7 +375,7 @@ export default function DttPanel() {
                 const { reached, stuck, dropped } = dttItemJudgement(x.status, itemHistory(mine, x.id), mastery);
                 if (!reached && !stuck && !dropped) return null;
                 return (
-                  <div key={x.id} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '.84rem', padding: '3px 0' }}>
+                  <div key={x.id} data-help="mon-dtt-judge" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '.84rem', padding: '3px 0' }}>
                     {reached && x.status !== 'maintain' && x.status !== 'mastered' && (
                       <><span style={{ color: '#15803d' }}>✅ ‘{x.text}’ 학습기준 도달({masteryText(program.mastery)})</span>
                         <button className="btn btn-ghost btn-sm" onClick={() => setItemStatus(x.id, 'mastered')}>습득으로 표시</button></>
@@ -395,7 +395,7 @@ export default function DttPanel() {
             </div>
           )}
 
-          <div className="card" id="dtt-form">
+          <div className="card" id="dtt-form" data-help="mon-dtt-form">
             <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               ✏ {editingId ? '회기 기록 고치기' : '오늘 회기 입력'}
               {editingId && <span className="badge badge-purple">수정 중 · {date}</span>}
@@ -457,7 +457,7 @@ export default function DttPanel() {
                   {formItems.map((x, r) => {
                     const st = live.stats[r] || { correct: 0, scored: 0, pct: 0 };
                     return (
-                      <tr key={x.id}>
+                      <tr key={x.id} data-help="mon-dtt-trial-row">
                         <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={x.text}>{x.text}</td>
                         {Array.from({ length: nT }, (_, t) => {
                           const k = normalized[r]?.[t] || '';
@@ -489,12 +489,12 @@ export default function DttPanel() {
               <div style={{ display: 'flex', gap: 8 }}>
                 {editingId && <button className="btn btn-ghost" onClick={onDeleteSession}>🗑 삭제</button>}
                 {editingId && <button className="btn btn-ghost" onClick={() => resetForm()}>취소</button>}
-                <button className="btn btn-pri" onClick={onSave} disabled={busy}>{editingId ? '💾 수정 저장' : '💾 회기 저장'}</button>
+                <button className="btn btn-pri" data-help="mon-session-save" onClick={onSave} disabled={busy}>{editingId ? '💾 수정 저장' : '💾 회기 저장'}</button>
               </div>
             </div>
           </div>
 
-          <div className="card">
+          <div className="card" data-help="mon-dtt-table">
             <div className="card-title">📊 기록표 <span className="badge badge-pri">{mine.length}회기</span></div>
             <div className="card-subtitle">칸 = 그 회기의 {isCount ? '성공 횟수/기회' : '독립 수행 비율'}. 회기 제목(날짜)을 누르면 위로 불러와 고칠 수 있어요.</div>
             {!mine.length ? (
@@ -507,7 +507,7 @@ export default function DttPanel() {
                       <th style={{ textAlign: 'left', minWidth: 120, position: 'sticky', left: 0, background: 'var(--card, #fff)' }}>표적</th>
                       {mine.slice(-12).map((s) => (
                         <th key={s.id} style={{ padding: 2 }}>
-                          <button type="button" onClick={() => loadSession(s)} title={s.note || ''}
+                          <button type="button" data-help="mon-session-col" onClick={() => loadSession(s)} title={s.note || ''}
                             style={{ border: '1px solid ' + (editingId === s.id ? 'var(--pri)' : 'var(--border)'), borderRadius: 4, background: s.phase === 'baseline' ? '#fff7ed' : '#fff', cursor: 'pointer', padding: '2px 4px', fontSize: '.72rem', lineHeight: 1.2 }}>
                             {s.date.slice(5)}{s.session_no > 1 ? `-${s.session_no}` : ''}<br />
                             <span style={{ color: 'var(--muted)' }}>{s.phase === 'baseline' ? '기초' : s.phase === 'maintain' ? '유지' : '지도'}</span>
@@ -518,7 +518,7 @@ export default function DttPanel() {
                   </thead>
                   <tbody>
                     {items.map((x) => (
-                      <tr key={x.id}>
+                      <tr key={x.id} data-help="mon-dtt-row">
                         <td style={{ padding: 4, position: 'sticky', left: 0, background: 'var(--card, #fff)', whiteSpace: 'nowrap' }}>{x.text} {statusBadge(x.status)}</td>
                         {mine.slice(-12).map((s) => {
                           const i = (s.steps_snapshot || []).findIndex((y) => y && y.id === x.id);

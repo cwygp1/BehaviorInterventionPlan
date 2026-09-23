@@ -260,7 +260,7 @@ export default function BipPage({ onNavigate }) {
       </div>
 
       {/* 관찰 화면에서 작성한 조작적 정의를 참고로 보여준다(가설의 [행동] 재료). */}
-      <div className="card" style={{ fontSize: '.85rem', lineHeight: 1.6 }}>
+      <div className="card" data-help="bip-opdef" style={{ fontSize: '.85rem', lineHeight: 1.6 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 220 }}>
             <strong>🪄 표적행동 조작적 정의</strong>{' '}
@@ -280,7 +280,7 @@ export default function BipPage({ onNavigate }) {
             <div className="card-title" style={{ marginBottom: 0 }}>🧭 ① 행동기능 가설 설정</div>
             <div className="card-subtitle">ABC 분석과 기능평가(QABF)를 근거로, 행동이 <strong>왜</strong> 나타나는지 한 문장으로 가설을 세웁니다.</div>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={draftHypothesis}>↻ ABC·QABF에서 초안 채우기</button>
+          <button className="btn btn-ghost btn-sm" data-help="bip-hypo-draft" onClick={draftHypothesis}>↻ ABC·QABF에서 초안 채우기</button>
         </div>
         <div style={{ fontSize: '.8rem', color: '#274690', background: '#eef4ff', border: '1px solid #b9cdf0', borderRadius: 8, padding: '8px 12px', margin: '8px 0', lineHeight: 1.7 }}>
           <strong>입력 양식</strong> — “〔배경사건〕이 있는 날, [선행사건]일 때, 학생은 [행동]을 하며, 이는 [기능]을 얻기 위한 것이다.” <span style={{ color: '#5b6b8c' }}>(배경사건 절은 관찰 기록의 ‘배경사건’ 칸이 있을 때만)</span>
@@ -296,7 +296,7 @@ export default function BipPage({ onNavigate }) {
             <div className="card-title" style={{ marginBottom: 0 }}>🎯 ② 목표 행동(대체 행동) 설정</div>
             <div className="card-subtitle">ABC + QABF + 학생 정보를 기반으로 AI가 PTR(예방·교수·강화)+반응 초안을 만들어줍니다.</div>
           </div>
-          <button className="btn btn-pri btn-sm" onClick={() => setAiOpen(true)}>📜 AI BIP 중재안 프롬프트</button>
+          <button className="btn btn-pri btn-sm" data-help="bip-ai" onClick={() => setAiOpen(true)}>📜 AI BIP 중재안 프롬프트</button>
         </div>
         <div className="form-group">
           <label className="form-label">대체 행동</label>
@@ -399,7 +399,7 @@ export default function BipPage({ onNavigate }) {
                   ['🎯 대체 행동', alt, '#f7f3ff'],
                   ['✅ 결과 평가 (성공 기준)', crit, '#f2f4f7'],
                 ].filter(([, v]) => String(v || '').trim()).map(([label, v, bg]) => (
-                  <tr key={label}>
+                  <tr key={label} data-help="bip-sum-row">
                     <td style={{ border: '1px solid var(--border)', background: bg, padding: '6px 10px', fontWeight: 700, width: 170, verticalAlign: 'top', whiteSpace: 'nowrap' }}>{label}</td>
                     <td style={{ border: '1px solid var(--border)', padding: '6px 10px', verticalAlign: 'top' }}>
                       {String(v).split(/\n|,\s*/).map((t) => t.trim()).filter(Boolean).map((t, i) => (
@@ -415,9 +415,10 @@ export default function BipPage({ onNavigate }) {
 
         {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-          <button className="btn btn-ghost" onClick={onPrintBIP}>🖨 BIP 인쇄/PDF</button>
+          <button className="btn btn-ghost" data-help="bip-print" onClick={onPrintBIP}>🖨 BIP 인쇄/PDF</button>
           <button
             className={'btn ' + (bipDirty ? 'btn-pri' : 'btn-ghost')}
+            data-help="bip-save"
             onClick={onSave}
             disabled={busy || !bipDirty}
             title={bipDirty ? '지금 바로 저장' : '변경 내용이 모두 자동 저장되었습니다'}
@@ -460,7 +461,7 @@ export default function BipPage({ onNavigate }) {
               </thead>
               <tbody>
                 {roles.map((r, i) => (
-                  <tr key={i}>
+                  <tr key={i} data-help="bip-role-row">
                     {ROLE_COLS.map(([k, ph, w]) => (
                       <td key={k} style={{ border: '1px solid var(--border)', padding: 4, width: w }}>
                         <input className="form-input" style={{ padding: '6px 8px', fontSize: '.84rem' }} value={r[k] || ''} placeholder={ph} onChange={(e) => editRole(i, k, e.target.value)} />
@@ -486,8 +487,8 @@ export default function BipPage({ onNavigate }) {
             <div className="card-subtitle">작성한 조작적 정의·대체행동·중재 전략을 바탕으로 한 문장의 행동목표를 만듭니다.</div>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {aiOn && <button className="btn btn-ok btn-sm" onClick={aiBgoal} disabled={bgoalBusy}>{bgoalBusy ? '생성 중…' : '✨ 중재계획으로 AI 생성'}</button>}
-            <button className="btn btn-ghost btn-sm" onClick={copyBgoal} title="복사해서 IEP 학기목표(경로 B)에 붙여넣기">📋 IEP 학기목표로 복사</button>
+            {aiOn && <button className="btn btn-ok btn-sm" data-help="bip-goal-ai" onClick={aiBgoal} disabled={bgoalBusy}>{bgoalBusy ? '생성 중…' : '✨ 중재계획으로 AI 생성'}</button>}
+            <button className="btn btn-ghost btn-sm" data-help="bip-goal-copy" onClick={copyBgoal} title="복사해서 IEP 학기목표(경로 B)에 붙여넣기">📋 IEP 학기목표로 복사</button>
           </div>
         </div>
         <textarea className="form-textarea" rows={2} value={bgoal} onChange={(e) => setBgoal(e.target.value)}
@@ -496,7 +497,7 @@ export default function BipPage({ onNavigate }) {
         {/* 0814 전문가 자문: 행동목표를 IEP에 어떻게 반영할지는 '선택의 문제' —
             개별화 목표로 그대로 가져갈지, 교과 목표에 녹일지 선생님이 정한다.
             저장 시 AI 생성(tierContext)도 이 선택을 따른다. */}
-        <div className="bgoal-dest">
+        <div className="bgoal-dest" data-help="bip-dest">
           <div className="bgoal-dest-label">🔀 이 행동목표, IEP에 어떻게 반영할까요? <span className="bgoal-dest-sub">(선택 사항 — AI 초안 생성이 이 선택을 따라요)</span></div>
           <div className="bgoal-dest-opts" role="radiogroup" aria-label="행동목표 IEP 반영 방식">
             {[
@@ -530,7 +531,7 @@ export default function BipPage({ onNavigate }) {
       {/* ✍ 행동 계약서는 Tier 2(소그룹 지원) 화면으로 이동 (0825 동료 피드백) */}
 
       {/* 가정 연계 통신문 — 별도의 카드로 격상 */}
-      <div className="card" style={{ background: 'linear-gradient(135deg, #f0fbf4 0%, #e7f7ee 100%)', borderColor: '#9be0b9' }}>
+      <div className="card" data-help="bip-letter" style={{ background: 'linear-gradient(135deg, #f0fbf4 0%, #e7f7ee 100%)', borderColor: '#9be0b9' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 220 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>

@@ -167,7 +167,7 @@ export default function ScalePanel() {
 
   return (
     <>
-      <div className="card">
+      <div className="card" data-help="mon-scale-program">
         <div className="card-title">📶 5점 척도 기록 (행동기술훈련 · BST)</div>
         <div className="card-subtitle">
           기술 하나를 정해 두고 <strong>실제 상황</strong>에서 기회마다 5~1점을 매깁니다.
@@ -184,7 +184,7 @@ export default function ScalePanel() {
           {program && !draft && (
             <>
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDraft({ ...program, goal_id: program.goal_id || '', mastery: { runs } })}>⚙ 설정 고치기</button>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={copySummary}>📋 평가 칸 요약 복사</button>
+              <button type="button" className="btn btn-ghost btn-sm" data-help="mon-scale-copy" onClick={copySummary}>📋 평가 칸 요약 복사</button>
             </>
           )}
           <span style={{ flex: 1 }} />
@@ -216,7 +216,7 @@ export default function ScalePanel() {
       </div>
 
       {draft && (
-        <div className="card">
+        <div className="card" data-help="mon-scale-editor">
           <div className="card-title">{draft.id ? '기술 설정 고치기' : '새 기술'}</div>
           <div className="form-group">
             <label className="form-label" htmlFor="sc-title">기술 이름</label>
@@ -283,7 +283,7 @@ export default function ScalePanel() {
               ✅ 실제 상황에서 5점(스스로)이 {runs}회기 연속이에요 — 도달 기준을 채웠습니다. 유지·일반화 단계로 넘어가 보세요.
             </div>
           )}
-          <div className="card">
+          <div className="card" data-help="mon-scale-form">
             <div className="card-title">{editingId ? '회기 고치기' : '회기 기록'}</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <div className="form-group" style={{ margin: 0 }}>
@@ -311,7 +311,7 @@ export default function ScalePanel() {
 
             <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
               {scores.map((v, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <div key={i} data-help="mon-scale-trial" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                   <strong style={{ fontSize: '.84rem', minWidth: 52 }}>{i + 1}번째</strong>
                   {BST_SCALE.map((s) => (
                     <button key={s.score} type="button"
@@ -340,13 +340,13 @@ export default function ScalePanel() {
                 onChange={(e) => setNote(e.target.value)} />
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              <button type="button" className="btn btn-pri" disabled={busy} onClick={saveSession}>{editingId ? '고치기' : '저장'}</button>
+              <button type="button" className="btn btn-pri" data-help="mon-session-save" disabled={busy} onClick={saveSession}>{editingId ? '고치기' : '저장'}</button>
               {editingId && <button type="button" className="btn btn-ghost" onClick={() => resetForm()}>새 회기로</button>}
               {editingId && <button type="button" className="btn btn-ghost" style={{ color: 'var(--err)' }} onClick={removeSession}>이 회기 지우기</button>}
             </div>
           </div>
 
-          <div className="card">
+          <div className="card" data-help="mon-scale-table">
             <div className="card-title">기록 ({mine.length}회기)</div>
             {!mine.length && <div className="card-subtitle">아직 기록이 없어요. 위에서 첫 회기를 저장해 보세요.</div>}
             {!!mine.length && (
@@ -367,7 +367,7 @@ export default function ScalePanel() {
                     {[...mine].reverse().map((s) => {
                       const r = scoreBstSession(s.codes);
                       return (
-                        <tr key={s.id} style={{ borderTop: '1px solid var(--border)' }}>
+                        <tr key={s.id} data-help="mon-scale-row" style={{ borderTop: '1px solid var(--border)' }}>
                           <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>{s.date} <span style={{ color: 'var(--muted)' }}>{s.session_no}회기</span></td>
                           <td style={{ padding: '6px 8px' }}>{phaseLabel(s.phase)}</td>
                           <td style={{ padding: '6px 8px' }}>{settingLabel(s.chain_type)}</td>

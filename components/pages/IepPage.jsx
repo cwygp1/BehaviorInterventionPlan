@@ -2471,7 +2471,7 @@ export default function IepPage({ onNavigate }) {
   };
   const strengthChips = strengthsText().split(/[,·\n;]/).map((s) => s.trim()).filter(Boolean).slice(0, 8);
   const funcCard = (
-    <div className="card" id="iep-func">
+    <div className="card" id="iep-func" data-help="iep-func">
       <div className="card-title">🔀 {stepNo.func} 행동 기능과 대체행동(단기목표)</div>
       <div className="card-subtitle">
         문제행동이 얻던 것(기능)을 더 적절한 방법으로 얻게 하는 <strong>대체행동</strong>을 정하세요. 이 대체행동이 단기목표가 되어 과제분석 단계로 월별 목표에 배정되고,
@@ -2528,17 +2528,17 @@ export default function IepPage({ onNavigate }) {
 
   // 학기목표 설정 카드 — 경로A(성취기준 다음)·경로B(맨 처음) 공용 (0719 피드백: 학기목표 선행).
   const goalCard = (
-    <div className="card" id="iep-goal">
+    <div className="card" id="iep-goal" data-help="iep-goal">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <div className="card-title" style={{ marginBottom: 0 }}>🎯 {stepNo.goal} {flowMode === 'goal' ? '학기목표(주 목표 — 바람직한 행동) 설정' : '학기목표 설정'}</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {flowMode === 'std' && aiOn && !!sel && (
-            <button className="btn btn-ok btn-sm" onClick={aiGoalFromStd} disabled={goalAiBusy}>
+            <button className="btn btn-ok btn-sm" data-help="iep-goal-ai" onClick={aiGoalFromStd} disabled={goalAiBusy}>
               {goalAiBusy ? '생성 중…' : '✨ AI로 성취기준별 목표·학기목표 생성 (성취기준+학생 자료)'}
             </button>
           )}
           {flowMode === 'goal' && aiOn && !!String(funcPlan.alt || '').trim() && (
-            <button className="btn btn-ok btn-sm" onClick={aiGoalFromFunc} disabled={goalAiBusy}>
+            <button className="btn btn-ok btn-sm" data-help="iep-goal-ai" onClick={aiGoalFromFunc} disabled={goalAiBusy}>
               {goalAiBusy ? '생성 중…' : '✨ 학기목표 AI 생성 (기능·대체행동·강점 반영)'}
             </button>
           )}
@@ -2565,7 +2565,7 @@ export default function IepPage({ onNavigate }) {
               const c = stdCoverage[i];
               const req = c?.terms?.required || [];
               return (
-                <div key={x.code} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 8, alignItems: 'start', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
+                <div key={x.code} data-help="iep-std-goal-row" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 8, alignItems: 'start', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
                   <span className="qchip on" title={x.std} style={{ marginTop: 2 }}>[{x.code}]</span>
                   <textarea className="form-textarea" rows={2} value={x.goal} onChange={(e) => editStdGoal(i, e.target.value)} style={{ minHeight: 0 }}
                     placeholder={x.std} />
@@ -2605,13 +2605,13 @@ export default function IepPage({ onNavigate }) {
       </div>
       {/* P15(0720 현장 피드백): 학기목표와 함께 교육내용·교육방법도 학기 수준에서 같이 작성 —
           여기서 잡은 방향이 월별 계획(규칙 초안·AI 생성)의 교육내용·교육방법으로 이어진다. */}
-      <div className="form-row" style={{ marginBottom: 0 }}>
+      <div className="form-row" data-help="iep-sem-plan" style={{ marginBottom: 0 }}>
         <div className="form-group" style={{ marginBottom: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
             <label className="form-label" style={{ margin: 0 }}>교육내용 (학기 방향 · 여러 줄 "-")</label>
             {/* P16: 연수자료 방식 AI 초안 — 교육내용("~하기" 활동)+교육방법("→" 단계 서술)을 한 번에. */}
             {aiOn && (
-              <button type="button" className="btn btn-ok btn-sm" onClick={aiSemContentMethods} disabled={semAiBusy}
+              <button type="button" className="btn btn-ok btn-sm" data-help="iep-sem-ai" onClick={aiSemContentMethods} disabled={semAiBusy}
                 title="연수자료 방식(활동 목록 + 지원을 줄여가는 단계 서술)으로 교육내용·교육방법 초안을 AI가 만듭니다">
                 {semAiBusy ? '⏳ 채우는 중…' : '✨ AI로 내용·방법 채우기'}
               </button>
@@ -2691,7 +2691,7 @@ export default function IepPage({ onNavigate }) {
       <AssessmentLauncher compact />
 
       {/* Tier 구성 참고 — IEP는 Tier 1·2·3 데이터를 조합해 목표를 세운다 */}
-      <div style={{
+      <div data-help="iep-tier-bar" style={{
         display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
         padding: '8px 14px', marginBottom: 4, borderRadius: 8,
         background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: '.84rem',
@@ -2724,7 +2724,7 @@ export default function IepPage({ onNavigate }) {
         const cur = firstUndone === -1 ? steps.length - 1 : firstUndone;
         const go = (id) => { const el = typeof document !== 'undefined' && document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
         return (
-          <div className="stepnav-progress" role="navigation" aria-label="IEP 작성 순서"
+          <div className="stepnav-progress" data-help="iep-stepnav" role="navigation" aria-label="IEP 작성 순서"
             style={{ position: 'sticky', top: 0, zIndex: 30, marginTop: 6, padding: '8px 0', background: 'var(--bg, #fff)', boxShadow: '0 4px 8px -6px rgba(0,0,0,.25)' }}>
             {steps.map((s, i) => (
               <button key={i} type="button"
@@ -2740,7 +2740,7 @@ export default function IepPage({ onNavigate }) {
 
       {/* 저장된 목표 — 수정 진입점(맨 위) */}
       {(goalsLoading || savedGoals.length > 0) && (
-        <div className="card" id="iep-saved">
+        <div className="card" id="iep-saved" data-help="iep-saved">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>🗂 저장된 IEP 목표 ({savedGoals.length}) <span style={{ fontWeight: 400, fontSize: 12, color: '#6b7280' }}>— 수정하려면 [✏ 수정], 새로 만들려면 아래에서 성취기준 선택</span></div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -2751,8 +2751,8 @@ export default function IepPage({ onNavigate }) {
                   <option value="summary">한 문장만</option>
                 </select>
               </label>
-              <button className="btn btn-ok btn-sm" onClick={() => exportNiceWord(savedGoals)} disabled={goalsLoading}>📄 나이스 양식 Word(.docx)</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => exportFormWord(savedGoals)} disabled={goalsLoading}>📄 양식 Word (생활지원/교과 중심)</button>
+              <button className="btn btn-ok btn-sm" data-help="iep-word-nice" onClick={() => exportNiceWord(savedGoals)} disabled={goalsLoading}>📄 나이스 양식 Word(.docx)</button>
+              <button className="btn btn-ghost btn-sm" data-help="iep-word-form" onClick={() => exportFormWord(savedGoals)} disabled={goalsLoading}>📄 양식 Word (생활지원/교과 중심)</button>
             </div>
           </div>
           {goalsLoading && (
@@ -2761,7 +2761,7 @@ export default function IepPage({ onNavigate }) {
             </div>
           )}
           {!goalsLoading && savedGoals.map((g) => (
-            <div key={g.id} style={{ border: '1px solid ' + (editingId === g.id ? '#7c4dff' : '#e3e6eb'), background: editingId === g.id ? '#f5f0ff' : '#fff', borderRadius: 9, padding: '10px 12px', marginTop: 8 }}>
+            <div key={g.id} data-help="iep-saved-row" style={{ border: '1px solid ' + (editingId === g.id ? '#7c4dff' : '#e3e6eb'), background: editingId === g.id ? '#f5f0ff' : '#fff', borderRadius: 9, padding: '10px 12px', marginTop: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <div style={{ minWidth: 220, flex: 1 }}>
                   <div style={{ fontSize: 12, color: '#3b6ef5', fontWeight: 700 }}>{g.standard_code ? `[${g.standard_code}]` : '성취기준 없음'}{Array.isArray(g.related_stds) && g.related_stds.length ? ` 외 ${g.related_stds.length}개` : ''} {g.subject}{g.area ? ' · ' + g.area : ''}{g.subject && GRADE[g.grade_code] ? ' · ' + GRADE[g.grade_code] : ''} · {g.semester}학기</div>
@@ -2785,12 +2785,12 @@ export default function IepPage({ onNavigate }) {
 
       {/* 전년도 IEP 기준으로 시작 */}
       {priorGoals.length > 0 && (
-        <div className="card" style={{ borderColor: '#d8c9ff' }}>
+        <div className="card" data-help="iep-prior" style={{ borderColor: '#d8c9ff' }}>
           <div className="card-title" style={{ marginBottom: 0 }}>🔁 전년도 IEP 기준으로 생성 ({priorGoals.length})</div>
           <div className="card-subtitle">전년도 목표를 기준으로 불러온 뒤 "✨ AI 생성"을 누르면, 그 목표·평가를 이어받아 올해 목표를 만듭니다.</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 8 }}>
             {priorGoals.slice(0, 12).map((g) => (
-              <div key={g.id} style={{ border: '1px solid #e3e6eb', borderRadius: 9, padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div key={g.id} data-help="iep-prior-row" style={{ border: '1px solid #e3e6eb', borderRadius: 9, padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ fontSize: 11.5, color: '#7c4dff', fontWeight: 700 }}>{g.school_year}학년도 {g.semester}학기 · {g.subject}{g.area ? ' · ' + g.area : ''}</div>
                 <div style={{ fontSize: 13 }}>{g.semester_goal}</div>
                 <button className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => startFromPrior(g)}>이 목표 기준으로 →</button>
@@ -2801,7 +2801,7 @@ export default function IepPage({ onNavigate }) {
       )}
 
       {/* 학기목표 작성 경로 선택 (0719 피드백: 학기목표 선행 — 두 경로 중 선택) */}
-      <div className="card">
+      <div className="card" data-help="iep-path">
         <div className="card-title" data-tour="iep-flow">🧭 학기목표 작성 경로</div>
         <div className="card-subtitle">학기목표를 먼저 확정하고, 평가초점·월별 계획은 학기목표에서 나옵니다. 어떤 순서로 학기목표를 만들지 선택하세요.</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 8 }}>
@@ -2831,12 +2831,12 @@ export default function IepPage({ onNavigate }) {
 
       {/* 성취기준 선택/연결 — 경로A: 첫 단계, 경로B: 학기목표 다음 */}
       {(flowMode === 'std' || !!String(goal).trim()) && (
-      <div className="card" id="iep-std">
+      <div className="card" id="iep-std" data-help="iep-std">
         <div className="card-title">📋 {stepNo.std} {flowMode === 'goal' ? '성취기준 연결 (학기목표와 관련된 기준 선택)' : '성취기준 선택'}</div>
         <div className="card-subtitle">2022 개정 교육과정 성취기준 {rows.length || ''}개(기본교육과정 {currCounts.기본} · 공통교육과정 {currCounts.공통})에서 교육과정·교과·학년군·영역으로 좁혀 선택합니다. 교육과정 구분은 학생 장애영역에 맞춰 미리 골라집니다. <strong>여러 개 선택 가능</strong> — 누르면 담기고, 다시 누르면 빠집니다. <strong>선택하지 않아도 됩니다</strong> — 성취기준과 맞지 않는 목표는 {flowMode === 'goal' ? '위에 쓴 학기목표 그대로' : '아래 학기목표 칸에 바로 써서'} 평가초점·월별 계획으로 넘어가세요.</div>
         {/* 0720: 선택된 성취기준 목록 — 단순 토글(대표 개념 없음) */}
         {(sel || selExtra.length > 0) && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', margin: '4px 0 8px', padding: '8px 10px', background: '#f3f6fc', border: '1px solid #d5e0f5', borderRadius: 8 }}>
+          <div data-help="iep-std-picked" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', margin: '4px 0 8px', padding: '8px 10px', background: '#f3f6fc', border: '1px solid #d5e0f5', borderRadius: 8 }}>
             <span style={{ fontSize: '.78rem', fontWeight: 700, color: '#3b6ef5' }}>선택됨 {1 * !!sel + selExtra.length}개:</span>
             {[...(sel ? [sel] : []), ...selExtra].map((x) => (
               <span key={x.code} className="qchip on" title={x.text} style={{ maxWidth: 340 }}>
@@ -2859,7 +2859,7 @@ export default function IepPage({ onNavigate }) {
             summary={`${dlUnits.length}개 성취기준 · 중활동 ${dlUnits.reduce((n, u) => n + u.midActivities.length, 0)}개${dlExList.length ? ` · 수업 도움 자료 예시 ${dlExList.length}건` : ''} — 소활동을 누르면 학기 교육내용에 한 줄로 들어가요`}
             style={{ margin: '4px 0 10px' }}>
             {dlUnits.map((u) => (
-              <div key={u.code} style={{ marginBottom: 10 }}>
+              <div key={u.code} data-help="iep-dl-unit" style={{ marginBottom: 10 }}>
                 <div style={{ fontWeight: 700, fontSize: '.86rem', color: '#1f3a8a' }}>[{u.code}] {u.standard} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {u.bookArea} 지도서 '{u.title}'</span></div>
                 {u.focus && <div style={{ fontSize: '.78rem', color: 'var(--sub)', margin: '2px 0 6px' }}>주안점: {u.focus}</div>}
                 {u.midActivities.map((m) => (
@@ -2901,7 +2901,7 @@ export default function IepPage({ onNavigate }) {
             {ccEntries.map((e) => {
               const units = [...(e.units || [])].sort((a, b) => (a.role === 'primary' ? 0 : 1) - (b.role === 'primary' ? 0 : 1));
               return (
-                <div key={e.code} style={{ marginBottom: 10 }}>
+                <div key={e.code} data-help="iep-cc-unit" style={{ marginBottom: 10 }}>
                   <div style={{ fontWeight: 700, fontSize: '.86rem', color: '#1f3a8a' }}>[{e.code}] {e.text} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {e.curriculum}교육과정 {e.subject} {e.area}</span></div>
                   {units.length > 0 && (
                     <div style={{ fontSize: '.8rem', color: 'var(--sub)', margin: '2px 0 6px' }}>
@@ -2924,7 +2924,7 @@ export default function IepPage({ onNavigate }) {
           </FoldCard>
         )}
         {flowMode === 'goal' && (
-          <div style={{ background: '#eef4ff', border: '1px solid #b9cdf0', borderRadius: 8, padding: '10px 12px', margin: '4px 0 10px' }}>
+          <div data-help="iep-std-rec" style={{ background: '#eef4ff', border: '1px solid #b9cdf0', borderRadius: 8, padding: '10px 12px', margin: '4px 0 10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <strong style={{ fontSize: '.86rem', color: '#274690' }}>✨ 학기목표로 추천</strong>
               <button className="btn btn-pri btn-sm" onClick={aiRecommendStandards} disabled={stdRecBusy}>
@@ -2958,7 +2958,7 @@ export default function IepPage({ onNavigate }) {
                 {stdRecs.map((r) => {
                   const isOn = sel?.code === r.code || selExtra.some((x) => x.code === r.code);
                   return (
-                    <div key={r.code} onClick={() => pickStandard(r)}
+                    <div key={r.code} data-help="iep-std-rec-row" onClick={() => pickStandard(r)}
                       style={{ border: '1px solid ' + (isOn ? '#3b6ef5' : '#cdd9f0'), background: isOn ? '#eaf0ff' : '#fff', borderRadius: 8, padding: '7px 10px', cursor: 'pointer' }}>
                       <div style={{ fontSize: 11, color: '#3b6ef5', fontWeight: 700 }}>{isOn ? '✓ ' : ''}[{r.code}] {r.subject}{r.area ? ' · ' + r.area : ''} · {GRADE[r.gradeCode]}</div>
                       <div style={{ fontSize: 12.5, marginTop: 2 }}>{r.text}</div>
@@ -2970,7 +2970,7 @@ export default function IepPage({ onNavigate }) {
             <div style={{ fontSize: '.76rem', color: '#6b7280', marginTop: 6 }}>여러 개를 눌러 담을 수 있어요(다시 누르면 빠짐). 추천이 맞지 않으면 아래 필터로 직접 찾아 선택해도 됩니다. 성취기준을 선택해도 위에 쓴 학기목표는 유지됩니다.</div>
           </div>
         )}
-        <div className="form-row">
+        <div className="form-row" data-help="iep-std-filter">
           <div className="form-group">
             <label className="form-label">교육과정</label>
             <select className="form-input" value={fCurr} onChange={(e) => { setFCurr(e.target.value); setFSubject(''); setFBigArea(''); setFArea(''); }}>
@@ -3014,7 +3014,7 @@ export default function IepPage({ onNavigate }) {
           {candidates.slice(0, 200).map((r) => {
             const isOn = sel?.code === r.code || selExtra.some((x) => x.code === r.code);
             return (
-              <div key={r.code} onClick={() => pickStandard(r)}
+              <div key={r.code} data-help="iep-std-row" onClick={() => pickStandard(r)}
                 style={{ border: '1px solid ' + (isOn ? '#3b6ef5' : '#e3e6eb'), background: isOn ? '#eaf0ff' : '#fff', borderRadius: 9, padding: '8px 11px', cursor: 'pointer' }}>
                 <div style={{ fontSize: 11, color: '#3b6ef5', fontWeight: 700 }}>
                   {isOn ? '✓ ' : ''}[{r.code}] {GRADE[r.gradeCode]}{r.subject === DAILY_SUBJECT && DAILY_MID_TO_BIG[r.area] ? ' · ' + DAILY_MID_TO_BIG[r.area] + ' › ' + r.area : (r.area ? ' · ' + r.area : '')}
@@ -3033,7 +3033,7 @@ export default function IepPage({ onNavigate }) {
 
       {/* 평가초점 개발 — 확정한 학기목표를 쪼개어 개발 (0719 피드백: 성취기준을 바로 나누지 않음) */}
       {!!String(goal).trim() && (
-        <div className="card" id="iep-foci">
+        <div className="card" id="iep-foci" data-help="iep-foci">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div>
               <div className="card-title" style={{ marginBottom: 0 }}>🔍 {stepNo.foci} 평가초점 개발 (학기목표 쪼개기)</div>
@@ -3048,7 +3048,7 @@ export default function IepPage({ onNavigate }) {
                   개
                 </span>
               )}
-              {aiOn && <button className="btn btn-ok btn-sm" onClick={aiFociFromGoal} disabled={fociGoalBusy} title="학기목표를 하위 수행으로 쪼개 선택한 개수만큼 평가초점을 만듭니다. 품질 모델을 사용해 조금 느릴 수 있어요.">{fociGoalBusy ? '⏳ 정밀 생성 중… (품질 모델)' : '✨ 평가초점 생성 (AI)'}</button>}
+              {aiOn && <button className="btn btn-ok btn-sm" data-help="iep-foci-ai" onClick={aiFociFromGoal} disabled={fociGoalBusy} title="학기목표를 하위 수행으로 쪼개 선택한 개수만큼 평가초점을 만듭니다. 품질 모델을 사용해 조금 느릴 수 있어요.">{fociGoalBusy ? '⏳ 정밀 생성 중… (품질 모델)' : '✨ 평가초점 생성 (AI)'}</button>}
               {/* ✨ 성취기준 분석(보조) — 0720 버튼 통합으로 비표시. 복원 시 주석 해제
               <button className="btn btn-ghost btn-sm" onClick={aiDecompose} disabled={aiDecBusy} title="성취기준을 동사·행위지향·서술자로 분석하는 보조 도구">{aiDecBusy ? 'AI 분석 중…' : '✨ 성취기준 분석 (보조)'}</button> */}
               {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
@@ -3076,7 +3076,7 @@ export default function IepPage({ onNavigate }) {
             </div>
           </details>
           {/* 0720: 접힌 <details>로 뒀더니 도구가 안 보인다는 요청 → 항상 펼쳐진 블록으로 변경. */}
-          <div style={{ margin: '6px 0 10px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '8px 12px' }}>
+          <div data-help="iep-verb-tool" style={{ margin: '6px 0 10px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '8px 12px' }}>
             <div style={{ fontWeight: 700, fontSize: '.84rem', color: 'var(--sub)' }}>🔧 성취기준 분석 도구 (AI 없이 평가초점을 만들 때 사용)</div>
             <div style={{ marginTop: 8 }}>
               <div className="form-row">
@@ -3131,7 +3131,7 @@ export default function IepPage({ onNavigate }) {
             )}
             {!fociGoalBusy && evalFoci.length === 0 && <div className="empty-state" style={{ padding: 12 }}>아직 평가초점이 없습니다. 위 "✨ 평가초점 생성 (AI)" 또는 "+ 평가초점 추가"를 눌러 만드세요.</div>}
             {evalFoci.map((f, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '24px 1fr auto', gap: 8, alignItems: 'center' }}>
+              <div key={i} data-help="iep-foci-row" style={{ display: 'grid', gridTemplateColumns: '24px 1fr auto', gap: 8, alignItems: 'center' }}>
                 <div style={{ fontWeight: 700, color: '#6b7280', textAlign: 'center' }}>{i + 1}</div>
                 <input className="form-input" value={f} onChange={(e) => editFocus(i, e.target.value)} placeholder="예: 다양한 방법으로 나의 신상을 탐색한다." />
                 <button className="btn btn-ghost btn-sm" onClick={() => removeFocus(i)} title="삭제">✕</button>
@@ -3143,7 +3143,7 @@ export default function IepPage({ onNavigate }) {
 
       {/* 월별 계획 생성 — 확정된 학기목표 기반 (0719: 학기목표 선 작성 → 월별 후 작성) */}
       {!!String(goal).trim() && (
-        <div className="card" id="iep-editor">
+        <div className="card" id="iep-editor" data-help="iep-editor">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>📅 {stepNo.editor} 월별 계획 생성 (학기목표 기반 점증)
               {editingId && <span className="badge badge-purple" style={{ marginLeft: 8 }}>수정 중</span>}
@@ -3151,7 +3151,7 @@ export default function IepPage({ onNavigate }) {
             {editingId && <button className="btn btn-ghost btn-sm" onClick={newGoal}>+ 새 목표 작성</button>}
           </div>
           {startpoint && (startpoint.supportNeeds || startpoint.functions || startpoint.perfLevel) && (
-            <div style={{ background: '#eef4ff', border: '1px solid #b9cdf0', borderRadius: 8, padding: '10px 12px', margin: '4px 0 12px', fontSize: 12.5, color: '#274690', lineHeight: 1.6 }}>
+            <div data-help="iep-sp-link" style={{ background: '#eef4ff', border: '1px solid #b9cdf0', borderRadius: 8, padding: '10px 12px', margin: '4px 0 12px', fontSize: 12.5, color: '#274690', lineHeight: 1.6 }}>
               <strong>🧭 모듈1 출발점 연동</strong> — 이 산출물이 목표의 출발점입니다(AI 생성에 자동 반영).
               {startpoint.supportNeeds && <div>· 생활지원 요구: {String(startpoint.supportNeeds).replace(/\n/g, ' / ')}</div>}
               {startpoint.functions && <div>· 기능 목록화: {String(startpoint.functions).replace(/\n/g, ' / ')}</div>}
@@ -3172,7 +3172,7 @@ export default function IepPage({ onNavigate }) {
               <span style={{ color: 'var(--muted)' }}>(수정은 위 {stepNo.goal} 학기목표 설정 카드에서 · 교육방법의 "→" 단계 흐름은 아래 월별 교육방법에 "[학기 계획 n/m단계]"로 구간별 배분됩니다)</span>
             </div>
           )}
-          <div className="form-row">
+          <div className="form-row" data-help="iep-crit">
             <div className="form-group"><label className="form-label">학년도</label>
               <input type="number" className="form-input" value={schoolYear} onChange={(e) => setSchoolYear(Number(e.target.value))} /></div>
             <div className="form-group"><label className="form-label">학기</label>
@@ -3212,7 +3212,7 @@ export default function IepPage({ onNavigate }) {
           </div>
           {/* 0915: 기회 중 성공 횟수의 분모(5·10·20) + 이 목표의 DTT(개별시행) 기록으로 바로 가기 */}
           {(critType === 'freq' || critType === 'rate') && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '2px 0 6px' }}>
+            <div data-help="iep-crit-of" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '2px 0 6px' }}>
               {critType === 'freq' && (
                 <>
                   <span className="form-label" style={{ margin: 0 }}>기회 수 (분모)</span>
@@ -3238,7 +3238,7 @@ export default function IepPage({ onNavigate }) {
             ℹ️ IEP는 'Tier 3 완료'의 결과가 아니라 특수교육대상자 선정(진단·평가 → 특수교육운영위원회 → 배치 → 개별화교육지원팀)에서 시작됩니다. 여기서 'Tier'는 IEP 목표 달성을 위한 지원의 강도(보편/표적/집중)를 뜻하며, 행동지원(PBS·BIP)은 IEP에 포함되는 구성요소입니다.
           </div>
           {/* 학기에 포함할 월 선택 — 표준 학사일정이 기본, 학교 사정에 맞게 켜고 끈다 */}
-          <div className="form-group" style={{ marginTop: 4 }}>
+          <div className="form-group" data-help="iep-months" style={{ marginTop: 4 }}>
             <label className="form-label">월별 계획에 넣을 월 ({orderMonths(months, sem).length}개월)</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
               {MONTH_POOL(sem).map((m) => {
@@ -3270,7 +3270,7 @@ export default function IepPage({ onNavigate }) {
             <div style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 4 }}>묶은 구간마다 한 행이 만들어집니다(예: 3-4/5/6-7 → 3행). 비워 두면 매월 한 행.</div>
           </div>
           {critType === 'task' && (
-            <div style={{ marginTop: 10, padding: 12, border: '1px solid #c7b9f0', borderRadius: 8, background: '#f7f4ff' }}>
+            <div data-help="iep-task" style={{ marginTop: 10, padding: 12, border: '1px solid #c7b9f0', borderRadius: 8, background: '#f7f4ff' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                 <div style={{ fontWeight: 700, color: '#5b3fb0' }}>🧩 과제 분석 — 단계 목록 (순차 분해)</div>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -3338,7 +3338,7 @@ export default function IepPage({ onNavigate }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                 {taskSteps.length === 0 && <div className="empty-state" style={{ padding: 12 }}>아직 단계가 없습니다. "단계 자동 분석" 또는 "+ 단계 추가"로 만드세요.</div>}
                 {taskSteps.map((t, i) => (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '24px 1fr auto auto', gap: 8, alignItems: 'center' }}>
+                  <div key={i} data-help="iep-task-row" style={{ display: 'grid', gridTemplateColumns: '24px 1fr auto auto', gap: 8, alignItems: 'center' }}>
                     <div style={{ fontWeight: 700, color: '#6b7280', textAlign: 'center' }}>{i + 1}</div>
                     <input className="form-input" value={t} onChange={(e) => editStep(i, e.target.value)} placeholder="예: 수저를 바르게 잡는다." />
                     <button className="btn btn-ghost btn-sm" onClick={() => splitStep(i)} title="이 단계를 더 잘게 나누기" aria-label="단계 쪼개기">⊟ 쪼개기</button>
@@ -3349,8 +3349,8 @@ export default function IepPage({ onNavigate }) {
             </div>
           )}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn btn-pri" onClick={generate}>규칙 초안 (빠름, AI 없음)</button>
-            {aiOn && <button className="btn btn-ok" onClick={aiGenerateFromData} disabled={aiGenBusy}>{aiGenBusy ? '⏳ AI 생성 중… (약 3~5분)' : '✨ AI 생성 (학생 데이터 반영)'}</button>}
+            <button className="btn btn-pri" data-help="iep-rule-draft" onClick={generate}>규칙 초안 (빠름, AI 없음)</button>
+            {aiOn && <button className="btn btn-ok" data-help="iep-ai-gen" onClick={aiGenerateFromData} disabled={aiGenBusy}>{aiGenBusy ? '⏳ AI 생성 중… (약 3~5분)' : '✨ AI 생성 (학생 데이터 반영)'}</button>}
             {aiGenBusy && (
               <span style={{ fontSize: '.8rem', color: '#0d9488', alignSelf: 'center' }}>
                 품질 모델이 월별 계획 전체를 쓰는 중이에요 — 페이지를 이동하면 결과가 사라질 수 있어요.
@@ -3378,7 +3378,7 @@ export default function IepPage({ onNavigate }) {
           </div>
 
           {/* 교과 평어(세부능력·특기사항) 생성 */}
-          <div style={{ marginTop: 14, padding: 12, border: '1px solid #fdba74', borderRadius: 8, background: '#fff7ed' }}>
+          <div data-help="iep-pyeong" style={{ marginTop: 14, padding: 12, border: '1px solid #fdba74', borderRadius: 8, background: '#fff7ed' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
               <div style={{ fontWeight: 700, color: '#9a3412' }}>✍ 교과 평어 생성 (세부능력·특기사항)</div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -3405,7 +3405,7 @@ export default function IepPage({ onNavigate }) {
                 </div>
                 <ul style={{ listStyle: 'none', padding: 0, margin: '4px 0 0' }}>
                   {pyeongLines.map((l, i) => (
-                    <li key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #fde4cc' }}>
+                    <li key={i} data-help="iep-pyeong-row" style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #fde4cc' }}>
                       <input className="form-input" value={l} onChange={(e) => editPyeong(i, e.target.value)} style={{ flex: 1, fontSize: '.86rem', padding: '4px 8px' }} />
                       <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0, padding: '2px 8px' }} onClick={() => removePyeong(i)} title="삭제" aria-label="평어 삭제">✕</button>
                     </li>
@@ -3418,7 +3418,7 @@ export default function IepPage({ onNavigate }) {
           {monthly.length > 0 && (
             <>
               {drafts.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
+                <div data-help="iep-drafts" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
                   <span className="form-label" style={{ margin: 0 }}>초안 전환:</span>
                   {drafts.map((d, i) => (
                     <button key={i} className={'btn btn-sm ' + (curDraft === i ? 'btn-pri' : 'btn-ghost')}
@@ -3446,7 +3446,7 @@ export default function IepPage({ onNavigate }) {
                   </tr></thead>
                   <tbody>
                     {monthly.map((m, i) => (
-                      <tr key={i}>
+                      <tr key={i} data-help="iep-month-row">
                         <td style={{ ...tdS, fontWeight: 700, textAlign: 'center', background: '#f3f6fc', color: '#3b6ef5' }}>{m.month}월</td>
                         {/* 0915: 학기 칸과 같은 줄 단위 표 — methods만 배열(editMonth가 줄 문자열을 배열로 나눔), 나머지는 "- " 줄 문자열 */}
                         <td style={tdS}><LineTable compact value={m.goal || ''} onChange={(v) => editMonth(i, 'goal', v)} /></td>
@@ -3459,10 +3459,10 @@ export default function IepPage({ onNavigate }) {
                   </tbody>
                 </table>
               </div>
-              <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">학기말 종합 평가 (서술형)</label><textarea className="form-textarea" value={semEval} onChange={(e) => setSemEval(e.target.value)} /></div>
+              <div className="form-group" data-help="iep-sem-eval" style={{ marginTop: 12 }}><label className="form-label">학기말 종합 평가 (서술형)</label><textarea className="form-textarea" value={semEval} onChange={(e) => setSemEval(e.target.value)} /></div>
               {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <button className="btn btn-pri" onClick={save} disabled={busy}>{editingId ? '💾 수정 저장' : '💾 IEP 목표 저장'}</button>
+                <button className="btn btn-pri" data-help="iep-save" onClick={save} disabled={busy}>{editingId ? '💾 수정 저장' : '💾 IEP 목표 저장'}</button>
                 <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
                 <button className={'btn ' + (savedOk ? 'btn-pri' : 'btn-ghost')} onClick={() => onNavigate?.('iepReport')}
                   title={savedOk ? undefined : '저장을 마친 뒤 이동하는 것을 추천해요'}>

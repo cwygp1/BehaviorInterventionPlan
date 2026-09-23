@@ -42,14 +42,14 @@ export default function IepDashboard({ onNavigate }) {
   const roster = rows.length === 0 ? (
     <div className="dz-review-empty">등록된 학생이 없어요.</div>
   ) : (
-    <div className="dz-table-wrap">
+    <div className="dz-table-wrap" data-help="di-roster">
       <table className="dz-table">
         <thead><tr><th>학생</th><th>전년도</th><th>출발점 분석</th><th>학기목표</th><th>월별 계획</th><th>행동목표 연계</th><th>계획서</th></tr></thead>
         <tbody>
           {rows.map((r) => {
             const d = r.d;
             return (
-              <tr key={r.id}>
+              <tr key={r.id} data-help="di-row">
                 <td className="strong">{r.code}<div className="dim" style={{ fontWeight: 400 }}>{[r.level, r.disability].filter(Boolean).join(' · ')}</div></td>
                 <td onClick={() => go(r.id, 'priorIep')} className="click"><Chip kind="muted">확인</Chip></td>
                 <td onClick={() => go(r.id, 'startpoint')} className="click">{d.startpointDone ? <Chip kind="ok">완료</Chip> : <Chip kind="muted">미완료</Chip>}</td>
@@ -73,13 +73,13 @@ export default function IepDashboard({ onNavigate }) {
   );
 
   const widgets = [
-    { id: 'kpi-students', title: '대상 학생', x: 0, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-students', help: 'di-kpi-students', title: '대상 학생', x: 0, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="🧑‍🎓" value={`${rows.length}명`} label="대상 학생" hint={`${curClass.name} · ${curSemester}학기`} /> ) },
-    { id: 'kpi-sp', title: '출발점 분석', x: 3, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-sp', help: 'di-kpi-sp', title: '출발점 분석', x: 3, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="🧭" value={rows.length ? `${spDone}/${rows.length}` : '-'} label="출발점 분석 완료" hint={spDone < rows.length ? '다음: 미완료 학생 분석' : '모두 완료!'} onClick={() => onNavigate('startpoint')} /> ) },
-    { id: 'kpi-goals', title: 'IEP 목표', x: 6, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-goals', help: 'di-kpi-goals', title: 'IEP 목표', x: 6, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="📋" value={totalGoals} label="IEP 목표 (올해)" hint={goalStudents ? `목표 있는 학생 ${goalStudents}명` : '다음: 목표 생성'} onClick={() => onNavigate('iep')} /> ) },
-    { id: 'kpi-month-eval', title: '이번 달 평가', x: 9, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-month-eval', help: 'di-kpi-month-eval', title: '이번 달 평가', x: 9, y: 0, w: 3, h: 2, body: (
       <KpiBody
         icon="🗓"
         value={monthEvalMissing ? `${monthEvalMissing}건` : '완료'}
@@ -91,8 +91,8 @@ export default function IepDashboard({ onNavigate }) {
       /> ) },
     // 기본 배치(0914 P0): KPI → 🔦 다음 할 일 → 학생별 진행 → 업무 흐름. 저장된 배치가 있는 사용자는 그대로.
     { id: 'reviews', title: `🔦 다음 할 일${reviews.filter((r) => r.level !== 'ok').length ? ` (${reviews.filter((r) => r.level !== 'ok').length})` : ''}`, x: 0, y: 2, w: 12, h: 5, minW: 3, minH: 3, body: <ReviewList items={reviews} /> },
-    { id: 'roster', title: '🗂 학생별 IEP 진행', x: 0, y: 7, w: 12, h: 7, minW: 6, minH: 4, body: roster },
-    { id: 'flow', title: '🧭 IEP 업무 흐름 — Tier 1·2·3 기록이 이 흐름의 재료가 돼요', x: 0, y: 14, w: 12, h: 3, minW: 4, body: (
+    { id: 'roster', help: 'di-roster', title: '🗂 학생별 IEP 진행', x: 0, y: 7, w: 12, h: 7, minW: 6, minH: 4, body: roster },
+    { id: 'flow', help: 'di-flow', title: '🧭 IEP 업무 흐름 — Tier 1·2·3 기록이 이 흐름의 재료가 돼요', x: 0, y: 14, w: 12, h: 3, minW: 4, body: (
       <FlowStrip color={C} steps={flow} /> ) },
   ];
 

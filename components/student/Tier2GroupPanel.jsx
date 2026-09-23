@@ -102,7 +102,7 @@ export default function Tier2GroupPanel({ selectedGroupId, onSelectGroup }) {
   // 설정 대상(년·학기·반)을 이 화면에서 직접 고를 수 있는 선택기.
   const selStyle = { padding: '6px 10px', fontSize: '.86rem', border: '1px solid var(--border)', borderRadius: 6, background: '#fff' };
   const ScopeSelector = (
-    <div style={{
+    <div data-help="t2-scope" style={{
       display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
       padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8,
     }}>
@@ -137,7 +137,7 @@ export default function Tier2GroupPanel({ selectedGroupId, onSelectGroup }) {
         </div>
 
         {/* 새 소그룹 생성 */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <div data-help="t2-group-new" style={{ display: 'flex', gap: 8, marginTop: 12 }}>
           <input
             className="form-input"
             value={newName}
@@ -149,7 +149,7 @@ export default function Tier2GroupPanel({ selectedGroupId, onSelectGroup }) {
         </div>
 
         {/* 학기 전환 — 다른 학기 소그룹을 그대로 가져오기 */}
-        <div style={{
+        <div data-help="t2-group-copy" style={{
           display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 10,
           padding: '8px 12px', background: 'var(--pri-soft)', border: '1px dashed var(--pri-l)', borderRadius: 8,
         }}>
@@ -176,6 +176,7 @@ export default function Tier2GroupPanel({ selectedGroupId, onSelectGroup }) {
               return (
                 <div
                   key={g.id}
+                  data-help="t2-group-row"
                   onClick={() => onSelectGroup?.(g.id)}
                   style={{
                     border: '1px solid var(--border)', borderRadius: 10, padding: 14, cursor: 'pointer',
@@ -185,6 +186,7 @@ export default function Tier2GroupPanel({ selectedGroupId, onSelectGroup }) {
                   onMouseLeave={(e) => { e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = ''; }}
                 >
                   <button
+                    data-help="t2-group-del"
                     onClick={(e) => { e.stopPropagation(); onDeleteGroup(g); }}
                     title="소그룹 삭제"
                     style={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: 0 }}
@@ -230,7 +232,7 @@ export default function Tier2GroupPanel({ selectedGroupId, onSelectGroup }) {
             const selected = curStuId === m.student_id;
             const stu = studentById[m.student_id];
             return (
-              <div key={m.id} style={{
+              <div key={m.id} data-help="t2-member-row" style={{
                 display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8,
                 background: selected ? 'var(--pri-soft)' : '#fff',
                 border: '1px solid ' + (selected ? 'var(--pri-l)' : 'var(--border)'),
@@ -269,7 +271,7 @@ export default function Tier2GroupPanel({ selectedGroupId, onSelectGroup }) {
           <div style={{ fontSize: '.74rem', color: 'var(--muted)', marginBottom: 4 }}>+ 반 학생 추가</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {available.map((s) => (
-              <button key={s.id} className="qchip" style={{ fontSize: '.78rem' }} onClick={() => onAddMember(selectedGroup.id, s.id)}>
+              <button key={s.id} className="qchip" data-help="t2-add-member" style={{ fontSize: '.78rem' }} onClick={() => onAddMember(selectedGroup.id, s.id)}>
                 + {s.code}
               </button>
             ))}

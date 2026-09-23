@@ -43,13 +43,13 @@ export default function Tier2Dashboard({ onNavigate }) {
     });
   }
   const dailyBars = days.every((d) => d.pct == null) ? (
-    <div className="dz-review-empty">최근 2주 CICO 기록이 없어요. 기록이 쌓이면 요일 패턴이 보여요.</div>
+    <div className="dz-review-empty" data-help="d2-daily">최근 2주 CICO 기록이 없어요. 기록이 쌓이면 요일 패턴이 보여요.</div>
   ) : (
     <>
-      <div className="dw-sub">날짜별 학급 평균 수행률 — 특정 요일이 유독 낮다면 그날의 일과·환경을 점검해보세요</div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 96, padding: '4px 2px' }}>
+      <div className="dw-sub" data-help="d2-daily">날짜별 학급 평균 수행률 — 특정 요일이 유독 낮다면 그날의 일과·환경을 점검해보세요</div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 96, padding: '4px 2px' }} data-help="d2-daily">
         {days.map((d) => (
-          <div key={d.key} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }} title={d.pct != null ? `${d.label} · ${d.pct}% (${d.n}건)` : `${d.label} · 기록 없음`}>
+          <div key={d.key} data-help="d2-day-bar" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }} title={d.pct != null ? `${d.label} · ${d.pct}% (${d.n}건)` : `${d.label} · 기록 없음`}>
             <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{d.pct != null ? d.pct : ''}</div>
             <div style={{
               width: '70%', borderRadius: '3px 3px 0 0',
@@ -65,9 +65,9 @@ export default function Tier2Dashboard({ onNavigate }) {
   );
 
   const groupsTable = t2.groups.length === 0 ? (
-    <div className="dz-review-empty">아직 소그룹이 없어요. <button className="btn btn-sm btn-ghost" style={{ marginLeft: 6 }} onClick={() => onNavigate('tier2')}>＋ 소그룹 만들기</button></div>
+    <div className="dz-review-empty" data-help="d2-groups">아직 소그룹이 없어요. <button className="btn btn-sm btn-ghost" style={{ marginLeft: 6 }} onClick={() => onNavigate('tier2')}>＋ 소그룹 만들기</button></div>
   ) : (
-    <div className="dz-table-wrap">
+    <div className="dz-table-wrap" data-help="d2-groups">
       <table className="dz-table">
         <thead><tr><th>그룹</th><th>구성원</th><th>오늘 기록</th><th>최근 수행률</th><th>마지막 기록</th><th></th></tr></thead>
         <tbody>
@@ -79,7 +79,7 @@ export default function Tier2Dashboard({ onNavigate }) {
             const lasts = ids.map((sid) => t2.cico[sid]?.last).filter(Boolean).sort();
             const last = lasts[lasts.length - 1];
             return (
-              <tr key={g.id}>
+              <tr key={g.id} data-help="d2-group-row">
                 <td className="strong">{g.name}{g.members.some((m) => m.tier3) && <span title="Tier 3 대상 포함" style={{ marginLeft: 6 }}>🎯</span>}</td>
                 <td>{ids.length ? ids.map(codeOf).join(', ') : <span className="dim">없음</span>}</td>
                 <td>{ids.length === 0 ? '-' : done === ids.length ? <Chip kind="ok">완료 {done}/{ids.length}</Chip> : <Chip kind={done === 0 ? 'err' : 'warn'}>{done}/{ids.length}</Chip>}</td>
@@ -95,11 +95,11 @@ export default function Tier2Dashboard({ onNavigate }) {
   );
 
   const recentList = (t2.recent || []).length === 0 ? (
-    <div className="dz-review-empty">아직 CICO 기록이 없어요.</div>
+    <div className="dz-review-empty" data-help="d2-recent">아직 CICO 기록이 없어요.</div>
   ) : (
-    <ul className="recent-list">
+    <ul className="recent-list" data-help="d2-recent">
       {t2.recent.map((r, i) => (
-        <li key={i} className="recent-item">
+        <li key={i} className="recent-item" data-help="d2-recent-row">
           <span className="recent-dot" style={{ background: C }} />
           <div className="recent-body">
             <div className="t">{r.code} · {r.max_score ? `${r.total_score}/${r.max_score}점` : '기록'}</div>
@@ -112,19 +112,19 @@ export default function Tier2Dashboard({ onNavigate }) {
   );
 
   const widgets = [
-    { id: 'kpi-groups', title: '운영 소그룹', x: 0, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-groups', help: 'd2-kpi-groups', title: '운영 소그룹', x: 0, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="👥" value={t2.groups.length} label="운영 소그룹" hint={`${curClass.name} · ${curSemester}학기`} onClick={() => onNavigate('tier2')} /> ) },
-    { id: 'kpi-members', title: '대상 학생', x: 3, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-members', help: 'd2-kpi-members', title: '대상 학생', x: 3, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="🧑‍🎓" value={`${memberIds.length}명`} label="소그룹 대상 학생" hint={`반 전체 ${students.length}명 중`} /> ) },
-    { id: 'kpi-today', title: '오늘 CICO', x: 6, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-today', help: 'd2-kpi-today', title: '오늘 CICO', x: 6, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="📝" value={memberIds.length ? `${todayDone}/${memberIds.length}` : '-'} label="오늘 CICO 기록" hint={memberIds.length ? (todayDone === memberIds.length ? '오늘 기록 완료!' : '다음: 미기록 학생 체크인') : '대상 학생 없음'} onClick={() => onNavigate('tier2')} /> ) },
-    { id: 'kpi-avg', title: '평균 수행률', x: 9, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-avg', help: 'd2-kpi-avg', title: '평균 수행률', x: 9, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="📈" value={avgAll != null ? `${avgAll}%` : '-'} label="최근 2주 평균 수행률" hint={avgList.length ? `기록 있는 학생 ${avgList.length}명 기준` : '기록이 쌓이면 표시돼요'} /> ) },
     // 기본 배치(0914 P0): KPI → 🔦 다음 할 일 + 최근 기록 → 점검 그룹 현황 → 요일 패턴. 저장된 배치가 있는 사용자는 그대로.
     { id: 'reviews', title: `🔦 다음 할 일${reviews.filter((r) => r.level !== 'ok').length ? ` (${reviews.filter((r) => r.level !== 'ok').length})` : ''}`, x: 0, y: 2, w: 6, h: 5, minW: 3, minH: 3, body: <ReviewList items={reviews} /> },
-    { id: 'recent', title: '🕒 최근 CICO 기록', x: 6, y: 2, w: 6, h: 5, minW: 3, minH: 3, body: recentList },
-    { id: 'groups', title: '👥 점검 그룹(소그룹) 현황', x: 0, y: 7, w: 12, h: 5, minW: 4, minH: 3, body: groupsTable },
-    { id: 'daily', title: '📊 최근 2주 수행률 — 요일 패턴', x: 0, y: 12, w: 12, h: 4, minW: 4, minH: 3, body: dailyBars },
+    { id: 'recent', help: 'd2-recent', title: '🕒 최근 CICO 기록', x: 6, y: 2, w: 6, h: 5, minW: 3, minH: 3, body: recentList },
+    { id: 'groups', help: 'd2-groups', title: '👥 점검 그룹(소그룹) 현황', x: 0, y: 7, w: 12, h: 5, minW: 4, minH: 3, body: groupsTable },
+    { id: 'daily', help: 'd2-daily', title: '📊 최근 2주 수행률 — 요일 패턴', x: 0, y: 12, w: 12, h: 4, minW: 4, minH: 3, body: dailyBars },
   ];
 
   return <DashGrid dashKey="dash2" color={C} widgets={widgets} />;

@@ -262,8 +262,8 @@ export default function IepReportPage() {
             <select className="form-input" style={{ width: 'auto' }} value={sem} onChange={(e) => setSem(e.target.value)}>
               <option value="">전체 학기</option><option value="1">1학기</option><option value="2">2학기</option>
             </select>
-            <button className="btn btn-ghost" onClick={() => onNeisCopy(null)} title="화면의 모든 영역을 NEIS 붙여넣기용 일반 텍스트로 복사">📋 NEIS용 전체 복사</button>
-            <button className="btn btn-ok" onClick={onWord}>📄 나이스 양식 Word(.docx)</button>
+            <button className="btn btn-ghost" data-help="ir-neis-all" onClick={() => onNeisCopy(null)} title="화면의 모든 영역을 NEIS 붙여넣기용 일반 텍스트로 복사">📋 NEIS용 전체 복사</button>
+            <button className="btn btn-ok" data-help="ir-word" onClick={onWord}>📄 나이스 양식 Word(.docx)</button>
           </div>
         </div>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12, fontSize: 13 }}>
@@ -282,15 +282,16 @@ export default function IepReportPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>📘 {g.subject}{g.area ? ' · ' + g.area : ''} <span style={{ fontWeight: 400, fontSize: 12, color: '#6b7280' }}>· {g.school_year || '-'}학년도 {g.semester}학기 · {GRADE[g.grade_code] || ''}</span></div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => aiFillEvalPlans(g)} disabled={planId === g.id}>{planId === g.id ? '평가계획 생성 중…' : '✨ 평가계획 채우기'}</button>
+              <button className="btn btn-ghost btn-sm" data-help="ir-plan-ai" onClick={() => aiFillEvalPlans(g)} disabled={planId === g.id}>{planId === g.id ? '평가계획 생성 중…' : '✨ 평가계획 채우기'}</button>
               {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
               <button className="btn btn-ghost btn-sm" onClick={() => { if (!buildEvalPlanPrompt(g)) { toast('모든 구간에 평가계획이 이미 있어요.'); return; } setExtPlanGoal(g); }} title="외부 AI(클로드 등)로 평가계획 채우기">🌐 외부AI</button> */}
-              <button className="btn btn-ghost btn-sm" onClick={() => aiSynth(g)} disabled={synthId === g.id}>{synthId === g.id ? 'AI 종합 중…' : '✨ AI 종합 (월별→학기)'}</button>
+              <button className="btn btn-ghost btn-sm" data-help="ir-synth" onClick={() => aiSynth(g)} disabled={synthId === g.id}>{synthId === g.id ? 'AI 종합 중…' : '✨ AI 종합 (월별→학기)'}</button>
               {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
               <button className="btn btn-ghost btn-sm" onClick={() => openManual(g)} title="외부 AI(클로드 등)로 학기 종합">🌐 외부AI 종합</button> */}
-              <button className="btn btn-ghost btn-sm" onClick={() => onNeisCopy(g)} title="이 영역을 NEIS 붙여넣기용 일반 텍스트로 복사">📋 NEIS 복사</button>
+              <button className="btn btn-ghost btn-sm" data-help="ir-neis-copy" onClick={() => onNeisCopy(g)} title="이 영역을 NEIS 붙여넣기용 일반 텍스트로 복사">📋 NEIS 복사</button>
               <button
                 className={'btn btn-sm ' + (dirtyIds.includes(g.id) ? 'btn-pri' : 'btn-ghost')}
+                data-help="ir-save"
                 onClick={() => saveGoal(g)}
                 disabled={savingId === g.id || !dirtyIds.includes(g.id)}
                 title={dirtyIds.includes(g.id) ? '지금 바로 저장' : '변경 내용이 모두 자동 저장되었습니다'}
@@ -301,7 +302,7 @@ export default function IepReportPage() {
           </div>
 
           {/* ── 학기별 섹션 (현행수준·학기목표·학기평가) ── */}
-          <div style={secBox}>
+          <div style={secBox} data-help="ir-sem">
             <div style={secHead}>
               <span style={secTitle}>🗓 학기별 개별화교육계획/평가</span>
               <span style={{ ...secTag, background: '#4f6bed' }}>학기 단위</span>
@@ -318,7 +319,7 @@ export default function IepReportPage() {
           </div>
 
           {/* ── 월별 섹션 (월별 표) ── */}
-          <div style={secBox}>
+          <div style={secBox} data-help="ir-month">
             <div style={secHead}>
               <span style={secTitle}>📅 월별 개별화교육계획/평가</span>
               <span style={{ ...secTag, background: '#0d9488' }}>월 단위</span>
@@ -337,7 +338,7 @@ export default function IepReportPage() {
               </tr></thead>
               <tbody>
                 {(g.monthly || []).map((m, i) => (
-                  <tr key={i}>
+                  <tr key={i} data-help="ir-month-row">
                     <td style={tc}>{m.month}월</td>
                     {/* 0915: IEP 작성 화면과 같은 줄 단위 표 — methods만 배열(updateMonth가 줄 문자열을 나눔) */}
                     <td style={tdc}><LineTable compact value={m.goal || ''} onChange={(v) => updateMonth(g.id, i, 'goal', v)} /></td>

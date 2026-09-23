@@ -257,7 +257,7 @@ export default function StartPointPage({ onNavigate }) {
           {/* P2: 강점 칸에 위험·이력 정보가 들어 있으면 경고 + 원클릭 이동.
               그대로 두면 "안정실 이용 이력 등에 강점을 보이나…" 같은 문장이 IEP 현행수준까지 전파된다. */}
           {RISK_RE.test(f.strengths || '') && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '.8rem', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '7px 11px', marginTop: 6 }}>
+            <div data-help="sp-risk" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '.8rem', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '7px 11px', marginTop: 6 }}>
               <span>⚠ 강점 칸에 위험·이력 정보(자해·안정실 등)가 섞여 있어요 — 이대로 두면 IEP 현행수준에 "강점"으로 인용됩니다.</span>
               <button type="button" className="btn btn-ghost btn-sm" style={{ borderColor: '#fca5a5', color: '#b91c1c' }}
                 onClick={() => {
@@ -302,7 +302,7 @@ export default function StartPointPage({ onNavigate }) {
             </div>
           )}
           {funcRec && funcRec.func && funcRec.skills.length > 0 && (
-            <div style={{ background: '#fff8e8', border: '1px solid #f2dfad', borderRadius: 8, padding: '7px 10px', marginBottom: 6 }}>
+            <div data-help="sp-func-rec" style={{ background: '#fff8e8', border: '1px solid #f2dfad', borderRadius: 8, padding: '7px 10px', marginBottom: 6 }}>
               <div style={{ fontSize: '.78rem', color: '#8a6100', fontWeight: 700, marginBottom: 4 }}>
                 ⭐ 기능평가(QABF) 기반 추천 — 추정 기능 '{funcRec.qabfLabel}'의 대체 핵심기술 (기능기반 IEPBS)
               </div>
@@ -354,7 +354,7 @@ export default function StartPointPage({ onNavigate }) {
         {/* 0819 피드백: 도출→저장→다음 단계 버튼이 흩어져 있어 "어디 누르지?" 하게 됨 →
             한 줄 흐름(①→②→③)으로 모은다. ③은 저장 전엔 옅게, 저장 후엔 강조. */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-          <button className="btn btn-pri" onClick={onAIDerive} disabled={aiBusy}>
+          <button className="btn btn-pri" data-help="sp-derive" onClick={onAIDerive} disabled={aiBusy}>
             {aiBusy ? '⏳ 도출 중…' : '① ✨ AI로 산출물 도출'}
           </button>
           {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
@@ -362,6 +362,7 @@ export default function StartPointPage({ onNavigate }) {
           <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
           <button
             className={'btn ' + (spDirty ? 'btn-pri' : 'btn-ghost')}
+            data-help="sp-save"
             onClick={onSave}
             disabled={busy || !spDirty}
             title={spDirty ? '지금 바로 저장' : '변경 내용이 모두 자동 저장되었습니다'}

@@ -218,8 +218,8 @@ export default function EvalPage() {
       <StuHero />
 
       <div style={{ marginBottom: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }} data-tour="ev-actions">
-        <button className="btn btn-pri" onClick={() => setAiOpen(true)}>💡 AI 성과 분석</button>
-        <button className="btn btn-ok" onClick={openReport}>📊 결과 보고서 생성</button>
+        <button className="btn btn-pri" data-help="ev-ai" onClick={() => setAiOpen(true)}>💡 AI 성과 분석</button>
+        <button className="btn btn-ok" data-help="ev-report" onClick={openReport}>📊 결과 보고서 생성</button>
         <span style={{ fontSize: '.78rem', color: 'var(--muted)' }}>차트·표·BIP·교사 의견을 통합한 A4 PDF</span>
       </div>
 
@@ -253,7 +253,7 @@ export default function EvalPage() {
         </div>
       </FoldCard>
 
-      <FoldCard key={`s-${curStu.id}-${sz.length > 0}`} id="ev-sz" mode="clip" title="💚 위기 기록 — 심리안정실 사유 · 월별 이용" summary={sz.length ? `기록 ${sz.length}건` : '심리안정실 기록 없음'} defaultOpen={sz.length > 0} forceOpen={forceAll}>
+      <FoldCard key={`s-${curStu.id}-${sz.length > 0}`} id="ev-sz" tourAnchor="ev-sz" mode="clip" title="💚 위기 기록 — 심리안정실 사유 · 월별 이용" summary={sz.length ? `기록 ${sz.length}건` : '심리안정실 기록 없음'} defaultOpen={sz.length > 0} forceOpen={forceAll}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
           <div>
             <div className="card-title">💚 심리안정실 사유 분포</div>
@@ -312,7 +312,7 @@ export default function EvalPage() {
                   const pi = pndInterpretation(e.pnd);
                   const ti = tauUInterpretation(e.tau);
                   return (
-                    <tr key={k}>
+                    <tr key={k} data-help="ev-compare-row">
                       <td style={{ padding: 8 }}>{l}{k === 'dbr' && <span style={{ fontSize: '.7rem', color: 'var(--muted)' }}> (↑ 좋음)</span>}</td>
                       <td style={{ padding: 8 }}>{a}</td>
                       <td style={{ padding: 8 }}>{b}</td>

@@ -32,34 +32,34 @@ export default function Tier1Dashboard({ onNavigate }) {
   const reviews = computeT1Reviews(data).map((it) => ({ ...it, onClick: () => onNavigate(it.page) }));
 
   const widgets = [
-    { id: 'kpi-scope', title: '운영 범위', x: 0, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-scope', help: 'd1-kpi-scope', title: '운영 범위', x: 0, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="🏫" value={`${curClass.name} · ${curSemester}학기`} label="운영 범위" hint={`학생 ${students.length}명`} /> ) },
-    { id: 'kpi-points', title: '목표 진행률', x: 3, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-points', help: 'd1-kpi-points', title: '목표 진행률', x: 3, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="⭐" value={target ? `${pct}%` : '-'} label="학급 목표 진행률" hint={target ? `${current} / ${target}점` : '포인트 목표 미설정'} onClick={() => onNavigate('classpbs')} /> ) },
-    { id: 'kpi-survey', title: '기초 설문', x: 6, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-survey', help: 'd1-kpi-survey', title: '기초 설문', x: 6, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="📋" value={t1.surveyDone ? '완료' : '미작성'} label="기초조사 ① 설문" hint={t1.surveyDone ? agoLabel(t1.surveyUpdated) + ' 수정' : '다음: 설문 작성'} onClick={() => onNavigate('pbssurvey')} /> ) },
-    { id: 'kpi-check', title: '학급관리 점검', x: 9, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-check', help: 'd1-kpi-check', title: '학급관리 점검', x: 9, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="✅" value={t1.checklistDone ? '완료' : '미점검'} label="학급관리 자가점검" hint={t1.checklistDone ? agoLabel(t1.checklistUpdated) + ' 점검' : '다음: 자가 점검'} onClick={() => onNavigate('classcheck')} /> ) },
     // 기본 배치(0914 P0): KPI → 🔦 다음 할 일 + 보상판 → 업무 흐름. 저장된 배치가 있는 사용자는 그대로.
     { id: 'reviews', title: `🔦 다음 할 일${reviews.length ? ` (${reviews.length})` : ''}`, x: 0, y: 2, w: 6, h: 5, minW: 3, minH: 3, body: (
       <ReviewList items={reviews} /> ) },
-    { id: 'goalboard', title: '⭐ 학급 목표 & 보상판', x: 6, y: 2, w: 6, h: 5, minW: 3, minH: 3, body: (
+    { id: 'goalboard', help: 'd1-goalboard', title: '⭐ 학급 목표 & 보상판', x: 6, y: 2, w: 6, h: 5, minW: 3, minH: 3, body: (
       pbs?.goal ? (
         <>
-          <div className="dz-goal">“{pbs.goal}”</div>
-          <div className="dz-bar"><div className="dz-bar-fill" style={{ width: pct + '%', background: C }} /></div>
-          <div className="dz-bar-meta"><span>{current}점</span><span>목표 {target}점 ({pct}%)</span></div>
+          <div className="dz-goal" data-help="d1-goalboard">“{pbs.goal}”</div>
+          <div className="dz-bar" data-help="d1-goalboard"><div className="dz-bar-fill" style={{ width: pct + '%', background: C }} /></div>
+          <div className="dz-bar-meta" data-help="d1-goalboard"><span>{current}점</span><span>목표 {target}점 ({pct}%)</span></div>
           {rewards.length > 0 && (
             <div className="dz-rewards">
-              {rewards.slice(0, 4).map((r, i) => <span key={i} className="dz-chip info">🎁 {typeof r === 'string' ? r : r?.name || r?.label || ''}</span>)}
+              {rewards.slice(0, 4).map((r, i) => <span key={i} className="dz-chip info" data-help="d1-reward">🎁 {typeof r === 'string' ? r : r?.name || r?.label || ''}</span>)}
             </div>
           )}
         </>
       ) : (
-        <div className="dz-review-empty">아직 학급 목표가 없어요. <button className="btn btn-sm btn-ghost" onClick={() => onNavigate('classpbs')} style={{ marginLeft: 6 }}>목표 만들기</button></div>
+        <div className="dz-review-empty" data-help="d1-goalboard">아직 학급 목표가 없어요. <button className="btn btn-sm btn-ghost" onClick={() => onNavigate('classpbs')} style={{ marginLeft: 6 }}>목표 만들기</button></div>
       )
     ) },
-    { id: 'flow', title: '🧭 Tier 1 업무 흐름', x: 0, y: 7, w: 12, h: 3, minW: 4, body: (
+    { id: 'flow', help: 'd1-flow', title: '🧭 Tier 1 업무 흐름', x: 0, y: 7, w: 12, h: 3, minW: 4, body: (
       <FlowStrip color={C} steps={flow} /> ) },
   ];
 

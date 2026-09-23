@@ -32,7 +32,7 @@ function ChecklistTable({ items, scale, values, onSet, idPrefix, startNo = 1 }) 
         </thead>
         <tbody>
           {items.map((q, idx) => (
-            <tr key={idx} style={{ background: values[idx] >= 0 ? '#fff' : '#fffdf5' }}>
+            <tr key={idx} data-help="cc-item-row" style={{ background: values[idx] >= 0 ? '#fff' : '#fffdf5' }}>
               <td style={{ ...tdR, fontSize: '.82rem', color: '#64748b' }}>{startNo + idx}</td>
               <td style={tdQ}>{q}</td>
               {scale.map((_, v) => (
@@ -233,7 +233,7 @@ ${low(SOLVE_ITEMS, r.solve, 4)}
       </div>
 
       {/* 부록1 — 참고표 */}
-      <div className="card">
+      <div className="card" data-help="cc-ref">
         <button
           onClick={() => setRefOpen((o) => !o)}
           style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
@@ -244,7 +244,7 @@ ${low(SOLVE_ITEMS, r.solve, 4)}
         {refOpen && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 14 }}>
             {CORE_ELEMENTS.map((g) => (
-              <div key={g.group} style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px 14px' }}>
+              <div key={g.group} data-help="cc-ref-group" style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ fontWeight: 800, fontSize: '.86rem', marginBottom: 8, color: 'var(--pri)' }}>{g.group}</div>
                 {g.items.map((it) => (
                   <div key={it.t} style={{ marginBottom: 8 }}>

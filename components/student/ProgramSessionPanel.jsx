@@ -158,7 +158,7 @@ export default function ProgramSessionPanel({ onNavigate }) {
 
   return (
     <>
-      <div className="card">
+      <div className="card" data-help="mon-chain-goal">
         <div className="card-title">📈 교수 회기 기록 (과제분석 단계 × 회기)</div>
         <div className="card-subtitle">
           IEP 과제분석 목표를 회기마다 단계별로 기록합니다. 저장하면 정반응률이 계산되고, 기준 도달·단계 합치기를 알려 줘요.
@@ -206,7 +206,7 @@ export default function ProgramSessionPanel({ onNavigate }) {
         </div>
       </div>
 
-      <div className="card" id="ps-form">
+      <div className="card" id="ps-form" data-help="mon-chain-form">
         <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           ✏ {editingId ? '회기 기록 고치기' : '오늘 회기 입력'}
           {editingId && <span className="badge badge-purple">수정 중 · {date}</span>}
@@ -253,7 +253,7 @@ export default function ProgramSessionPanel({ onNavigate }) {
           {steps.map((t, i) => {
             const scored = isScoredStep(i, steps.length, chainType, targetStep);
             return (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '24px minmax(0,1fr) auto', gap: 8, alignItems: 'center', padding: '4px 0', borderBottom: '1px dashed var(--border)' }}>
+              <div key={i} data-help="mon-chain-step" style={{ display: 'grid', gridTemplateColumns: '24px minmax(0,1fr) auto', gap: 8, alignItems: 'center', padding: '4px 0', borderBottom: '1px dashed var(--border)' }}>
                 <div style={{ fontWeight: 700, color: 'var(--muted)', textAlign: 'center' }}>{i + 1}</div>
                 <div style={{ fontSize: '.86rem', color: scored ? 'inherit' : 'var(--muted)', overflowWrap: 'anywhere' }}>{t}</div>
                 <div style={{ display: 'flex', gap: 4 }}>
@@ -286,12 +286,12 @@ export default function ProgramSessionPanel({ onNavigate }) {
           <div style={{ display: 'flex', gap: 8 }}>
             {editingId && <button className="btn btn-ghost" onClick={onDelete}>🗑 삭제</button>}
             {editingId && <button className="btn btn-ghost" onClick={() => resetForm()}>취소</button>}
-            <button className="btn btn-pri" onClick={onSave} disabled={busy}>{editingId ? '💾 수정 저장' : '💾 회기 저장'}</button>
+            <button className="btn btn-pri" data-help="mon-session-save" onClick={onSave} disabled={busy}>{editingId ? '💾 수정 저장' : '💾 회기 저장'}</button>
           </div>
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" data-help="mon-chain-table">
         <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           📊 기록표 <span className="badge badge-pri">{mine.length}회기</span>
           {mine.length > 12 && (
@@ -309,7 +309,7 @@ export default function ProgramSessionPanel({ onNavigate }) {
                   <th style={{ textAlign: 'left', padding: 4, minWidth: 140, position: 'sticky', left: 0, background: 'var(--card, #fff)' }}>단계</th>
                   {shown.map((s) => (
                     <th key={s.id} style={{ padding: 2 }}>
-                      <button type="button" onClick={() => loadSession(s)} title={`${s.date} ${s.session_no}회기 · ${PHASES.find((p) => p.k === s.phase)?.label || ''}${s.note ? ' · ' + s.note : ''}`}
+                      <button type="button" data-help="mon-session-col" onClick={() => loadSession(s)} title={`${s.date} ${s.session_no}회기 · ${PHASES.find((p) => p.k === s.phase)?.label || ''}${s.note ? ' · ' + s.note : ''}`}
                         style={{ border: '1px solid ' + (editingId === s.id ? 'var(--pri)' : 'var(--border)'), borderRadius: 4, background: s.phase === 'baseline' ? '#fff7ed' : '#fff', cursor: 'pointer', padding: '2px 4px', fontSize: '.72rem', lineHeight: 1.2 }}>
                         {s.date.slice(5)}{s.session_no > 1 ? `-${s.session_no}` : ''}<br />
                         <span style={{ color: 'var(--muted)' }}>{s.phase === 'baseline' ? '기초' : s.phase === 'maintain' ? '유지' : '지도'}</span>
@@ -320,7 +320,7 @@ export default function ProgramSessionPanel({ onNavigate }) {
               </thead>
               <tbody>
                 {steps.map((t, i) => (
-                  <tr key={i}>
+                  <tr key={i} data-help="mon-chain-row">
                     <td style={{ padding: 4, position: 'sticky', left: 0, background: 'var(--card, #fff)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t}>{i + 1}. {t}</td>
                     {shown.map((s) => {
                       const k = colCode(s, t, i, steps.length);

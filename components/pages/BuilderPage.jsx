@@ -273,7 +273,7 @@ export default function BuilderPage() {
   return (
     <>
       {/* Tab nav */}
-      <div className="card" style={{ padding: 8, marginBottom: 14 }}>
+      <div className="card" style={{ padding: 8, marginBottom: 14 }} data-help="bd-tabs">
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {[
             { id: 'builder', label: '🛠 프롬프트 빌더', desc: '칩으로 조립' },
@@ -370,7 +370,7 @@ function BuilderTab({ curStu, autoSet, selected, isSelected, toggle, topic, setT
     <>
       {/* Student auto-fill notice */}
       {curStu && autoActive.length > 0 && (
-        <div className="card" style={{ background: 'var(--pri-soft)', borderColor: 'var(--pri-l)', padding: 12 }}>
+        <div className="card" style={{ background: 'var(--pri-soft)', borderColor: 'var(--pri-l)', padding: 12 }} data-help="bd-auto">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: '.84rem', color: 'var(--pri)', fontWeight: 700 }}>
               📌 학생 정보로 자동 선택됨 · <code style={{ background: '#fff', padding: '2px 8px', borderRadius: 4 }}>{curStu.code}</code>
@@ -386,7 +386,7 @@ function BuilderTab({ curStu, autoSet, selected, isSelected, toggle, topic, setT
       )}
 
       {/* Status bar */}
-      <div className="card" style={{ background: requiredOk ? '#e7f7ee' : '#fff7e6', borderColor: requiredOk ? '#9be0b9' : '#f3c47b' }}>
+      <div className="card" style={{ background: requiredOk ? '#e7f7ee' : '#fff7e6', borderColor: requiredOk ? '#9be0b9' : '#f3c47b' }} data-help="bd-status">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ fontSize: '.9rem' }}>
             {requiredOk
@@ -395,7 +395,7 @@ function BuilderTab({ curStu, autoSet, selected, isSelected, toggle, topic, setT
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <span style={{ fontSize: '.74rem', color: 'var(--muted)' }}>1번만 골라도 만들 수 있어요. 수업 자료는 2번·3번을 채우면 훨씬 맞춤형이 됩니다.</span>
-            <button className="btn btn-ghost btn-sm" onClick={reset}>🔄 초기화</button>
+            <button className="btn btn-ghost btn-sm" onClick={reset} data-help="bd-reset">🔄 초기화</button>
           </div>
         </div>
       </div>
@@ -405,7 +405,7 @@ function BuilderTab({ curStu, autoSet, selected, isSelected, toggle, topic, setT
 
       {/* Categories */}
       {CATEGORIES.map((cat) => (
-        <div key={cat.id} className="card">
+        <div key={cat.id} className="card" data-help="bd-cat">
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>{cat.title}</div>
             {cat.required && (
@@ -435,7 +435,7 @@ function BuilderTab({ curStu, autoSet, selected, isSelected, toggle, topic, setT
       ))}
 
       {/* 2-B 수업 주제 — 입력 보조 */}
-      <div className="card">
+      <div className="card" data-help="bd-topic">
         <div className="card-title">📝 2-B 수업 주제 & 학습 내용 <span style={{ fontSize: '.74rem', color: '#ef476f', fontWeight: 600 }}>★★ 핵심 — 자세할수록 맞춤형!</span></div>
         <div className="card-subtitle">아래 칩을 클릭하면 입력창에 기본 틀이 자동 추가됩니다. 직접 입력도 가능합니다.</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 12px', background: 'var(--warn-l)', border: '1px solid #fde7b8', borderRadius: 8, fontSize: '.8rem', color: '#92400e', margin: '8px 0 4px' }}>
@@ -459,10 +459,10 @@ function BuilderTab({ curStu, autoSet, selected, isSelected, toggle, topic, setT
       </div>
 
       {/* 프롬프트 미리보기 + AI 호출 */}
-      <div className="card">
+      <div className="card" data-help="bd-run">
         <div className="card-title">🚀 프롬프트 생성 & AI 호출</div>
         <div style={{ marginBottom: 10 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowPreview((v) => !v)}>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowPreview((v) => !v)} data-help="bd-preview">
             {showPreview ? '▲ 미리보기 숨기기' : '▼ 프롬프트 미리보기'}
           </button>
         </div>
@@ -510,7 +510,7 @@ function SavedSetsCard({ sets, loading, canSave, onSave, onLoad, onOverwrite, on
   }
 
   return (
-    <div className="card">
+    <div className="card" data-help="bd-sets">
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
         <div className="card-title" style={{ marginBottom: 0 }}>
           💾 저장한 칩 조합 <span style={{ fontSize: '.74rem', color: 'var(--muted)', fontWeight: 600 }}>{sets.length}/{BUILDER_SETS_MAX}</span>
@@ -532,7 +532,7 @@ function SavedSetsCard({ sets, loading, canSave, onSave, onLoad, onOverwrite, on
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }}
               placeholder="조합 이름 (예: 수학반 게임 세트) — 학생 이름·생년월일은 적지 마세요"
             />
-            <button className="btn btn-pri btn-sm" disabled={!canSave || !name.trim() || busy || full} onClick={submit}>
+            <button className="btn btn-pri btn-sm" disabled={!canSave || !name.trim() || busy || full} onClick={submit} data-help="bd-set-save">
               💾 지금 조합 저장
             </button>
           </div>
@@ -558,7 +558,7 @@ function SavedSetsCard({ sets, loading, canSave, onSave, onLoad, onOverwrite, on
                 const n = Object.values(sels).reduce((a, arr) => a + (Array.isArray(arr) ? arr.length : 0), 0);
                 const topicLine = String(s.data?.topic || '').split('\n').map((t) => t.trim()).find(Boolean) || '';
                 return (
-                  <div key={s.id} style={{ padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
+                  <div key={s.id} data-help="bd-set-row" style={{ padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <strong style={{ fontSize: '.9rem', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.name}>{s.name}</strong>
                       <span style={{ fontSize: '.7rem', color: 'var(--muted)' }}>{fmtDate(s.updated_at)}</span>
@@ -621,7 +621,7 @@ function PresetsTab({ onApply }) {
       </div>
 
       <div className="card">
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }} data-help="bd-preset-filter">
           {PRESET_FILTERS.map((f) => (
             <span key={f.v} className={'qchip' + (filter === f.v ? ' on' : '')} onClick={() => setFilter(f.v)}>{f.l}{f.v === 'dl' && dlPresets.length ? ` ${dlPresets.length}` : ''}</span>
           ))}
@@ -641,6 +641,7 @@ function PresetsTab({ onApply }) {
           {filtered.map((p) => (
             <div
               key={p.id}
+              data-help="bd-preset-row"
               onClick={() => onApply(p)}
               style={{
                 padding: '14px 16px', background: 'var(--surface)',
@@ -684,7 +685,7 @@ function GuideTab({ onApplyExample }) {
       </div>
 
       {/* Quick Start */}
-      <div className="card">
+      <div className="card" data-help="bd-quickstart">
         <div className="card-title">🚀 Quick Start — 3단계</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
           {[
@@ -753,6 +754,7 @@ function GuideTab({ onApplyExample }) {
           {STUDENT_EXAMPLES.map((ex, i) => (
             <div
               key={i}
+              data-help="bd-example-row"
               onClick={() => onApplyExample(ex.preset)}
               style={{
                 padding: 14, background: 'var(--surface)', border: '1px solid var(--border)',

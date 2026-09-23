@@ -271,13 +271,14 @@ export default function ChatExpertPage() {
   return (
     <div style={{ display: 'flex', gap: 14, alignItems: 'stretch', flexWrap: 'wrap' }}>
       {/* ── 좌: 대화 목록 ── */}
-      <div className="card" style={{ width: 250, flexShrink: 0, alignSelf: 'flex-start' }}>
-        <button className="btn btn-pri btn-block" onClick={newThread}>+ 새 대화</button>
+      <div className="card" style={{ width: 250, flexShrink: 0, alignSelf: 'flex-start' }} data-help="chat-threads">
+        <button className="btn btn-pri btn-block" onClick={newThread} data-help="chat-new">+ 새 대화</button>
         <div style={{ marginTop: 12 }}>
           {threads.length === 0 && <div style={{ ...noteStyle, padding: '8px 2px' }}>아직 대화가 없어요.</div>}
           {threads.map((t) => (
             <div
               key={t.id}
+              data-help="chat-thread-row"
               onClick={() => openThread(t.id)}
               role="button"
               tabIndex={0}
@@ -310,7 +311,7 @@ export default function ChatExpertPage() {
       </div>
 
       {/* ── 우: 대화창 ── */}
-      <div className="card" style={{ flex: 1, minWidth: 300, display: 'flex', flexDirection: 'column' }}>
+      <div className="card" style={{ flex: 1, minWidth: 300, display: 'flex', flexDirection: 'column' }} data-help="chat-window">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <div className="card-title" style={{ margin: 0 }}>🗨️ AI에게 묻기 <span style={{ fontSize: '.78rem', fontWeight: 500, color: 'var(--muted)' }}>(AI 전문가 채팅)</span></div>
           <span style={{ ...noteStyle, fontWeight: 700 }}>{curMode.icon} {curMode.label}</span>
@@ -345,9 +346,9 @@ export default function ChatExpertPage() {
           }}
         >
           {isEmpty && (
-            <div>
+            <div data-help="chat-start">
               <div style={{ fontSize: '.8rem', fontWeight: 700, marginBottom: 6 }}>전문가 모드 선택</div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }} data-help="chat-mode">
                 {Object.entries(MODES).map(([k, m]) => (
                   <button
                     key={k}
@@ -360,7 +361,7 @@ export default function ChatExpertPage() {
                 ))}
               </div>
               <div style={{ fontSize: '.8rem', fontWeight: 700, marginBottom: 6 }}>🎯 학생 맞춤 상담 <span style={{ ...noteStyle, fontWeight: 500 }}>(선택)</span></div>
-              <div style={{ marginBottom: 14 }}>
+              <div style={{ marginBottom: 14 }} data-help="chat-consult">
                 {curStuId ? (
                   <button
                     className={'btn btn-sm ' + (consultStudent ? 'btn-pri' : 'btn-ghost')}
@@ -392,7 +393,7 @@ export default function ChatExpertPage() {
 
           {messages.map((m, i) => (
             m.role === 'user' ? (
-              <div key={i} style={{
+              <div key={i} data-help="chat-msg" style={{
                 alignSelf: 'flex-end', maxWidth: '85%', background: 'var(--pri)', color: '#fff',
                 borderRadius: '14px 14px 4px 14px', padding: '9px 13px', fontSize: '.88rem',
                 lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
@@ -400,7 +401,7 @@ export default function ChatExpertPage() {
                 {m.content}
               </div>
             ) : (
-              <div key={i} style={{
+              <div key={i} data-help="chat-msg" style={{
                 alignSelf: 'flex-start', maxWidth: '92%', border: '1px solid var(--border)',
                 borderRadius: '14px 14px 14px 4px', padding: '9px 13px', fontSize: '.88rem',
               }}>
@@ -438,9 +439,9 @@ export default function ChatExpertPage() {
             style={{ flex: 1, resize: 'none' }}
           />
           {sending ? (
-            <button className="btn btn-err" onClick={stop} title="생성 중단">⏹ 중단</button>
+            <button className="btn btn-err" onClick={stop} title="생성 중단" data-help="chat-stop">⏹ 중단</button>
           ) : (
-            <button className="btn btn-pri" onClick={() => send()} disabled={!input.trim() || status !== 'on' || briefLoading}>
+            <button className="btn btn-pri" onClick={() => send()} disabled={!input.trim() || status !== 'on' || briefLoading} data-help="chat-send">
               전송
             </button>
           )}

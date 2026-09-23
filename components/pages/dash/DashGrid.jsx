@@ -233,7 +233,8 @@ export default function DashGrid({ dashKey, color, widgets }) {
               {/* sizeToContent는 item-content의 '첫 번째 자식 하나'의 높이를 측정한다 —
                   반드시 .dw 단일 래퍼 구조를 유지할 것(형제를 추가하면 높이 계산이 깨짐). */}
               <div className="grid-stack-item-content">
-                <div className="dw">
+                {/* data-help: ❓ 도움말 모드에서 위젯 설명(lib/helpText.js HELP_TEXT) — 속성만이라 높이 측정과 무관 */}
+                <div className="dw" data-help={w.help || undefined}>
                   <div className="dw-head">
                     <span className="dw-grip" aria-hidden="true">⠿</span>
                     <span className="dw-title">{w.title}</span>

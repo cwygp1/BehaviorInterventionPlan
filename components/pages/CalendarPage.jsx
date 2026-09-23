@@ -147,14 +147,14 @@ export default function CalendarPage({ onNavigate }) {
   return (
     <div className="cal-page">
       <div className="cal-bar">
-        <div className="cal-mnav">
+        <div className="cal-mnav" data-help="cal-month">
           <button type="button" className="cal-arrow" onClick={() => setMonth(shiftMonth(month, -1))} aria-label="이전 달">‹</button>
           <h3>{y}년 {m}월</h3>
           <button type="button" className="cal-arrow" onClick={() => setMonth(shiftMonth(month, 1))} aria-label="다음 달">›</button>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setMonth(today.slice(0, 7)); setSel(today); }}>오늘</button>
         </div>
         {data && (
-          <div className="cal-stat">
+          <div className="cal-stat" data-help="cal-stat">
             <span>{curClass ? `${curClass.name} · ` : ''}{m}월 기록 <b>{monthEvents.length}</b>건</span>
             <span className={monthMissDays ? 'w' : ''}>빠진 날 {monthMissDays}일</span>
             <span>진행 중 관찰 기간 <b>{openPeriods}</b>개</span>
@@ -164,7 +164,7 @@ export default function CalendarPage({ onNavigate }) {
 
       {students.length > 0 && (
         <div className="cal-filters">
-          <div className="cal-fg" role="group" aria-label="학생 고르기">
+          <div className="cal-fg" role="group" aria-label="학생 고르기" data-help="cal-stu-filter">
             <em>학생</em>
             <button type="button" className="cal-chip" aria-pressed={stuSel === 'all'} onClick={() => setStuSel('all')}>전체</button>
             {students.map((s) => (
@@ -173,7 +173,7 @@ export default function CalendarPage({ onNavigate }) {
               </button>
             ))}
           </div>
-          <div className="cal-fg" role="group" aria-label="보여줄 기록 종류">
+          <div className="cal-fg" role="group" aria-label="보여줄 기록 종류" data-help="cal-kind-filter">
             <em>기록</em>
             {KIND_ORDER.map((k) => (
               <button key={k} type="button" className="cal-chip kind" aria-pressed={!!kindsOn[k]} onClick={() => toggleKind(k)} title={kindsOn[k] ? '누르면 숨겨요' : '누르면 보여요'}>
@@ -185,11 +185,11 @@ export default function CalendarPage({ onNavigate }) {
       )}
 
       {iepLines.length > 0 && (
-        <div className="cal-iep">
+        <div className="cal-iep" data-help="cal-iep">
           <span className="k">이달의 IEP 목표</span>
           <ul>
             {(iepAll ? iepLines : iepLines.slice(0, 2)).map((g, i) => (
-              <li key={i}>
+              <li key={i} data-help="cal-iep-row">
                 <button type="button" onClick={() => go(g.studentId, 'iep')} title={`${goLabel('iep')} 열기`}>
                   <Dot sid={g.studentId} /><b>{stuCode(g.studentId)}</b>{g.subject ? ` · ${g.subject}` : ''} — {g.text}
                 </button>
@@ -216,7 +216,7 @@ export default function CalendarPage({ onNavigate }) {
 
       <div className={'cal-split' + (loading ? ' is-loading' : '')} aria-busy={loading}>
         <div>
-          <div className="cal-grid-wrap">
+          <div className="cal-grid-wrap" data-help="cal-grid">
             <div className="cal-dow" aria-hidden="true">{WEEKDAY_KO.map((w) => <div key={w}>{w}</div>)}</div>
             <div className="cal-grid">
               {days.map((d) => {
@@ -228,7 +228,7 @@ export default function CalendarPage({ onNavigate }) {
                 const cls = ['cal-cell', inMonth(d) ? '' : 'out', w === 0 || hol ? 'sun' : '', w === 6 && !hol ? 'sat' : '',
                   d === today ? 'today' : '', d === sel ? 'sel' : '', slot.miss.length ? 'miss' : ''].filter(Boolean).join(' ');
                 return (
-                  <button key={d} type="button" className={cls} onClick={() => pickDay(d)} aria-pressed={d === sel}
+                  <button key={d} type="button" className={cls} onClick={() => pickDay(d)} aria-pressed={d === sel} data-help="cal-cell"
                     aria-label={`${+d.slice(5, 7)}월 ${+d.slice(8)}일 ${WEEKDAY_KO[w]}요일${hol ? ' ' + hol : ''}, 기록 ${slot.ev.length}건${slot.miss.length ? ', 빠진 기록 ' + slot.miss.length + '건' : ''}`}>
                     <span className="cal-dn">
                       <span className="num">{+d.slice(8)}</span>
@@ -283,7 +283,7 @@ export default function CalendarPage({ onNavigate }) {
           </p>
         </div>
 
-        <aside className="cal-day" aria-live="polite" ref={dayRef}>
+        <aside className="cal-day" aria-live="polite" ref={dayRef} data-help="cal-day">
           <h4>
             {+sel.slice(5, 7)}월 {+sel.slice(8)}일 ({WEEKDAY_KO[selW]})
             {sel === today && <small>오늘</small>}
@@ -301,7 +301,7 @@ export default function CalendarPage({ onNavigate }) {
             <div className="cal-grp" key={sid}>
               <div className="cal-grp-h"><Dot sid={sid} />{stuCode(sid)}</div>
               {selSlot.miss.filter((x) => x.studentId === sid).map((x, i) => (
-                <div className="cal-row miss" key={'m' + i}>
+                <div className="cal-row miss" key={'m' + i} data-help="cal-miss-row">
                   <span className="kc" style={{ '--c': '#b7791f', '--cs': '#fff7e6' }}>기록 없음</span>
                   <p>{MISSING[x.kind].text}</p>
                   <button type="button" className="go" onClick={() => go(sid, MISSING[x.kind].page, MISSING[x.kind].monitorTab, MISSING[x.kind].entry)}>
@@ -312,7 +312,7 @@ export default function CalendarPage({ onNavigate }) {
               {selSlot.ev.filter((e) => e.studentId === sid).map((e, i) => {
                 const k = KINDS[e.kind];
                 return (
-                  <div className="cal-row" key={'e' + i}>
+                  <div className="cal-row" key={'e' + i} data-help="cal-rec-row">
                     <span className="kc" style={{ '--c': k.color, '--cs': k.soft }}>{k.label}</span>
                     <p>{k.detail(e)}</p>
                     <button type="button" className="go" onClick={() => go(sid, k.page, k.monitorTab, k.entry)}>{goLabel(k.page)}{k.entry ? ` · ${md(sel)}` : ''} 열기 →</button>
@@ -323,7 +323,7 @@ export default function CalendarPage({ onNavigate }) {
           ))}
           {/* 이 날짜로 새 기록 — 한 학생을 골랐을 때만(누구의 기록인지 분명해야 함). 미래 날짜는 제외. */}
           {sel <= today && (stuSel !== 'all' ? (
-            <div className="cal-add">
+            <div className="cal-add" data-help="cal-add">
               <span className="k">{stuCode(stuSel)} · {md(sel)} 기록하기</span>
               {ADD_KINDS.map((k) => (
                 <button key={k} type="button" className="cal-chip" onClick={() => go(stuSel, KINDS[k].page, KINDS[k].monitorTab, KINDS[k].entry)}>
@@ -335,7 +335,7 @@ export default function CalendarPage({ onNavigate }) {
             <div className="cal-add-hint">위에서 학생을 고르면 이 날짜로 바로 기록할 수 있어요.</div>
           ))}
           {selPeriods.length > 0 && (
-            <div className="cal-pnote">
+            <div className="cal-pnote" data-help="cal-period">
               관찰 기간:{' '}
               {selPeriods.map((p, i) => (
                 <button key={i} type="button" onClick={() => go(p.studentId, 'eval')} title={`${goLabel('eval')} 열기`}>

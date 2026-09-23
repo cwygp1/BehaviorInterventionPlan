@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Sidebar, { PBS_PAGES, WORKSPACE_COMMON_IDS } from './Sidebar';
 import { PAGE_SECTION } from '../../lib/tiers';
 import Topbar from './Topbar';
@@ -15,6 +15,7 @@ import { UIActionsProvider } from '../../contexts/UIActionsContext';
 import { GuideProvider } from '../guide/GuideContext';
 import SpotlightTour from '../guide/SpotlightTour';
 import GlossaryModal from '../guide/GlossaryModal';
+import HoverHelp from '../guide/HoverHelp';
 
 export default function Layout({ children, activePage, onNavigate, canGoBack, onBack }) {
   const { students, curStuId, selectStudent } = useStudents();
@@ -72,8 +73,15 @@ export default function Layout({ children, activePage, onNavigate, canGoBack, on
     setSidebarOpen(false);
   }
 
+  // ❓ 도움말 '다음 할 일'이 부르는 창 열기 (Topbar는 UIActionsProvider 바깥이라 여기서 넘긴다).
+  const guideActions = useMemo(() => ({
+    openAddStudent: () => setAddOpen(true),
+    openAISettings: () => setAISettingsOpen(true),
+    openManageClasses: () => setClassesOpen(true),
+  }), []);
+
   return (
-    <GuideProvider activePage={activePage} onNavigate={tryNavigate}>
+    <GuideProvider activePage={activePage} onNavigate={tryNavigate} navigateRaw={onNavigate} actions={guideActions}>
     <div className="app show">
       <Sidebar
         activePage={activePage}
@@ -130,9 +138,10 @@ export default function Layout({ children, activePage, onNavigate, canGoBack, on
       <ManageClassesModal open={classesOpen} onClose={() => setClassesOpen(false)} />
     </div>
 
-    {/* 안내 레이어 — 화면 투어(스포트라이트) + 용어 사전 (mds/23 기능③) */}
+    {/* 안내 레이어 — 화면 투어(스포트라이트) + 용어 사전 (mds/23 기능③) + 도움말 모드 마우스 설명(0923) */}
     <SpotlightTour />
     <GlossaryModal />
+    <HoverHelp />
     </GuideProvider>
   );
 }

@@ -123,7 +123,7 @@ export default function SchoolRulesPage() {
             <thead><tr><th style={{ ...thC, width: 160 }}>이름</th><th style={thC}>행동 특성</th></tr></thead>
             <tbody>
               {r.serious.map((row, i) => (
-                <tr key={i}>
+                <tr key={i} data-help="sr-serious-row">
                   <td style={tdC}>
                     <input className="form-input" value={row.name} placeholder="학생 이름(또는 비식별 코드)"
                       onChange={(e) => patchRow('serious', i, { name: e.target.value })} />
@@ -157,7 +157,7 @@ export default function SchoolRulesPage() {
             </tr></thead>
             <tbody>
               {MINOR_BEHAVIORS.map((b, i) => (
-                <tr key={b.label}>
+                <tr key={b.label} data-help="sr-minor-row">
                   <td style={tdC}>
                     {b.custom ? (
                       <>
@@ -223,7 +223,7 @@ export default function SchoolRulesPage() {
             </tr></thead>
             <tbody>
               {ACTIVITIES.map((a, i) => (
-                <tr key={a}>
+                <tr key={a} data-help="sr-activity-row">
                   <td style={{ ...tdC, fontWeight: 600 }}>{i + 1}. {a}</td>
                   <td style={{ ...tdC, textAlign: 'center', whiteSpace: 'nowrap' }}>
                     {[1, 2, 3, 4, 5, 6].map((n) => {
@@ -265,7 +265,7 @@ export default function SchoolRulesPage() {
             </tr></thead>
             <tbody>
               {r.calm.map((row, i) => (
-                <tr key={i}>
+                <tr key={i} data-help="sr-calm-row">
                   <td style={{ ...tdC, textAlign: 'center', fontWeight: 700, color: '#1f3a8a' }}>{i + 1}위</td>
                   <td style={tdC}>
                     <input className="form-input" value={row.place} placeholder="예: 점심시간(식당)"
@@ -283,7 +283,7 @@ export default function SchoolRulesPage() {
       </div>
 
       {/* 4. 지도할 때 가장 어려운 점 */}
-      <div className="card">
+      <div className="card" data-help="sr-q4">
         <div style={qTitle}>4. 문제행동을 지도할 때 가장 어려운 점은 무엇인가?</div>
         <p style={qHint}>추후 교사 연수 기초 자료로 활용</p>
         <textarea className="form-textarea" rows={4} value={r.hardest}
@@ -314,7 +314,7 @@ export default function SchoolRulesPage() {
               </tr></thead>
               <tbody>
                 {r.changes.map((row, i) => (
-                  <tr key={i}>
+                  <tr key={i} data-help="sr-change-row">
                     <td style={tdC}>
                       <textarea className="form-textarea" rows={2} value={row.change}
                         onChange={(e) => patchRow('changes', i, { change: e.target.value })} />

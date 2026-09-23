@@ -18,7 +18,7 @@ export default function TeachingRecordPanel({ onNavigate }) {
   const pick = (k) => { setKind(k); try { sessionStorage.setItem('kb_session_kind', k); } catch (_) { /* 무시 */ } };
   return (
     <>
-      <div className="card" style={{ padding: '10px 14px' }}>
+      <div className="card" data-help="mon-frame" style={{ padding: '10px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <strong style={{ fontSize: '.86rem' }}>기록 형태</strong>
           {RECORD_FRAMES.map((f) => (f.status === 'ready' ? (

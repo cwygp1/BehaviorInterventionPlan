@@ -31,8 +31,12 @@ function rectOf(el) {
 }
 
 export default function SpotlightTour() {
-  const { tourKey, tourPaused, stopTour, openGlossary } = useGuide();
-  const steps = useMemo(() => getTour(tourKey) || [], [tourKey]);
+  const { tourKey, tourPaused, customSteps, stopTour, openGlossary } = useGuide();
+  // 'custom:'으로 시작하는 키는 ❓ 메뉴가 즉석으로 만든 안내(0923) — 스텝을 컨텍스트에서 받는다.
+  const steps = useMemo(
+    () => (tourKey && tourKey.startsWith('custom:') ? customSteps || [] : getTour(tourKey) || []),
+    [tourKey, customSteps]
+  );
   const [idx, setIdx] = useState(0);
   const [rect, setRect] = useState(null);
   const [ready, setReady] = useState(false);
@@ -195,17 +199,26 @@ export default function SpotlightTour() {
         <div className="tour-count">{idx + 1} / {total}</div>
         <div className="tour-title">{step.title}</div>
         <div className="tour-desc">{step.desc}</div>
-        {fallback && <div className="tour-fallback">이 화면 크기·상태에서는 해당 요소가 보이지 않아 설명만 보여드려요.</div>}
+        {step.sub && <div className="tour-sub">{step.sub}</div>}
+        {fallback && !step.quietFallback && <div className="tour-fallback">이 화면 크기·상태에서는 해당 요소가 보이지 않아 설명만 보여드려요.</div>}
+        {step.action && (
+          <button className="btn btn-pri btn-sm tour-action" onClick={() => { finish(); step.action.run(); }}>
+            {step.action.label}
+          </button>
+        )}
         {term && (
           <button className="tour-term" onClick={() => openGlossary(term.id)}>
             📖 쉬운 말 풀이: {term.term}
           </button>
         )}
         <div className="tour-foot">
-          <button className="btn btn-ghost btn-sm" onClick={finish}>그만 보기</button>
+          {/* 한 장짜리(❓ '다음 할 일' 등)는 오른쪽 '닫기'와 같은 일이라 숨긴다 */}
+          {total > 1 ? <button className="btn btn-ghost btn-sm" onClick={finish}>그만 보기</button> : <span />}
           <div className="tour-nav">
             {idx > 0 && <button className="btn btn-ghost btn-sm" onClick={prev}>← 이전</button>}
-            <button className="btn btn-pri btn-sm" onClick={next}>{isLast ? '끝내기 ✓' : '다음 →'}</button>
+            <button className={'btn btn-sm ' + (step.action ? 'btn-ghost' : 'btn-pri')} onClick={next}>
+              {isLast ? (step.action ? '닫기' : '끝내기 ✓') : '다음 →'}
+            </button>
           </div>
         </div>
         <div className="tour-hint">Esc 닫기 · ←→ 이동</div>

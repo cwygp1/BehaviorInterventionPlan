@@ -279,15 +279,15 @@ export default function ObservePage({ onNavigate }) {
             <div className="card-subtitle">우선순위 1순위 행동을, 눈으로 보고 셀 수 있는 구체적 행동으로 정의합니다. 입력하면 자동 저장돼요.</div>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => setDeadOpen(true)} title='"죽은 사람 검사"로 행동 표현을 점검'>🧟 조작적 정의 도우미</button>
-            {aiOn && <button className="btn btn-ghost btn-sm" onClick={aiOpdef} disabled={opdefBusy}>{opdefBusy ? '생성 중…' : '✨ ABC 기록으로 AI 초안'}</button>}
+            <button className="btn btn-ghost btn-sm" data-help="ob-deadman" onClick={() => setDeadOpen(true)} title='"죽은 사람 검사"로 행동 표현을 점검'>🧟 조작적 정의 도우미</button>
+            {aiOn && <button className="btn btn-ghost btn-sm" data-help="ob-opdef-ai" onClick={aiOpdef} disabled={opdefBusy}>{opdefBusy ? '생성 중…' : '✨ ABC 기록으로 AI 초안'}</button>}
           </div>
         </div>
         <textarea className="form-textarea" rows={2} value={opdef} onChange={(e) => setOpdef(e.target.value)}
           placeholder='예: 과제를 제시받으면 3초 이내에 "싫어"라고 소리치며 책상 위 물건을 바닥으로 던진다.' />
       </div>
 
-      <div className="card">
+      <div className="card" data-help="ob-form">
         <div className="card-title">📋 ABC 행동 관찰 기록 작성</div>
         <div className="card-subtitle">선행사건(A) → 행동(B) → 결과(C)를 관찰 가능한 사실로 기록하세요.{' '}
           <button className="btn btn-ghost btn-sm" onClick={() => setExOpen(true)}>작성 예시 보기</button>
@@ -298,7 +298,7 @@ export default function ObservePage({ onNavigate }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
             <strong style={{ fontSize: '.88rem', color: 'var(--pri-d)' }}>⚡ 빠른 입력 — 상황을 한 문장으로 적으면 A·B·C로 자동 분배해 드려요</strong>
             {abc.length > 0 && (
-              <button className="btn btn-ghost btn-sm" onClick={recallLast} title="가장 최근 기록을 불러와 수정">↩ 지난 기록 불러오기</button>
+              <button className="btn btn-ghost btn-sm" data-help="ob-recall" onClick={recallLast} title="가장 최근 기록을 불러와 수정">↩ 지난 기록 불러오기</button>
             )}
           </div>
           <div className="qc-row">
@@ -357,7 +357,7 @@ export default function ObservePage({ onNavigate }) {
         </div>
         {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn btn-pri" onClick={onSave} disabled={busy}>💾 ABC 기록 저장</button>
+          <button className="btn btn-pri" data-help="ob-save" onClick={onSave} disabled={busy}>💾 ABC 기록 저장</button>
           <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
           <button className={'btn ' + (savedOk ? 'btn-pri' : 'btn-ghost')} onClick={() => onNavigate?.('qabf')}>📊 기능평가(QABF) →</button>
         </div>
@@ -375,7 +375,7 @@ export default function ObservePage({ onNavigate }) {
         ) : (
           <ul className="data-list">
             {abcSorted.map((r) => (
-              <li key={r.id} className="data-item">
+              <li key={r.id} className="data-item" data-help="ob-row">
                 <button className="data-item-del" onClick={() => onDelete(r.id)} title="삭제" aria-label="삭제">×</button>
                 <div className="data-item-head">
                   <span className="badge badge-pri" title="기록 해당일(관찰일)">📅 {r.date || r.created_at}</span>

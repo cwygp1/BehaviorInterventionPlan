@@ -284,7 +284,7 @@ ${profile}
           {Object.keys(totals).map((f) => {
             const isTop = topFns.includes(f);
             return (
-              <div key={f} style={{ background: isTop ? FUNCTION_COLORS[f] + '1a' : 'var(--surface2)', padding: 10, borderRadius: 8, textAlign: 'center', borderTop: `3px solid ${FUNCTION_COLORS[f]}`, outline: isTop ? `2px solid ${FUNCTION_COLORS[f]}` : 'none' }}>
+              <div key={f} data-help="qb-score-tile" style={{ background: isTop ? FUNCTION_COLORS[f] + '1a' : 'var(--surface2)', padding: 10, borderRadius: 8, textAlign: 'center', borderTop: `3px solid ${FUNCTION_COLORS[f]}`, outline: isTop ? `2px solid ${FUNCTION_COLORS[f]}` : 'none' }}>
                 <div style={{ fontSize: '.7rem', color: 'var(--muted)' }}>{FUNCTION_LABELS[f]}</div>
                 <div style={{ fontSize: '1.4rem', fontWeight: 800, color: FUNCTION_COLORS[f] }}>{totals[f]}</div>
                 <div style={{ fontSize: '.66rem', color: 'var(--muted)' }}>/15</div>
@@ -340,7 +340,7 @@ ${profile}
       <div className="card" data-tour="qb-list">
         <div className="card-title">✅ 25문항 체크리스트</div>
         {QUESTIONS.map((item, i) => (
-          <div key={i} style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+          <div key={i} data-help="qb-row" style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'flex-start' }}>
               <span style={{ fontSize: '.92rem', flex: 1 }}>
                 <strong style={{ color: FUNCTION_COLORS[item.f] }}>{i + 1}.</strong> <span style={{ color: 'var(--muted)' }}>{QABF_QUESTION_PREFIX}</span> {item.q}
@@ -378,6 +378,7 @@ ${profile}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
           <button
             className="btn btn-ghost"
+            data-help="qb-excel"
             onClick={async () => {
               const canvas = document.querySelector('#qabf-fn-chart canvas'); // 그래프를 PNG로 함께 담는다
               try {
@@ -390,6 +391,7 @@ ${profile}
           </button>
           <button
             className={'btn ' + (qabfDirty ? 'btn-pri' : 'btn-ghost')}
+            data-help="qb-save"
             onClick={onSave}
             disabled={busy || !qabfDirty}
             title={qabfDirty ? '지금 바로 저장' : '변경 내용이 모두 자동 저장되었습니다'}

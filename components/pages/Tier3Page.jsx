@@ -153,7 +153,7 @@ export default function Tier3Page({ onNavigate }) {
       </div>
 
       {/* Tier 3 대상 학생 — Tier 2 소그룹 구성원 중 'Tier 3' 표시된 학생 */}
-      <div className="card">
+      <div className="card" data-help="t3-targets">
         <div className="card-title">🎯 Tier 3 대상 학생 <span className="badge badge-pri">{tier3Students.length}명</span></div>
         <div className="card-subtitle" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span>표적 학생 지원(Tier 2)의 점검 그룹에서 <strong>Tier 3</strong>로 표시한 학생이 개별 중재 대상입니다.</span>
@@ -170,6 +170,7 @@ export default function Tier3Page({ onNavigate }) {
               return (
                 <button
                   key={s.id}
+                  data-help="t3-target-chip"
                   onClick={() => selectStudent(s.id)}
                   style={{
                     padding: '8px 14px', borderRadius: 99, cursor: 'pointer', fontSize: '.86rem', fontWeight: 700,
@@ -206,7 +207,7 @@ export default function Tier3Page({ onNavigate }) {
             const label = typeof s.measureLabel === 'function' ? s.measureLabel(v) : `${v}${s.measureLabel}`;
             const done = v > 0;
             return (
-              <div key={s.n}
+              <div key={s.n} data-help="t3-step-row"
                 onClick={() => onNavigate?.(s.page)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px',
@@ -256,7 +257,7 @@ export default function Tier3Page({ onNavigate }) {
       </div>
 
       {/* 더 보기(0914 P0): 개념 설명·빠른 시작은 접어 두고 머리줄에 요약만 — 기능은 그대로 */}
-      <FoldCard id="t3-concepts" title="📚 개념 한눈에 — FCT · DRA/DRO · PTR" summary="대체행동 가르치기 · 차별 강화 · 예방-교수-강화 틀" storageKey="kb_fold_t3_concepts">
+      <FoldCard id="t3-concepts" tourAnchor="t3-concepts" title="📚 개념 한눈에 — FCT · DRA/DRO · PTR" summary="대체행동 가르치기 · 차별 강화 · 예방-교수-강화 틀" storageKey="kb_fold_t3_concepts">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
           <div className="card">
             <div className="card-title">💬 FCT — 기능적 의사소통 훈련</div>

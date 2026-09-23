@@ -17,7 +17,7 @@ function ExampleCard({ ex, onAddContent }) {
   const badge = BADGE[ex.design] || { bg: '#eee', fg: '#444' };
   const link = linkageText(ex, 400);
   return (
-    <div style={{ background: '#fffdf5', border: '1px solid #f1e3b3', borderRadius: 8, padding: '6px 10px', fontSize: '.8rem' }}>
+    <div data-help="iep-dl-example" style={{ background: '#fffdf5', border: '1px solid #f1e3b3', borderRadius: 8, padding: '6px 10px', fontSize: '.8rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         <span title={d.label} style={{ background: badge.bg, color: badge.fg, borderRadius: 999, padding: '1px 8px', fontSize: '.7rem', fontWeight: 800 }}>
           {ex.design} {d.short}

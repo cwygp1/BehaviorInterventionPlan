@@ -123,7 +123,7 @@ export default function VideoLecturesPage({ onNavigate }) {
             바로 열 수 있습니다.
           </p>
           {watchedCount > 0 && (
-            <div style={{ marginTop: 12, display: 'inline-block', background: 'rgba(255,255,255,.2)', padding: '6px 14px', borderRadius: 99, fontSize: '.84rem', fontWeight: 600 }}>
+            <div data-help="vid-progress" style={{ marginTop: 12, display: 'inline-block', background: 'rgba(255,255,255,.2)', padding: '6px 14px', borderRadius: 99, fontSize: '.84rem', fontWeight: 600 }}>
               📚 시청 완료: {watchedCount} / {TOPICS.length} ({pct}%)
             </div>
           )}
@@ -131,13 +131,14 @@ export default function VideoLecturesPage({ onNavigate }) {
       </div>
 
       {/* 공식 자료 포털 */}
-      <div className="card">
+      <div className="card" data-help="vid-portals">
         <div className="card-title">🏛 공식 PBS 자료 포털</div>
         <div className="card-subtitle">한국 특수교육·PBS 관련 신뢰할 수 있는 공식 <strong>사이트</strong>입니다. 가이드라인·매뉴얼 같은 <strong>문서 자료</strong>는 <strong>교사 지원 → 공식 가이드라인·매뉴얼</strong>에 출처와 함께 모아 두었어요.</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginTop: 12 }}>
           {ORG_PORTALS.filter((p) => p.video).map((p) => (
             <a
               key={p.url}
+              data-help="vid-portal-row"
               href={p.url}
               target="_blank"
               rel="noreferrer"
@@ -169,7 +170,7 @@ export default function VideoLecturesPage({ onNavigate }) {
       </div>
 
       {/* 주제별 학습 */}
-      <div className="card">
+      <div className="card" data-help="vid-topics">
         <div className="card-title">📚 주제별 학습 ({TOPICS.length}종)</div>
         <div className="card-subtitle">각 주제를 클릭하면 YouTube·Google에서 관련 영상·자료를 바로 검색할 수 있습니다.</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
@@ -177,7 +178,7 @@ export default function VideoLecturesPage({ onNavigate }) {
             const done = watched[t.id];
             const expanded = openTopic === t.id;
             return (
-              <div key={t.id} style={{
+              <div key={t.id} data-help="vid-topic-row" style={{
                 background: done ? '#f0fbf4' : 'var(--surface)',
                 border: '1px solid ' + (done ? '#9be0b9' : 'var(--border)'),
                 borderRadius: 10, transition: '.15s',
@@ -218,7 +219,7 @@ export default function VideoLecturesPage({ onNavigate }) {
                     <div style={{ fontSize: '.78rem', color: 'var(--muted)', fontWeight: 700, marginBottom: 8 }}>🔎 관련 영상 / 자료 검색</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {t.queries.map((q, qi) => (
-                        <div key={qi} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#fff', border: '1px solid var(--border)', borderRadius: 6, flexWrap: 'wrap' }}>
+                        <div key={qi} data-help="vid-query-row" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#fff', border: '1px solid var(--border)', borderRadius: 6, flexWrap: 'wrap' }}>
                           <span style={{ flex: 1, minWidth: 200, fontSize: '.86rem', fontWeight: 500 }}>"{q}"</span>
                           <a
                             href={youtubeSearch(q)}
@@ -262,7 +263,7 @@ export default function VideoLecturesPage({ onNavigate }) {
       </div>
 
       {/* 관련 메뉴 */}
-      <div className="card">
+      <div className="card" data-help="vid-next">
         <div className="card-title">🔗 영상 시청 후 바로 적용해 보세요</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 12 }}>
           {['classpbs', 'tier2', 'tier3', 'chatExpert', 'crisis'].map((id) => (

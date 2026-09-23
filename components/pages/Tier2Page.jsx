@@ -337,7 +337,7 @@ ${lines || '  (기록 없음)'}
       ) : (
       <>
       {/* Hero (선택된 학생의 CICO 요약) */}
-      <div className="card" style={{
+      <div className="card" data-help="t2-hero" style={{
         background: 'linear-gradient(135deg, #f59f00 0%, #e8590c 100%)',
         color: '#fff', border: 'none', position: 'relative', overflow: 'hidden',
       }}>
@@ -363,7 +363,7 @@ ${lines || '  (기록 없음)'}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div className="card-title" style={{ marginBottom: 0 }}>📋 오늘의 CICO 기록</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-ghost btn-sm" onClick={onPrintDPR}>🖨 빈 DPR 카드 인쇄</button>
+            <button className="btn btn-ghost btn-sm" data-help="t2-print" onClick={onPrintDPR}>🖨 빈 DPR 카드 인쇄</button>
             {todayRecord && (
               <span style={{ fontSize: '.74rem', color: '#0a7d4e', background: '#e7f7ee', padding: '5px 12px', borderRadius: 99, fontWeight: 700 }}>
                 ✓ 저장됨 ({todayRecord.total_score}/{todayRecord.max_score})
@@ -379,7 +379,7 @@ ${lines || '  (기록 없음)'}
         </div>
 
         {/* 오늘의 목표 */}
-        <div className="form-group">
+        <div className="form-group" data-help="t2-goal-pick">
           <label className="form-label" data-tour="t2-goals">🎯 오늘의 목표 행동 <span style={{ color: 'var(--muted)', fontSize: '.74rem', fontWeight: 500 }}>(1~3개 권장)</span></label>
           <EditableChipGroup storageKey="tier2_goals" defaults={COMMON_GOALS} onPick={(g) => addGoal(g)} />
           <div style={{ display: 'flex', gap: 8 }}>
@@ -395,7 +395,7 @@ ${lines || '  (기록 없음)'}
           {goals.length > 0 && (
             <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
               {goals.map((g, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f0f3ff', borderRadius: 6, border: '1px solid var(--pri-l)' }}>
+                <div key={i} data-help="t2-goal-row" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f0f3ff', borderRadius: 6, border: '1px solid var(--pri-l)' }}>
                   <span style={{ fontSize: '.74rem', fontWeight: 700, color: 'var(--pri)', background: '#fff', padding: '2px 8px', borderRadius: 99 }}>목표 {i + 1}</span>
                   <span style={{ flex: 1, fontSize: '.92rem' }}>{g}</span>
                   <button onClick={() => removeGoal(i)} style={{ width: 24, height: 24, borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: 0 }}>×</button>
@@ -422,7 +422,7 @@ ${lines || '  (기록 없음)'}
               const data = readPeriodData(scores, p);
               const filled = data.score != null;
               return (
-                <div key={i} style={{
+                <div key={i} data-help="t2-period-row" style={{
                   background: filled ? '#f6f8ff' : 'var(--surface2)',
                   border: '1px solid var(--border)', borderRadius: 8, padding: 10,
                 }}>
@@ -477,7 +477,7 @@ ${lines || '  (기록 없음)'}
 
           <button className="btn btn-ghost btn-sm" onClick={addPeriod} style={{ marginTop: 10 }}>+ 교시 추가</button>
 
-          <div style={{ marginTop: 12, padding: 14, background: 'var(--pri-soft)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div data-help="t2-total" style={{ marginTop: 12, padding: 14, background: 'var(--pri-soft)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <span style={{ fontSize: '.78rem', color: 'var(--muted)' }}>오늘 합계 </span>
               <strong style={{ fontSize: '1.4rem', color: 'var(--pri)' }}>{total}</strong>
@@ -488,13 +488,14 @@ ${lines || '  (기록 없음)'}
         </div>
 
         {/* 종합 코멘트 */}
-        <div className="form-group">
+        <div className="form-group" data-help="t2-comment-box">
           <label className="form-label" data-tour="t2-comment">💬 하교 종합 코멘트 <span style={{ color: 'var(--muted)', fontSize: '.74rem', fontWeight: 500 }}>(가정에 전달)</span></label>
           <textarea className="form-textarea" rows={2} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="예: 오늘 자리이탈 횟수가 줄었어요. 가정에서도 칭찬해 주세요." />
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
           <button
+            data-help="t2-save"
             className={'btn ' + (cicoDirty ? 'btn-pri' : 'btn-ghost')}
             onClick={onSave}
             disabled={busy || !cicoDirty}
@@ -518,7 +519,7 @@ ${lines || '  (기록 없음)'}
               const expanded = expandedHist === r.id;
               const periodsToShow = r.periods?.length ? r.periods : Object.keys(r.scores || {}).filter((k) => k !== '_periods');
               return (
-                <div key={r.id} style={{
+                <div key={r.id} data-help="t2-hist-row" style={{
                   border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)',
                   position: 'relative', overflow: 'hidden',
                 }}>
@@ -609,7 +610,7 @@ ${lines || '  (기록 없음)'}
       )}
 
       {/* 안내 */}
-      <details>
+      <details data-help="t2-guide">
         <summary style={{ cursor: 'pointer', padding: '10px 14px', background: 'var(--surface2)', borderRadius: 8, fontWeight: 700, fontSize: '.92rem' }}>
           📖 CICO / DPR 사용 가이드 (펼치기)
         </summary>

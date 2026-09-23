@@ -19,7 +19,7 @@ const EBP_TOTAL = EBP_GROUPS.reduce((s, g) => s + g.items.length, 0);
 export default function SupportPage() {
   return (
     <>
-      <div className="card">
+      <div className="card" data-help="sup-ebp">
         <div className="card-title">🔬 발달장애 학습자 증거기반실제(EBP) {EBP_TOTAL}가지 가이드</div>
         <div className="card-subtitle">개별화교육계획(IEP) 수립을 위한, 교육적 성과가 입증된 증거기반(Evidence-Based) 교육방법. 출처: 국립특수교육원·석이 선생님 특수교육 블로그</div>
         {EBP_GROUPS.map((grp) => (
@@ -36,7 +36,7 @@ export default function SupportPage() {
                 </tr></thead>
                 <tbody>
                   {grp.items.map((e) => (
-                    <tr key={e.n}>
+                    <tr key={e.n} data-help="sup-ebp-row">
                       <td style={{ padding: 9, borderBottom: '1px solid var(--border)', fontWeight: 600, whiteSpace: 'nowrap' }}>{e.n}</td>
                       <td style={{ padding: 9, borderBottom: '1px solid var(--border)' }}>{e.d}</td>
                       <td style={{ padding: 9, borderBottom: '1px solid var(--border)', fontSize: '.78rem', color: 'var(--sub)' }}>{e.area}</td>
@@ -51,7 +51,7 @@ export default function SupportPage() {
         ))}
       </div>
 
-      <div className="card">
+      <div className="card" data-help="sup-links">
         <div className="card-title">📚 교사 지원 자료</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 14 }}>
           <div className="card" style={{ background: '#e7f7ee', borderColor: '#c4ecd2' }}>
@@ -89,7 +89,7 @@ export default function SupportPage() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" data-help="sup-docs">
         <div className="card-title">📥 공식 가이드라인 · 매뉴얼</div>
         <div className="card-subtitle">교육부·국립특수교육원·시도교육청이 배포한 행동중재 공식 문서입니다. <strong>앱에 탑재</strong> 표시가 있는 자료는 파일을 바로 볼 수 있고, 모든 자료에 발행처 출처를 함께 표기했습니다. (2026-08 확인)</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
@@ -98,6 +98,7 @@ export default function SupportPage() {
           {OFFICIAL_DOCS.map((d) => (
             <div
               key={d.id}
+              data-help="sup-doc-row"
               style={{
                 display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 14px',
                 background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10,
@@ -128,11 +129,11 @@ export default function SupportPage() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" data-help="sup-videos">
         <div className="card-title">🎬 PBS 영상 강의 — 추천 주제</div>
         <ul style={{ listStyle: 'none', padding: 0, marginTop: 10 }}>
           {VIDEOS.map((v, i) => (
-            <li key={i} style={{ padding: '10px 0', borderBottom: i < VIDEOS.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <li key={i} data-help="sup-video-row" style={{ padding: '10px 0', borderBottom: i < VIDEOS.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: '.78rem', color: 'var(--muted)', marginBottom: 2 }}>{v.tag}</div>
                 <strong>{v.title}</strong>
@@ -154,7 +155,7 @@ export default function SupportPage() {
         </div>
       </div>
 
-      <div className="card" style={{ background: 'var(--warn-l)', borderColor: '#fde7b8' }}>
+      <div className="card" style={{ background: 'var(--warn-l)', borderColor: '#fde7b8' }} data-help="sup-caution">
         <div className="card-title" style={{ color: '#b45309' }}>⚠ 반드시 알아두세요</div>
         <ul style={{ listStyle: 'none', fontSize: '.88rem', color: '#92400e', padding: 0 }}>
           <li style={{ padding: '5px 0' }}>• AI는 보조 도구입니다. 모든 결과물은 교사가 검토·수정 후 사용하세요.</li>

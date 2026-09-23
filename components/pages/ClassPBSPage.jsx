@@ -247,7 +247,7 @@ ${question}
       </div>
 
       {/* Hero card with progress */}
-      <div className="card" style={{
+      <div className="card" data-help="cp-hero" style={{
         background: 'linear-gradient(135deg, #4f6bed 0%, #6979f0 100%)',
         color: '#fff',
         border: 'none',
@@ -315,6 +315,7 @@ ${question}
             ))}
             <div style={{ flex: 1 }} />
             <button
+              data-help="cp-reset"
               onClick={() => { if (window.confirm('누적 포인트를 0으로 되돌릴까요?\n(보상 항목과 목표는 그대로 남아요.)')) setCurrent(0); }}
               style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.4)', color: '#fff', padding: '8px 14px', borderRadius: 99, cursor: 'pointer', fontSize: '.82rem' }}
             >↺ 리셋</button>
@@ -345,7 +346,7 @@ ${question}
               {sv.expected.map((e, i) => {
                 const c = e.custom ? '#64748b' : RANK_COLORS[(e.rank - 1) % RANK_COLORS.length];
                 return (
-                  <span key={`${e.label}-${i}`} style={{
+                  <span key={`${e.label}-${i}`} data-help="cp-expected-chip" style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px',
                     borderRadius: 999, border: `1.5px solid ${c}`, color: c, fontWeight: 700, fontSize: '.88rem',
                   }}>
@@ -358,7 +359,7 @@ ${question}
               })}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-              <button className="btn btn-ok btn-sm" onClick={applyExpectedToGoal} title="상위 3개 기대행동을 학급 목표 문구로 넣습니다(문구는 이후 자유롭게 수정 가능)">
+              <button className="btn btn-ok btn-sm" data-help="cp-apply-goal" onClick={applyExpectedToGoal} title="상위 3개 기대행동을 학급 목표 문구로 넣습니다(문구는 이후 자유롭게 수정 가능)">
                 ⬆ 학급 목표 문구로 넣기
               </button>
             </div>
@@ -384,7 +385,7 @@ ${question}
                 </tr></thead>
                 <tbody>
                   {sv.matrix.map((row, ri) => (
-                    <tr key={ri}>
+                    <tr key={ri} data-help="cp-matrix-row">
                       <td style={{ border: '1px solid #e2e8f0', padding: '6px 8px', fontWeight: 600, verticalAlign: 'top' }}>
                         {row.behavior || <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(미기재)</span>}
                       </td>
@@ -447,6 +448,7 @@ ${question}
             return (
               <div
                 key={i}
+                data-help="cp-reward-row"
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '10px 14px',
@@ -511,10 +513,11 @@ ${question}
           })}
         </div>
 
-        <button className="btn btn-ghost btn-sm" onClick={addReward} style={{ marginTop: 12 }}>+ 보상 추가</button>
+        <button className="btn btn-ghost btn-sm" data-help="cp-reward-add" onClick={addReward} style={{ marginTop: 12 }}>+ 보상 추가</button>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
           <button
+            data-help="cp-save"
             className={'btn ' + (pbsDirty ? 'btn-pri' : 'btn-ghost')}
             onClick={onSave}
             disabled={busy || !pbsDirty}

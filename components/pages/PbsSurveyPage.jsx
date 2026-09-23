@@ -79,7 +79,7 @@ function RankChip({ label, rank, onClick, style }) {
   const on = !!rank;
   const c = on ? rankColor(rank) : null;
   return (
-    <button type="button" onClick={onClick} title="탭한 순서대로 순위가 매겨집니다. 다시 탭하면 해제됩니다."
+    <button type="button" data-help="ps-rank-chip" onClick={onClick} title="탭한 순서대로 순위가 매겨집니다. 다시 탭하면 해제됩니다."
       style={{
         padding: '6px 12px', borderRadius: 999, cursor: 'pointer', fontSize: '.85rem', textAlign: 'left',
         display: 'inline-flex', alignItems: 'center', gap: 6, userSelect: 'none',
@@ -225,7 +225,7 @@ export default function PbsSurveyPage() {
       </div>
 
       {/* Q1 */}
-      <div className="card">
+      <div className="card" data-help="ps-q1">
         <div style={qTitle}>1. 담당 학급 정보</div>
         <div className="form-row">
           <div className="form-group"><label className="form-label">학년</label>
@@ -247,7 +247,7 @@ export default function PbsSurveyPage() {
             <thead><tr><th style={thC}>문제행동</th><th style={thC}>정의</th><th style={{ ...thC, width: 120 }}>학생수</th><th style={{ ...thC, width: 70 }}>순위</th></tr></thead>
             <tbody>
               {PBS_BEHAVIORS.map((b) => (
-                <tr key={b.key}>
+                <tr key={b.key} data-help="ps-q2-row">
                   <td style={{ ...tdC, fontWeight: 600, whiteSpace: 'nowrap' }}>{b.label}</td>
                   <td style={{ ...tdC, color: '#64748b', fontSize: '.78rem' }}>{b.def}</td>
                   <td style={{ ...tdC, whiteSpace: 'nowrap' }}><Stepper value={r.q2[b.key].n} onChange={(v) => patch({ q2: { ...r.q2, [b.key]: { ...r.q2[b.key], n: v } } })} max={99} placeholder="명" /></td>
@@ -283,7 +283,7 @@ export default function PbsSurveyPage() {
       </div>
 
       {/* Q4 */}
-      <div className="card">
+      <div className="card" data-help="ps-q4">
         <div style={qTitle}>4. 사용 중재방법(사용여부 + 효과 1~5)</div>
         <p style={qHint}>실제 사용해 본 중재에 <strong>체크</strong>하고, 효과 정도를 <strong>1(효과 없음)~5(매우 효과적)</strong> 중 선택하세요. 중재 이름에 <strong>마우스를 올리면 설명</strong>이 표시됩니다.</p>
         <div style={{ overflowX: 'auto' }}>
@@ -291,7 +291,7 @@ export default function PbsSurveyPage() {
             <thead><tr><th style={thC}>중재 내용</th><th style={{ ...thC, width: 60 }}>사용</th><th style={{ ...thC, width: 180 }}>효과(1 없음 ~ 5 매우)</th></tr></thead>
             <tbody>
               {PBS_INTERVENTIONS.map((m, i) => (
-                <tr key={i}>
+                <tr key={i} data-help="ps-q4-row">
                   <td style={{ ...tdC, cursor: 'help' }}>
                     <InfoTip text={m.desc}>
                       <span style={{ borderBottom: '1px dotted #94a3b8' }}>{m.label}</span>
@@ -316,7 +316,7 @@ export default function PbsSurveyPage() {
       </div>
 
       {/* Q5 */}
-      <div className="card">
+      <div className="card" data-help="ps-q5-6">
         <div style={qTitle}>5. 긍정적 행동지원에 대해 들어보신 적이 있습니까?</div>
         {PBS_AWARENESS.map((t, i) => (
           <label key={i} style={{ display: 'block', marginBottom: 6, fontSize: '.88rem' }}>
@@ -326,7 +326,7 @@ export default function PbsSurveyPage() {
       </div>
 
       {/* Q6 */}
-      <div className="card">
+      <div className="card" data-help="ps-q5-6">
         <div style={qTitle}>6. 본교 PBS가 효과가 있을 것이라고 생각하십니까?</div>
         <div style={{ marginBottom: 8 }}>
           <label style={{ marginRight: 16 }}><input type="radio" name="q6" checked={r.q6.effective === 1} onChange={() => patch({ q6: { ...r.q6, effective: 1 } })} /> 효과가 있다</label>
@@ -349,11 +349,11 @@ export default function PbsSurveyPage() {
       </div>
 
       {/* Q7 */}
-      <div className="card">
+      <div className="card" data-help="ps-q7">
         <div style={qTitle}>7. 지도에서 특히 어려운 점 + 지원 요구</div>
         <p style={qHint}>해당하는 어려움에 <strong>체크</strong>하고, 그 어려움을 해결하는 데 필요한 지원을 오른쪽 칸에 적으세요.</p>
         {PBS_DIFFICULTIES.map((d, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <div key={i} data-help="ps-q7-row" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <input type="checkbox" checked={r.q7[i].has} onChange={(e) => patchArr('q7', i, { ...r.q7[i], has: e.target.checked })} />
             <span style={{ fontSize: '.85rem', width: 280, flexShrink: 0 }}>{i + 1}. {d}</span>
             <input className="form-input" style={{ flex: 1 }} placeholder="필요한 지원" value={r.q7[i].need} onChange={(e) => patchArr('q7', i, { ...r.q7[i], need: e.target.value })} />
@@ -362,7 +362,7 @@ export default function PbsSurveyPage() {
       </div>
 
       {/* Q8 */}
-      <div className="card">
+      <div className="card" data-help="ps-q8-9">
         <div style={qTitle}>8. 문제행동이 자주 발생하는 장소(순위 1~5)</div>
         <p style={qHint}><strong>자주 발생하는 장소부터 순서대로 탭</strong>하면 1~5위가 자동으로 매겨집니다. 다시 탭하면 해제됩니다. (최대 5곳)</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -373,7 +373,7 @@ export default function PbsSurveyPage() {
       </div>
 
       {/* Q9 */}
-      <div className="card">
+      <div className="card" data-help="ps-q8-9">
         <div style={qTitle}>9. 문제행동이 자주 발생하는 시간대(순위 1~5)</div>
         <p style={qHint}><strong>자주 발생하는 시간대부터 순서대로 탭</strong>하면 1~5위가 자동으로 매겨집니다. 다시 탭하면 해제됩니다. (최대 5개)</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -396,7 +396,7 @@ export default function PbsSurveyPage() {
       </div>
 
       {/* Q11 */}
-      <div className="card">
+      <div className="card" data-help="ps-q11">
         <div style={qTitle}>11. 생활규칙 적용이 필요한 장소(순위 1~3)</div>
         <p style={qHint}>생활규칙(기대행동)을 <strong>우선 적용할 장소부터 순서대로 탭</strong>하면 1~3위가 자동으로 매겨집니다. 다시 탭하면 해제됩니다. (최대 3곳)</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -411,7 +411,7 @@ export default function PbsSurveyPage() {
         <div style={qTitle}>12. 기대행동 × 장소 매트릭스(생활규칙)</div>
         <p style={{ fontSize: '.82rem', color: '#64748b', marginTop: -2, marginBottom: 10 }}>10번 1~3위를 기대행동에, 11번 1~3위를 장소에 적고 각 칸에 규칙을 작성하세요.</p>
         {r.q12.map((row, ri) => (
-          <div key={ri} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 10, marginBottom: 10 }}>
+          <div key={ri} data-help="ps-q12-row" style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 10, marginBottom: 10 }}>
             <input className="form-input" style={{ marginBottom: 8, fontWeight: 600 }} placeholder={`기대행동 ${ri + 1}`} value={row.behavior}
               onChange={(e) => setR((cur) => { const q12 = cur.q12.map((x) => ({ ...x })); q12[ri] = { ...q12[ri], behavior: e.target.value }; return { ...cur, q12 }; })} />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
@@ -431,7 +431,7 @@ export default function PbsSurveyPage() {
       {/* 저장 + AI */}
       <div className="card" data-tour="ps-save">
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <button className="btn btn-ok" onClick={onAISummary} disabled={aiBusy}>{aiBusy ? '⏳ 분석 중…' : '✨ AI 실행계획 요약'}</button>
+          <button className="btn btn-ok" data-help="ps-ai" onClick={onAISummary} disabled={aiBusy}>{aiBusy ? '⏳ 분석 중…' : '✨ AI 실행계획 요약'}</button>
           <button
             className={'btn ' + (surveyDirty ? 'btn-pri' : 'btn-ghost')}
             onClick={onSave}

@@ -62,7 +62,7 @@ export default function Tier3Dashboard({ onNavigate }) {
             {rows.map((r) => {
               const d = r.d;
               return (
-                <tr key={r.id}>
+                <tr key={r.id} data-help="t3-roster-row">
                   <td className="strong">
                     {tier3Ids.has(r.id) && <span title="Tier 3 지정 학생">🎯 </span>}{r.code}
                     <div className="dim" style={{ fontWeight: 400 }}>{[r.level, r.disability].filter(Boolean).join(' · ')}</div>
@@ -100,11 +100,11 @@ export default function Tier3Dashboard({ onNavigate }) {
   );
 
   const recentList = (data?.recentAbc || []).length === 0 ? (
-    <div className="dz-review-empty">아직 ABC 관찰 기록이 없어요.</div>
+    <div className="dz-review-empty" data-help="t3-recent">아직 ABC 관찰 기록이 없어요.</div>
   ) : (
-    <ul className="recent-list">
+    <ul className="recent-list" data-help="t3-recent">
       {data.recentAbc.map((r, i) => (
-        <li key={i} className="recent-item">
+        <li key={i} className="recent-item" data-help="t3-recent-row">
           <span className="recent-dot" style={{ background: C }} />
           <div className="recent-body">
             <div className="t">{r.code} · ABC 기록</div>
@@ -118,11 +118,11 @@ export default function Tier3Dashboard({ onNavigate }) {
 
   // 🧯 심리안정실 — 최근 30일 이용 현황 (위기 조기 신호)
   const szList = szRows.length === 0 ? (
-    <div className="dz-review-empty">최근 30일 심리안정실 이용 기록이 없어요 👍</div>
+    <div className="dz-review-empty" data-help="t3-sz">최근 30일 심리안정실 이용 기록이 없어요 👍</div>
   ) : (
-    <ul className="recent-list">
+    <ul className="recent-list" data-help="t3-sz">
       {szRows.map((r) => (
-        <li key={r.id} className="recent-item click" onClick={() => go(r.id, 'crisis')} role="button">
+        <li key={r.id} className="recent-item click" onClick={() => go(r.id, 'crisis')} role="button" data-help="t3-sz-row">
           <span className="recent-dot" style={{ background: (r.d.sz30 || 0) >= 3 ? '#d94b3f' : '#e8a23d' }} />
           <div className="recent-body">
             <div className="t">{r.code} · 최근 30일 {r.d.sz30}회</div>
@@ -135,19 +135,19 @@ export default function Tier3Dashboard({ onNavigate }) {
   );
 
   const widgets = [
-    { id: 'kpi-students', title: '학급 학생', x: 0, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-students', help: 't3-kpi-students', title: '학급 학생', x: 0, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="🧑‍🎓" value={`${rows.length}명`} label="학급 학생" hint={tier3Ids.size ? `이 중 Tier 3 지정 ${tier3Ids.size}명 🎯` : 'Tier 3 지정은 매일 점검표(Tier 2)에서'} /> ) },
-    { id: 'kpi-abc', title: 'ABC 누적', x: 3, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-abc', help: 't3-kpi-abc', title: 'ABC 누적', x: 3, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="🔍" value={totalAbc} label="ABC 관찰 누적" hint="다음: 관찰 → 이유 찾기(QABF)" onClick={() => onNavigate('observe')} /> ) },
-    { id: 'kpi-mon', title: '행동 데이터', x: 6, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-mon', help: 't3-kpi-mon', title: '행동 데이터', x: 6, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="📈" value={totalMon} label="행동 데이터 누적" hint="중재 효과의 근거가 돼요" onClick={() => onNavigate('monitor')} /> ) },
-    { id: 'kpi-fid', title: '충실도', x: 9, y: 0, w: 3, h: 2, body: (
+    { id: 'kpi-fid', help: 't3-kpi-fid', title: '충실도', x: 9, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="✅" value={fidAvg != null ? `${fidAvg}%` : '-'} label="최근 2주 BIP 실행 충실도" hint={fidList.length ? `기록 있는 학생 ${fidList.length}명 평균` : '행동 데이터 페이지에서 체크해요'} onClick={() => onNavigate('monitor')} /> ) },
     // 기본 배치(0914 P0): KPI → 🔦 다음 할 일 + 심리안정실 → 학생별 진행 명부 → 최근 기록. 저장된 배치가 있는 사용자는 그대로.
     { id: 'reviews', title: `🔦 다음 할 일${reviews.length ? ` (${reviews.length})` : ''}`, x: 0, y: 2, w: 6, h: 6, minW: 3, minH: 3, body: <div data-tour="t3-reviews"><ReviewList items={reviews} /></div> },
-    { id: 'sz', title: `🧯 심리안정실 · 최근 30일${szTotal30 ? ` (${szTotal30}회)` : ''}`, x: 6, y: 2, w: 6, h: 6, minW: 3, minH: 3, body: szList },
+    { id: 'sz', help: 't3-sz', title: `🧯 심리안정실 · 최근 30일${szTotal30 ? ` (${szTotal30}회)` : ''}`, x: 6, y: 2, w: 6, h: 6, minW: 3, minH: 3, body: szList },
     { id: 'roster', title: '🗂 학생별 진행 명부', x: 0, y: 8, w: 12, h: 7, minW: 6, minH: 4, body: roster },
-    { id: 'recent', title: '🕒 최근 관찰 기록', x: 0, y: 15, w: 12, h: 5, minW: 3, minH: 3, body: recentList },
+    { id: 'recent', help: 't3-recent', title: '🕒 최근 관찰 기록', x: 0, y: 15, w: 12, h: 5, minW: 3, minH: 3, body: recentList },
   ];
 
   return <DashGrid dashKey="dash3" color={C} widgets={widgets} />;

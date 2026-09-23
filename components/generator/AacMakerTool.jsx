@@ -159,7 +159,7 @@ export default function AacMakerTool({ onBack }) {
       </div>
 
       {/* 옵션 */}
-      <div className="card">
+      <div className="card" data-help="gen-aac-options">
         <div className="card-title">1. 카드 옵션</div>
         <div className="form-row">
           <div className="form-group">
@@ -205,7 +205,7 @@ export default function AacMakerTool({ onBack }) {
       </div>
 
       {/* 이미지 + 단어 */}
-      <div className="card">
+      <div className="card" data-help="gen-aac-images">
         <div className="card-title">2. 이미지 선택 및 단어 입력</div>
         <input ref={fileRef} type="file" accept="image/*" multiple onChange={onFiles} className="form-input" />
         {loading && <p style={{ fontSize: '.85rem', color: '#64748b', margin: '8px 0 0' }}>이미지 읽는 중…</p>}
@@ -215,7 +215,7 @@ export default function AacMakerTool({ onBack }) {
           </p>
         )}
         {items.map((it, i) => (
-          <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', marginTop: 8, background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 10 }}>
+          <div key={it.id} data-help="gen-aac-row" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', marginTop: 8, background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 10 }}>
             <img src={it.src} alt="" style={{ width: 44, height: 44, objectFit: 'contain', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i + 1}. {it.name}</div>
@@ -238,7 +238,7 @@ export default function AacMakerTool({ onBack }) {
 
       {/* 미리보기 */}
       {items.length > 0 && (
-        <div className="card">
+        <div className="card" data-help="gen-aac-preview">
           <div className="card-title">미리보기 <span style={{ fontWeight: 400, fontSize: 12, color: '#94a3b8' }}>· 실제 인쇄 크기 근사</span></div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6mm', padding: 8, background: '#f1f5f9', borderRadius: 10, overflowX: 'auto' }}>
             {items.slice(0, 12).map((it) => <PreviewCard key={it.id} it={it} />)}
@@ -248,7 +248,7 @@ export default function AacMakerTool({ onBack }) {
       )}
 
       <div className="card" style={{ display: 'flex', gap: 8 }}>
-        <button className="btn btn-pri" style={{ flex: 2 }} onClick={onPrint} disabled={items.length === 0}>
+        <button className="btn btn-pri" style={{ flex: 2 }} onClick={onPrint} disabled={items.length === 0} data-help="gen-aac-print">
           🖨 인쇄 / PDF로 저장
         </button>
         <button className="btn btn-ghost" style={{ flex: 1 }} onClick={resetAll} disabled={items.length === 0}>초기화</button>

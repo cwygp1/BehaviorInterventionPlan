@@ -48,7 +48,7 @@ export default function StudentsPage() {
 
   return (
     <div>
-      <div className="card">
+      <div className="card" data-help="stm-card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div className="card-title" style={{ marginBottom: 2 }}>🧑‍🎓 학생 관리</div>
@@ -58,8 +58,8 @@ export default function StudentsPage() {
               {' '}· 다른 학급의 학생은 상단에서 학년도/학급을 바꾸면 볼 수 있어요.
             </div>
           </div>
-          <button className="btn btn-ghost" onClick={openManageClasses}>⚙ 학급 관리</button>
-          <button className="btn btn-pri" onClick={openAddStudent}>➕ 학생 추가</button>
+          <button className="btn btn-ghost" onClick={openManageClasses} data-help="stm-classes">⚙ 학급 관리</button>
+          <button className="btn btn-pri" onClick={openAddStudent} data-help="stm-add">➕ 학생 추가</button>
         </div>
 
         <div style={{ border: '1px solid var(--border)', borderRadius: 10, marginTop: 14, overflow: 'hidden' }}>
@@ -73,6 +73,7 @@ export default function StudentsPage() {
               return (
                 <div
                   key={s.id}
+                  data-help="stm-row"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
                     borderBottom: '1px solid var(--border)',
@@ -106,6 +107,7 @@ export default function StudentsPage() {
                     style={{ color: '#c0392b' }}
                     disabled={busyId != null}
                     onClick={() => onDelete(s)}
+                    data-help="stm-delete"
                   >
                     {busyId === s.id ? '삭제 중…' : '🗑 삭제'}
                   </button>

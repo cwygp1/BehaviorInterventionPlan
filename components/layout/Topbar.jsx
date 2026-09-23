@@ -41,7 +41,7 @@ export default function Topbar({ activePage, sectionKey, onNavigate, canGoBack, 
         {canGoBack && (
           <button className="tb-back" onClick={onBack} title="이전 화면으로 (브라우저 뒤로가기와 동일)" aria-label="이전 화면으로 돌아가기">←</button>
         )}
-        <h1 title={pageTitle(activePage)}>{pageTitle(activePage)}</h1>
+        <h1 title={pageTitle(activePage)} data-help="page-title">{pageTitle(activePage)}</h1>
         {chips.length > 0 && (
           <div className="tb-chips" role="tablist" aria-label="지원 영역 전환" data-tour="tb-chips">
             {/* 워크스페이스 어디서든 한 번에 홈(영역 선택)으로. */}

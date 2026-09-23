@@ -187,7 +187,7 @@ export default function GeneratorPage() {
           {GEN_TOOLS.map((t) => {
             const fast = t.tier === 'fast';
             return (
-            <button key={t.id} className="card" onClick={() => openTool(t)}
+            <button key={t.id} className="card" onClick={() => openTool(t)} data-help="gen-tool"
               style={{ textAlign: 'left', cursor: 'pointer', border: '1px solid #e5e7eb', transition: 'box-shadow .15s', display: 'block' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                 <div style={{ fontSize: '1.6rem', lineHeight: 1 }}>{t.icon}</div>
@@ -209,7 +209,7 @@ export default function GeneratorPage() {
             );
           })}
           {UTIL_TOOLS.map((t) => (
-            <button key={t.id} className="card" onClick={() => setToolId(t.id)}
+            <button key={t.id} className="card" onClick={() => setToolId(t.id)} data-help="gen-util"
               style={{ textAlign: 'left', cursor: 'pointer', border: '1px solid #e5e7eb', transition: 'box-shadow .15s', display: 'block' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                 <div style={{ fontSize: '1.6rem', lineHeight: 1 }}>{t.icon}</div>
@@ -230,11 +230,11 @@ export default function GeneratorPage() {
         </div>
 
         {history.length > 0 && (
-          <div className="card" style={{ marginTop: 12 }}>
+          <div className="card" style={{ marginTop: 12 }} data-help="gen-history">
             <div className="card-title">최근 생성</div>
             <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
               {history.slice(0, 8).map((h, i) => (
-                <li key={i} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid #f1f5f9', fontSize: '.83rem' }}>
+                <li key={i} data-help="gen-history-row" style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid #f1f5f9', fontSize: '.83rem' }}>
                   <span style={{ color: '#6366f1', flexShrink: 0 }}>{h.title}</span>
                   <span style={{ color: '#94a3b8', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.preview}</span>
                 </li>
@@ -261,7 +261,7 @@ export default function GeneratorPage() {
 
       {/* 학생 컨텍스트 */}
       {tool.requiresStudent && (
-        <div className="card" style={{ background: '#f8fafc' }}>
+        <div className="card" style={{ background: '#f8fafc' }} data-help="gen-student">
           {needStudentBlock ? (
             <div>
               <div className="card-title" style={{ marginBottom: 6 }}>학생 선택 필요</div>
@@ -290,10 +290,10 @@ export default function GeneratorPage() {
       )}
 
       {/* 입력 폼 */}
-      <div className="card">
+      <div className="card" data-help="gen-form">
         <div className="card-title">입력</div>
         {tool.samples && tool.samples.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 }} data-help="gen-samples">
             <span style={{ fontSize: '.78rem', color: '#94a3b8', flexShrink: 0 }}>예시 채우기:</span>
             {tool.samples.map((s, i) => (
               <button type="button" key={i} className="chip" style={{ cursor: 'pointer' }}
@@ -340,10 +340,10 @@ export default function GeneratorPage() {
         ))}
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowPrompt((s) => !s)}>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowPrompt((s) => !s)} data-help="gen-preview">
             {showPrompt ? '프롬프트 숨기기' : '🔍 프롬프트 미리보기'}
           </button>
-          <button className="btn btn-pri" onClick={onGenerate} disabled={busy || needStudentBlock}>
+          <button className="btn btn-pri" onClick={onGenerate} disabled={busy || needStudentBlock} data-help="gen-run">
             {busy ? '⏳ 생성 중…' : '✨ 생성하기'}
           </button>
         </div>
@@ -358,15 +358,15 @@ export default function GeneratorPage() {
 
       {/* 결과 */}
       {result && (
-        <div className="card">
+        <div className="card" data-help="gen-result">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>결과{result.list ? ` (${result.list.length})` : ''} <span style={{ fontWeight: 400, fontSize: 12, color: '#94a3b8' }}>· 직접 수정 가능</span></div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {!result.list && (
                 <button className="btn btn-ghost btn-sm" onClick={() => setResEdit((e) => !e)}>{resEdit ? '👁 미리보기' : '✎ 편집'}</button>
               )}
-              <button className="btn btn-ghost btn-sm" onClick={() => copy(result.list ? result.list.join('\n') : result.text, '전체 복사했어요.')}>📋 전체 복사</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => copy(cleanText(result.list ? result.list.join('\n') : result.text), 'HWP 안전 텍스트로 복사했어요.')} title="보이지 않는 유니코드·스마트 문장부호를 정리해 복사">🧹 정리 복사</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => copy(result.list ? result.list.join('\n') : result.text, '전체 복사했어요.')} data-help="gen-copy">📋 전체 복사</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => copy(cleanText(result.list ? result.list.join('\n') : result.text), 'HWP 안전 텍스트로 복사했어요.')} title="보이지 않는 유니코드·스마트 문장부호를 정리해 복사" data-help="gen-clean-copy">🧹 정리 복사</button>
             </div>
           </div>
 
@@ -374,7 +374,7 @@ export default function GeneratorPage() {
             <>
               <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0 0' }}>
                 {result.list.map((l, i) => (
-                  <li key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f1f5f9' }}>
+                  <li key={i} data-help="gen-result-row" style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f1f5f9' }}>
                     <input className="form-input" value={l} onChange={(e) => setResultLine(i, e.target.value)} style={{ flex: 1, fontSize: '.9rem' }} />
                     <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0 }} onClick={() => copy(l)}>복사</button>
                     <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0 }} onClick={() => removeResultLine(i)} title="삭제" aria-label="줄 삭제">✕</button>
@@ -390,7 +390,7 @@ export default function GeneratorPage() {
           )}
 
           {/* 다듬기 */}
-          <div style={{ marginTop: 12, borderTop: '1px dashed #e5e7eb', paddingTop: 10 }}>
+          <div style={{ marginTop: 12, borderTop: '1px dashed #e5e7eb', paddingTop: 10 }} data-help="gen-refine">
             <div style={{ fontSize: '.78rem', color: '#94a3b8', marginBottom: 6 }}>다듬기 (다시 생성)</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {REFINE_CHIPS.map((c) => (

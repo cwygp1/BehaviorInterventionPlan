@@ -112,7 +112,7 @@ export default function ContractPage() {
     <>
       <StuHero />
 
-      <div className="card" style={{ background: '#fff8e8', borderColor: '#f2dfad', fontSize: '.84rem', lineHeight: 1.6 }}>
+      <div className="card" data-help="ct-intro" style={{ background: '#fff8e8', borderColor: '#f2dfad', fontSize: '.84rem', lineHeight: 1.6 }}>
         ✍ <strong>행동 계약</strong>은 CICO·집단강화와 함께 Tier 2 수준의 대표 중재예요. 학생과 함께
         <strong> 과제(목표 행동)와 보상</strong>을 <strong>누가·무엇을·언제·얼마나</strong>로 구체적으로 약속하고
         서명한 뒤, 계약서에 붙은 <strong>과제 기록표</strong>(또는 CICO/DPR)로 매일 점검하면 됩니다.
@@ -124,11 +124,11 @@ export default function ContractPage() {
             <div className="card-title" style={{ marginBottom: 0 }}>✍ 행동 계약서 작성</div>
             <div className="card-subtitle">서명란·과제 기록표가 있는 계약서로 인쇄하거나 Word 문서로 내려받아요. 빈칸으로 출력하면 손글씨 양식이 됩니다.</div>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={fillFromBip} title="중재계획(BIP)의 대체 행동·성공 기준으로 채우기">📋 중재계획(BIP)에서 가져오기</button>
+          <button className="btn btn-ghost btn-sm" data-help="ct-from-bip" onClick={fillFromBip} title="중재계획(BIP)의 대체 행동·성공 기준으로 채우기">📋 중재계획(BIP)에서 가져오기</button>
         </div>
 
         {/* 과제 (Task) */}
-        <div style={panelStyle('#2a3568', '#f6f8ff')}>
+        <div data-help="ct-task" style={panelStyle('#2a3568', '#f6f8ff')}>
           <div style={{ fontWeight: 800, fontSize: '.88rem', color: '#2a3568', marginBottom: 6 }}>
             과제 (Task) <span style={{ fontWeight: 600, fontSize: '.74rem', color: 'var(--muted)' }}>— 학생이 지킬 약속</span>
           </div>
@@ -141,7 +141,7 @@ export default function ContractPage() {
         </div>
 
         {/* 보상 (Reward) */}
-        <div style={panelStyle('#b3924a', '#fffaf0')}>
+        <div data-help="ct-reward" style={panelStyle('#b3924a', '#fffaf0')}>
           <div style={{ fontWeight: 800, fontSize: '.88rem', color: '#8a6d2f', marginBottom: 6 }}>
             보상 (Reward) <span style={{ fontWeight: 600, fontSize: '.74rem', color: 'var(--muted)' }}>— 선생님이 지킬 약속</span>
           </div>
@@ -158,11 +158,11 @@ export default function ContractPage() {
         </div>
 
         {/* 기간 · 기록표 옵션 */}
-        <div className="form-row" style={{ marginTop: 10 }}>
+        <div className="form-row" data-help="ct-period" style={{ marginTop: 10 }}>
           <div className="form-group"><label className="form-label">계약 시작일</label><input type="date" className="form-input" value={conStart} onChange={(e) => setConStart(e.target.value)} /></div>
           <div className="form-group"><label className="form-label">계약 종료일</label><input type="date" className="form-input" value={conEnd} onChange={(e) => setConEnd(e.target.value)} /></div>
         </div>
-        <div className="form-group" style={{ marginTop: 4 }}>
+        <div className="form-group" data-help="ct-record" style={{ marginTop: 4 }}>
           <label className="form-label">과제 기록표 (계약서 아래에 함께 인쇄)</label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {RECORD_OPTIONS.map((o) => (
@@ -182,8 +182,8 @@ export default function ContractPage() {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-          <button className="btn btn-ghost" onClick={onDocx}>⬇ Word(.docx) 다운로드</button>
-          <button className="btn btn-ok" onClick={onPrint}>🖨 계약서 인쇄 / PDF 저장</button>
+          <button className="btn btn-ghost" data-help="ct-docx" onClick={onDocx}>⬇ Word(.docx) 다운로드</button>
+          <button className="btn btn-ok" data-help="ct-print" onClick={onPrint}>🖨 계약서 인쇄 / PDF 저장</button>
         </div>
       </div>
 

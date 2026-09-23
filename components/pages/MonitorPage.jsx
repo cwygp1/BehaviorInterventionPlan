@@ -87,7 +87,7 @@ export default function MonitorPage({ onNavigate }) {
 
   if (!curStu) return <><StuHero /><NoStudentHint /></>;
   const tabBar = (
-    <div className="tabs" role="tablist" aria-label="행동 데이터 종류">
+    <div className="tabs" role="tablist" aria-label="행동 데이터 종류" data-help="mon-tabs">
       <button type="button" role="tab" className={'tab' + (tab === 'behavior' ? ' on' : '')} aria-selected={tab === 'behavior'} onClick={() => pickTab('behavior')}>🔴 문제행동 데이터</button>
       <button type="button" role="tab" className={'tab' + (tab === 'sessions' ? ' on' : '')} aria-selected={tab === 'sessions'} onClick={() => pickTab('sessions')}>🧩 교수 회기 기록</button>
     </div>
@@ -299,7 +299,7 @@ ${bText}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '.8rem' }}>
             {(curStuData?.periods || []).length === 0 && <span style={{ color: 'var(--muted)' }}>아직 기록된 관찰 기간이 없어요. 기초선(A)부터 시작해 보세요.</span>}
             {(curStuData?.periods || []).map((p, i) => (
-              <div key={p.id || `${p.start_date}-${i}`}>
+              <div key={p.id || `${p.start_date}-${i}`} data-help="mon-period-row">
                 <strong>{p.tier === 'baseline' ? '기초선' : p.tier}</strong> · {p.start_date} ~ {p.end_date || '진행 중'}
               </div>
             ))}
@@ -309,12 +309,12 @@ ${bText}
       </div>
       <ObservationPeriodModal open={periodModalOpen} onClose={() => setPeriodModalOpen(false)} />
 
-      <div className="card" id="mon-form" onKeyDown={onFormKeyDown}>
+      <div className="card" id="mon-form" data-help="mon-form" onKeyDown={onFormKeyDown}>
         <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           📝 일일 행동 데이터 기록
           {editingId && <span className="badge badge-purple">수정 중 · {date}</span>}
           {!editingId && monRecords.length > 0 && (
-            <button className="btn btn-ghost btn-sm" onClick={prefillFromLatest} title="최근 기록의 값으로 채우고 날짜만 오늘로 — 수치만 고쳐 저장하세요">
+            <button className="btn btn-ghost btn-sm" data-help="mon-prefill" onClick={prefillFromLatest} title="최근 기록의 값으로 채우고 날짜만 오늘로 — 수치만 고쳐 저장하세요">
               ↻ 최근 기록과 같게
             </button>
           )}
@@ -338,7 +338,7 @@ ${bText}
             <div className="mon-field"><label>강도 (1~5)</label><input type="number" min="1" max="5" value={intensity} onChange={(e) => setIntensity(e.target.value)} /></div>
           </div>
         </div>
-        <div style={{ border: '1px solid #b7e2c8', background: '#f0fbf4', borderRadius: 10, padding: '10px 12px', marginTop: 8 }}>
+        <div data-help="mon-alt" style={{ border: '1px solid #b7e2c8', background: '#f0fbf4', borderRadius: 10, padding: '10px 12px', marginTop: 8 }}>
           <div style={{ fontWeight: 700, color: '#0a7d4e', fontSize: '.88rem', marginBottom: 6 }}>🟢 대체행동 기록 (BIP에서 가르치는 바람직한 행동)</div>
           <div className="mon-grid">
             <div className="mon-field"><label>대체행동 수행</label><select value={alt} onChange={(e) => setAlt(e.target.value)}><option value="Y">예</option><option value="N">아니오</option></select></div>
@@ -347,7 +347,7 @@ ${bText}
           </div>
           <div style={{ fontSize: '.74rem', color: '#0a7d4e', opacity: 0.8, marginTop: 4 }}>지연시간 = 신호(선행사건) 후 대체행동을 하기까지 걸린 시간.</div>
         </div>
-        <div style={{ border: '1px solid var(--border)', background: 'var(--surface2)', borderRadius: 10, padding: '10px 12px', marginTop: 8 }}>
+        <div data-help="mon-dbr" style={{ border: '1px solid var(--border)', background: 'var(--surface2)', borderRadius: 10, padding: '10px 12px', marginTop: 8 }}>
           <div style={{ fontWeight: 700, fontSize: '.88rem', marginBottom: 6 }}>📏 하루 종합 평정</div>
           <div className="mon-grid">
             <div className="mon-field">
@@ -362,7 +362,7 @@ ${bText}
         {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
           {editingId && <button className="btn btn-ghost" onClick={cancelEdit}>취소 (새 기록으로)</button>}
-          <button className="btn btn-pri" onClick={onSaveMon} disabled={busy}>{editingId ? '💾 수정 저장' : '💾 데이터 저장'}</button>
+          <button className="btn btn-pri" data-help="mon-save" onClick={onSaveMon} disabled={busy}>{editingId ? '💾 수정 저장' : '💾 데이터 저장'}</button>
           <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
           <button className={'btn ' + (savedOk ? 'btn-pri' : 'btn-ghost')} onClick={() => onNavigate?.('eval')}>✅ 결과 평가 →</button>
         </div>
@@ -423,7 +423,7 @@ ${bText}
         ) : (
           <ul className="data-list">
             {monRecords.slice().reverse().map((r) => (
-              <li key={r.id} className="data-item" onClick={() => loadRecord(r)} title="누르면 이 기록을 불러와 수정"
+              <li key={r.id} className="data-item" data-help="mon-row" onClick={() => loadRecord(r)} title="누르면 이 기록을 불러와 수정"
                 style={{ cursor: 'pointer', outline: editingId === r.id ? '2px solid var(--pri)' : 'none' }}>
                 <button className="data-item-del" onClick={(e) => { e.stopPropagation(); onDeleteMon(r.id); }} title="삭제" aria-label="삭제">×</button>
                 <div className="data-item-head">

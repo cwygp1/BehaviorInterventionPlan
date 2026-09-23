@@ -153,7 +153,7 @@ export default function QABoardPage() {
   // ─────────────────────────── 작성/수정 화면 ───────────────────────────
   if (view.mode === 'write') {
     return (
-      <div className="card">
+      <div className="card" data-help="qa-form">
         <div className="card-title">{view.edit ? '✏️ 질문 수정' : '✍️ 새 질문'}</div>
         <div className="card-subtitle">관리자가 확인 후 답변을 남깁니다. 답변이 달리기 전까지 수정할 수 있어요.</div>
 
@@ -191,7 +191,7 @@ export default function QABoardPage() {
             placeholder="상황, 이미 시도해 본 것, 궁금한 점을 적어주세요."
           />
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '.82rem', marginBottom: 16, cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '.82rem', marginBottom: 16, cursor: 'pointer' }} data-help="qa-private">
           <input
             type="checkbox" checked={form.is_private}
             onChange={(e) => setForm((f) => ({ ...f, is_private: e.target.checked }))}
@@ -200,7 +200,7 @@ export default function QABoardPage() {
         </label>
 
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-pri" disabled={formBusy} onClick={submitForm}>
+          <button className="btn btn-pri" disabled={formBusy} onClick={submitForm} data-help="qa-submit">
             {formBusy ? '저장 중…' : view.edit ? '수정 저장' : '질문 등록'}
           </button>
           <button
@@ -221,7 +221,7 @@ export default function QABoardPage() {
     const isOwner = q && me && q.user_id === me.id;
     return (
       <>
-        <div className="card">
+        <div className="card" data-help="qa-detail">
           <button className="btn btn-sm btn-ghost" onClick={() => setView({ mode: 'list' })}>← 목록으로</button>
 
           {detailLoading && <div style={{ padding: 20, color: 'var(--muted)' }}>불러오는 중…</div>}
@@ -244,10 +244,10 @@ export default function QABoardPage() {
               )}
               <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                 {isOwner && q.status === 'open' && (
-                  <button className="btn btn-sm btn-ghost" onClick={() => startWrite(q)}>✏️ 수정</button>
+                  <button className="btn btn-sm btn-ghost" onClick={() => startWrite(q)} data-help="qa-edit">✏️ 수정</button>
                 )}
                 {(isOwner || isAdmin) && (
-                  <button className="btn btn-sm btn-err" onClick={() => removeQuestion(q)}>삭제</button>
+                  <button className="btn btn-sm btn-err" onClick={() => removeQuestion(q)} data-help="qa-delete">삭제</button>
                 )}
               </div>
             </>
@@ -255,7 +255,7 @@ export default function QABoardPage() {
         </div>
 
         {q && (
-          <div className="card">
+          <div className="card" data-help="qa-answers">
             <div className="card-title">💬 답변 {answers.length > 0 ? answers.length : ''}</div>
             {answers.length === 0 && (
               <div style={{ ...metaStyle, padding: '6px 0 2px' }}>
@@ -263,7 +263,7 @@ export default function QABoardPage() {
               </div>
             )}
             {answers.map((a) => (
-              <div key={a.id} style={{ borderTop: '1px solid var(--border)', padding: '12px 0' }}>
+              <div key={a.id} style={{ borderTop: '1px solid var(--border)', padding: '12px 0' }} data-help="qa-answer-row">
                 <div style={{ fontSize: '.8rem', fontWeight: 700 }}>
                   🛡️ {a.author_name || '관리자'} <span style={{ ...metaStyle, fontWeight: 400 }}>· {fmtDate(a.created_at)}</span>
                 </div>
@@ -283,7 +283,7 @@ export default function QABoardPage() {
                     placeholder="선생님이 현장에서 바로 적용할 수 있게 구체적으로 답변해주세요."
                   />
                 </div>
-                <button className="btn btn-pri" disabled={answerBusy} onClick={submitAnswer}>
+                <button className="btn btn-pri" disabled={answerBusy} onClick={submitAnswer} data-help="qa-answer-submit">
                   {answerBusy ? '등록 중…' : '답변 등록'}
                 </button>
               </div>
@@ -297,7 +297,7 @@ export default function QABoardPage() {
   // ─────────────────────────── 목록 화면 ───────────────────────────
   const openCount = items.filter((i) => i.status === 'open').length;
   return (
-    <div className="card">
+    <div className="card" data-help="qa-board">
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div>
           <div className="card-title">❓ 질문 게시판</div>
@@ -306,10 +306,10 @@ export default function QABoardPage() {
             {isAdmin && openCount > 0 && <b style={{ color: 'var(--warn)' }}> · 답변대기 {openCount}건</b>}
           </div>
         </div>
-        <button className="btn btn-pri" onClick={() => startWrite(null)}>✍️ 질문하기</button>
+        <button className="btn btn-pri" onClick={() => startWrite(null)} data-help="qa-ask">✍️ 질문하기</button>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '14px 0 10px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '14px 0 10px', flexWrap: 'wrap' }} data-help="qa-filter">
         {[['', '전체'], ['open', '🕓 답변대기'], ['answered', '✅ 답변완료']].map(([v, label]) => (
           <button
             key={v || 'all'}
@@ -338,6 +338,7 @@ export default function QABoardPage() {
       {!listLoading && items.map((q) => (
         <button
           key={q.id}
+          data-help="qa-row"
           onClick={() => openDetail(q.id)}
           style={{
             display: 'block', width: '100%', textAlign: 'left', background: 'transparent', border: 'none',

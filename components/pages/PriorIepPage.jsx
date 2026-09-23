@@ -163,7 +163,7 @@ export default function PriorIepPage({ onNavigate }) {
         {impMsg && <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#6b7280', fontSize: 12.5 }}><span style={spinner} /> {impMsg}</div>}
         {impImages.length > 0 && <div style={{ fontSize: 12.5, color: '#15a36e', fontWeight: 600 }}>🖼 이미지 {impImages.length}장 첨부됨 <button className="btn btn-ghost btn-sm" onClick={() => setImpImages([])}>비우기</button></div>}
         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <button className="btn btn-pri" onClick={parseImport} disabled={impBusy || !!impMsg || !aiOn}>{impBusy ? 'AI가 읽는 중…' : `✨ ${year}학년도로 읽어 추가`}</button>
+          <button className="btn btn-pri" data-help="pi-parse" onClick={parseImport} disabled={impBusy || !!impMsg || !aiOn}>{impBusy ? 'AI가 읽는 중…' : `✨ ${year}학년도로 읽어 추가`}</button>
           {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
           <button className="btn btn-ghost" onClick={() => { if (!impText.trim()) { toast('외부AI 파싱은 텍스트만 지원해요. 문서 내용을 붙여넣어 주세요.'); return; } setExtOpen(true); }}
             title="프롬프트를 복사해 클로드·ChatGPT 등에서 실행 후 응답(JSON 배열)을 붙여넣기">🌐 외부AI 파싱</button> */}
@@ -206,7 +206,7 @@ export default function PriorIepPage({ onNavigate }) {
         {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
           {editingId && <button className="btn btn-ghost" onClick={resetForm}>새 입력</button>}
-          <button className="btn btn-pri" onClick={saveForm} disabled={busy}>{busy ? '저장 중…' : editingId ? '수정 저장' : `${year}학년도 ${semester}학기로 추가`}</button>
+          <button className="btn btn-pri" data-help="pi-save" onClick={saveForm} disabled={busy}>{busy ? '저장 중…' : editingId ? '수정 저장' : `${year}학년도 ${semester}학기로 추가`}</button>
           <span aria-hidden="true" style={{ color: 'var(--muted, #9aa3b2)' }}>→</span>
           <button className={'btn ' + (savedOk ? 'btn-pri' : 'btn-ghost')} onClick={() => onNavigate?.('startpoint')}>🧭 출발점 분석 →</button>
         </div>
@@ -223,7 +223,7 @@ export default function PriorIepPage({ onNavigate }) {
         {loading && <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 2px', color: '#6b7280' }}><span style={spinner} /> 불러오는 중…</div>}
         {!loading && yearGoals.length === 0 && <div className="empty-state">{year}학년도에 저장된 IEP가 없습니다. 위에서 업로드해 읽어 오거나 직접 입력하세요.</div>}
         {!loading && yearGoals.map((g) => (
-          <div key={g.id} style={{ border: '1px solid ' + (editingId === g.id ? '#7c4dff' : '#e3e6eb'), background: editingId === g.id ? '#f5f0ff' : '#fff', borderRadius: 9, padding: '10px 12px', marginTop: 8 }}>
+          <div key={g.id} data-help="pi-row" style={{ border: '1px solid ' + (editingId === g.id ? '#7c4dff' : '#e3e6eb'), background: editingId === g.id ? '#f5f0ff' : '#fff', borderRadius: 9, padding: '10px 12px', marginTop: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
               <div style={{ minWidth: 220, flex: 1 }}>
                 <div style={{ fontSize: 12, color: '#3b6ef5', fontWeight: 700 }}>{g.subject}{g.area ? ' · ' + g.area : ''} · {g.semester}학기</div>

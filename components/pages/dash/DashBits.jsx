@@ -18,6 +18,23 @@ export function invalidateDashboard() {
   dashCache.key = null; dashCache.data = null; dashCache.ts = 0; dashCache.promise = null;
 }
 
+/**
+ * 훅 밖(❓ 도움말 '다음 할 일' 등)에서 같은 캐시로 집계를 받는다.
+ * 같은 키로 이미 요청 중이면 그 Promise를 같이 기다린다(중복 fetch 방지).
+ */
+export async function loadDashboardCached(classId, semester, force = false) {
+  const key = `${classId}:${semester}`;
+  if (!force && dashCache.key === key && dashCache.data && Date.now() - dashCache.ts < DASH_TTL) return dashCache.data;
+  if (force || dashCache.key !== key || !dashCache.promise) {
+    dashCache.key = key;
+    dashCache.promise = fetchDashboard(classId, semester)
+      .then((d) => { dashCache.data = d; dashCache.ts = Date.now(); return d; })
+      .finally(() => { dashCache.promise = null; });
+  }
+  const p = dashCache.promise;
+  return p ? p : dashCache.data;
+}
+
 export function useDashboard() {
   const { curClassId, curSemester } = useStudents();
   const [data, setData] = useState(null);
@@ -34,16 +51,7 @@ export function useDashboard() {
     }
     setLoading(true); setError('');
     try {
-      // 같은 키로 이미 요청 중이면 그 Promise를 같이 기다린다(중복 fetch 방지).
-      if (force || dashCache.key !== key || !dashCache.promise) {
-        dashCache.key = key;
-        dashCache.promise = fetchDashboard(curClassId, curSemester)
-          .then((d) => { dashCache.data = d; dashCache.ts = Date.now(); return d; })
-          .finally(() => { dashCache.promise = null; });
-      }
-      const p = dashCache.promise;
-      const d = p ? await p : dashCache.data;
-      setData(d);
+      setData(await loadDashboardCached(curClassId, curSemester, force));
     } catch (e) {
       setError(e.message || '대시보드를 불러오지 못했어요');
     } finally {
@@ -154,11 +162,11 @@ export function ReviewList({ items, emptyText = '할 일이 없어요. 잘 관�
       }
     } catch (_e) { /* noop */ }
   }, []);
-  if (!items.length) return <div className="dz-review-empty" ref={ref}>{emptyText}</div>;
+  if (!items.length) return <div className="dz-review-empty" ref={ref} data-help="review-list">{emptyText}</div>;
   return (
-    <ul className="dz-review" ref={ref}>
+    <ul className="dz-review" ref={ref} data-help="review-list">
       {items.map((it, i) => (
-        <li key={i} className={'dz-review-item ' + (it.level || 'warn')}>
+        <li key={i} className={'dz-review-item ' + (it.level || 'warn')} data-help="review-item">
           <span className="ri-dot" aria-hidden="true" />
           <div className="ri-body">
             <div className="ri-t">{it.text}</div>

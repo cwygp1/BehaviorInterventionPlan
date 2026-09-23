@@ -120,18 +120,19 @@ export default function CrisisPage() {
           }}
           disabled={!curStu}
           title={!curStu ? '학생을 먼저 선택해야 이용할 수 있어요' : undefined}
+          data-help="cr-ai"
         >🚨 위기 시나리오 AI 프롬프트</button>
         <span style={{ fontSize: '.78rem', color: 'var(--muted)' }}>
           {curStu ? '학생 상황 묘사 → 7단계 대응 시나리오 자동 생성' : '🔒 학생 선택 후 이용 가능'}
         </span>
       </div>
 
-      <div className="card">
+      <div className="card" data-help="cr-stages">
         <div className="card-title">🚨 위기행동 7단계 대처 (Acting-Out Cycle)</div>
         <div className="card-subtitle">각 단계를 클릭하면 상세 대응 전략이 표시됩니다. Colvin & Sugai (1989)</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
           {STAGES.map((s) => (
-            <div key={s.n} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+            <div key={s.n} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }} data-help="cr-stage-row">
               <button
                 onClick={() => setOpenStage(openStage === s.n ? null : s.n)}
                 style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: '#fff', border: 'none', cursor: 'pointer', textAlign: 'left' }}
@@ -158,14 +159,14 @@ export default function CrisisPage() {
       />
 
       {/* 공식 자료 — lib/officialDocs 카탈로그(교사 지원 탭과 동일 데이터)에서 위기 관련만 표시 */}
-      <div className="card">
+      <div className="card" data-help="cr-official">
         <div className="card-title">🏛 공식 매뉴얼 · 가이드북 (위기행동 관련)</div>
         <div className="card-subtitle">
           <strong>앱에 탑재</strong> 표시가 있는 자료는 파일을 바로 볼 수 있어요. 전체 목록은 <strong>교사 지원 → 공식 가이드라인·매뉴얼</strong>에 있습니다.
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
           {CRISIS_OFFICIAL_DOCS.map((d) => (
-            <div key={d.id} style={{
+            <div key={d.id} data-help="cr-doc-row" style={{
               display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 14px',
               background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10,
             }}>
@@ -196,7 +197,7 @@ export default function CrisisPage() {
       </div>
 
       {/* C2 신체적 개입 5대 원칙 */}
-      <div className="card" style={{ background: '#fff7e6', borderColor: '#fde7b8' }}>
+      <div className="card" style={{ background: '#fff7e6', borderColor: '#fde7b8' }} data-help="cr-phys">
         <div className="card-title" style={{ color: '#b45309' }}>⚠ 신체적 개입 5대 원칙 (가이드북 부록)</div>
         <ul style={{ listStyle: 'none', padding: 0, marginTop: 8 }}>
           {PHYS_PRINCIPLES.map((p, i) => (
@@ -208,7 +209,7 @@ export default function CrisisPage() {
         </ul>
       </div>
 
-      <div className="card">
+      <div className="card" data-help="cr-grounding">
         <div className="card-title">💚 5-4-3-2-1 그라운딩</div>
         <div className="card-subtitle">감각 기반 정서 안정화 기법 — 학생과 함께 진행하세요.</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginTop: 14 }}>
@@ -229,7 +230,7 @@ export default function CrisisPage() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" data-help="cr-sz-form">
         <div className="card-title">💚 심리안정실(Safety Zone) 이용 기록</div>
         {!curStu ? (
           <div className="empty-state"><span className="emoji">👤</span>학생을 선택하면 기록을 남길 수 있습니다.</div>
@@ -267,21 +268,21 @@ export default function CrisisPage() {
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="btn btn-pri" onClick={onSaveSZ} disabled={busy}>💾 기록 저장</button>
+              <button className="btn btn-pri" onClick={onSaveSZ} disabled={busy} data-help="cr-sz-save">💾 기록 저장</button>
             </div>
           </>
         )}
       </div>
 
       {curStu && (
-        <div className="card">
+        <div className="card" data-help="cr-sz-list">
           <div className="card-title">📜 누적 심리안정실 기록 <span className="badge badge-pri">{szRecords.length}회</span></div>
           {szRecords.length === 0 ? (
             <div className="empty-state"><span className="emoji">💚</span>저장된 기록이 없습니다.</div>
           ) : (
             <ul className="data-list">
               {szRecords.slice().reverse().map((r) => (
-                <li key={r.id} className="data-item">
+                <li key={r.id} className="data-item" data-help="cr-sz-row">
                   <button className="data-item-del" onClick={() => onDeleteSZ(r.id)} title="삭제" aria-label="삭제">×</button>
                   <div className="data-item-head">
                     <span className="badge badge-warn">{r.reason}</span>
