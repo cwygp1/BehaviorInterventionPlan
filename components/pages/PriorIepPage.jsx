@@ -75,6 +75,11 @@ export default function PriorIepPage({ onNavigate }) {
     } catch (e) { toast('저장 실패: ' + e.message); } finally { setBusy(false); }
   }
   async function remove(id) {
+    // 0923: 확인 없이 바로 지워지던 것 — 삭제 전에 한 번 묻는다(되돌릴 수 없음).
+    const g = goals.find((x) => x.id === id);
+    const head = g ? [g.subject, g.semester ? `${g.semester}학기` : ''].filter(Boolean).join(' · ') : '';
+    const text = g?.semester_goal ? (g.semester_goal.length > 40 ? g.semester_goal.slice(0, 40) + '…' : g.semester_goal) : '';
+    if (!window.confirm(`이 작년 IEP 목표를 삭제할까요?${head ? `\n\n${head}` : ''}${text ? `\n"${text}"` : ''}\n\n지운 목표는 되돌릴 수 없어요.`)) return;
     try { await deleteIEPGoal(curStuId, id); setGoals((p) => p.filter((g) => g.id !== id)); toast('삭제했습니다.'); }
     catch (e) { toast('삭제 실패: ' + e.message); }
   }

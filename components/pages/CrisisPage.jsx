@@ -90,6 +90,10 @@ export default function CrisisPage() {
   }
 
   async function onDeleteSZ(id) {
+    // 0923: 확인 없이 바로 지워지던 것 — 삭제 전에 한 번 묻는다(되돌릴 수 없음).
+    const r = szRecords.find((x) => x.id === id);
+    const label = r ? [r.date, r.reason].filter(Boolean).join(' · ') : '';
+    if (!window.confirm(`이 심리안정실 이용 기록${label ? `(${label})` : ''}을 삭제할까요?\n지운 기록은 되돌릴 수 없어요.`)) return;
     try {
       await apiDelSz(curStuId, id);
       updateStudentData(curStuId, (cur) => ({ ...cur, sz: cur.sz.filter((r) => r.id !== id) }));

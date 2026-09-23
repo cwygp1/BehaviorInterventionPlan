@@ -236,6 +236,10 @@ export default function ObservePage({ onNavigate }) {
   }
 
   async function onDelete(id) {
+    // 0923: 확인 없이 바로 지워지던 것 — 삭제 전에 한 번 묻는다(되돌릴 수 없음).
+    const r = abc.find((x) => x.id === id);
+    const when = r ? (r.date || r.created_at || '') : '';
+    if (!window.confirm(`이 ABC 기록${when ? `(${when})` : ''}을 삭제할까요?\n지운 기록은 되돌릴 수 없어요.`)) return;
     try {
       await apiDeleteABC(curStuId, id);
       updateStudentData(curStuId, (cur) => ({ ...cur, abc: cur.abc.filter((r) => r.id !== id) }));

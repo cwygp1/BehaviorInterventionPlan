@@ -171,6 +171,10 @@ export default function MonitorPage({ onNavigate }) {
   }
 
   async function onDeleteMon(id) {
+    // 0923: 확인 없이 바로 지워지던 것 — 삭제 전에 한 번 묻는다(되돌릴 수 없음).
+    const r = monRecords.find((x) => x.id === id);
+    const label = r ? [r.date, r.beh].filter(Boolean).join(' · ') : '';
+    if (!window.confirm(`이 행동 데이터 기록${label ? `(${label})` : ''}을 삭제할까요?\n지운 기록은 되돌릴 수 없어요.`)) return;
     try {
       await apiDelMon(curStuId, id);
       updateStudentData(curStuId, (cur) => ({ ...cur, mon: cur.mon.filter((r) => r.id !== id) }));

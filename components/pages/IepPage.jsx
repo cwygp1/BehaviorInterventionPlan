@@ -2295,6 +2295,10 @@ export default function IepPage({ onNavigate }) {
   }
 
   async function removeGoal(id) {
+    // 0923: 확인 없이 바로 지워지던 것 — 삭제 전에 한 번 묻는다(월별 계획까지 함께, 되돌릴 수 없음).
+    const g = savedGoals.find((x) => x.id === id);
+    const text = g?.semester_goal ? (g.semester_goal.length > 40 ? g.semester_goal.slice(0, 40) + '…' : g.semester_goal) : '';
+    if (!window.confirm(`이 IEP 목표를 삭제할까요?${text ? `\n\n"${text}"` : ''}\n\n월별 계획까지 함께 지워지고 되돌릴 수 없어요.`)) return;
     try {
       await deleteIEPGoal(curStuId, id);
       setSavedGoals((prev) => prev.filter((g) => g.id !== id));
