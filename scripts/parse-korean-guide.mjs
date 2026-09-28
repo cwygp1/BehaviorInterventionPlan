@@ -33,155 +33,11 @@ const STANDARDS = path.join(process.cwd(), 'public/data/achievement-standards.js
 const stdRows = JSON.parse(fs.readFileSync(STANDARDS, 'utf8')).rows;
 const STD_TEXT = new Map(stdRows.map((r) => [r[3], r[4]]));
 
-// ---------- 입력 읽기 ----------
-const pages = new Map(); // n → { lines:[{x0,x1,y,t}], h:[{x0,x1,y,thick}], v:[{x,y0,y1,thick}] }
-const page = (n) => { if (!pages.has(n)) pages.set(n, { lines: [], h: [], v: [] }); return pages.get(n); };
-{
-  let n = 0;
-  for (const raw of fs.readFileSync(xyPath, 'utf8').split('\n')) {
-    const m = raw.match(/^===== p(\d+) =====/);
-    if (m) { n = +m[1]; continue; }
-    const f = raw.split('\t'); if (f.length < 4 || !n) continue;
-    const t = f.slice(3).join('\t').trim(); if (!t) continue;
-    page(n).lines.push({ x0: +f[0], x1: +f[1], y: +f[2], t });
-  }
-  n = 0;
-  for (const raw of fs.readFileSync(rulesPath, 'utf8').split('\n')) {
-    const m = raw.match(/^===== p(\d+) =====/);
-    if (m) { n = +m[1]; continue; }
-    const f = raw.split('\t'); if (!n) continue;
-    if (f[0] === 'V' && f.length >= 5) page(n).v.push({ x: +f[1], y0: +f[2], y1: +f[3], thick: +f[4] });
-    else if (f.length >= 4) page(n).h.push({ x0: +f[0], x1: +f[1], y: +f[2], thick: +f[3] });
-  }
-}
-const PAGE_H_PX = 1684; // A4 842pt × 2 (pdf-rules.swift scale 2) — 두께(px)를 비율로 바꿀 때
-
-// ---------- 글자 다루기 ----------
-const norm = (s) => String(s || '').replace(/\s+/g, '');
-const key = (s) => norm(s).replace(/[^가-힣]/g, '');
-const BULLET = /^[•·‧▪▸◦●○◎\-–]\s*/;
-const MARK = /^[•·‧▪▸◦●○◎0°OoQ@)]\s*/; // ◎ 표시가 OCR에서 0·°·O 등으로 나옴
-const PARTICLE_END = /[은는이가을를에의와과로도고며서게다요]$/; // 이 글자로 끝난 줄은 낱말 경계일 가능성이 높아 띄어 잇는다
-const stripBullet = (t) => t.replace(BULLET, '').replace(/^'(?=.*[」』])/, '「').trim(); // "•'진짜 내 소원」" → 「진짜 내 소원」
-const stripMark = (t) => t.replace(MARK, '').trim();
-const isBullet = (t) => BULLET.test(t) || /^•'/.test(t);
-const CODE_RE = /\[?\s*2\s*국\s*어?\s*(\d\d)\s*-\s*(\d\d)\s*\]?/g; // OCR이 "[2국 01-01]"처럼 깨져도 잡는다
-const codesIn = (t) => { const out = []; for (const m of String(t).matchAll(CODE_RE)) out.push(`2국어${m[1]}-${m[2]}`); return [...new Set(out)]; };
-const fixText = (t) => String(t)
-  .replace(/[『「]\s*/g, (m) => m.trim()).replace(/\s*[』」]/g, (m) => m.trim())
-  .replace(/'([^'」』]+)[」』]/g, '「$1」').replace(/`/g, '\'')
-  .replace(/「([^「」『』]+)』/g, '「$1」').replace(/『([^「」『』]+)」/g, '『$1』') // 여닫는 괄호 짝 맞추기
-  .replace(/불임딱지/g, '붙임딱지').replace(/PP[IT]T/g, 'PPT').replace(/실전/g, '실천')
-  .replace(/[•·]{2,}|\.{3}/g, '…').replace(/^[,.\s'"]+(?=[가-힣「『\[])/, '')
-  .replace(/\s+/g, ' ').trim();
-
-/** 줄 여러 개를 문단으로: 글머리표(•)로 항목을 나누고, 줄이 칸 오른쪽 끝까지 찼으면 낱말이 잘린 것으로 보고 붙여 쓴다. */
-function joinItems(lines, right, { bullets = true, centered = false } = {}) {
-  const items = [];
-  let cur = null, prevX1 = 0;
-  for (const l of [...lines].sort((a, b) => a.y - b.y)) {
-    const t = l.t.trim(); if (!t) continue;
-    if (!cur || (bullets && isBullet(t))) { if (cur) items.push(cur); cur = bullets ? stripBullet(t) : t; }
-    else {
-      const full = !centered && right != null && prevX1 >= right - 0.013 && !PARTICLE_END.test(cur);
-      cur += (full ? '' : ' ') + t;
-    }
-    prevX1 = l.x1;
-  }
-  if (cur) items.push(cur);
-  return items.map(fixText).filter(Boolean);
-}
-
-// ---------- 표 격자 ----------
-/**
- * 쪽의 [yTop, yBottom] 사이에서 표를 찾아 행·열로 나눈다. xRange를 주면 그 안의 괘선만 본다(차시 쪽의 반쪽 표).
- * 반환: { rows:[{y0,y1,cells:[{lines,text,items,region}]}], cols:[x…], header:{y0,y1,labels[]} }
- */
-function grid(p, yTop, yBottom, xRange) {
-  const inX = (r) => !xRange || (r.x0 >= xRange[0] - 0.02 && r.x1 <= xRange[1] + 0.02);
-  const H = p.h.filter((r) => r.y > yTop && r.y < yBottom && inX(r) && (r.x1 - r.x0) >= 0.15);
-  if (!H.length) return null;
-  const wide = H.reduce((a, r) => ((r.x1 - r.x0) > (a.x1 - a.x0) ? r : a));
-  const tx0 = wide.x0, tx1 = wide.x1, tw = tx1 - tx0;
-  const inTable = (r) => r.x0 >= tx0 - 0.02 && r.x1 <= tx1 + 0.02;
-  // 머리띠: 위쪽의 두꺼운 조각들(흰 글자 사이로 끊긴다). 얇은 괘선 = 행 경계.
-  const thick = H.filter((r) => r.thick >= 4 && inTable(r));
-  const thin = H.filter((r) => r.thick <= 3 && inTable(r) && (r.x1 - r.x0) >= 0.5 * tw).sort((a, b) => a.y - b.y);
-  let header = null;
-  if (thick.length) {
-    const top = thick.filter((r) => r.y < (thin[0]?.y ?? yBottom));
-    if (top.length) header = { y0: Math.min(...top.map((r) => r.y - r.thick / 2 / PAGE_H_PX)), y1: Math.max(...top.map((r) => r.y + r.thick / 2 / PAGE_H_PX)) };
-  }
-  const HEADER_WORDS = new Set(['구분', '차시', '차시명', '차시별학습내용', '차시별학습(내용)', '쪽수', '쪽', '교과서', '지도서', '교과서지도서', '전자책등', '유형', '평가내용', '평가준거', '성취기준', '관련성취기준', '문학요소', '관련', '단원', '관련단원', '평가요소', '내용', '기능']);
-  const isHeaderWord = (l) => HEADER_WORDS.has(norm(l.t));
-  const firstThin = thin[0]?.y ?? yBottom;
-  if (!header) {
-    const hw = p.lines.filter((l) => isHeaderWord(l) && l.y > yTop && l.y < firstThin && (l.x0 + l.x1) / 2 > tx0 && (l.x0 + l.x1) / 2 < tx1);
-    if (hw.length >= 2) header = { y0: Math.min(...hw.map((l) => l.y)) - 0.012, y1: Math.max(...hw.map((l) => l.y)) + 0.008 };
-  } else {
-    const hw = p.lines.filter((l) => isHeaderWord(l) && l.y >= header.y0 && l.y < Math.min(header.y1 + 0.035, firstThin) && (l.x0 + l.x1) / 2 > tx0 && (l.x0 + l.x1) / 2 < tx1);
-    if (hw.length) header.y1 = Math.max(header.y1, ...hw.map((l) => l.y + 0.008));
-  }
-  const bounds = [];
-  if (header) bounds.push(header.y1);
-  else if (thin.length) {
-    // 쪽을 넘겨 이어지는 표: 머리띠 없이 첫 행이 쪽 위에서 바로 시작하고 위쪽 괘선이 안 잡힐 수 있다 → 첫 괘선 위에 글자가 있으면 그 위를 경계로.
-    const above = p.lines.filter((l) => l.y > yTop && l.y < thin[0].y - 0.004 && (l.x0 + l.x1) / 2 > tx0 && (l.x0 + l.x1) / 2 < tx1);
-    if (above.length) bounds.push(Math.max(yTop, Math.min(...above.map((l) => l.y)) - 0.012));
-  }
-  for (const r of thin) if (!bounds.length || r.y - bounds[bounds.length - 1] > 0.008) bounds.push(r.y);
-  if (bounds.length < 2) return null;
-  const y0 = header ? header.y0 : bounds[0], y1 = bounds[bounds.length - 1];
-  const th = y1 - y0;
-  const vs = p.v.filter((v) => v.x > tx0 + 0.01 && v.x < tx1 - 0.01 && Math.min(v.y1, y1) - Math.max(v.y0, y0) >= 0.6 * th).map((v) => v.x).sort((a, b) => a - b);
-  const cols = [tx0];
-  for (const x of vs) if (x - cols[cols.length - 1] > 0.012) cols.push(x);
-  cols.push(tx1);
-  const nC = cols.length - 1;
-  const rows = [];
-  for (let i = 0; i + 1 < bounds.length; i++) rows.push({ y0: bounds[i], y1: bounds[i + 1], cells: Array.from({ length: nC }, () => ({ lines: [] })) });
-  for (const l of p.lines) {
-    if (l.y < bounds[0] || l.y > y1) continue;
-    if (isHeaderWord(l)) continue; // 첫 행에 섞여 든 머리 글자
-    const xc = (l.x0 + l.x1) / 2; if (xc < tx0 || xc > tx1) continue;
-    const ri = rows.findIndex((r) => l.y >= r.y0 && l.y < r.y1); if (ri < 0) continue;
-    let ci = cols.findIndex((x, i) => i < nC && xc >= x && xc < cols[i + 1]); if (ci < 0) ci = nC - 1;
-    rows[ri].cells[ci].lines.push(l);
-  }
-  // 병합 칸: 행 경계 괘선이 그 열을 지나가지 않으면 위 행과 같은 영역.
-  for (let c = 0; c < nC; c++) {
-    const cl = cols[c], cr = cols[c + 1];
-    let region = 0;
-    for (let r = 0; r < rows.length; r++) {
-      if (r > 0) {
-        const rule = thin.find((t) => Math.abs(t.y - rows[r].y0) < 0.004);
-        const crosses = rule && rule.x0 <= cl + 0.012 && rule.x1 >= cr - 0.012;
-        if (crosses) region = r;
-      }
-      rows[r].cells[c].region = region;
-    }
-    for (let r = 0; r < rows.length; r++) {
-      const reg = rows[r].cells[c].region;
-      const lines = rows.filter((row) => row.cells[c].region === reg).flatMap((row) => row.cells[c].lines);
-      const cell = rows[r].cells[c];
-      cell.regionText = joinItems(lines, cr, { bullets: false, centered: true }).join(' ');
-      cell.text = joinItems(cell.lines, cr, { bullets: false, centered: true }).join(' ');
-      cell.items = joinItems(cell.lines, cr, { bullets: true });
-    }
-  }
-  const labels = header ? p.lines.filter((l) => l.y >= header.y0 - 0.01 && l.y <= header.y1 + 0.01 && (l.x0 + l.x1) / 2 >= tx0 && (l.x0 + l.x1) / 2 <= tx1).map((l) => l.t) : [];
-  return { rows, cols, header: header ? { ...header, labels } : null, x0: tx0, x1: tx1, y0, y1 };
-}
-
-// 디버그: DEBUG_GRID="쪽,yTop,yBottom[,x0,x1]" 로 표 하나를 찍어 본다.
-if (process.env.DEBUG_GRID) {
-  const [n, a, b, x0, x1] = process.env.DEBUG_GRID.split(',').map(Number);
-  const g = grid(page(n), a, b, x0 != null && !Number.isNaN(x0) ? [x0, x1] : undefined);
-  if (!g) { console.log('no grid'); process.exit(0); }
-  console.log('cols', g.cols.map((x) => x.toFixed(3)).join(' '), 'header', g.header && g.header.labels.join('|'), 'y', g.y0.toFixed(3), g.y1.toFixed(3));
-  g.rows.forEach((r, i) => console.log(`row${i} [${r.y0.toFixed(3)}-${r.y1.toFixed(3)}]`, r.cells.map((c) => `{${c.region}:${c.items.join(' / ')}}`).join(' | ')));
-  process.exit(0);
-}
+// ---------- 공용 도구(scripts/lib/guideGrid.mjs) ----------
+import { loadPages, norm, key, isBullet, fixText, joinItems, grid, runDebugGrid, sectionsOfPages, bulletsOf, splitMarked, parseOutline, criteriaOf, pageRange, splitByGap, codesInFor } from './lib/guideGrid.mjs';
+const { pages, page } = loadPages(xyPath, rulesPath);
+const codesIn = codesInFor('국\\s*어?', '2국어');
+runDebugGrid(page);
 
 // ---------- 단원 찾기 ----------
 const HEADINGS = new Set(['단원의개관', '핵심역량', '성취기준', '단원목표', '단원지도목표', '단원연계', '가정및생활과의연계', '단원지도계획', '단원지도중점', '단원평가', '지도상의유의점', '핵심어휘', '참고자료', '책읽기단원설정의배경']);
@@ -202,28 +58,7 @@ const footerTitle = (n) => {
   return null;
 };
 
-function sectionsOf(pageNos) {
-  // (쪽, y, 제목) 순서 목록 → 각 구간의 줄들
-  const heads = [];
-  for (const n of pageNos) for (const l of page(n).lines) if (isHeading(l)) heads.push({ n, y: l.y, name: key(l.t) });
-  const secs = [];
-  for (let i = 0; i < heads.length; i++) {
-    const h = heads[i], nx = heads[i + 1];
-    const lines = [];
-    for (const n of pageNos) {
-      if (n < h.n || (nx && n > nx.n)) continue;
-      for (const l of page(n).lines) {
-        if (n === h.n && l.y <= h.y + 0.004) continue;
-        if (nx && n === nx.n && l.y >= nx.y - 0.004) continue;
-        if (l.y > 0.945) continue; // 꼬리말
-        lines.push({ ...l, n });
-      }
-    }
-    secs.push({ ...h, end: nx ? { n: nx.n, y: nx.y } : null, lines });
-  }
-  return secs;
-}
-const bulletsOf = (lines) => { const right = Math.max(...lines.map((l) => l.x1), 0) ; return joinItems(lines, right + 0.007, { bullets: true }).filter((t) => t.length > 1); };
+const sectionsOf = (pageNos) => sectionsOfPages(page, pageNos, isHeading);
 
 // ---------- 차시 쪽 ----------
 const LESSON_LABELS = new Set(['학습목표', '지도중점', '교수학습중점요소', '지도상의유의점', '교수학습자료', '교수학습개요', '평가중점', '평가요소', '교수활동', '교수학습활동', '평가방법']);
@@ -247,48 +82,6 @@ function parseLessonPage(n) {
   });
   return out;
 }
-/** ◎ 표시(0·°·O로 읽힘)로 항목을 나눈다. */
-function splitMarked(lines, right) {
-  const items = []; let cur = null, prevX1 = 0;
-  for (const l of [...lines].sort((a, b) => a.y - b.y)) {
-    const t = l.t.trim();
-    const marked = (MARK.test(t) && l.x0 < 0.075) || l.x0 < 0.058;
-    if (!cur || marked) { if (cur) items.push(cur); cur = stripMark(t); }
-    else cur += (prevX1 >= right - 0.013 && !PARTICLE_END.test(cur) ? '' : ' ') + t;
-    prevX1 = l.x1;
-  }
-  if (cur) items.push(cur);
-  return items.map(fixText).filter(Boolean);
-}
-/** 교수·학습 개요: 도입/전개/정리 표. 표 글자(이름표)는 칸 세로 가운데 → 가운데 맞춤으로 줄 수를 정한다. */
-function parseOutline(lines0) {
-  const lines = [];
-  for (const l of lines0) {
-    const m = l.t.match(/^(도입|전개|정리)\s*[•·‧▪▸]?\s*(.+)$/);
-    if (m && l.x0 < 0.1) { lines.push({ ...l, t: m[1], x1: l.x0 + 0.03 }); lines.push({ ...l, t: '• ' + m[2], x0: 0.105 }); }
-    else lines.push(l);
-  }
-  const labs = lines.filter((l) => ['도입', '전개', '정리'].includes(norm(l.t)) && l.x0 < 0.1).sort((a, b) => a.y - b.y);
-  const items = lines.filter((l) => !labs.includes(l) && l.x0 >= 0.09).sort((a, b) => a.y - b.y);
-  const out = { intro: [], activities: [], wrapup: [] };
-  let i = 0;
-  labs.forEach((lab, k) => {
-    const keyName = norm(lab.t) === '도입' ? 'intro' : norm(lab.t) === '전개' ? 'activities' : 'wrapup';
-    let best = null;
-    if (k === labs.length - 1) best = items.length - i;
-    else {
-      for (let nn = 1; nn <= 8 && i + nn <= items.length; nn++) {
-        const mean = items.slice(i, i + nn).reduce((s, l) => s + l.y, 0) / nn;
-        const err = Math.abs(mean - lab.y);
-        if (best == null || err < best.err) best = { n: nn, err };
-      }
-      best = best ? best.n : 0;
-    }
-    out[keyName] = joinItems(items.slice(i, i + best), 0.44, { bullets: true });
-    i += best;
-  });
-  return out;
-}
 function evalRefs(pageNos) {
   const out = [];
   for (const n of pageNos) {
@@ -306,19 +99,6 @@ function evalRefs(pageNos) {
   }
   return out;
 }
-/** 평가 준거 칸: 문장 끝(.)에서 항목을 나눈다(줄바꿈된 문장은 잇는다). */
-function criteriaOf(lines, right) {
-  const items = []; let cur = '', prevX1 = 0;
-  for (const l of [...lines].sort((a, b) => a.y - b.y)) {
-    const t = stripBullet(l.t.trim());
-    cur = cur ? cur + (prevX1 >= right - 0.013 && !PARTICLE_END.test(cur) ? '' : ' ') + t : t;
-    prevX1 = l.x1;
-    if (/[.?]$/.test(t)) { items.push(fixText(cur)); cur = ''; }
-  }
-  if (cur) items.push(fixText(cur));
-  return items.filter(Boolean);
-}
-const pageRange = (s) => { const m = String(s || '').replace(/\s/g, '').match(/(\d+)(?:~(\d+))?/); if (!m) return null; const a = +m[1], b = +(m[2] || m[1]); return [a, b >= a && b - a < 12 ? b : a + 1]; }; // 책 읽기 표는 교과서·지도서 쪽이 섞여 나오기도 함
 // OCR이 아예 놓친 글자(그림 위 제목 등) — 지도서 원본과 대조해 손으로 채운 것.
 const OVERRIDES = {
   '1-책 읽기': { '2~3': { title: '「비가 오는 날에…」 읽기' } },
@@ -502,12 +282,6 @@ function stageName(t) {
   if (/반응|공유/.test(n)) return '문학 반응 표현 및 공유하기';
   const m = n.match(/기초|기본|실천|정리|진단/); return m ? m[0] : n;
 }
-function splitByGap(lines) {
-  const s = [...lines].sort((a, b) => a.y - b.y); const groups = [];
-  for (const l of s) { const g = groups[groups.length - 1]; if (g && l.y - g[g.length - 1].y < 0.0195) g.push(l); else groups.push([l]); }
-  return groups;
-}
-
 // ---------- 출력 ----------
 const counts = { units: 0, lessons: 0, contents: 0, evaluation: 0, evalRefs: 0, lessonsWithGoal: 0 };
 for (const b of books) for (const u of b.units) {

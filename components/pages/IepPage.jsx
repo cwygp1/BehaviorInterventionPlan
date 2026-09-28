@@ -32,7 +32,7 @@ import { loadDailyLifeGuide, guideUnits, dailyLifeGuideBlock, isDailyCode, loadD
 import FoldCard from '../ui/FoldCard';
 import CurriculumGuideUnits from '../ui/CurriculumGuideUnits';
 import DailyLifeExampleCards from '../ui/DailyLifeExampleCards';
-import { loadCurriculumContent, contentEntries, curriculumContentBlock, CONTENT_CAVEAT, hasUnverified, loadCurriculumGuide, guideUnitsFor, curriculumGuideBlock } from '../../lib/curriculumContent';
+import { loadCurriculumContent, contentEntries, curriculumContentBlock, CONTENT_CAVEAT, hasUnverified, loadCurriculumGuides, guideSubjectsOf, guideUnitsFor, curriculumGuideBlock } from '../../lib/curriculumContent';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import { GRADES_BY_LEVEL } from '../modals/EditStudentModal';
 
@@ -466,15 +466,15 @@ export default function IepPage({ onNavigate }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selCodes.length > 0, ccData]);
   const ccEntries = useMemo(() => contentEntries(ccData, selCodes), [ccData, selCodes.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
-  // 0923(2단계): 교사용 지도서 단원·차시 자료 — 키워드 항목이 하나라도 있으면 490KB 파일을 한 번 받아 '주요 성취기준' 단원을 붙인다.
+  // 0923(2단계): 교사용 지도서 단원·차시 자료 — 키워드 항목의 교과(국어·수학…)마다 파일을 한 번 받아 '주요 성취기준' 단원을 붙인다.
   const [cgData, setCgData] = useState(null);
+  const cgSubjectsKey = guideSubjectsOf(ccEntries).sort().join(',');
   useEffect(() => {
-    if (cgData || !ccEntries.length) return;
+    if (!cgSubjectsKey) return;
     let alive = true;
-    loadCurriculumGuide().then((d) => { if (alive && d) setCgData(d); });
+    loadCurriculumGuides(cgSubjectsKey.split(',')).then((d) => { if (alive && d) setCgData(d); });
     return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ccEntries.length > 0, cgData]);
+  }, [cgSubjectsKey]);
   const cgUnits = useMemo(() => guideUnitsFor(cgData, ccEntries), [cgData, ccEntries]);
   // 지도서 소활동 이름을 교육내용 줄로 추가(이미 있으면 건너뜀).
   const addContentLines = (titles) => {
@@ -2908,7 +2908,7 @@ export default function IepPage({ onNavigate }) {
         {/* 0922(1단계): 교과 성취기준을 고르면 단원·활동·자료 키워드. 0923(2단계): 교사용 지도서 원본으로 대조·재생성했고
             '주요 성취기준' 단원의 차시(단계·차시명·학습 내용·학습 목표)·단원 평가 준거·핵심 어휘를 아래에 붙인다. 대조 전 항목이 섞이면 주의 문구. */}
         {ccEntries.length > 0 && (
-          <FoldCard id="iep-cc-guide" title="📚 교과 단원·차시 (기본교육과정 국어 1~2학년군 · 교사용 지도서)" defaultOpen
+          <FoldCard id="iep-cc-guide" title="📚 교과 단원·차시 (기본교육과정 국어·수학 1~2학년군 · 교사용 지도서)" defaultOpen
             summary={`${ccEntries.length}개 성취기준 · 활동 ${ccEntries.reduce((n, e) => n + (e.activities || []).length, 0)}개${cgUnits.length ? ` · 지도서 단원 ${cgUnits.length}개(차시 ${cgUnits.reduce((n, u) => n + (u.lessons || []).length, 0)}개)` : ''} — 차시명·학습 내용을 누르면 학기 교육내용에 한 줄로 들어가요${hasUnverified(ccEntries) ? ' · ⚠ 일부 지도서 대조 전' : ''}`}
             style={{ margin: '4px 0 10px' }}>
             {hasUnverified(ccEntries) && (
@@ -2941,7 +2941,7 @@ export default function IepPage({ onNavigate }) {
             {cgUnits.length > 0 && (
               <CurriculumGuideUnits units={cgUnits} onAdd={(lines, label) => { addContentLines(lines); toast('교육내용에 넣었어요: ' + (label || lines[0])); }} />
             )}
-            <div style={{ fontSize: '.74rem', color: 'var(--muted)' }}>출처: 2022 개정 기본교육과정 국어 ①·② 교사용 지도서(단원별 성취기준 표·단원 지도 계획·단원 평가·핵심 어휘). 단원명·차시명·학습 내용·학습 목표·평가 준거 수준만 담았고 수업 절차 본문·해설은 없어요. 지도서를 글자로 읽은 것이라 드물게 오탈자가 있을 수 있어요(쪽 번호로 원본 확인). AI 교육내용·월별 생성에도 이 자료가 재료로 들어갑니다.</div>
+            <div style={{ fontSize: '.74rem', color: 'var(--muted)' }}>출처: 2022 개정 기본교육과정 국어 ①·②(0923)·수학 ①·②(0928) 교사용 지도서(단원별 성취기준 표·단원 지도(전개) 계획·단원 평가·핵심 어휘 또는 교수·학습 자료). 단원명·차시명·학습 내용·학습 목표·평가 준거 수준만 담았고 수업 절차 본문·해설은 없어요. 지도서를 글자로 읽은 것이라 드물게 오탈자가 있을 수 있어요(쪽 번호로 원본 확인). AI 교육내용·월별 생성에도 이 자료가 재료로 들어갑니다.</div>
           </FoldCard>
         )}
         {flowMode === 'goal' && (

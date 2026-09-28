@@ -7,6 +7,8 @@ let args = CommandLine.arguments
 guard args.count >= 2, let doc = PDFDocument(url: URL(fileURLWithPath: args[1])) else { exit(1) }
 let from = args.count >= 3 ? max(1, Int(args[2]) ?? 1) : 1
 let to = args.count >= 4 ? min(doc.pageCount, Int(args[3]) ?? doc.pageCount) : doc.pageCount
+// 세로 괘선 밝기 문턱(기본 225 = 국어 지도서 때 값). 수학 지도서는 세로선이 옅어 238로 돌린다: pdf-rules <pdf> 1 9999 238
+let vLum = args.count >= 5 ? (Int(args[4]) ?? 225) : 225
 let scale: CGFloat = 2.0
 var out = ""
 for i in (from - 1)..<to {
@@ -45,14 +47,18 @@ for i in (from - 1)..<to {
   }
   done.append(contentsOf: open)
   // 세로 괘선: 열 방향으로 같은 검사(길이 ≥ 높이의 4%).
-  let minLenV = Int(Double(h) * 0.04)
+  let minLenV = Int(Double(h) * 0.025) // 행마다 끊긴 세로선 조각도 남긴다(격자 쪽에서 모아 잇는다)
   var openV: [Run] = []; var doneV: [Run] = []
   for x in 0..<w {
     var runs: [(Int, Int)] = []; var start = -1; var gap = 0
     for y in 0..<h {
       let o = (y * w + x) * 4
       let lum = (Int(px[o]) * 299 + Int(px[o+1]) * 587 + Int(px[o+2]) * 114) / 1000
-      let dark = lum < 225
+      // 옅은 세로선(수학 지도서)은 절대 밝기로는 못 잡는다 → 좌우 2px보다 뚜렷이 어두우면(국소 대비) 선으로 본다. 넓은 옅은 칠은 안 잡힌다.
+      let oL = (y * w + max(x - 2, 0)) * 4, oR = (y * w + min(x + 2, w - 1)) * 4
+      let lumL = (Int(px[oL]) * 299 + Int(px[oL+1]) * 587 + Int(px[oL+2]) * 114) / 1000
+      let lumR = (Int(px[oR]) * 299 + Int(px[oR+1]) * 587 + Int(px[oR+2]) * 114) / 1000
+      let dark = lum < vLum || (lum < 248 && lum < min(lumL, lumR) - 12)
       if dark { if start < 0 { start = y }; gap = 0 }
       else if start >= 0 { gap += 1; if gap > 2 { if y - gap - start >= minLenV { runs.append((start, y - gap - 1)) }; start = -1; gap = 0 } }
     }
