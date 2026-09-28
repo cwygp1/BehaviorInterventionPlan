@@ -59,7 +59,8 @@ const pageOffset = (start) => {
   return start < bookBoundary ? 1 : 2;
 };
 const catName = (t) => { const k = norm(t); return /지식/.test(k) ? '지식·이해' : /과정/.test(k) ? '과정·기능' : /가치/.test(k) ? '가치·태도' : k; };
-const cleanMaterials = (items) => items.map((t) => t.replace(/[㉮㉯㉰㉱ⓐⓑ⊕㊉◎○●□■◆◇▶▷☞]/g, '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+// 자료 칸의 그림 아이콘(전자책·붙임딱지 표시)이 OCR에서 ')' 같은 잡티로 나온다 → 낱말 앞에 홀로 선 괄호는 뺀다. '물간'은 '물감'의 오독.
+const cleanMaterials = (items) => items.map((t) => t.replace(/[㉮㉯㉰㉱ⓐⓑ⊕㊉◎○●□■◆◇▶▷☞]/g, '').replace(/(^|[,\s])[)(>]\s+/g, '$1').replace(/물간/g, '물감').replace(/닭장물/g, '닭장 문').replace(/\s+/g, ' ').replace(/^[,\s]+|[,\s]+$/g, '').trim()).filter(Boolean);
 
 // ---------- 차시 쪽 ----------
 const LESSON_LABELS = new Set(['학습목표', '학습개요', '수업의흐름', '교수학습자료', '중점지도사항', '단원도입이야기', '활용팁', '평가']);
