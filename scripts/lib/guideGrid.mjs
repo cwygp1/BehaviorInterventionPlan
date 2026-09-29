@@ -42,10 +42,17 @@ export const stripBullet = (t) => t.replace(BULLET, '').replace(/^'(?=.*[」』]
 export const stripMark = (t) => t.replace(MARK, '').trim();
 export const isBullet = (t) => BULLET.test(t) || /^•'/.test(t);
 /** 성취기준 코드 찾기 — OCR이 "[2국 01-01]"처럼 깨져도 잡는다. subjectSrc: 교과 글자 정규식 조각('국\\s*어?'), label: 완성 이름('2국어'). */
-export function codesInFor(subjectSrc, label) {
-  const re = new RegExp(`\\[?\\s*2\\s*${subjectSrc}\\s*(\\d\\d)\\s*-\\s*(\\d\\d)\\s*\\]?`, 'g');
-  return (t) => { const out = []; for (const m of String(t).matchAll(re)) out.push(`${label}${m[1]}-${m[2]}`); return [...new Set(out)]; };
+export function codesInFor(subjectSrc, label, grade) {
+  // grade를 주지 않으면 1~2학년군(2) 때 정규식 그대로(산출물 불변). 주면 그 학년 코드로 찾고, '[4수학04-1]'처럼 뒷자리가 한 자리면 두 자리로 맞춘다(0928 3~4학년군 수학 지도서).
+  const re = grade == null
+    ? new RegExp(`\\[?\\s*2\\s*${subjectSrc}\\s*(\\d\\d)\\s*-\\s*(\\d\\d)\\s*\\]?`, 'g')
+    : new RegExp(`\\[?\\s*${grade}\\s*${subjectSrc}\\s*(\\d\\d)\\s*-\\s*(\\d\\d?)(?!\\d)\\s*\\]?`, 'g');
+  return (t) => { const out = []; for (const m of String(t).matchAll(re)) out.push(`${label}${m[1]}-${m[2].padStart(2, '0')}`); return [...new Set(out)]; };
 }
+/** 줄 끝 글자가 이것이면 낱말 경계로 보고 띄어 잇는다 — 글자 층(3~4학년군) 지도서용 확장 목록('할 수'·'것'·'때'·'등'·'및'). */
+export const PARTICLE_END_EXT = /[은는이가을를에의와과로도고며서게다요수것때등및지기록해후할어아여]$/;
+const TAIL_ONLY = /^((가|지|까|는가|을까|나요|가요)\?|하기)$/; // 줄 끝에 홀로 남은 어미("…참여하는" + "가?", "비교" + "하기") — 앞 줄에 붙여 쓴다
+const sep = (cur, t, full, particle) => (particle !== PARTICLE_END && (TAIL_ONLY.test(t) || (/에$/.test(cur) && /^서/.test(t)) || (/(알아|살펴)$/.test(cur) && /^보기/.test(t))) ? '' : full ? '' : ' '); // '…속에'+'서 …'=에서, '알아'+'보기'=알아보기
 export const fixText = (t) => String(t)
   .replace(/[『「]\s*/g, (m) => m.trim()).replace(/\s*[』」]/g, (m) => m.trim())
   .replace(/'([^'」』]+)[」』]/g, '「$1」').replace(/`/g, '\'')
@@ -55,15 +62,15 @@ export const fixText = (t) => String(t)
   .replace(/\s+/g, ' ').trim();
 
 /** 줄 여러 개를 문단으로: 글머리표(•)로 항목을 나누고, 줄이 칸 오른쪽 끝까지 찼으면 낱말이 잘린 것으로 보고 붙여 쓴다. */
-export function joinItems(lines, right, { bullets = true, centered = false } = {}) {
+export function joinItems(lines, right, { bullets = true, centered = false, particle = PARTICLE_END } = {}) {
   const items = [];
   let cur = null, prevX1 = 0;
   for (const l of [...lines].sort((a, b) => a.y - b.y)) {
     const t = l.t.trim(); if (!t) continue;
     if (!cur || (bullets && isBullet(t))) { if (cur) items.push(cur); cur = bullets ? stripBullet(t) : t; }
     else {
-      const full = !centered && right != null && prevX1 >= right - 0.013 && !PARTICLE_END.test(cur);
-      cur += (full ? '' : ' ') + t;
+      const full = !centered && right != null && prevX1 >= right - 0.013 && !particle.test(cur);
+      cur += sep(cur, t, full, particle) + t;
     }
     prevX1 = l.x1;
   }
@@ -89,13 +96,13 @@ export function splitMarked(lines, right, { markX = 0.075, startX = 0.058 } = {}
 }
 
 /** "1. …" 번호 항목들(다음 번호 전까지 잇는다). */
-export function numberedItems(lines, right) {
+export function numberedItems(lines, right, { particle = PARTICLE_END } = {}) {
   const items = []; let cur = null, prevX1 = 0;
   for (const l of [...lines].sort((a, b) => a.y - b.y)) {
     const t = l.t.trim(); if (!t) continue;
     const m = t.match(/^\d{1,2}\s*[.．]\s*(.*)$/);
     if (!cur || m) { if (cur) items.push(cur); cur = m ? m[1] : t; }
-    else cur += (prevX1 >= right - 0.013 && !PARTICLE_END.test(cur) ? '' : ' ') + t;
+    else cur += sep(cur, t, prevX1 >= right - 0.013 && !particle.test(cur), particle) + t;
     prevX1 = l.x1;
   }
   if (cur) items.push(cur);
@@ -137,16 +144,32 @@ export function parseOutline(lines0, { labels = [['도입', 'intro'], ['전개',
 }
 
 /** 평가 준거 칸: 문장 끝(. ?)에서 항목을 나눈다(줄바꿈된 문장은 잇는다). */
-export function criteriaOf(lines, right) {
+export function criteriaOf(lines, right, { particle = PARTICLE_END } = {}) {
   const items = []; let cur = '', prevX1 = 0;
   for (const l of [...lines].sort((a, b) => a.y - b.y)) {
     const t = stripBullet(l.t.trim());
-    cur = cur ? cur + (prevX1 >= right - 0.013 && !PARTICLE_END.test(cur) ? '' : ' ') + t : t;
+    cur = cur ? cur + sep(cur, t, prevX1 >= right - 0.013 && !particle.test(cur), particle) + t : t;
     prevX1 = l.x1;
     if (/[.?]$/.test(t)) { items.push(fixText(cur)); cur = ''; }
   }
   if (cur) items.push(fixText(cur));
   return items.filter(Boolean);
+}
+
+/**
+ * 글머리표가 그림이라 글자 층에 없는 문단(3~4학년군 지도서의 지도상의 유의점·평가·교수·학습 자료):
+ * 앞 항목이 문장 끝(. ? ! ) 」 』)으로 끝났으면 다음 줄을 새 항목으로, 아니면 이어 쓴다(칸 오른쪽 끝까지 찬 줄은 낱말 절단).
+ */
+export function sentenceItems(lines, right, { particle = PARTICLE_END_EXT } = {}) {
+  const items = []; let cur = null, prevX1 = 0;
+  for (const l of [...lines].sort((a, b) => a.y - b.y)) {
+    const t = stripBullet(l.t.trim()); if (!t) continue;
+    if (cur == null || /[.?!)」』]$/.test(cur)) { if (cur != null) items.push(cur); cur = t; }
+    else cur += sep(cur, t, prevX1 >= right - 0.013 && !particle.test(cur), particle) + t;
+    prevX1 = l.x1;
+  }
+  if (cur != null) items.push(cur);
+  return items.map(fixText).filter(Boolean);
 }
 
 /** "148~151" → [148,151]. 뒤 숫자가 이상하면(다른 열이 섞임) 앞 숫자+1. */
