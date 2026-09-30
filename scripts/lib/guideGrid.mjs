@@ -172,6 +172,24 @@ export function sentenceItems(lines, right, { particle = PARTICLE_END_EXT } = {}
   return items.map(fixText).filter(Boolean);
 }
 
+/**
+ * 평가 준거 서술문 → 사이트 평가계획 짜임("~는가?"). 3~4학년군 국어 지도서의 준거는 "~할 수 있다." 서술이라(1~2학년군·수학은 "~는가?")
+ * 0930 햇살 결정("지도서는 그렇게 나올 거예요. 우리 사이트에서는 평가계획에 '~는가?'로, '할 수 있다'는 목표에")에 따라 데이터에서 바꾼다.
+ *   있다.→있는가? · 안다.→아는가?(끝 글자 받침 ㄴ을 떼고 "는가?") · 읽는다.→읽는가? · 이다.→인가? · 이미 "~는가?"면 그대로.
+ */
+export function toEvalQuestion(s) {
+  const t = String(s || '').trim();
+  if (!t || /[는은]가\?$/.test(t)) return t;
+  const m = t.match(/^(.*?)([가-힣])다[.．]?$/);
+  if (!m) return t;
+  const [, head, syl] = m;
+  if (syl === '는') return `${head}는가?`;
+  if (syl === '이') return `${head}인가?`;
+  const code = syl.charCodeAt(0) - 0xac00;
+  if (code % 28 === 4) return `${head}${String.fromCharCode(0xac00 + code - 4)}는가?`; // 받침 ㄴ: 안다→아는가, 한다→하는가, 쓴다→쓰는가, 만든다→만드는가
+  return `${head}${syl}는가?`; // 있다→있는가, 없다→없는가
+}
+
 /** "148~151" → [148,151]. 뒤 숫자가 이상하면(다른 열이 섞임) 앞 숫자+1. */
 export const pageRange = (s) => { const m = String(s || '').replace(/\s/g, '').match(/(\d+)(?:~(\d+))?/); if (!m) return null; const a = +m[1], b = +(m[2] || m[1]); return [a, b >= a && b - a < 12 ? b : a + 1]; };
 

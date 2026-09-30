@@ -6,6 +6,7 @@
 //   단원 시작 쪽: 큰 번호 띠 + '단원의 개관'(x≈0.33/0.35) → 교육과정의 성취기준([4국어01-01] 목록, 주요/관련 구분 없음) → 단원 목표(총괄 목표 + • 하위 목표)
 //   → (다음 쪽) 단원 지도 계획 표: 구분(소단원, 병합) | 차시 | 학습 내용(=차시명) | 학습 활동(•) | 교과서 쪽수  ※ 지도서 쪽수 열이 없다
 //   → 단원 평가: 가. 평가 목표 · 나. 평가 기준 표(평가 내용 | 평가 준거 "~할 수 있다." | 성취기준) · 다. 평가의 유의점
+//     ※ 준거는 사이트 평가계획 짜임 "~는가?"로 바꿔 담고(toEvalQuestion, 0930 햇살: '할 수 있다'는 목표에, 평가계획은 '~는가?') 원문은 criteriaOriginal에.
 //   → 단원 연계 표 · 가정 및 생활과의 연계 표(학습 목표 | 핵심역량 | 가정 및 일상생활) · 핵심 어휘(그림 낱말 8개)
 //   차시 쪽(왼쪽 면 왼 단): 'N차시'(x<0.2) + '교과서 N~M쪽' · 학습 목표 · 교수•학습 자료 · 교수•학습 개요(도입/활동 이름/정리 및 확인 표)
 //     · 지도상의 유의점 · 평가. 글머리표가 그림이라 글자 층에 없어 문장 끝으로 항목을 나눈다(sentenceItems).
@@ -22,7 +23,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { loadPages, norm, key, isBullet, fixText, joinItems, grid, runDebugGrid, sectionsOfPages, bulletsOf, criteriaOf, sentenceItems, codesInFor, columnRoles, PARTICLE_END_EXT } from './lib/guideGrid.mjs';
+import { loadPages, norm, key, isBullet, fixText, joinItems, grid, runDebugGrid, sectionsOfPages, bulletsOf, criteriaOf, sentenceItems, codesInFor, columnRoles, PARTICLE_END_EXT, toEvalQuestion } from './lib/guideGrid.mjs';
 
 const [xyPath, rulesPath] = process.argv.slice(2);
 if (!xyPath || !rulesPath) { console.error('usage: node scripts/parse-korean-guide34.mjs <kor34-xy.txt> <kor34-rules.txt>'); process.exit(1); }
@@ -203,7 +204,8 @@ unitStarts.forEach((start, idx) => {
           const content = fixText(r.cells[0].regionText); if (!content) continue;
           const crit = criteriaOf(r.cells[1].lines, g.cols[2], P);
           const codes = nC >= 3 ? codesIn(r.cells[nC - 1].regionText) : [];
-          unit.evaluation.push({ stage: '', content, criteria: crit, ...(codes.length ? { codes } : {}) });
+          // 지도서 준거는 "~할 수 있다." 서술 → 사이트 평가계획 짜임 "~는가?"로(0930 햇살 결정). 원문은 criteriaOriginal에 남긴다.
+          unit.evaluation.push({ stage: '', content, criteria: crit.map(toEvalQuestion), criteriaOriginal: crit, ...(codes.length ? { codes } : {}) });
         }
       } else warnings.push(`${unit.id} 평가 기준 표 못 읽음 p${b.n}`);
     }
@@ -259,10 +261,10 @@ const out = {
     subject: '국어', gradeCode: 4, gradeLabel: '초등 3~4학년군',
     createdAt: new Date().toISOString().slice(0, 10),
     source: '2022 개정 특수교육 기본교육과정 초등학교 3~4학년군 국어 ③·④ 교사용 지도서(교육부, 미래엔) — 사용자가 준 PDF(06_분석문서/초_지도서_국어 3_4 지도서_미래엔_….pdf, 884쪽 합본)',
-    method: 'PDF 글자 층(pdftotext -bbox-layout → scripts/pdf-text-xy.mjs) + 괘선 좌표로 표를 행·열로 나눠 읽음(scripts/parse-korean-guide34.mjs, 공용 scripts/lib/guideGrid.mjs). 글머리표가 그림인 문단은 문장 끝으로 항목을 나눴다.',
+    method: 'PDF 글자 층(pdftotext -bbox-layout → scripts/pdf-text-xy.mjs) + 괘선 좌표로 표를 행·열로 나눠 읽음(scripts/parse-korean-guide34.mjs, 공용 scripts/lib/guideGrid.mjs). 글머리표가 그림인 문단은 문장 끝으로 항목을 나눴다. 단원 평가 준거는 지도서의 "~할 수 있다." 서술을 사이트 평가계획 짜임 "~는가?"로 바꿨다(원문 criteriaOriginal).',
     pageNote: '지도서 인쇄 쪽 = PDF 쪽 − 6(③권) / − 14(④권). guidePage/guidePages는 인쇄 쪽. 차시 쪽은 왼쪽 면 "N차시" 이름표로 찾았다(지도 계획 표에 지도서 쪽수 열이 없음).',
     copyright: '단원명·성취기준 코드·단원 목표·차시명·학습 활동·학습 목표·자료·평가 내용/준거·핵심 어휘만 담음(수업 절차 본문·해설은 없음). 내부 참고용.',
-    schema: 'books[{book,key,units[{no,title,id,guidePage,standards{primary[],related[]},goals[],lessons[{stage(소단원),no,title,contents[],bookPages,guidePages,goal,materials,notes[],evalPoints[],intro[],activities[],wrapup[],activityHeads[]}],evaluation[{stage,content,criteria[],codes[]}],evalGoal,evalNotes[],competencies[],homeLinks[],vocabulary[],teachingPoints[],cautions[]}]}]',
+    schema: 'books[{book,key,units[{no,title,id,guidePage,standards{primary[],related[]},goals[],lessons[{stage(소단원),no,title,contents[],bookPages,guidePages,goal,materials,notes[],evalPoints[],intro[],activities[],wrapup[],activityHeads[]}],evaluation[{stage,content,criteria[](~는가?),criteriaOriginal[](지도서 원문 ~할 수 있다.),codes[]}],evalGoal,evalNotes[],competencies[],homeLinks[],vocabulary[],teachingPoints[],cautions[]}]}]',
     counts,
   },
   books,
