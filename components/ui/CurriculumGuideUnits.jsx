@@ -7,17 +7,21 @@ import { useState } from 'react';
 const STAGE_COLOR = { 기초: '#0369a1', 기본: '#15803d', 실천: '#b45309', 정리: '#6b7280', 진단: '#7c3aed' };
 const stageStyle = (s) => ({ display: 'inline-block', minWidth: 30, textAlign: 'center', fontSize: '.7rem', fontWeight: 700, color: '#fff', background: STAGE_COLOR[s] || '#6b7280', borderRadius: 6, padding: '1px 6px', marginRight: 6 });
 
+// 단원 id('3-1')는 교과 안에서만 유일하다(국어 ③ 1단원과 수학 ③ 1단원이 같은 id) → 키·접이 상태는 교과를 붙여 구분한다(0930 실화면 확인 때 key 중복 경고).
+const uidOf = (u) => `${u.subject || u.bookLabel || ''}|${u.id}`;
+
 export default function CurriculumGuideUnits({ units, onAdd }) {
-  const [openId, setOpenId] = useState(units[0]?.id || null);
+  const [openId, setOpenId] = useState(units[0] ? uidOf(units[0]) : null);
   return (
     <div data-help="iep-cg-unit" style={{ margin: '6px 0 8px', borderTop: '1px dashed var(--line, #e5e7eb)', paddingTop: 8 }}>
       <div style={{ fontSize: '.8rem', fontWeight: 700, color: '#1f3a8a', marginBottom: 4 }}>📖 교사용 지도서 — 주요 성취기준 단원의 차시</div>
       {units.map((u) => {
-        const open = openId === u.id;
+        const uid = uidOf(u);
+        const open = openId === uid;
         const lessons = u.lessons || [];
         return (
-          <div key={u.id} style={{ border: '1px solid var(--line, #e5e7eb)', borderRadius: 8, marginBottom: 6, background: '#fff' }}>
-            <button type="button" onClick={() => setOpenId(open ? null : u.id)}
+          <div key={uid} style={{ border: '1px solid var(--line, #e5e7eb)', borderRadius: 8, marginBottom: 6, background: '#fff' }}>
+            <button type="button" onClick={() => setOpenId(open ? null : uid)}
               style={{ width: '100%', textAlign: 'left', background: 'none', border: 0, padding: '8px 10px', cursor: 'pointer', fontSize: '.84rem', display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
               <span style={{ fontWeight: 700 }}>{open ? '▾' : '▸'} {u.bookLabel}{u.unitNo != null ? ` ${u.unitNo}단원` : ''} '{u.title}'</span>
               <span style={{ color: 'var(--muted)', fontSize: '.76rem' }}>[{u.code}] · 차시 {lessons.length}개 · 지도서 p.{u.guidePage}</span>
