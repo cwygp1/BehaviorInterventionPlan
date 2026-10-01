@@ -6,7 +6,7 @@ import EvalReportModal from '../modals/EvalReportModal';
 import { pnd, pndInterpretation, tauU, tauUInterpretation } from '../../lib/utils/effectSize';
 import QabfFnChart from '../ui/QabfFnChart';
 import FoldCard from '../ui/FoldCard';
-import { METRICS, availableMetrics, sortByDate, phaseRuns, runMean, phaseSeries, noteMarks, periodMarks, chartHeader } from '../../lib/utils/scedChart';
+import { METRICS, availableMetrics, sortByDate, phaseRuns, runMean, phaseSeries, noteMarks, periodMarks, chartHeader, rangeOptions, filterByRange, semesterMarks, behaviorOptions, filterByBehavior, parseGoalLine, RANGE_ALL, BEH_ALL } from '../../lib/utils/scedChart';
 
 const PHASE_COLOR = { A: '#ef476f', B: '#12b886' };
 
@@ -39,6 +39,17 @@ function useChart(canvasRef, build, deps) {
 export default function EvalPage() {
   const { curStu, curStuData } = useStudents();
   const [metric, setMetric] = useState('freq');
+  // 1001 2차(교사 엑셀 반영): 행동 고르기(합산/행동별) · 기간 고르기(전체/학기) · 목표선(가로 기준선, 기기에 저장).
+  const [behSel, setBehSel] = useState(BEH_ALL);
+  const [range, setRange] = useState(RANGE_ALL);
+  const goalKey = `kb_goal_line_${curStu?.id || 0}_${metric}`;
+  const [goalInput, setGoalInput] = useState('');
+  useEffect(() => { try { setGoalInput(localStorage.getItem(goalKey) || ''); } catch (_) { setGoalInput(''); } }, [goalKey]);
+  const goalLine = parseGoalLine(goalInput);
+  function onGoalChange(v) {
+    setGoalInput(v);
+    try { if (String(v).trim() === '') localStorage.removeItem(goalKey); else localStorage.setItem(goalKey, String(v)); } catch (_) { /* 저장 못 해도 그래프는 그린다 */ }
+  }
   const [aiOpen, setAiOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [compA1, setCompA1] = useState('');
@@ -91,10 +102,15 @@ export default function EvalPage() {
   //   · 직선 데이터 경로 + 둥근 점, 단계 경계를 넘어 선을 잇지 않음(ABAB도 자동으로 끊김)
   //   · 단계 변경선(실선) + 단계 이름을 구간 위 가운데에 — 범례·배경 음영·전체 폭 평균선은 뺐다
   //   · 평균 수준선은 그 단계 안에서만(점선), 메모(배경사건)는 점 위에 짧게, 관찰 기간 시작은 점선 구분선
-  const sortedMon = sortByDate(mon);
+  //   흐름: 날짜 정렬 → 기간 고르기 → 행동 고르기(합산이면 같은 날짜를 하나로) → 그래프.
+  const allSorted = sortByDate(mon);
+  const behChips = behaviorOptions(allSorted);
+  const rangeChips = rangeOptions(allSorted);
+  const sortedMon = filterByBehavior(filterByRange(allSorted, range), behChips.length ? behSel : BEH_ALL);
   const header = chartHeader(sortedMon);
   const notes = noteMarks(sortedMon);
-  const metricChips = availableMetrics(mon);
+  const metricChips = availableMetrics(sortedMon);
+  const metricShort = Object.fromEntries(metricChips.map(([k, l]) => [k, l]));
   useChart(behRef, () => {
     const sorted = sortedMon;
     const labels = sorted.map((r) => (r.date || '').slice(5));
@@ -103,6 +119,8 @@ export default function EvalPage() {
     const means = runs.map((run) => runMean(sorted, run, metric));
     const marks = notes;
     const pMarks = periodMarks(sorted, curStuData?.periods);
+    const sMarks = range === RANGE_ALL ? semesterMarks(sorted) : []; // 학기 구분선은 전체 보기에서만
+    const goal = goalLine;
 
     // 단계 변경선·단계 이름·단계 안 평균선·메모·관찰 기간 구분선을 한 플러그인에서 그린다.
     const scedOverlay = {
@@ -114,6 +132,19 @@ export default function EvalPage() {
         const px = (i) => x.getPixelForValue(i);
         const mid = (i, j) => (px(i) + px(j)) / 2;
         ctx.save();
+
+        // ⓪ 학기 구분선(굵은 회색 점선) — 엑셀 '1학기/2학기' 행에 해당
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = 'rgba(71,85,105,.7)';
+        ctx.lineWidth = 1.5;
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillStyle = 'rgba(71,85,105,.95)';
+        ctx.textAlign = 'left';
+        sMarks.forEach((m) => {
+          const bx = mid(m.index - 1, m.index);
+          ctx.beginPath(); ctx.moveTo(bx, top); ctx.lineTo(bx, bottom); ctx.stroke();
+          ctx.fillText(m.label, bx + 4, top + 26);
+        });
 
         // ① 관찰 기간 시작(점선, 회색) — 아래쪽에 짧은 이름
         ctx.setLineDash([2, 3]);
@@ -160,6 +191,22 @@ export default function EvalPage() {
             ctx.fillText('평균 ' + (Math.round(m * 10) / 10), (px(run.start) + px(run.start + 1)) / 2, yy - 4);
           }
         });
+
+        // ②-1 목표선(가로 기준선) — 엑셀 CCL 40 가로선. 기준변경설계의 기준선과 같은 자리.
+        if (goal != null) {
+          const gy = y.getPixelForValue(goal);
+          if (gy >= top && gy <= bottom) {
+            ctx.setLineDash([8, 4]);
+            ctx.strokeStyle = '#7c3aed';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(left, gy); ctx.lineTo(right, gy); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.font = 'bold 10px sans-serif';
+            ctx.fillStyle = '#7c3aed';
+            ctx.textAlign = 'right';
+            ctx.fillText('목표 ' + goal, right - 4, gy - 4);
+          }
+        }
 
         // ③ 메모(배경사건·특이사항) — 점 위에 작은 표식과 짧은 글
         ctx.setLineDash([]);
@@ -208,13 +255,13 @@ export default function EvalPage() {
           },
         },
         scales: {
-          y: { beginAtZero: true, grace: '15%', title: { display: true, text: METRICS[metric]?.label || '값' }, grid: { color: 'rgba(0,0,0,.06)' } }, // grace: 단계 이름이 맨 위 점과 겹치지 않게 머리 공간
+          y: { beginAtZero: true, grace: '15%', suggestedMax: goal != null ? goal : undefined, title: { display: true, text: METRICS[metric]?.label || '값' }, grid: { color: 'rgba(0,0,0,.06)' } }, // grace: 단계 이름이 맨 위 점과 겹치지 않게 머리 공간
           x: { title: { display: true, text: '회기 (관찰일)' }, grid: { display: false } },
         },
       },
       plugins: [scedOverlay],
     };
-  }, [mon, metric, curStuData?.periods]);
+  }, [mon, metric, curStuData?.periods, behSel, range, goalLine]);
 
   useChart(fidRef, () => {
     const sorted = [...fid].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
@@ -295,19 +342,44 @@ export default function EvalPage() {
         <div className="card-title">📈 행동 변화 추이 (기초선 A vs 중재 B)</div>
         {header.count > 0 && (
           <div className="card-subtitle" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span><strong>{curStu.code}</strong> · {header.behaviors.length ? header.behaviors.join(' · ') : '대상 행동 미기재'}</span>
+            {/* 엑셀 서식 제목 "(학생이름)의 OO행동 총발생횟수그래프 (관찰지속 기간)"과 같은 틀 */}
+            <span><strong>{curStu.code}</strong>의 <strong>{header.behaviors.length ? header.behaviors.join(' · ') : '대상 행동'}</strong> {metricShort[metric] || ''} 그래프</span>
             <span style={{ color: 'var(--muted)' }}>{header.from} ~ {header.to} · {header.count}회기</span>
             {curStuData?.bip?.opdef && <span style={{ color: 'var(--muted)' }} title={curStuData.bip.opdef}>정의: {curStuData.bip.opdef.length > 40 ? curStuData.bip.opdef.slice(0, 40) + '…' : curStuData.bip.opdef}</span>}
           </div>
         )}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: '.74rem', color: 'var(--muted)', minWidth: 34 }}>지표</span>
           {metricChips.map(([k, l]) => (
             <span key={k} className={'qchip' + (metric === k ? ' on' : '')} onClick={() => setMetric(k)}>{l}</span>
           ))}
         </div>
+        {(behChips.length > 0 || rangeChips.length > 1) && (
+          <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap', alignItems: 'center' }} data-help="ev-filters">
+            {behChips.length > 0 && (<>
+              <span style={{ fontSize: '.74rem', color: 'var(--muted)', minWidth: 34 }}>행동</span>
+              {behChips.map(([k, l]) => (
+                <span key={k} className={'qchip' + (behSel === k ? ' on' : '')} onClick={() => setBehSel(k)}>{l}</span>
+              ))}
+              <span style={{ width: 8 }} />
+            </>)}
+            {rangeChips.length > 1 && (<>
+              <span style={{ fontSize: '.74rem', color: 'var(--muted)', minWidth: 34 }}>기간</span>
+              {rangeChips.map(([k, l]) => (
+                <span key={k} className={'qchip' + (range === k ? ' on' : '')} onClick={() => setRange(k)}>{l}</span>
+              ))}
+            </>)}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }} data-help="ev-goal">
+          <span style={{ fontSize: '.74rem', color: 'var(--muted)', minWidth: 34 }}>목표선</span>
+          <input type="number" className="form-input" min="0" step="any" value={goalInput} onChange={(e) => onGoalChange(e.target.value)} placeholder={`예: ${METRICS[metric]?.higherIsBetter ? '8' : '2'}`} style={{ width: 110, padding: '4px 8px', fontSize: '.84rem' }} />
+          <span style={{ fontSize: '.74rem', color: 'var(--muted)' }}>{goalLine != null ? `보라 점선 — ${metricShort[metric] || ''} 목표 ${goalLine} (이 기기에만 저장)` : '그래프에 가로 기준선을 그어요 (지표마다 따로, 이 기기에만 저장)'}</span>
+        </div>
         <div style={{ position: 'relative', height: 320 }}><canvas ref={behRef} /></div>
         <div style={{ fontSize: '.74rem', color: 'var(--muted)', marginTop: 6, lineHeight: 1.6 }}>
-          세로 실선 = 단계가 바뀐 자리(선은 경계를 넘어 잇지 않아요) · 점선 = 그 단계의 평균 · ▲ = 그날 메모(배경사건) · 회색 점선 = 관찰 기간 시작
+          세로 실선 = 단계가 바뀐 자리(선은 경계를 넘어 잇지 않아요) · 색 점선 = 그 단계의 평균 · ▲ = 그날 메모(배경사건) · 회색 점선 = 관찰 기간 시작 · 굵은 회색 점선 = 학기 바뀜 · 보라 점선 = 목표선
+          {behSel === BEH_ALL && behChips.length > 0 && ' · 합산 = 같은 날 행동들의 빈도·지속·대체행동은 더하고 강도는 최대, DBR은 평균'}
           {metric === 'rate' && ' · 시간당 발생률 = 빈도 ÷ 학교에 있었던 시간(관찰 시간을 적은 날만 표시)'}
         </div>
         {notes.length > 0 && (
