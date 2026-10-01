@@ -13,12 +13,12 @@ export default function Sparkline({ series = [], width = 110, height = 30, color
   const y = (v) => height - pad - (v / max) * (height - pad * 2);
 
   // phase가 바뀌는 지점에서 선을 끊어 A(회색)/B(색) 구간을 나눠 그린다.
+  // 1001: 단일대상설계 관례대로 경계를 넘어 선을 잇지 않는다(결과 평가 그래프와 같은 규칙).
   const segs = [];
   let cur = { p: pts[0].p || 'A', d: [] };
   pts.forEach((s, i) => {
     const p = s.p || 'A';
     if (p !== cur.p) {
-      cur.d.push([x(i), y(vals[i])]); // 경계점을 양쪽 선에 포함해 선이 이어져 보이게
       segs.push(cur);
       cur = { p, d: [] };
     }

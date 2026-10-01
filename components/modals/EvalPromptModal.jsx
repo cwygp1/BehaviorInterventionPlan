@@ -10,7 +10,7 @@ import { buildFullStudentContext } from '../../lib/tierContext';
 function buildPrompt(stu, data) {
   const mon = (data?.mon || []).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const monLines = mon.map((r) =>
-    `${r.date} | Phase ${r.phase || 'B'} | 행동 "${r.beh || ''}" | 빈도 ${r.freq} | 지속 ${r.dur}분 | 강도 ${r.int} | DBR ${r.dbr}`
+    `${r.date} | Phase ${r.phase || 'B'} | 행동 "${r.beh || ''}" | 빈도 ${r.freq}${r.obs_hours ? ` (관찰 ${r.obs_hours}h, 시간당 ${(r.freq / r.obs_hours).toFixed(1)})` : ''} | 지속 ${r.dur}분 | 강도 ${r.int} | DBR ${r.dbr}${r.note ? ` | 메모: ${r.note}` : ''}`
   ).join('\n');
   const fid = (data?.fid || []).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const fidLines = fid.map((r) => `${r.date} | ${r.score}/${r.total}`).join('\n');

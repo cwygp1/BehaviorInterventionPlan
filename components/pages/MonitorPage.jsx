@@ -34,9 +34,12 @@ export default function MonitorPage({ onNavigate }) {
   const [altFreq, setAltFreq] = useState(0); // 0719: 대체행동 발생 빈도(문제행동과 분리)
   const [lat, setLat] = useState(0);
   const [dbr, setDbr] = useState(5);
+  // 1001(현장 엑셀·ChatGPT 분석): 학교에 있었던 시간(시간당 발생률용) + 그날 메모(배경사건·특이사항 — 그래프 위 표식).
+  const [obsHours, setObsHours] = useState('');
+  const [note, setNote] = useState('');
   const [editingId, setEditingId] = useState(null); // 0719: 기록 목록에서 불러와 수정
   // 0819 피드백: 저장 성공 후 "다음 단계(결과 평가)로 이동" 배너 — 새 기록을 입력하면 숨김.
-  const [savedOk, markSaved] = useSavedFlag([date, beh, freq, dur, intensity, alt, altFreq, lat, dbr]);
+  const [savedOk, markSaved] = useSavedFlag([date, beh, freq, dur, intensity, alt, altFreq, lat, dbr, obsHours, note]);
   // 기본값은 A(기초선). 학생별로 한 번, 데이터가 있으면 가장 최근 기록의 단계를 이어받는다.
   const [phase, setPhase] = useState('A');
   const phaseInitedFor = useRef(null);
@@ -103,7 +106,7 @@ export default function MonitorPage({ onNavigate }) {
     if (!beh.trim()) { toast('대상 행동을 입력해주세요.'); return; }
     setBusy(true);
     try {
-      const body = { date, beh, freq: +freq, dur: +dur, int: +intensity, alt, alt_freq: +altFreq, lat: +lat, dbr: +dbr, phase };
+      const body = { date, beh, freq: +freq, dur: +dur, int: +intensity, alt, alt_freq: +altFreq, lat: +lat, dbr: +dbr, phase, obs_hours: obsHours === '' ? null : +obsHours, note: note.trim() };
       if (editingId) {
         // 0719: 기록 목록에서 불러온 항목 수정
         const res = await updateMonitor(curStuId, { ...body, id: editingId });
@@ -134,6 +137,7 @@ export default function MonitorPage({ onNavigate }) {
     setBeh(r.beh || '');
     setFreq(r.freq ?? 0); setDur(r.dur ?? 0); setIntensity(r.int ?? 1);
     setAlt(r.alt || 'N'); setAltFreq(r.alt_freq ?? 0); setLat(r.lat ?? 0); setDbr(r.dbr ?? 5);
+    setObsHours(r.obs_hours == null ? '' : String(r.obs_hours)); setNote(r.note || '');
     setPhase(r.phase || 'A');
     setTimeout(() => {
       const el = typeof document !== 'undefined' && document.getElementById('mon-form');
@@ -144,6 +148,7 @@ export default function MonitorPage({ onNavigate }) {
   function cancelEdit() {
     setEditingId(null);
     setBeh(''); setFreq(0); setDur(0); setIntensity(1); setAlt('Y'); setAltFreq(0); setLat(0); setDbr(5);
+    setObsHours(''); setNote('');
     setDate(new Date().toISOString().slice(0, 10));
   }
 
@@ -157,6 +162,7 @@ export default function MonitorPage({ onNavigate }) {
     setBeh(r.beh || '');
     setFreq(r.freq ?? 0); setDur(r.dur ?? 0); setIntensity(r.int ?? 1);
     setAlt(r.alt || 'N'); setAltFreq(r.alt_freq ?? 0); setLat(r.lat ?? 0); setDbr(r.dbr ?? 5);
+    setObsHours(r.obs_hours == null ? '' : String(r.obs_hours)); setNote(''); // 메모는 그날의 일이라 비운다
     setPhase(r.phase || 'A');
     toast(`최근 기록(${r.date})과 같게 채웠어요 — 오늘 수치만 고치고 저장(Enter)하세요.`);
   }
@@ -186,7 +192,7 @@ export default function MonitorPage({ onNavigate }) {
   // 학생 이름 등 PII는 절대 포함하지 않고 학생 코드만 사용한다.
   function buildTrendPrompt() {
     const recs = (curStuData?.mon || []);
-    const fmt = (r) => `  - ${r.date} [${r.beh || '대상행동'}] 빈도 ${r.freq}회 · 지속 ${r.dur}분 · 강도 ${r.int}/5 · 대체행동수행 ${r.alt}${r.alt_freq ? `(${r.alt_freq}회)` : ''} · 지연 ${r.lat}분 · DBR ${r.dbr}/10`;
+    const fmt = (r) => `  - ${r.date} [${r.beh || '대상행동'}] 빈도 ${r.freq}회${r.obs_hours ? ` (관찰 ${r.obs_hours}시간 → 시간당 ${(r.freq / r.obs_hours).toFixed(1)}회)` : ''} · 지속 ${r.dur}분 · 강도 ${r.int}/5 · 대체행동수행 ${r.alt}${r.alt_freq ? `(${r.alt_freq}회)` : ''} · 지연 ${r.lat}분 · DBR ${r.dbr}/10${r.note ? ` · 메모: ${r.note}` : ''}`;
     // 오래된→최근 순으로 정렬해 추세를 읽기 쉽게.
     const ordered = [...recs].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const phaseA = ordered.filter((r) => (r.phase || 'B') === 'A');
@@ -205,7 +211,8 @@ ${aText}
 ${bText}
 
 ## 분석 요구
-- A(기초선) 대비 B(중재) 단계의 추세를 요약 (빈도·지속·강도·대체행동·DBR 변화 중심)
+- A(기초선) 대비 B(중재) 단계의 추세를 요약 (빈도·지속·강도·대체행동·DBR 변화 중심. 관찰 시간이 있으면 빈도 대신 시간당 발생률로 비교)
+- 메모(수면·몸 상태·날씨 같은 배경사건)가 있는 날의 수치 변화를 따로 짚어 중재 효과와 구분
 - 문제행동이 개선되고 있는지(감소/유지/악화) 데이터 근거로 판단
 - 구체적인 다음 단계 제안 — 현 중재를 (1) 그대로 지속, (2) 조정, (3) 강화/집중 중 무엇이 적절한지와 이유
 - 한국어로, 특수교사가 바로 참고할 수 있게 작성`;
@@ -324,9 +331,15 @@ ${bText}
           )}
         </div>
         <div className="card-subtitle">매일 행동 데이터를 기록합니다. <strong>기록 날짜</strong>는 행동을 관찰한 그 날짜로 적으세요(작성일과 달라도 됩니다). 숫자 칸에서 <strong>Enter</strong>를 누르면 바로 저장돼요.</div>
-        <div className="form-group">
-          <label className="form-label">기록 날짜 (행동을 관찰한 날)</label>
-          <input type="date" className="form-input" value={date} onChange={(e) => setDate(e.target.value)} />
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">기록 날짜 (행동을 관찰한 날)</label>
+            <input type="date" className="form-input" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div className="form-group" data-help="mon-hours">
+            <label className="form-label">학교에 있었던 시간 (시간 · 선택)</label>
+            <input type="number" className="form-input" min="0" max="12" step="0.5" placeholder="예: 6 (조퇴한 날은 짧게)" value={obsHours} onChange={(e) => setObsHours(e.target.value)} />
+          </div>
         </div>
         <div className="form-group">
           <label className="form-label">기록 대상 행동 (목표행동 = 줄이려는 문제행동)</label>
@@ -362,6 +375,11 @@ ${bText}
           <div style={{ fontSize: '.74rem', color: 'var(--muted)', marginTop: 4 }}>
             DBR(Daily Behavior Rating·일일 행동 평정) — 오늘 하루 행동 전반을 0(전혀 좋지 않음)~10(매우 좋음)으로 매기는 <strong>종합 점수</strong>예요. 강화(차별강화)가 아니라 평정 척도입니다.
           </div>
+        </div>
+        <div className="form-group" data-help="mon-note" style={{ marginTop: 8 }}>
+          <label className="form-label">📝 그날 메모 (배경사건·특이사항 · 선택)</label>
+          <input className="form-input" maxLength={300} placeholder="예: 새벽 3시 30분 기상 · 고열로 조퇴 · 폭발 1회" value={note} onChange={(e) => setNote(e.target.value)} />
+          <div style={{ fontSize: '.74rem', color: 'var(--muted)', marginTop: 4 }}>결과 평가 그래프의 그 날짜 점 위에 ▲로 표시돼요. 수면·몸 상태·날씨처럼 그날 수치를 설명하는 일을 적으세요.</div>
         </div>
         {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
@@ -435,7 +453,8 @@ ${bText}
                   <span className="data-item-date">{r.beh || ''} <span style={{ marginLeft: 8, padding: '2px 6px', background: r.phase === 'A' ? '#ffe3e3' : '#dbe8ff', borderRadius: 4, fontSize: '.7rem' }}>Phase {r.phase || 'B'}</span></span>
                 </div>
                 <div className="data-item-body">
-                  문제행동 — 빈도:{r.freq}회 | 지속:{r.dur}분 | 강도:{r.int} · 대체행동 — 수행:{r.alt}{r.alt_freq ? ` | 빈도:${r.alt_freq}회` : ''} · DBR:{r.dbr}
+                  문제행동 — 빈도:{r.freq}회{r.obs_hours ? ` (${r.obs_hours}시간 중)` : ''} | 지속:{r.dur}분 | 강도:{r.int} · 대체행동 — 수행:{r.alt}{r.alt_freq ? ` | 빈도:${r.alt_freq}회` : ''} · DBR:{r.dbr}
+                  {r.note && <div style={{ marginTop: 2, color: '#92400e' }}>📝 {r.note}</div>}
                   <span style={{ marginLeft: 8, fontSize: '.72rem', color: 'var(--muted)' }}>작성 {r.created_at || '-'}</span>
                 </div>
                 <div style={{ marginTop: 4 }}>

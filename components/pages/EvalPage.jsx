@@ -6,8 +6,9 @@ import EvalReportModal from '../modals/EvalReportModal';
 import { pnd, pndInterpretation, tauU, tauUInterpretation } from '../../lib/utils/effectSize';
 import QabfFnChart from '../ui/QabfFnChart';
 import FoldCard from '../ui/FoldCard';
+import { METRICS, availableMetrics, sortByDate, phaseRuns, runMean, phaseSeries, noteMarks, periodMarks, chartHeader } from '../../lib/utils/scedChart';
 
-const METRIC_LABELS = { freq: '발생 빈도 (회)', dur: '지속 시간 (분)', int: '강도 (1~5)', dbr: '일일 행동 평정 DBR (0~10)' };
+const PHASE_COLOR = { A: '#ef476f', B: '#12b886' };
 
 const FUNC_LABELS = ['관심', '회피', '자동·감각', '신체', '강화물'];
 const FUNC_COLORS = ['#4f6bed', '#ef476f', '#12b886', '#9c36b5', '#f59f00'];
@@ -86,67 +87,134 @@ export default function EvalPage() {
     };
   }, [qabf]);
 
-  // Behavior chart with Phase A/B coloring + 구역 나누기(기초선/중재) + 축 제목
+  // 행동 변화 추이 — 단일대상설계(SCED) 그래프 관례로 다시 그림(1001, ChatGPT·현장 엑셀 분석 반영. 계산은 lib/utils/scedChart.js).
+  //   · 직선 데이터 경로 + 둥근 점, 단계 경계를 넘어 선을 잇지 않음(ABAB도 자동으로 끊김)
+  //   · 단계 변경선(실선) + 단계 이름을 구간 위 가운데에 — 범례·배경 음영·전체 폭 평균선은 뺐다
+  //   · 평균 수준선은 그 단계 안에서만(점선), 메모(배경사건)는 점 위에 짧게, 관찰 기간 시작은 점선 구분선
+  const sortedMon = sortByDate(mon);
+  const header = chartHeader(sortedMon);
+  const notes = noteMarks(sortedMon);
+  const metricChips = availableMetrics(mon);
   useChart(behRef, () => {
-    const sorted = [...mon].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const sorted = sortedMon;
     const labels = sorted.map((r) => (r.date || '').slice(5));
-    const baseData = sorted.map((r) => (r.phase === 'A' ? r[metric] : null));
-    const intData = sorted.map((r) => (r.phase !== 'A' ? r[metric] : null));
-    const aCount = sorted.filter((r) => r.phase === 'A').length; // 기초선(A) 구간 길이
-    const baseAvg = (() => { const a = sorted.filter((r) => r.phase === 'A').map((r) => r[metric]); return a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0; })();
-    const intAvg = (() => { const a = sorted.filter((r) => r.phase !== 'A').map((r) => r[metric]); return a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0; })();
+    const { a: baseData, b: intData } = phaseSeries(sorted, metric);
+    const runs = phaseRuns(sorted);
+    const means = runs.map((run) => runMean(sorted, run, metric));
+    const marks = notes;
+    const pMarks = periodMarks(sorted, curStuData?.periods);
 
-    // 구역 나누기: 기초선(A) / 중재(B) 영역을 배경 음영 + 점선 분리선 + 라벨로 표시
-    const phaseRegion = {
-      id: 'phaseRegion',
-      beforeDraw(chart) {
-        const { ctx, chartArea, scales: { x } } = chart;
-        if (!chartArea || !x || !labels.length) return;
+    // 단계 변경선·단계 이름·단계 안 평균선·메모·관찰 기간 구분선을 한 플러그인에서 그린다.
+    const scedOverlay = {
+      id: 'scedOverlay',
+      afterDatasetsDraw(chart) {
+        const { ctx, chartArea, scales: { x, y } } = chart;
+        if (!chartArea || !x || !y || !labels.length) return;
         const { left, right, top, bottom } = chartArea;
-        const hasSplit = aCount > 0 && aCount < labels.length;
-        const bx = hasSplit ? (x.getPixelForValue(aCount - 1) + x.getPixelForValue(aCount)) / 2
-          : (aCount >= labels.length ? right : left);
+        const px = (i) => x.getPixelForValue(i);
+        const mid = (i, j) => (px(i) + px(j)) / 2;
         ctx.save();
-        ctx.fillStyle = 'rgba(239,71,111,.06)';
-        ctx.fillRect(left, top, bx - left, bottom - top);
-        ctx.fillStyle = 'rgba(18,184,134,.06)';
-        ctx.fillRect(bx, top, right - bx, bottom - top);
-        if (hasSplit) {
-          ctx.strokeStyle = 'rgba(0,0,0,.4)';
-          ctx.setLineDash([5, 4]);
+
+        // ① 관찰 기간 시작(점선, 회색) — 아래쪽에 짧은 이름
+        ctx.setLineDash([2, 3]);
+        ctx.strokeStyle = 'rgba(100,116,139,.55)';
+        ctx.lineWidth = 1;
+        ctx.font = '10px sans-serif';
+        ctx.fillStyle = 'rgba(100,116,139,.9)';
+        ctx.textAlign = 'left';
+        pMarks.forEach((m) => {
+          const bx = mid(m.index - 1, m.index);
           ctx.beginPath(); ctx.moveTo(bx, top); ctx.lineTo(bx, bottom); ctx.stroke();
-          ctx.setLineDash([]);
-        }
-        ctx.font = 'bold 11px sans-serif';
-        if (bx - left > 40) { ctx.fillStyle = '#ef476f'; ctx.fillText('기초선(A)', left + 6, top + 14); }
-        if (right - bx > 40) { ctx.fillStyle = '#12b886'; ctx.fillText('중재(B)', bx + 6, top + 14); }
+          if (m.label) ctx.fillText(m.label + ' 시작', bx + 4, bottom - 6);
+        });
+
+        // ② 단계 변경선(실선) + 단계 이름(구간 위 가운데) + 단계 안 평균선(점선)
+        runs.forEach((run, k) => {
+          const color = PHASE_COLOR[run.phase];
+          if (k > 0) {
+            ctx.setLineDash([]);
+            ctx.strokeStyle = 'rgba(15,23,42,.65)';
+            ctx.lineWidth = 1.5;
+            const bx = mid(run.start - 1, run.start);
+            ctx.beginPath(); ctx.moveTo(bx, top); ctx.lineTo(bx, bottom); ctx.stroke();
+          }
+          const x0 = k === 0 ? left : mid(run.start - 1, run.start);
+          const x1 = k === runs.length - 1 ? right : mid(run.end, run.end + 1);
+          if (x1 - x0 > 36) {
+            ctx.font = 'bold 11px sans-serif';
+            ctx.fillStyle = color;
+            ctx.textAlign = 'center';
+            ctx.fillText(run.label, (x0 + x1) / 2, top + 12);
+          }
+          const m = means[k];
+          if (m != null && run.end > run.start) {
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1;
+            const yy = y.getPixelForValue(m);
+            ctx.beginPath(); ctx.moveTo(px(run.start), yy); ctx.lineTo(px(run.end), yy); ctx.stroke();
+            ctx.setLineDash([]);
+            // 라벨은 첫 두 점 사이 위에 — 점 위에 올라앉지 않는다.
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('평균 ' + (Math.round(m * 10) / 10), (px(run.start) + px(run.start + 1)) / 2, yy - 4);
+          }
+        });
+
+        // ③ 메모(배경사건·특이사항) — 점 위에 작은 표식과 짧은 글
+        ctx.setLineDash([]);
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        marks.forEach((m) => {
+          const r = sorted[m.index];
+          const v = (r.phase || 'A') === 'A' ? baseData[m.index] : intData[m.index];
+          if (v == null) return;
+          const cx = px(m.index);
+          const cy = y.getPixelForValue(v) - 9;
+          ctx.fillStyle = '#f59f00';
+          ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx - 4, cy - 6); ctx.lineTo(cx + 4, cy - 6); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#92400e';
+          ctx.fillText(m.short, cx, cy - 9);
+        });
         ctx.restore();
       },
     };
 
+    const mkSet = (label, data, color) => ({
+      label, data, borderColor: color, backgroundColor: color, pointBackgroundColor: color, pointBorderColor: '#fff',
+      pointRadius: 4.5, pointHoverRadius: 6, borderWidth: 2, tension: 0, fill: false, spanGaps: false,
+    });
     return {
       type: 'line',
-      data: {
-        labels,
-        datasets: [
-          { label: '기초선 (A)', data: baseData, borderColor: '#ef476f', backgroundColor: 'rgba(239,71,111,.08)', tension: 0.3, pointRadius: 5, pointBackgroundColor: '#ef476f', spanGaps: false },
-          { label: '중재 (B)', data: intData, borderColor: '#12b886', backgroundColor: 'rgba(18,184,134,.08)', tension: 0.3, pointRadius: 5, pointBackgroundColor: '#12b886', spanGaps: false },
-          { label: 'A 평균(' + baseAvg.toFixed(1) + ')', data: labels.map(() => baseAvg), borderColor: 'rgba(239,71,111,.4)', borderDash: [6, 4], pointRadius: 0 },
-          { label: 'B 평균(' + intAvg.toFixed(1) + ')', data: labels.map(() => intAvg), borderColor: 'rgba(18,184,134,.4)', borderDash: [6, 4], pointRadius: 0 },
-        ],
-      },
+      data: { labels, datasets: [mkSet('기초선 (A)', baseData, PHASE_COLOR.A), mkSet('중재 (B)', intData, PHASE_COLOR.B)] },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom' } },
+        layout: { padding: { top: 18 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: (items) => { const r = sorted[items[0]?.dataIndex]; return r ? `${r.date} · ${(r.phase || 'A') === 'A' ? '기초선(A)' : '중재(B)'}` : ''; },
+              afterBody: (items) => {
+                const r = sorted[items[0]?.dataIndex];
+                if (!r) return [];
+                const out = [];
+                if (r.obs_hours) out.push(`관찰 시간 ${r.obs_hours}시간`);
+                if (r.note) out.push(`메모: ${r.note}`);
+                return out;
+              },
+            },
+          },
+        },
         scales: {
-          y: { beginAtZero: true, title: { display: true, text: METRIC_LABELS[metric] || '값' } },
-          x: { title: { display: true, text: '회기 (날짜)' } },
+          y: { beginAtZero: true, grace: '15%', title: { display: true, text: METRICS[metric]?.label || '값' }, grid: { color: 'rgba(0,0,0,.06)' } }, // grace: 단계 이름이 맨 위 점과 겹치지 않게 머리 공간
+          x: { title: { display: true, text: '회기 (관찰일)' }, grid: { display: false } },
         },
       },
-      plugins: [phaseRegion],
+      plugins: [scedOverlay],
     };
-  }, [mon, metric]);
+  }, [mon, metric, curStuData?.periods]);
 
   useChart(fidRef, () => {
     const sorted = [...fid].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
@@ -225,12 +293,31 @@ export default function EvalPage() {
 
       <div className="card" data-tour="ev-trend">
         <div className="card-title">📈 행동 변화 추이 (기초선 A vs 중재 B)</div>
+        {header.count > 0 && (
+          <div className="card-subtitle" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span><strong>{curStu.code}</strong> · {header.behaviors.length ? header.behaviors.join(' · ') : '대상 행동 미기재'}</span>
+            <span style={{ color: 'var(--muted)' }}>{header.from} ~ {header.to} · {header.count}회기</span>
+            {curStuData?.bip?.opdef && <span style={{ color: 'var(--muted)' }} title={curStuData.bip.opdef}>정의: {curStuData.bip.opdef.length > 40 ? curStuData.bip.opdef.slice(0, 40) + '…' : curStuData.bip.opdef}</span>}
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-          {[['freq', '빈도'], ['dur', '지속'], ['int', '강도'], ['dbr', '일일 행동 평정(DBR)']].map(([k, l]) => (
+          {metricChips.map(([k, l]) => (
             <span key={k} className={'qchip' + (metric === k ? ' on' : '')} onClick={() => setMetric(k)}>{l}</span>
           ))}
         </div>
         <div style={{ position: 'relative', height: 320 }}><canvas ref={behRef} /></div>
+        <div style={{ fontSize: '.74rem', color: 'var(--muted)', marginTop: 6, lineHeight: 1.6 }}>
+          세로 실선 = 단계가 바뀐 자리(선은 경계를 넘어 잇지 않아요) · 점선 = 그 단계의 평균 · ▲ = 그날 메모(배경사건) · 회색 점선 = 관찰 기간 시작
+          {metric === 'rate' && ' · 시간당 발생률 = 빈도 ÷ 학교에 있었던 시간(관찰 시간을 적은 날만 표시)'}
+        </div>
+        {notes.length > 0 && (
+          <details className="fold-inline" style={{ marginTop: 8 }}>
+            <summary>📝 메모 있는 날 {notes.length}건</summary>
+            <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: '.8rem', lineHeight: 1.7 }}>
+              {notes.map((m) => <li key={m.index}>{m.date} — {m.note}</li>)}
+            </ul>
+          </details>
+        )}
       </div>
 
       <div className="card" data-tour="ev-fid">

@@ -38,6 +38,13 @@ export default requireStudentAccess(async function handler(req, res) {
 
   // 0719 피드백: 대체행동 발생 빈도 컬럼 — /api/migrate 전에도 동작하도록 셀프힐(멱등 DDL).
   const ensureAltFreq = () => sql`ALTER TABLE monitor_records ADD COLUMN IF NOT EXISTS alt_freq INTEGER DEFAULT 0`;
+  // 1001(현장 엑셀 분석): 학교에 있었던 시간(시간당 발생률) + 그날 메모(배경사건) — 멱등 DDL 셀프힐.
+  const ensureHoursNote = async () => {
+    await sql`ALTER TABLE monitor_records ADD COLUMN IF NOT EXISTS obs_hours REAL`;
+    await sql`ALTER TABLE monitor_records ADD COLUMN IF NOT EXISTS note VARCHAR(300) DEFAULT ''`;
+  };
+  const numOrNull = (v) => { if (v === '' || v == null) return null; const n = Number(v); return Number.isFinite(n) && n >= 0 ? n : null; };
+  const noteOf = (body) => String(body.note ?? '').slice(0, 300);
 
   try {
     switch (req.method) {
@@ -61,13 +68,16 @@ export default requireStudentAccess(async function handler(req, res) {
         const latency = body.latency ?? body.lat ?? 0;
         const dbr = body.dbr ?? 0;
         const phase = body.phase ?? 'A';
+        const obsHours = numOrNull(body.obs_hours ?? body.obsHours);
+        const note = noteOf(body);
         if (!date) {
           return res.status(400).json({ error: 'date is required' });
         }
         await ensureAltFreq();
+        await ensureHoursNote();
         const result = await sql`
-          INSERT INTO monitor_records (student_id, date, behavior, frequency, duration, intensity, alternative, alt_freq, latency, dbr, phase)
-          VALUES (${studentId}, ${date}, ${behavior}, ${frequency}, ${duration}, ${intensity}, ${alternative}, ${altFreq}, ${latency}, ${dbr}, ${phase})
+          INSERT INTO monitor_records (student_id, date, behavior, frequency, duration, intensity, alternative, alt_freq, latency, dbr, phase, obs_hours, note)
+          VALUES (${studentId}, ${date}, ${behavior}, ${frequency}, ${duration}, ${intensity}, ${alternative}, ${altFreq}, ${latency}, ${dbr}, ${phase}, ${obsHours}, ${note})
           RETURNING *
         `;
         return res.status(201).json({ record: toResponse(result.rows[0]) });
@@ -89,12 +99,15 @@ export default requireStudentAccess(async function handler(req, res) {
         const latency = body.latency ?? body.lat ?? 0;
         const dbr = body.dbr ?? 0;
         const phase = body.phase ?? 'A';
+        const obsHours = numOrNull(body.obs_hours ?? body.obsHours);
+        const note = noteOf(body);
         await ensureAltFreq();
+        await ensureHoursNote();
         const result = await sql`
           UPDATE monitor_records
           SET date = ${date}, behavior = ${behavior}, frequency = ${frequency}, duration = ${duration},
               intensity = ${intensity}, alternative = ${alternative}, alt_freq = ${altFreq},
-              latency = ${latency}, dbr = ${dbr}, phase = ${phase}
+              latency = ${latency}, dbr = ${dbr}, phase = ${phase}, obs_hours = ${obsHours}, note = ${note}
           WHERE id = ${id} AND student_id = ${studentId}
           RETURNING *
         `;
