@@ -1,5 +1,5 @@
 import { sql } from '../../../lib/db';
-import { requireAuth } from '../../../lib/auth';
+import { requireAuth, isDemoReq, rejectDemo } from '../../../lib/auth';
 import { ensureLlmConfigCached } from '../../../lib/ensureSchema';
 
 // 전체 공용 LLM (LM Studio) 설정 — 모든 선생님이 같은 연결을 공유한다.
@@ -18,6 +18,12 @@ export default requireAuth(async function handler(req, res) {
     await ensureLlmConfigCached();
   } catch (e) {
     return res.status(500).json({ error: 'DB 스키마 준비 실패: ' + (e?.message || 'unknown') });
+  }
+
+  // 체험 계정(mds/46 D2) — 공용 AI 연결을 쓰지 않는다(시연은 AI 없이 진행). 수정·삭제도 막는다.
+  if (isDemoReq(req)) {
+    if (req.method === 'GET') return res.status(200).json({ config: null });
+    return rejectDemo(res);
   }
 
   if (req.method === 'GET') {

@@ -40,6 +40,9 @@ import AdminPage from '../components/pages/AdminPage';
 import QABoardPage from '../components/pages/QABoardPage';
 import ChatExpertPage from '../components/pages/ChatExpertPage';
 import StepNav from '../components/ui/StepNav';
+import DemoPlayer from '../components/demo/DemoPlayer';
+import PageFrame from '../components/onboarding/PageFrame';
+import FirstRun from '../components/onboarding/FirstRun';
 
 // 화면 id 전체 목록 — 주소 해시(#dash3 등)로 화면을 복원할 때 유효성 검사에 쓴다.
 // PageRouter의 case와 반드시 일치해야 한다(새 페이지 추가 시 여기도 추가).
@@ -203,7 +206,13 @@ export default function Home() {
       <Head><title>꼬박꼬박 행동중재 통합 운영 시스템</title></Head>
       <StudentProvider>
         <Layout activePage={activePage} onNavigate={navigate} canGoBack={canGoBack} onBack={goBack}>
+          {/* 1001(mds/46 방법 2·4·6): 화면 맨 위 안내(소개 한 줄·빈 화면 첫 할 일·홈 시작하기) — 화면 파일은 그대로 */}
+          <PageFrame key={activePage} page={activePage} onNavigate={navigate} />
           <PageRouter activePage={activePage} onNavigate={navigate} />
+          {/* ▶ 3분 체험하기(mds/46) — 체험 계정일 때만. 화면은 document.body로 포털. */}
+          {user.is_demo && <DemoPlayer activePage={activePage} onNavigate={navigate} />}
+          {/* 가입 직후 1회: 첫 설정 마법사 + 본보기 학생(mds/46 방법 3·5). 회원가입이 남긴 표시가 있을 때만 뜬다(체험하기는 남기지 않음). */}
+          <FirstRun onNavigate={navigate} />
         </Layout>
       </StudentProvider>
     </>

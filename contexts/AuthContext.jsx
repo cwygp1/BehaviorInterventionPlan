@@ -9,6 +9,7 @@ const AuthContext = createContext({
   logout: async () => {},
   refresh: async () => {},
   updateUsedTiers: async () => {},
+  startDemo: async () => {},
 });
 
 export function AuthProvider({ children }) {
@@ -52,6 +53,19 @@ export function AuthProvider({ children }) {
 
   const signup = useCallback(async (payload) => {
     const data = await api('/api/auth/register', 'POST', payload);
+    // 1001(mds/46): 가입 직후 1회 — 첫 설정 마법사(방법 3) + 본보기 학생 넣기(방법 5, D4).
+    //   components/onboarding/FirstRun.jsx가 읽고 지운다.
+    try { sessionStorage.setItem('kb_first_run', '1'); sessionStorage.setItem('kb_seed_samples', '1'); } catch (_e) { /* 사생활 모드 — 체크리스트가 대신 안내 */ }
+    setUser(data.user);
+    setStatus('authed');
+    return data.user;
+  }, []);
+
+  // ▶ 3분 체험하기(mds/46 D1) — 서버가 임시 체험 사용자를 만들고 24시간짜리 쿠키를 준다.
+  //   재생기(components/demo/DemoPlayer)가 자동으로 시작하도록 탭 저장소에 표시를 남긴다.
+  const startDemo = useCallback(async () => {
+    const data = await api('/api/auth/demo', 'POST', {});
+    try { sessionStorage.setItem('kb_demo_autoplay', '1'); } catch (_e) { /* 사생활 모드 — 재생 바에서 직접 시작 */ }
     setUser(data.user);
     setStatus('authed');
     return data.user;
@@ -75,7 +89,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, status, login, signup, logout, refresh, updateUsedTiers }}>
+    <AuthContext.Provider value={{ user, status, login, signup, logout, refresh, updateUsedTiers, startDemo }}>
       {children}
     </AuthContext.Provider>
   );

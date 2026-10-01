@@ -1,0 +1,87 @@
+/* ▶ 3분 체험하기 재생기(components/demo/DemoPlayer.jsx, mds/46) — globals.css 충돌을 피하려 별도 파일. */
+:root {
+  --demo-ink: #1f2a44;
+  --demo-ring: #ff7a1a;
+  --demo-pri: #4f6bed;
+  --demo-ok: #0a7d4e;
+}
+
+/* 로그인 창 '체험하기' 상자 */
+.auth-demo { background: linear-gradient(135deg, #fff7ef, #fff1e3); border: 1px solid #ffd2a8; border-radius: 14px; padding: 14px 16px; text-align: center; }
+.auth-demo-t { font-weight: 800; color: #9a4a00; font-size: .95rem; }
+.auth-demo-d { font-size: .8rem; color: #6b4a2b; line-height: 1.55; margin: 6px 0 10px; }
+.auth-demo-btn { width: 100%; padding: 12px; border: none; border-radius: 10px; background: linear-gradient(135deg, #ff8a2b, #ff6a3d); color: #fff; font-size: 1rem; font-weight: 800; cursor: pointer; transition: .2s; }
+.auth-demo-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255, 106, 61, .35); }
+.auth-demo-btn:disabled { opacity: .7; cursor: not-allowed; transform: none; box-shadow: none; }
+.auth-demo-note { font-size: .72rem; color: #8a6a4a; margin-top: 6px; }
+
+/* 재생 중 화면을 누르면 멈추는 투명 막 */
+.demo-shield { position: fixed; inset: 0; z-index: 10040; background: transparent; cursor: pointer; }
+
+/* 짚은 곳 — 주변을 살짝 어둡게 하고 주황 테두리 */
+.demo-ring { position: fixed; z-index: 10045; pointer-events: none; border: 3px solid var(--demo-ring); border-radius: 12px;
+  box-shadow: 0 0 0 5px rgba(255, 122, 26, .22), 0 0 0 9999px rgba(15, 20, 35, .16);
+  transition: left .35s ease, top .35s ease, width .35s ease, height .35s ease; }
+
+/* 가짜 커서 + 누를 때 물결 */
+.demo-cursor { position: fixed; z-index: 10048; width: 26px; height: 26px; pointer-events: none; margin: -3px 0 0 -4px;
+  transition: left .5s cubic-bezier(.2, .7, .2, 1), top .5s cubic-bezier(.2, .7, .2, 1); filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .3)); }
+.demo-click { position: absolute; left: -10px; top: -10px; width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--demo-ring); animation: demo-ripple .55s ease-out forwards; }
+@keyframes demo-ripple { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.8); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .demo-ring, .demo-cursor { transition: none; }
+  .demo-click { animation: none; opacity: 0; }
+}
+
+/* 아래 재생 바(자막 + 단추) */
+.demo-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 10050; width: min(760px, calc(100vw - 32px));
+  background: var(--demo-ink); color: #fff; border-radius: 16px; padding: 12px 16px 12px; box-shadow: 0 16px 44px rgba(15, 20, 35, .4); }
+.demo-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: .78rem; color: #c9d2ea; }
+.demo-badge { font-weight: 800; color: #ffd2a8; }
+.demo-prog { display: inline-flex; gap: 4px; }
+.demo-dot { width: 18px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .22); }
+.demo-dot.done { background: #8fb0ff; }
+.demo-dot.on { background: var(--demo-ring); }
+.demo-chap { margin-left: auto; }
+.demo-cap { font-size: 1.02rem; line-height: 1.55; min-height: 3.1em; margin: 8px 0 10px; font-weight: 600; word-break: keep-all; }
+.demo-err { display: block; font-size: .84rem; font-weight: 500; color: #ffc9b8; margin-top: 2px; }
+.demo-ctl { display: flex; gap: 6px; flex-wrap: wrap; }
+.demo-b { border: 1px solid rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .08); color: #fff; border-radius: 9px; padding: 7px 12px; font-size: .86rem; font-weight: 700; cursor: pointer; }
+.demo-b:hover { background: rgba(255, 255, 255, .18); }
+.demo-b:disabled { opacity: .5; cursor: not-allowed; }
+.demo-b.pri { background: var(--demo-pri); border-color: var(--demo-pri); }
+.demo-b.ok { background: var(--demo-ok); border-color: var(--demo-ok); margin-left: auto; }
+.demo-b.sm { padding: 5px 10px; font-size: .8rem; }
+.demo-b.big { padding: 11px 16px; font-size: .95rem; }
+
+/* 끝 화면 */
+.demo-end-bg { position: fixed; inset: 0; z-index: 10060; background: rgba(15, 20, 35, .45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.demo-end { background: #fff; color: var(--demo-ink); border-radius: 18px; padding: 26px 24px 20px; width: min(480px, 100%); text-align: center; box-shadow: 0 24px 60px rgba(15, 20, 35, .4); }
+.demo-end-ico { font-size: 2.2rem; }
+.demo-end h3 { margin: 6px 0 8px; font-size: 1.25rem; }
+.demo-end p { font-size: .9rem; line-height: 1.6; color: #3d4659; margin: 0 0 8px; word-break: keep-all; }
+.demo-end .demo-end-sub { font-size: .8rem; color: #6b7280; }
+.demo-end-btns { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.demo-end .demo-b { color: #fff; border: none; background: #6b7280; margin-left: 0; }
+.demo-end .demo-b.pri { background: var(--demo-pri); }
+.demo-end .demo-b.ok { background: var(--demo-ok); }
+
+/* 체험 계정 칩(시연을 끝낸 뒤) */
+.demo-chip { position: fixed; left: 16px; bottom: 16px; z-index: 10030; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: var(--demo-ink); color: #fff; border-radius: 12px; padding: 8px 10px 8px 12px; font-size: .8rem; font-weight: 600; box-shadow: 0 10px 28px rgba(15, 20, 35, .3); max-width: calc(100vw - 32px); }
+
+/* 재생 중엔 알림(토스트)을 재생 바 위로 */
+body.demo-active .toast { bottom: 180px; }
+/* 재생 중엔 본문 아래에 여유를 둬서 맨 아래 칸도 재생 바 위로 올라오게 */
+body.demo-active .content { padding-bottom: 220px; }
+/* 창(모달)은 재생 바 위 공간 안에서만 — 넘치면 창 안에서 스크롤된다 */
+body.demo-active .modal { margin-bottom: 170px; max-height: calc(100vh - 210px); }
+
+@media (max-width: 600px) {
+  .demo-bar { bottom: 8px; width: calc(100vw - 16px); padding: 10px 12px; }
+  .demo-cap { font-size: .95rem; }
+  .demo-chap { margin-left: 0; width: 100%; }
+  .demo-b.ok { margin-left: 0; }
+  .demo-chip { left: 8px; bottom: 8px; }
+  body.demo-active .toast { bottom: 220px; }
+}

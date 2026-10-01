@@ -48,7 +48,11 @@ export default function PortalHome({ onNavigate }) {
   }, []);
   // 영역 카드에 '할 일' 배지 — 현황판 집계를 재사용(60초 캐시 공유라 추가 비용 미미).
   const { data: dashData } = useDashboard();
-  const badges = dashData ? reviewCounts(dashData) : null;
+  // 1001(mds/46): 홈 배지는 내 학생 몫만 센다 — 샘플 학생의 할 일은 현황판에서만(샘플 체험용) 보인다.
+  const sampleIdSet = new Set(students.filter((s) => s.is_sample).map((s) => s.id));
+  const badges = dashData
+    ? reviewCounts(sampleIdSet.size ? { ...dashData, students: (dashData.students || []).filter((s) => !sampleIdSet.has(s.id)) } : dashData)
+    : null;
 
   // 샘플 체험 시작 — 시드 후 첫 샘플 학생을 선택하고 Tier 3 현황판으로 이동해
   // '채워진 화면'(관찰→기능평가→BIP→데이터→평가)을 바로 보여준다.
@@ -92,26 +96,33 @@ export default function PortalHome({ onNavigate }) {
   // Tier 1·2·3 + IEP는 항상 전부 보여준다(2026-08-14: '사용 단계 설정'으로 숨기는 기능 폐지).
   const sections = Object.values(SECTIONS);
 
+  // 1001(mds/46, 사용자 "샘플 학생은 빼야지"): 처음인지·다음 할 일·카드 요약은 '내 학생'(샘플 제외)으로 센다.
+  //   새 가입자에게 샘플A·B가 자동으로 들어가므로(방법 5) 샘플까지 세면 처음 온 선생님이 '학생 있는 사람'으로
+  //   취급되고, 다음 할 일이 샘플 기록을 보고 엉뚱한 일을 권했다. 샘플은 아래 '샘플 체험 중' 안내가 따로 맡는다.
+  const ownStudents = students.filter((s) => !s.is_sample);
+  const sampleCount = students.length - ownStudents.length;
   // 카드에 붙일 가벼운 라이브 요약(있는 데이터만 사용 — 추가 API 호출 없음)
-  const totals = students.reduce((acc, s) => {
+  const totals = ownStudents.reduce((acc, s) => {
     const sm = homeSummary.summaries[s.id];
     if (sm) { acc.abc += sm.abc_count || 0; acc.mon += sm.mon_count || 0; }
     return acc;
   }, { abc: 0, mon: 0 });
+  const sampleNote = sampleCount ? ` · 샘플 ${sampleCount}명 체험 중` : '';
   const hint = {
     t1: curClass ? `${curClass.name} · ${curSemester}학기` : '학급을 먼저 만들어주세요',
     t2: tier2Groups.length ? `점검 그룹 ${tier2Groups.length}개 운영 중` : '점검 그룹 만들기부터',
-    t3: students.length ? `학생 ${students.length}명 · ABC ${totals.abc}건 · 데이터 ${totals.mon}건` : '학생 등록부터',
-    iep: students.length ? `학생 ${students.length}명의 계획` : '학생 등록부터',
+    t3: ownStudents.length ? `학생 ${ownStudents.length}명 · ABC ${totals.abc}건 · 데이터 ${totals.mon}건${sampleNote}` : '학생 등록부터' + sampleNote,
+    iep: ownStudents.length ? `학생 ${ownStudents.length}명의 계획${sampleNote}` : '학생 등록부터' + sampleNote,
   };
 
   const aiOn = llmStatus === 'on';
-  const noStudents = studentsLoaded && students.length === 0;
+  // 내 학생이 0명(샘플만 있어도 0명) — 처음 시작 안내를 보인다.
+  const noStudents = studentsLoaded && ownStudents.length === 0;
 
-  // 🔦 다음 할 일 — 데이터 상태로 지금 가장 도움이 되는 한 가지를 고른다.
-  // (학생 0명일 때는 같은 슬롯이 '시작하기' 내용을 담당하므로 겹치지 않는다)
-  const next = students.length > 0
-    ? computeNextStep({ curClass, studentCount: students.length, tier2GroupCount: tier2Groups.length, totals, aiOn })
+  // 🔦 다음 할 일 — 데이터 상태로 지금 가장 도움이 되는 한 가지를 고른다(내 학생 기준).
+  // (내 학생 0명일 때는 같은 슬롯이 '시작하기'·'샘플 체험 중' 내용을 담당하므로 겹치지 않는다)
+  const next = ownStudents.length > 0
+    ? computeNextStep({ curClass, studentCount: ownStudents.length, tier2GroupCount: tier2Groups.length, totals, aiOn })
     : null;
   // 학생이 선택돼 있으면 현황판을 거치지 않고 그 화면으로 직행(0914 P0).
   const nextDirect = !!(next && curStuId && next.studentPage);
@@ -205,7 +216,7 @@ export default function PortalHome({ onNavigate }) {
           <span className="pulse-dot" aria-hidden="true" />
           <div className="nsb-body">
             <div className="nsb-k">🔦 오늘의 안내</div>
-            {noStudents ? (
+            {noStudents && !hasSamples ? (
               <>
                 <div className="nsb-t">처음이라면 <b>샘플로 체험</b>을 눌러보세요</div>
                 <div className="nsb-s">
@@ -242,16 +253,17 @@ export default function PortalHome({ onNavigate }) {
             )}
           </div>
           <div className="nsb-actions">
-            {noStudents && (
+            {noStudents && !hasSamples && (
               <>
                 <button className="btn btn-pri" onClick={onStartSample} disabled={sampleBusy} data-help="ph-sample">{sampleBusy ? '만드는 중…' : '🧪 샘플로 체험'}</button>
                 <button className="btn btn-ghost" onClick={openAddStudent} data-help="ph-add-student">＋ 내 학생 등록</button>
                 {!aiOn && <button className="btn btn-ghost" onClick={openAISettings} data-help="ph-ai-connect">🤖 AI 연결</button>}
               </>
             )}
-            {!noStudents && hasSamples && (
+            {hasSamples && (
               <>
-                <button className="btn btn-ghost" onClick={openAddStudent} data-help="ph-add-student">＋ 내 학생 등록</button>
+                {/* 샘플만 있으면(내 학생 0명) '내 학생 등록'이 다음 할 일 — 크게 */}
+                <button className={'btn ' + (noStudents ? 'btn-pri' : 'btn-ghost')} onClick={openAddStudent} data-help="ph-add-student">＋ 내 학생 등록</button>
                 <button className="btn btn-ghost" onClick={onClearSample} disabled={sampleBusy} style={{ color: '#c0392b' }} data-help="ph-sample-clear">{sampleBusy ? '정리 중…' : '🗑 샘플 삭제'}</button>
               </>
             )}

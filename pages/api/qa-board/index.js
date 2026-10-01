@@ -1,5 +1,5 @@
 import { query, sql } from '../../../lib/db';
-import { requireAuth, getUserRole } from '../../../lib/auth';
+import { requireAuth, getUserRole, isDemoReq, rejectDemo } from '../../../lib/auth';
 import { ensureQaSchemaCached } from '../../../lib/ensureSchema';
 
 export const QA_CATEGORIES = ['Tier1', 'Tier2', 'Tier3', 'IEP', '위기대응', '기타'];
@@ -46,6 +46,7 @@ export default requireAuth(async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
+    if (isDemoReq(req)) return rejectDemo(res); // 체험 계정은 질문 글을 남기지 않는다(24시간 뒤 사라지는 계정)
     const { title, body, category, is_private } = req.body || {};
     const t = typeof title === 'string' ? title.trim() : '';
     const b = typeof body === 'string' ? body.trim() : '';

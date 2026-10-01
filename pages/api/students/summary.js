@@ -32,6 +32,7 @@ export default requireAuth(async function handler(req, res) {
           COALESCE((SELECT COUNT(*) FROM abc_records      WHERE student_id = s.id), 0)::int AS abc_count,
           COALESCE((SELECT COUNT(*) FROM monitor_records  WHERE student_id = s.id), 0)::int AS mon_count,
           COALESCE((SELECT COUNT(*) FROM sz_records       WHERE student_id = s.id), 0)::int AS sz_count,
+          COALESCE((SELECT COUNT(*) FROM iep_goals        WHERE student_id = s.id), 0)::int AS iep_count,
           (SELECT frequency FROM monitor_records
              WHERE student_id = s.id ORDER BY date ASC,  id ASC  LIMIT 1) AS first_freq,
           (SELECT frequency FROM monitor_records
@@ -84,6 +85,7 @@ export default requireAuth(async function handler(req, res) {
         abc_count: row.abc_count,
         mon_count: row.mon_count,
         sz_count: row.sz_count,
+        iep_count: row.iep_count, // 1001(mds/46): 홈 '시작하기' 체크리스트·IEP 빈 화면 안내
         first_freq: row.first_freq,
         last_freq: row.last_freq,
         last_beh: row.last_beh,

@@ -13,6 +13,7 @@ const STEPS = ['기본 정보', '프로파일·현행수준', '확인'];
 const STRENGTH_CHIPS = ['시각자료 이해 우수', '규칙 준수 양호', '또래 관심 있음', '특정 주제 흥미 높음', '모방 능력 좋음', '신체활동 선호'];
 const DIFFICULTY_CHIPS = ['언어적 설명 이해 어려움', '주의집중 시간 짧음', '긴 과제 수행 어려움', '일반화 어려움', '전이/변화 적응 어려움', '자기조절 어려움'];
 
+// data-demo="stu-add-*": ▶ 3분 체험하기 시연이 짚고 누르는 자리(lib/demo/script.js, mds/46). 도움말(data-help)과 별개.
 export default function AddStudentModal({ open, onClose, onCreated }) {
   const { addStudent, selectStudent, curClass, curYear } = useStudents();
   const toast = useToast();
@@ -81,23 +82,23 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
         <>
           <div className="form-group">
             <label className="form-label">익명 ID (실명 금지)</label>
-            <input className="form-input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="예: A학생, 학생1" autoFocus />
+            <input className="form-input" data-demo="stu-add-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="예: A학생, 학생1" autoFocus />
           </div>
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">학교급</label>
-              <select className="form-select" value={level} onChange={(e) => { setLevel(e.target.value); setGrade(''); }}>{LEVELS.map((l) => <option key={l}>{l}</option>)}</select>
+              <select className="form-select" data-demo="stu-add-level" value={level} onChange={(e) => { setLevel(e.target.value); setGrade(''); }}>{LEVELS.map((l) => <option key={l}>{l}</option>)}</select>
             </div>
             <div className="form-group">
               <label className="form-label">학년 (선택)</label>
-              <select className="form-select" value={grade} onChange={(e) => setGrade(e.target.value)}>
+              <select className="form-select" data-demo="stu-add-grade" value={grade} onChange={(e) => setGrade(e.target.value)}>
                 <option value="">미지정</option>
                 {GRADES_BY_LEVEL(level).map((g) => <option key={g} value={g}>{g}학년</option>)}
               </select>
             </div>
             <div className="form-group">
               <label className="form-label">주요 장애 영역</label>
-              <select className="form-select" value={dis} onChange={(e) => { const v = e.target.value; setDis(v); if (dis2 === v) setDis2(DIS_NONE); }}>{DISABILITIES.map((d) => <option key={d}>{d}</option>)}</select>
+              <select className="form-select" data-demo="stu-add-dis" value={dis} onChange={(e) => { const v = e.target.value; setDis(v); if (dis2 === v) setDis2(DIS_NONE); }}>{DISABILITIES.map((d) => <option key={d}>{d}</option>)}</select>
             </div>
           </div>
           <div className="form-group">
@@ -115,12 +116,12 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
 
       {step === 1 && (
         <>
-          <div className="form-group">
+          <div className="form-group" data-demo="stu-add-strengths">
             <label className="form-label">🌟 강점 (칩을 눌러 추가)</label>
             <EditableChipGroup storageKey="stu_strength" defaults={STRENGTH_CHIPS} onPick={makeAppender(strengths, setStrengths, false)} />
             <textarea className="form-textarea" rows={2} value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="예: 시각자료 이해 우수, 규칙 준수 양호" />
           </div>
-          <div className="form-group">
+          <div className="form-group" data-demo="stu-add-difficulties">
             <label className="form-label">⚠ 어려움 (칩을 눌러 추가)</label>
             <EditableChipGroup storageKey="stu_difficulty" defaults={DIFFICULTY_CHIPS} onPick={makeAppender(difficulties, setDifficulties, false)} />
             <textarea className="form-textarea" rows={2} value={difficulties} onChange={(e) => setDifficulties(e.target.value)} placeholder="예: 언어적 설명 이해 어려움, 주의집중 시간 짧음" />
@@ -136,7 +137,7 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
       )}
 
       {step === 2 && (
-        <div style={{ border: '1px solid #e3e6eb', borderRadius: 10, padding: 14 }}>
+        <div data-demo="stu-add-review" style={{ border: '1px solid #e3e6eb', borderRadius: 10, padding: 14 }}>
           <div style={{ fontWeight: 700, marginBottom: 8 }}>입력 내용 확인</div>
           <Row k="익명 ID" v={code || '(미입력)'} />
           <Row k="학교급" v={level + (grade ? ` ${grade}학년` : '')} />
@@ -151,8 +152,8 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
       <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', marginTop: 18 }}>
         <button className="btn btn-ghost" onClick={step === 0 ? onClose : back} disabled={busy}>{step === 0 ? '취소' : '← 이전'}</button>
         {step < STEPS.length - 1
-          ? <button className="btn btn-pri" onClick={next}>다음 →</button>
-          : <button className="btn btn-pri" onClick={onSubmit} disabled={busy}>{busy ? '등록 중…' : '등록 완료'}</button>}
+          ? <button className="btn btn-pri" data-demo="stu-add-next" onClick={next}>다음 →</button>
+          : <button className="btn btn-pri" data-demo="stu-add-submit" onClick={onSubmit} disabled={busy}>{busy ? '등록 중…' : '등록 완료'}</button>}
       </div>
     </Modal>
   );

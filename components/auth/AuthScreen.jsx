@@ -1,16 +1,36 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import LoadingOverlay from '../ui/LoadingOverlay';
 import TermsModal from './TermsModal';
 
 export default function AuthScreen() {
-  const { login, signup } = useAuth();
+  const { login, signup, startDemo } = useAuth();
   const toast = useToast();
   const [tab, setTab] = useState('login'); // 'login' | 'signup'
   const [busy, setBusy] = useState(false);
   const [busyMsg, setBusyMsg] = useState('');
   const [termsOpen, setTermsOpen] = useState(false);
+
+  // 체험을 마치고 '내 계정 만들기'를 누르면 회원가입 탭으로 연다(DemoPlayer가 표시를 남김).
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('kb_auth_tab') === 'signup') { setTab('signup'); sessionStorage.removeItem('kb_auth_tab'); }
+    } catch (_e) { /* 사생활 모드 */ }
+  }, []);
+
+  // ▶ 3분 체험하기(mds/46) — 가입 없이 임시 계정으로 들어가 시연이 저절로 재생된다.
+  async function onDemo() {
+    setBusy(true);
+    setBusyMsg('체험용 교실을 준비하는 중입니다...');
+    try {
+      await startDemo();
+    } catch (err) {
+      toast('체험 시작 실패: ' + err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   // Login form
   const [loginEmail, setLoginEmail] = useState('');
@@ -75,6 +95,14 @@ export default function AuthScreen() {
             <h1>꼬박꼬박 행동중재 통합 운영 시스템</h1>
             <p>학생 개별화 행동지원 · 수업 자료 · 위기 대처를 한 곳에서</p>
           </div>
+
+          <div className="auth-demo">
+            <div className="auth-demo-t">처음이세요? 가입 없이 먼저 보세요</div>
+            <div className="auth-demo-d">화면이 저절로 움직이며 학생 등록 → 행동 기록 → IEP 목표 → 그래프까지 3분 안에 보여 드려요. 언제든 멈추고 직접 해 볼 수 있어요.</div>
+            <button type="button" className="auth-demo-btn" onClick={onDemo} disabled={busy}>▶ 3분 체험하기</button>
+            <div className="auth-demo-note">체험 기록은 24시간 뒤 자동으로 지워져요.</div>
+          </div>
+          <div className="auth-divider">또는 로그인</div>
 
           <div className="auth-tabs">
             <button className={'auth-tab' + (tab === 'login' ? ' on' : '')} onClick={() => setTab('login')}>로그인</button>

@@ -28,13 +28,24 @@ export default async function handler(req, res) {
     // 홈에서 사용 단계 선택을 유도한다.
     await ensureUserTierColCached();
     await ensureUserRoleColCached();
+    // 1001(mds/46 D3): 새 가입자는 '간단 모드'로 시작 — used_tiers='3'(IEP + Tier 3만 앞에, 나머지는 '더 보기').
+    //   사이드바 아래 '모든 메뉴 보기'로 언제든 끈다(lib/onboarding.js isSimpleMode).
     const result = await sql`
-      INSERT INTO users (email, password_hash, name, school, terms_version, terms_agreed_at, user_agent)
-      VALUES (${email}, ${password_hash}, ${name}, ${school || ''}, ${terms_version}, NOW(), ${user_agent})
+      INSERT INTO users (email, password_hash, name, school, terms_version, terms_agreed_at, user_agent, used_tiers)
+      VALUES (${email}, ${password_hash}, ${name}, ${school || ''}, ${terms_version}, NOW(), ${user_agent}, '3')
       RETURNING id, email, name, school, used_tiers, role, terms_version, terms_agreed_at, created_at
     `;
 
     const user = result.rows[0];
+
+    // 1001(mds/46 방법 3): 학급 '1반'을 가입과 함께 만든다 — 화면이 학급을 만들기 전에 학생 등록 창이 열려
+    //   '선택된 학급이 없습니다' 경고가 뜨던 틈(mds/44 S14 유력 원인)을 없앤다. 실패해도 가입은 그대로(화면이 다시 만든다).
+    try {
+      const kstYear = new Date(Date.now() + 9 * 3600 * 1000).getUTCFullYear();
+      await sql`INSERT INTO classes (user_id, school_year, name) VALUES (${user.id}, ${kstYear}, '1반') ON CONFLICT DO NOTHING`;
+    } catch (e) {
+      console.error('Register: default class create failed', e);
+    }
 
     // 소유자 이메일로 가입하는 순간 관리자 부트스트랩을 즉시 반영한다
     // (관리자가 0명일 때만 승격 — 이미 관리자가 있으면 아무 일도 없음).

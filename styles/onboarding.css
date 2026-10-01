@@ -1,0 +1,88 @@
+/* 처음 쓰는 선생님 안내(mds/46 방법 1~7) — components/onboarding/*, Sidebar 간단 모드. globals.css 충돌을 피하려 별도 파일. */
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* 방법 6: 화면 소개 한 줄 */
+.ob-intro { display: flex; align-items: center; gap: 8px; background: var(--pri-soft, #f0f3ff); border: 1px solid var(--pri-l, #e9edff); border-radius: 10px; padding: 7px 10px 7px 12px; margin-bottom: 12px; font-size: .86rem; color: var(--sub, #4b5563); line-height: 1.5; }
+.ob-intro-ico { flex-shrink: 0; }
+.ob-intro-t { flex: 1; word-break: keep-all; }
+.ob-intro-x, .ob-intro-all { flex-shrink: 0; border: none; background: transparent; color: var(--muted, #6b7280); cursor: pointer; border-radius: 6px; }
+.ob-intro-x { font-size: 1.05rem; line-height: 1; padding: 2px 6px; }
+.ob-intro-all { font-size: .74rem; padding: 3px 6px; }
+.ob-intro-x:hover, .ob-intro-all:hover { background: rgba(79, 107, 237, .1); color: var(--pri-d, #3a54cf); }
+
+/* 방법 2: 빈 화면 첫 할 일 */
+.ob-first { display: flex; align-items: center; gap: 12px; background: #f2fbf6; border: 1px solid #bfe8d2; border-left: 4px solid #12b886; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+.ob-first-ico { font-size: 1.4rem; flex-shrink: 0; }
+.ob-first-body { flex: 1; min-width: 0; }
+.ob-first-t { font-weight: 800; color: #0a5c3c; font-size: .95rem; }
+.ob-first-s { font-size: .84rem; color: #2f5d48; line-height: 1.55; margin-top: 2px; word-break: keep-all; }
+.ob-first-btn { flex-shrink: 0; white-space: nowrap; }
+@keyframes ob-flash-kf { 0% { box-shadow: 0 0 0 0 rgba(18, 184, 134, .55); } 100% { box-shadow: 0 0 0 14px rgba(18, 184, 134, 0); } }
+.ob-flash { animation: ob-flash-kf 0.9s ease-out 2; border-radius: 12px; }
+
+/* 방법 4: 홈 시작하기 체크리스트 */
+.ob-check { border: 1px solid #ffd2a8; background: linear-gradient(180deg, #fffaf4, #fff); margin-bottom: 16px; }
+.ob-check-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.ob-check-k { font-size: .78rem; font-weight: 800; color: #b45309; }
+.ob-check-t { font-size: 1.05rem; font-weight: 800; color: var(--text, #1f2430); }
+.ob-check-bar { flex: 1; min-width: 120px; height: 8px; background: #fde6cf; border-radius: 99px; overflow: hidden; }
+.ob-check-bar span { display: block; height: 100%; background: linear-gradient(90deg, #ff8a2b, #ff6a3d); border-radius: 99px; transition: width .4s ease; }
+.ob-check-off { border: none; background: transparent; color: var(--muted, #6b7280); font-size: .78rem; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+.ob-check-off:hover { background: #fdecdc; }
+.ob-check-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ob-check-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: #fff; border: 1px solid var(--border, #e4e9f2); }
+.ob-check-item.next { border-color: #ffb37a; box-shadow: 0 0 0 3px rgba(255, 138, 43, .12); }
+.ob-check-item.done { background: transparent; border-color: transparent; padding-top: 4px; padding-bottom: 4px; }
+.ob-check-box { width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%; border: 2px solid #f0b37e; display: flex; align-items: center; justify-content: center; font-size: .8rem; font-weight: 800; color: #fff; }
+.ob-check-item.done .ob-check-box { background: #12b886; border-color: #12b886; }
+.ob-check-body { flex: 1; min-width: 0; }
+.ob-check-it { font-weight: 700; font-size: .92rem; color: var(--text, #1f2430); }
+.ob-check-item.done .ob-check-it { color: var(--muted, #6b7280); text-decoration: line-through; font-weight: 600; }
+.ob-check-is { font-size: .8rem; color: var(--sub, #4b5563); margin-top: 1px; word-break: keep-all; }
+
+/* 방법 3: 첫 설정 마법사 */
+.ob-wiz-bg { position: fixed; inset: 0; z-index: 10020; background: rgba(15, 20, 35, .5); display: flex; align-items: center; justify-content: center; padding: 16px; backdrop-filter: blur(2px); }
+.ob-wiz { position: relative; background: #fff; border-radius: 18px; width: min(560px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; padding: 24px 24px 20px; box-shadow: 0 24px 60px rgba(15, 20, 35, .35); color: var(--text, #1f2430); }
+.ob-wiz h3 { margin: 10px 0 6px; font-size: 1.25rem; }
+.ob-wiz p { margin: 0 0 12px; font-size: .9rem; color: var(--sub, #4b5563); line-height: 1.6; word-break: keep-all; }
+.ob-wiz-x { position: absolute; top: 10px; right: 12px; border: none; background: transparent; font-size: 1.4rem; color: var(--muted, #6b7280); cursor: pointer; line-height: 1; padding: 4px 8px; border-radius: 8px; }
+.ob-wiz-x:hover { background: var(--surface2, #eef2f9); }
+.ob-wiz-steps { display: flex; gap: 6px; flex-wrap: wrap; font-size: .76rem; }
+.ob-wiz-steps span { padding: 3px 10px; border-radius: 99px; background: var(--surface2, #eef2f9); color: var(--muted, #6b7280); font-weight: 700; }
+.ob-wiz-steps span.on { background: var(--pri, #4f6bed); color: #fff; }
+.ob-wiz-steps span.done { background: #e6faf3; color: #0a7d4e; }
+.ob-wiz-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; flex: 1; min-width: 0; }
+.ob-wiz-field > span { font-size: .8rem; font-weight: 700; color: var(--sub, #4b5563); }
+.ob-wiz-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.ob-wiz-row .ob-wiz-field { min-width: 140px; }
+.ob-wiz-wait { color: var(--muted, #6b7280); font-style: italic; }
+.ob-wiz-btns { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.ob-wiz-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+.ob-wiz-choice { display: flex; flex-direction: column; gap: 3px; text-align: left; border: 2px solid var(--border, #e4e9f2); background: #fff; border-radius: 12px; padding: 12px 14px; cursor: pointer; transition: .15s; }
+.ob-wiz-choice b { font-size: .95rem; color: var(--text, #1f2430); }
+.ob-wiz-choice span { font-size: .8rem; color: var(--sub, #4b5563); line-height: 1.45; }
+.ob-wiz-choice:hover:not(:disabled) { border-color: var(--pri, #4f6bed); background: var(--pri-soft, #f0f3ff); }
+.ob-wiz-choice:disabled { opacity: .45; cursor: not-allowed; }
+.ob-wiz-choice.ghost { border-style: dashed; }
+.ob-wiz-foot { margin-top: 14px !important; font-size: .8rem !important; color: var(--muted, #6b7280) !important; }
+
+/* 방법 1·7: 사이드바 — 간단 모드 단추, '기록이 쌓이면 열리는' 잠금 */
+.nav-item.nav-simple { font-size: .8rem; color: var(--muted, #6b7280); border: 1px dashed var(--border, #e4e9f2); margin: 6px 10px 2px; width: calc(100% - 20px); }
+.nav-item.nav-simple.on { color: var(--pri-d, #3a54cf); border-color: #c9d3fb; background: var(--pri-soft, #f0f3ff); }
+.nav-item.soft-lock { opacity: .62; }
+
+/* 간단 모드: 학급 전체(Tier 1)·표적 학생(Tier 2) 진입을 홈·상단에서 접는다(직접 주소로는 그대로 열림). */
+body.kb-simple [data-tour="pcard-t1"],
+body.kb-simple [data-tour="pcard-t2"],
+body.kb-simple .tb-chip[title="학급 전체 (Tier 1)"],
+body.kb-simple .tb-chip[title="표적 학생 (Tier 2)"],
+body.kb-simple [data-tour="tb-chip-t1"],
+body.kb-simple [data-tour="tb-chip-t2"] { display: none !important; }
+
+@media (max-width: 600px) {
+  .ob-first { flex-wrap: wrap; }
+  .ob-first-btn { width: 100%; }
+  .ob-check-item { flex-wrap: wrap; }
+  .ob-wiz { padding: 20px 16px 16px; }
+}

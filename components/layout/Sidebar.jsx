@@ -1,4 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
+// 1001(mds/46 방법 1·7): 간단 모드 + '기록이 쌓이면 열리는 화면' 잠금 표시
+import { useStudents } from '../../contexts/StudentContext';
+import { isSimpleMode, SIMPLE_COMMON, SIMPLE_TIERS, FULL_TIERS, softLockFor } from '../../lib/onboarding';
 import { useAuth } from '../../contexts/AuthContext';
 import { SECTIONS, PAGE_SECTION, PAGE_META } from '../../lib/tiers';
 import { FOLD_OPEN_EVENT } from '../ui/FoldCard';
@@ -55,26 +58,53 @@ const BUILD_LABEL = (() => {
   return `${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 })();
 
-function NavItem({ item: it, activePage, onNavigate, hasStudent, hint }) {
+function NavItem({ item: it, activePage, onNavigate, hasStudent, hint, softLock }) {
   const locked = it.requiresStudent && !hasStudent;
+  // 1001(mds/46 D5): 학생은 있지만 아직 기록이 없어 비어 보이는 화면 — 흐리게 + 🔒, 그래도 누르면 열린다.
+  const soft = !locked && !!softLock && activePage !== it.id;
   return (
     <button
-      className={'nav-item' + (activePage === it.id ? ' active' : '') + (locked ? ' locked' : '') + (hint ? ' next-hint' : '')}
+      className={'nav-item' + (activePage === it.id ? ' active' : '') + (locked || soft ? ' locked' : '') + (soft ? ' soft-lock' : '') + (hint ? ' next-hint' : '')}
       data-tour={'nav-' + it.id}
       onClick={() => onNavigate(it.id)}
-      title={locked ? '학생을 먼저 선택해야 열려요 (누르면 학생 선택 창이 열립니다)' : (it.title && it.title !== it.label ? it.title : undefined)}
-      aria-label={locked ? `${it.label} — 학생 선택 필요` : undefined}
+      title={locked ? '학생을 먼저 선택해야 열려요 (누르면 학생 선택 창이 열립니다)' : soft ? softLock : (it.title && it.title !== it.label ? it.title : undefined)}
+      aria-label={locked ? `${it.label} — 학생 선택 필요` : soft ? `${it.label} — ${softLock}` : undefined}
     >
       {it.step ? <span className="nav-step">{it.step}</span> : <span className="icon">{it.icon}</span>}
       <span className="nav-text">{it.label}</span>
-      {locked && <span className="nav-lock" aria-hidden="true">🔒</span>}
+      {(locked || soft) && <span className="nav-lock" aria-hidden="true">🔒</span>}
     </button>
   );
 }
 
 export default function Sidebar({ activePage, onNavigate, open, onClose, hasStudent, sectionKey: sectionKeyProp }) {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUsedTiers } = useAuth();
   const isAdmin = user?.role === 'admin';
+  // 1001(mds/46 방법 7·D3): 간단 모드 — 새 가입자 기본. 저장은 users.used_tiers='3'(예전 Tier 스코핑 칸 재사용).
+  const simple = isSimpleMode(user);
+  const [simpleBusy, setSimpleBusy] = useState(false);
+  const [simpleMore, setSimpleMore] = useState(false);
+  useEffect(() => {
+    document.body.classList.toggle('kb-simple', simple);
+    return () => document.body.classList.remove('kb-simple');
+  }, [simple]);
+  const toggleSimple = async () => {
+    if (simpleBusy) return;
+    setSimpleBusy(true);
+    try { await updateUsedTiers(simple ? FULL_TIERS : SIMPLE_TIERS); } catch (_e) { /* 실패하면 그대로 */ }
+    setSimpleBusy(false);
+  };
+  const simpleToggle = (
+    <button type="button" className={'nav-item nav-simple' + (simple ? ' on' : '')} onClick={toggleSimple} disabled={simpleBusy}
+      data-demo="nav-simple"
+      title={simple ? '간단 모드: 학급 전체(Tier 1)·표적 학생(Tier 2) 영역과 자료실·AI 도우미를 접어 두었어요. 누르면 모든 메뉴가 보여요.' : '꼭 필요한 메뉴(IEP·한 학생 집중·학생 관리)만 보이게 줄여요. 기능은 그대로예요.'}>
+      <span className="icon" aria-hidden="true">{simple ? '🔎' : '🧹'}</span>
+      <span className="nav-text">{simple ? '간단 모드 켜짐 · 모든 메뉴 보기' : '간단 모드로 보기'}</span>
+    </button>
+  );
+  // 방법 1: '기록이 쌓이면 열리는 화면' 판단 재료 — 지금 학생의 기록·IEP 목표 수.
+  const { curStuData, curStuId, homeSummary } = useStudents();
+  const iepCount = curStuId && homeSummary?.summaries?.[curStuId] ? (homeSummary.summaries[curStuId].iep_count ?? null) : null;
   // 0824: 어떤 영역 사이드바를 보일지는 Layout이 내려준다(공통 페이지에서도 직전
   // 영역을 유지하기 위해). prop이 없으면 종전처럼 페이지 소속으로 판단.
   const sectionKey = sectionKeyProp !== undefined ? sectionKeyProp : (PAGE_SECTION[activePage] || null);
@@ -120,7 +150,8 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
   const toggleMore = () => setMoreOpen((o) => { lsSet(MORE_OPEN_KEY, o ? '0' : '1'); return !o; });
 
   const nav = (it) => (
-    <NavItem key={it.id} item={it} activePage={activePage} onNavigate={onNavigate} hasStudent={hasStudent} hint={hintId === it.id} />
+    <NavItem key={it.id} item={it} activePage={activePage} onNavigate={onNavigate} hasStudent={hasStudent} hint={hintId === it.id}
+      softLock={hasStudent ? softLockFor(it.id, { curStuData, iepCount }) : null} />
   );
 
   return (
@@ -134,6 +165,7 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
               <span aria-hidden="true">{section.icon}</span> {section.label}
             </div>
             <button className="ws-back" onClick={() => onNavigate('home')}>⌂ 홈 (영역 고르기)</button>
+            {simpleToggle}
             <div className="nav-section" data-tour="ws-menu">
               {SECTION_ITEMS[sectionKey].map((it) => (
                 <Fragment key={it.id}>
@@ -173,12 +205,27 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
                 </div>
               </div>
             </div>
-            {COMMON_MENU.map((g) => (
-              <div className="nav-section" key={g.group}>
-                <div className="nav-label">{g.group}</div>
-                {g.items.map((id) => nav(item(id)))}
+            {simpleToggle}
+            {COMMON_MENU.map((g) => {
+              // 간단 모드: 자주 쓰는 메뉴만 — 나머지는 아래 '메뉴 더 보기'로(기능 삭제 없음).
+              const ids = simple ? g.items.filter((id) => SIMPLE_COMMON.includes(id)) : g.items;
+              if (!ids.length) return null;
+              return (
+                <div className="nav-section" key={g.group}>
+                  <div className="nav-label">{g.group}</div>
+                  {ids.map((id) => nav(item(id)))}
+                </div>
+              );
+            })}
+            {simple && (
+              <div className="nav-section">
+                <button className={'nav-item nav-more' + (simpleMore ? ' open' : '')} onClick={() => setSimpleMore((o) => !o)} aria-expanded={simpleMore}>
+                  <span className="icon" aria-hidden="true">{simpleMore ? '▾' : '▸'}</span>
+                  <span className="nav-text">{simpleMore ? '접기' : '메뉴 더 보기 — 자료실·영상·AI'}</span>
+                </button>
+                {simpleMore && COMMON_IDS.filter((id) => !SIMPLE_COMMON.includes(id)).map((id) => nav(item(id)))}
               </div>
-            ))}
+            )}
             <div className="nav-section">
               <div className="nav-label">지원 영역</div>
               {(!hintSeen || hintOpen) ? (
