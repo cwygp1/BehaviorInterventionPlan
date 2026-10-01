@@ -236,7 +236,7 @@ export default function DemoPlayer({ activePage, onNavigate }) {
             <div className="demo-end-ico">🎉</div>
             <h3>한 바퀴 다 봤어요</h3>
             <p>학생 등록 → 행동 기록 → IEP 목표 → 행동 데이터 → 결과 그래프까지, 방금 만든 기록이 그대로 남아 있어요. 이제 직접 눌러 보세요.</p>
-            <p className="demo-end-sub">❓ 단추를 누르면 화면마다 할 일을 다시 안내받을 수 있어요. 체험 기록은 24시간 뒤 자동으로 지워져요.</p>
+            <p className="demo-end-sub">오른쪽 위 🧭 길잡이를 누르면 하고 싶은 일을 고르고 화면마다 할 일을 다시 안내받을 수 있어요. 체험 기록은 24시간 뒤 자동으로 지워져요.</p>
             <div className="demo-end-btns">
               <button type="button" className="demo-b ok big" onClick={handOff}>✋ 직접 해 보기</button>
               <button type="button" className="demo-b pri big" onClick={signup}>📝 내 계정 만들기</button>

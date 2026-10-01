@@ -45,7 +45,7 @@ export default function StartChecklist({ onNavigate }) {
           <div className="ob-check-t">처음 한 바퀴 — {prog.done}/{prog.total} 했어요</div>
         </div>
         <div className="ob-check-bar" aria-hidden="true"><span style={{ width: `${Math.round((prog.done / prog.total) * 100)}%` }} /></div>
-        <button type="button" className="ob-check-off" onClick={() => { lsSet(OFF_KEY, '1'); setOff(true); }} title="체크리스트 접기 — 다시 보려면 ❓ 도움말을 쓰세요">접기 ×</button>
+        <button type="button" className="ob-check-off" onClick={() => { lsSet(OFF_KEY, '1'); setOff(true); }} title="체크리스트 접기 — 다시 보려면 🧭 길잡이를 쓰세요">접기 ×</button>
       </div>
       <ol className="ob-check-list">
         {items.map((it) => {
