@@ -108,7 +108,7 @@ export default function EvalPage() {
   const rangeChips = rangeOptions(allSorted);
   const sortedMon = filterByBehavior(filterByRange(allSorted, range), behChips.length ? behSel : BEH_ALL);
   const header = chartHeader(sortedMon);
-  const notes = noteMarks(sortedMon, sortedMon.length > 25 ? 0 : 6); // 점이 많으면 ▲만(글은 툴팁·아래 목록)
+  const notes = noteMarks(sortedMon, 40); // 글은 그릴 때 이웃 메모와의 간격에 맞춰 자른다(아래 플러그인)
   const metricChips = availableMetrics(sortedMon);
   const metricShort = Object.fromEntries(metricChips.map(([k, l]) => [k, l]));
   useChart(behRef, () => {
@@ -208,19 +208,47 @@ export default function EvalPage() {
           }
         }
 
-        // ③ 메모(배경사건·특이사항) — 점 위에 작은 표식과 짧은 글
+        // ③ 메모(배경사건·특이사항) — 점 위에 ▲ + 글. 글은 이웃 메모까지의 간격에 맞춰 자르고,
+        //    그래도 겹치면 위아래 두 줄로 번갈아 놓는다(전체 보기처럼 점이 많아도 글이 사라지지 않게).
+        //    전체 내용은 그 날짜 열 어디에 마우스를 올려도 툴팁에 보인다(interaction mode 'index').
         ctx.setLineDash([]);
         ctx.font = '10px sans-serif';
         ctx.textAlign = 'center';
-        marks.forEach((m) => {
+        const slotW = labels.length > 1 ? Math.abs(px(1) - px(0)) : (right - left);
+        const fit = (text, maxW) => {
+          if (ctx.measureText(text).width <= maxW) return text;
+          let t = text;
+          while (t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+          return t.length <= 1 ? '' : t + '…';
+        };
+        const visible = marks.filter((m) => {
           const r = sorted[m.index];
           const v = (r.phase || 'A') === 'A' ? baseData[m.index] : intData[m.index];
-          if (v == null) return;
+          return v != null;
+        });
+        let lastRow0Right = -Infinity; let lastRow1Right = -Infinity;
+        visible.forEach((m, k) => {
+          const r = sorted[m.index];
+          const v = (r.phase || 'A') === 'A' ? baseData[m.index] : intData[m.index];
           const cx = px(m.index);
           const cy = y.getPixelForValue(v) - 9;
           ctx.fillStyle = '#f59f00';
           ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx - 4, cy - 6); ctx.lineTo(cx + 4, cy - 6); ctx.closePath(); ctx.fill();
-          if (m.short) { ctx.fillStyle = '#92400e'; ctx.fillText(m.short, cx, cy - 9); }
+          // 글 폭: 양옆 이웃 메모까지 거리(최소 1.6칸, 최대 5칸) 안에서
+          const prev = visible[k - 1]; const next = visible[k + 1];
+          const gapL = prev ? cx - px(prev.index) : Infinity;
+          const gapR = next ? px(next.index) - cx : Infinity;
+          const maxW = Math.max(slotW * 1.6, Math.min(Math.min(gapL, gapR) * 1.9, slotW * 5));
+          const text = fit(m.note, Math.min(maxW, right - left));
+          if (!text) return;
+          const w = ctx.measureText(text).width;
+          // 같은 줄의 직전 글과 겹치면 윗줄로
+          let row = 0;
+          if (cx - w / 2 < lastRow0Right + 4) row = (cx - w / 2 < lastRow1Right + 4) ? 0 : 1;
+          const ty = cy - 9 - row * 11;
+          if (row === 0) lastRow0Right = cx + w / 2; else lastRow1Right = cx + w / 2;
+          ctx.fillStyle = '#92400e';
+          ctx.fillText(text, cx, Math.max(top + 26, ty)); // 단계 이름(top+12) 아래로
         });
         ctx.restore();
       },
@@ -237,9 +265,12 @@ export default function EvalPage() {
         responsive: true,
         maintainAspectRatio: false,
         layout: { padding: { top: 18 } },
+        // 'index' 모드: 그 날짜 열 어디에 마우스를 올려도(▲·메모 글 위 포함) 툴팁이 뜬다 → 메모 전문 확인.
+        interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: false },
           tooltip: {
+            filter: (item) => item.raw != null,
             callbacks: {
               title: (items) => { const r = sorted[items[0]?.dataIndex]; return r ? `${r.date} · ${(r.phase || 'A') === 'A' ? '기초선(A)' : '중재(B)'}` : ''; },
               afterBody: (items) => {
@@ -377,7 +408,7 @@ export default function EvalPage() {
         </div>
         <div style={{ position: 'relative', height: 320 }}><canvas ref={behRef} /></div>
         <div style={{ fontSize: '.74rem', color: 'var(--muted)', marginTop: 6, lineHeight: 1.6 }}>
-          세로 실선 = 단계가 바뀐 자리(선은 경계를 넘어 잇지 않아요) · 색 점선 = 그 단계의 평균 · ▲ = 그날 메모(배경사건) · 회색 점선 = 관찰 기간 시작 · 굵은 회색 점선 = 학기 바뀜 · 보라 점선 = 목표선
+          세로 실선 = 단계가 바뀐 자리(선은 경계를 넘어 잇지 않아요) · 색 점선 = 그 단계의 평균 · ▲ = 그날 메모(배경사건, 글이 잘렸으면 그 날짜 위에 마우스를 올리면 전문) · 회색 점선 = 관찰 기간 시작 · 굵은 회색 점선 = 학기 바뀜 · 보라 점선 = 목표선
           {behSel === BEH_ALL && behChips.length > 0 && ' · 합산 = 같은 날 행동들의 빈도·지속·대체행동은 더하고 강도는 최대, DBR은 평균'}
           {metric === 'rate' && ' · 시간당 발생률 = 빈도 ÷ 학교에 있었던 시간(관찰 시간을 적은 날만 표시)'}
         </div>
