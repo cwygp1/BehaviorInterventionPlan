@@ -14,7 +14,7 @@ import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner
 import TeachingRecordPanel from '../student/TeachingRecordPanel';
 import { escortSignal } from '../../lib/escortSignal';
 
-const STD_BEHS = ['자리 이탈', '소리 지르기', '자해', '공격 행동', '거부', '회피', '반복 행동', '울기', '물건 던지기', '도주'];
+import { STD_BEHS } from '../../lib/chartCatalog'; // 칩 단일 출처(1001, 사용자 차트와 공유)
 
 export default function MonitorPage({ onNavigate }) {
   const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData } = useStudents();

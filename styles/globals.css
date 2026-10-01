@@ -938,3 +938,36 @@ body.help-mode-on .app{cursor:help}
 .dash-hello-acts .btn-ghost:hover{background:rgba(255,255,255,.14);color:#fff;border-color:#fff}
 /* 투어가 가리킬 칸을 못 찾았을 때의 한 줄 — 작은 회색 글씨라 안 읽혀 "뭘 가리키는지" 헷갈렸다(1001 현장) */
 .tour-pop .tour-fallback{font-size:.8rem;line-height:1.5;color:var(--sub);background:var(--warn-l);border-radius:8px;padding:6px 9px;margin-top:8px;word-break:keep-all}
+
+/* ── 사용자 선택 차트 위젯 (1001, mds/45) ───────────────────────────── */
+.dz-settings-sep{height:1px;background:var(--border);margin:6px 4px}
+.dw-tools{margin-left:auto;display:inline-flex;gap:4px;flex:none}
+.dw-tool{width:24px;height:24px;line-height:1;display:inline-flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--muted);background:transparent;border:1px solid transparent;border-radius:6px;cursor:pointer}
+.dw-tool:hover{color:var(--pri);border-color:var(--border);background:var(--pri-soft)}
+.dw-tool.danger:hover{color:#dc2626;border-color:#fecaca;background:#fef2f2}
+.uc-box{min-height:248px;display:flex;flex-direction:column}
+.uc-area{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center}
+.uc-svg{width:100%;height:auto;display:block;max-height:240px}
+.uc-pick{cursor:pointer}
+.uc-pick:hover rect,.uc-pick:hover text{opacity:.85}
+.uc-grid{display:grid;gap:3px;align-items:stretch;font-size:.74rem}
+.uc-grid-corner{}
+.uc-grid-col{text-align:center;color:var(--muted);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-bottom:2px}
+.uc-grid-row{display:flex;align-items:center;color:var(--text);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:4px}
+.uc-grid-row.uc-pick:hover{color:var(--pri)}
+.uc-cell{display:flex;align-items:center;justify-content:center;border-radius:5px;font-weight:700;font-size:.72rem}
+.uc-cell.empty{border:1px dashed var(--border);background:repeating-linear-gradient(135deg,transparent 0 4px,var(--surface2) 4px 6px)}
+.cb-intro{font-size:.84rem;color:var(--sub);margin:-8px 0 14px;line-height:1.6}
+.cb-step{margin-bottom:12px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+.cb-step.dim{opacity:.55}
+.cb-label{font-size:.78rem;font-weight:800;color:var(--text);margin-bottom:4px}
+.cb-sub{margin-top:2px}
+.cb-sublabel{font-size:.74rem;color:var(--muted);font-weight:700;margin-right:4px;align-self:center}
+.cb-toggle{display:flex;gap:8px;align-items:center;font-size:.84rem;margin-top:4px;cursor:pointer}
+.cb-filters{display:flex;flex-wrap:wrap;gap:10px}
+.cb-filters label{display:flex;flex-direction:column;gap:3px;font-size:.76rem;color:var(--sub);font-weight:700;min-width:140px}
+.cb-filters .form-select{min-height:34px}
+.cb-preview{margin:14px 0 10px}
+.cb-preview .dw{margin-top:4px}
+.cb-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+@media (max-width:860px){.uc-box{min-height:200px}.cb-filters label{min-width:100%}}

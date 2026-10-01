@@ -150,5 +150,5 @@ export default function Tier3Dashboard({ onNavigate }) {
     { id: 'recent', help: 't3-recent', title: '🕒 최근 관찰 기록', x: 0, y: 15, w: 12, h: 5, minW: 3, minH: 3, body: recentList },
   ];
 
-  return <DashGrid dashKey="dash3" color={C} widgets={widgets} />;
+  return <DashGrid dashKey="dash3" color={C} widgets={widgets} onNavigate={onNavigate} />;
 }

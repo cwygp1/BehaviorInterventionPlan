@@ -96,5 +96,5 @@ export default function IepDashboard({ onNavigate }) {
       <FlowStrip color={C} steps={flow} /> ) },
   ];
 
-  return <DashGrid dashKey="dashIep" color={C} widgets={widgets} />;
+  return <DashGrid dashKey="dashIep" color={C} widgets={widgets} onNavigate={onNavigate} />;
 }

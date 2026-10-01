@@ -127,5 +127,5 @@ export default function Tier2Dashboard({ onNavigate }) {
     { id: 'daily', help: 'd2-daily', title: '📊 최근 2주 수행률 — 요일 패턴', x: 0, y: 12, w: 12, h: 4, minW: 4, minH: 3, body: dailyBars },
   ];
 
-  return <DashGrid dashKey="dash2" color={C} widgets={widgets} />;
+  return <DashGrid dashKey="dash2" color={C} widgets={widgets} onNavigate={onNavigate} />;
 }

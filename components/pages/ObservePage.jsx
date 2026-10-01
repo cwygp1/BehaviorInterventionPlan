@@ -18,13 +18,8 @@ import { createABC as apiCreateABC, deleteABC as apiDeleteABC, saveBIP as apiSav
 import { parseLooseJSON } from '../../lib/utils/looseJson';
 import { escortSignal } from '../../lib/escortSignal';
 
-const ABC_TIMES = ['1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '쉬는 시간', '점심', '등교', '하교'];
-const ABC_PLACES = ['교실', '복도', '운동장', '급식실', '특별실', '통합학급', '화장실', '보건실'];
-const A_CHIPS = ['지시 받음', '활동 전환 시', '휴식 끝날 때', '또래와 갈등', '감각 자극(소음/조명)', '낯선 환경', '대기 시간', '평가/시험 시작', '좋아하는 활동 종료', '요구 거절됨'];
-const B_CHIPS = ['자리 이탈', '소리 지르기', '물건 던지기', '거부', '회피', '공격 행동', '자해', '반복 행동', '울기', '도주', '무반응', '자기 자극'];
-const C_CHIPS = ['교사 개입', '활동 중단', '또래 분리', '심리안정실 이용', '강화 제공', '계획적 무시', '대체행동 촉진', '위기관리팀 호출', '보호자 통보', '학생 진정'];
-// 0914(홍준표 부록): 배경사건(setting event) — 행동 직전 사건(A)이 아니라 그날 학생을 더 예민하게 만든 조건. 선택 입력.
-const SETTING_CHIPS = ['수면 부족', '투약 변경', '아침 갈등(가정)', '일정 변경', '아픔·컨디션 저하', '식사 거름·배고픔', '전날 행사·피로', '새 학기·환경 변화'];
+// 칩 목록은 lib/chartCatalog.js 단일 출처(1001) — 사용자 차트가 같은 목록으로 자유 입력을 묶는다.
+import { ABC_TIMES, ABC_PLACES, A_CHIPS, B_CHIPS, C_CHIPS, SETTING_CHIPS } from '../../lib/chartCatalog';
 
 // 빈 칸이면 채우고, 내용이 있으면 줄바꿈으로 덧붙인다(빠른 입력 분배·붙여넣기 공용).
 function mergeField(prev, val) {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStudents } from '../../../contexts/StudentContext';
 import { fetchDashboard } from '../../../lib/api/dashboard';
+import { invalidateChartData } from '../../../lib/api/chartData';
 
 // 영역별 대시보드 공용 조각 (kimju.zip '교사기록실' 패턴 참고):
 //   KPI 카드 · 업무 흐름 스트립 · 상태 칩 · 검토 필요 목록 · 날짜 유틸 · 데이터 훅
@@ -16,6 +17,7 @@ const DASH_TTL = 60 * 1000;
 /** 기록이 바뀐 뒤 다음 대시보드 진입에서 새로 불러오게 하고 싶을 때 호출. */
 export function invalidateDashboard() {
   dashCache.key = null; dashCache.data = null; dashCache.ts = 0; dashCache.promise = null;
+  invalidateChartData(); // 사용자 차트 위젯(mds/45)도 같은 기록을 보므로 함께 비운다
 }
 
 /**

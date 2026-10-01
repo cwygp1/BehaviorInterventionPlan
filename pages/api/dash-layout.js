@@ -1,5 +1,6 @@
 import { sql } from '../../lib/db';
 import { requireAuth } from '../../lib/auth';
+import { validateChart, normalizeChart } from '../../lib/chartCatalog';
 
 // 사용자별 대시보드 위젯 배치(gridstack 레이아웃) 저장/조회/초기화.
 //   GET    /api/dash-layout?key=dash1        → { layout: [{id,x,y,w,h}, ...] }
@@ -41,7 +42,8 @@ async function withSelfHeal(run) {
 }
 
 // 저장 전 정리: 알 수 없는 필드 제거 + 수치 범위 제한. 이상하면 null.
-function sanitizeLayout(raw) {
+// 1001(mds/45): 사용자 차트 노드는 chart 필드를 카탈로그 검증(validateChart) 통과 시에만 보존 — 실패한 노드만 버린다.
+function sanitizeLayout(raw, dashKey) {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 40) return null;
   const clean = [];
   for (const n of raw) {
@@ -52,6 +54,11 @@ function sanitizeLayout(raw) {
       const x = Math.round(Number(v));
       return Number.isFinite(x) ? Math.min(max, Math.max(min, x)) : dflt;
     };
+    let chart = null;
+    if (n.chart) {
+      if (validateChart(n.chart, dashKey)) continue; // 깨진 차트 설정 노드는 버림
+      chart = normalizeChart(n.chart);
+    }
     clean.push({
       id,
       x: num(n.x, 0, 40, 0),
@@ -60,6 +67,7 @@ function sanitizeLayout(raw) {
       h: num(n.h, 1, 40, 2),
       // 0824: 숨긴 위젯 표시 — 위치는 보존한 채 hidden 플래그만 함께 저장.
       ...(n.hidden === true ? { hidden: true } : {}),
+      ...(chart ? { chart } : {}),
     });
   }
   return clean;
@@ -80,7 +88,7 @@ export default requireAuth(async function handler(req, res) {
     if (req.method === 'PUT' || req.method === 'POST') {
       const { key, layout } = req.body || {};
       if (!KEYS.has(String(key))) return res.status(400).json({ error: '잘못된 대시보드 키' });
-      const clean = sanitizeLayout(layout);
+      const clean = sanitizeLayout(layout, String(key));
       if (!clean) return res.status(400).json({ error: '잘못된 레이아웃 형식' });
       await withSelfHeal(() => sql`
         INSERT INTO user_dash_layouts (user_id, dash_key, layout, updated_at)
