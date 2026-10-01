@@ -210,7 +210,7 @@ export default function AacMakerTool({ onBack }) {
         <input ref={fileRef} type="file" accept="image/*" multiple onChange={onFiles} className="form-input" />
         {loading && <p style={{ fontSize: '.85rem', color: '#64748b', margin: '8px 0 0' }}>이미지 읽는 중…</p>}
         {items.length === 0 && !loading && (
-          <p style={{ fontSize: '.85rem', color: '#94a3b8', margin: '8px 0 0' }}>
+          <p style={{ fontSize: '.85rem', color: 'var(--muted)', margin: '8px 0 0' }}>
             이미지를 선택하면 카드별 단어 입력창이 나타납니다. (여러 장 한꺼번에 선택 가능)
           </p>
         )}
@@ -218,12 +218,12 @@ export default function AacMakerTool({ onBack }) {
           <div key={it.id} data-help="gen-aac-row" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', marginTop: 8, background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 10 }}>
             <img src={it.src} alt="" style={{ width: 44, height: 44, objectFit: 'contain', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i + 1}. {it.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i + 1}. {it.name}</div>
               <input className="form-input" style={{ marginTop: 4 }} value={it.label} placeholder="이 그림에 매칭할 단어 입력"
                 onChange={(e) => setItem(it.id, { label: e.target.value })} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-              <span style={{ fontSize: 11, color: '#94a3b8' }}>매수</span>
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>매수</span>
               <input type="number" min={1} max={30} className="form-input" value={it.copies}
                 onChange={(e) => setItem(it.id, { copies: e.target.value })} style={{ width: 58, padding: '4px 6px', textAlign: 'center' }} />
             </div>
@@ -239,10 +239,10 @@ export default function AacMakerTool({ onBack }) {
       {/* 미리보기 */}
       {items.length > 0 && (
         <div className="card" data-help="gen-aac-preview">
-          <div className="card-title">미리보기 <span style={{ fontWeight: 400, fontSize: 12, color: '#94a3b8' }}>· 실제 인쇄 크기 근사</span></div>
+          <div className="card-title">미리보기 <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--muted)' }}>· 실제 인쇄 크기 근사</span></div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6mm', padding: 8, background: '#f1f5f9', borderRadius: 10, overflowX: 'auto' }}>
             {items.slice(0, 12).map((it) => <PreviewCard key={it.id} it={it} />)}
-            {items.length > 12 && <div style={{ alignSelf: 'center', color: '#94a3b8', fontSize: 13 }}>… 외 {items.length - 12}장</div>}
+            {items.length > 12 && <div style={{ alignSelf: 'center', color: 'var(--muted)', fontSize: 13 }}>… 외 {items.length - 12}장</div>}
           </div>
         </div>
       )}
@@ -253,7 +253,7 @@ export default function AacMakerTool({ onBack }) {
         </button>
         <button className="btn btn-ghost" style={{ flex: 1 }} onClick={resetAll} disabled={items.length === 0}>초기화</button>
       </div>
-      <p style={{ fontSize: '.76rem', color: '#94a3b8', textAlign: 'center', margin: '4px 0 0' }}>
+      <p style={{ fontSize: '.76rem', color: 'var(--muted)', textAlign: 'center', margin: '4px 0 0' }}>
         인쇄 대화상자에서 대상 프린터를 &lsquo;PDF로 저장&rsquo;으로 바꾸면 PDF 파일로 저장됩니다. 배경 그래픽 인쇄를 켜면 겹치기 글자의 흰 배경이 함께 인쇄돼요.
       </p>
     </>

@@ -25,7 +25,7 @@ export default function DeadMansModal({ open, onClose }) {
 
   async function runAI() {
     if (!input.trim()) { toast('변환할 행동 서술을 입력해주세요.'); return; }
-    if (status !== 'on') { toast('AI 연결을 먼저 설정해주세요. (우상단 AI 버튼)'); return; }
+    if (status !== 'on') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setBusy(true); setOutput('');
     try {
       const reply = await call(DEFAULT_PROMPT(input.trim()), { max_tokens: 600, tier: 'fast' });

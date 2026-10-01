@@ -187,7 +187,7 @@ export default function StartPointPage({ onNavigate }) {
   const hasDeriveInput = () => !!(f.guardian || f.observation || f.fba || f.strengths || f.eco);
 
   async function onAIDerive() {
-    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     if (!hasDeriveInput()) {
       toast('입력 블록(희망사항·행동특성·FBA·강점·환경)을 먼저 채워주세요.');
       return;

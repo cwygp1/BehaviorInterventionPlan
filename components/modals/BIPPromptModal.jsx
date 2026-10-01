@@ -115,7 +115,7 @@ export default function BIPPromptModal({ open, onClose, onApply }) {
 
   async function runAI() {
     if (!curStu) { toast('학생을 먼저 선택해주세요.'); return; }
-    if (status !== 'on') { toast('AI 연결을 먼저 설정해주세요. (우상단 AI 버튼)'); return; }
+    if (status !== 'on') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setBusy(true); setOutput('');
     try {
       // 0904: BIP 전체 초안은 기능 일관성·분량 준수가 관건 — thinking ON(low). 실측 1분 안팎.

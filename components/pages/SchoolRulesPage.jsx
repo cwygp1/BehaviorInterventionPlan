@@ -192,7 +192,7 @@ export default function SchoolRulesPage() {
                           style={{
                             width: 40, height: 32, borderRadius: 8, cursor: 'pointer', fontSize: '1rem', fontWeight: 700,
                             marginRight: 6, border: `1.5px solid ${on ? c : '#cbd5e1'}`,
-                            background: on ? c : '#fff', color: on ? '#fff' : '#94a3b8',
+                            background: on ? c : '#fff', color: on ? '#fff' : 'var(--muted)',
                           }}>{mark}</button>
                       );
                     })}
@@ -235,7 +235,7 @@ export default function SchoolRulesPage() {
                           style={{
                             width: 34, height: 30, borderRadius: 8, cursor: 'pointer', fontSize: '.85rem', fontWeight: 700,
                             marginRight: 4, border: `1.5px solid ${on ? c : '#cbd5e1'}`,
-                            background: on ? c : '#fff', color: on ? '#fff' : '#94a3b8',
+                            background: on ? c : '#fff', color: on ? '#fff' : 'var(--muted)',
                           }}>{n}</button>
                       );
                     })}
@@ -255,7 +255,7 @@ export default function SchoolRulesPage() {
       {/* 3. 문제행동이 자주 일어나지 않는 시간과 장소 확인 */}
       <div className="card" data-tour="sr-q3">
         <div style={qTitle}>3. 문제행동이 자주 일어나지 않는 시간과 장소 확인 (순위에 따라 1위에서 3위까지)</div>
-        <p style={qHint}>관련 요인은 무엇일까? <span style={{ color: '#94a3b8' }}>(예) 교사들의 적극적인 감독</span></p>
+        <p style={qHint}>관련 요인은 무엇일까? <span style={{ color: 'var(--muted)' }}>(예) 교사들의 적극적인 감독</span></p>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '.85rem' }}>
             <thead><tr>

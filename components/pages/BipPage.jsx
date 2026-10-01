@@ -15,6 +15,7 @@ import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner
 import { skillsForQabf, strategiesForQabf } from '../../lib/functionSkills';
 import AssessmentLauncher from '../student/AssessmentLauncher';
 import { printBIP } from '../../lib/utils/printBIP';
+import { toPlainCopyText } from '../../lib/utils/aiText';
 
 // LLM 응답에서 JSON 오브젝트를 관대하게 추출.
 function looseJSON(raw) {
@@ -183,7 +184,7 @@ export default function BipPage({ onNavigate }) {
 
   // 0719: 선택한 키워드·작성 내용(조작적 정의+대체행동+중재전략)으로 메이거식 행동목표 생성.
   async function aiBgoal() {
-    if (!aiOn) { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (!aiOn) { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     if (!alt.trim() && !opdef.trim()) { toast('조작적 정의나 대체 행동을 먼저 작성하세요.'); return; }
     setBgoalBusy(true);
     try {
@@ -211,7 +212,7 @@ export default function BipPage({ onNavigate }) {
 
   async function copyBgoal() {
     if (!bgoal.trim()) { toast('행동목표를 먼저 작성하세요.'); return; }
-    try { await navigator.clipboard.writeText(bgoal.trim()); toast('행동목표를 복사했어요. IEP "학기목표 먼저" 경로에 붙여넣으면 개별화 학기목표로 쓸 수 있어요.'); }
+    try { await navigator.clipboard.writeText(toPlainCopyText(bgoal.trim())); toast('행동목표를 복사했어요. IEP "학기목표 먼저" 경로에 붙여넣으면 개별화 학기목표로 쓸 수 있어요.'); }
     catch (_) { toast('복사가 막혔어요. 직접 선택해 복사하세요.'); }
   }
 

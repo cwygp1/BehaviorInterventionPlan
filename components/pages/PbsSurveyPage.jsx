@@ -180,7 +180,7 @@ export default function PbsSurveyPage() {
   }
 
   async function onAISummary() {
-    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setAiBusy(true); setAiOut('');
     try {
       const topBeh = PBS_BEHAVIORS.filter((b) => r.q2[b.key]?.rank || r.q2[b.key]?.n)
@@ -257,7 +257,7 @@ export default function PbsSurveyPage() {
                         width: 48, height: 30, borderRadius: 8, cursor: 'pointer', fontSize: '.8rem',
                         border: `1.5px solid ${r.q2[b.key].rank ? rankColor(r.q2[b.key].rank).border : '#cbd5e1'}`,
                         background: r.q2[b.key].rank ? rankColor(r.q2[b.key].rank).badge : '#fff',
-                        color: r.q2[b.key].rank ? '#fff' : '#94a3b8', fontWeight: 700,
+                        color: r.q2[b.key].rank ? '#fff' : 'var(--muted)', fontWeight: 700,
                       }}>
                       {r.q2[b.key].rank ? `${r.q2[b.key].rank}위` : '＋'}
                     </button>
@@ -295,7 +295,7 @@ export default function PbsSurveyPage() {
                   <td style={{ ...tdC, cursor: 'help' }}>
                     <InfoTip text={m.desc}>
                       <span style={{ borderBottom: '1px dotted #94a3b8' }}>{m.label}</span>
-                      <span style={{ color: '#94a3b8', marginLeft: 4, fontSize: '.72rem' }}>ⓘ</span>
+                      <span style={{ color: 'var(--muted)', marginLeft: 4, fontSize: '.72rem' }}>ⓘ</span>
                     </InfoTip>
                   </td>
                   <td style={{ ...tdC, textAlign: 'center' }}><input type="checkbox" checked={r.q4[i].used} onChange={(e) => patchArr('q4', i, { ...r.q4[i], used: e.target.checked })} /></td>

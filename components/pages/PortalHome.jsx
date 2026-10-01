@@ -62,7 +62,7 @@ export default function PortalHome({ onNavigate }) {
     setSampleBusy(true);
     try {
       const first = await seedSamples();
-      toast('샘플 학생 2명과 4주치 기록을 만들었어요. 화면 곳곳을 눌러보세요!');
+      toast('샘플 학생 2명과 9주치 기록을 만들었어요. 화면 곳곳을 눌러보세요!');
       if (first) {
         await selectStudent(first.id);
         onNavigate('dash3');
@@ -227,7 +227,7 @@ export default function PortalHome({ onNavigate }) {
               <>
                 <div className="nsb-t">처음이라면 <b>샘플로 체험</b>을 눌러보세요</div>
                 <div className="nsb-s">
-                  학생 2명과 4주치 기록이 채워진 화면을 바로 볼 수 있어요. 내 학생은 이름 없이 학생 코드로 등록합니다.
+                  학생 2명과 9주치 기록이 채워진 화면을 바로 볼 수 있어요. 내 학생은 이름 없이 학생 코드로 등록합니다.
                   {!aiOn && ' AI를 연결하면 초안 작성도 도와드려요.'}
                 </div>
               </>

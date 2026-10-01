@@ -80,7 +80,7 @@ export default function EvalPromptModal({ open, onClose }) {
 
   async function runAI() {
     if (!curStu) { toast('학생을 먼저 선택해주세요.'); return; }
-    if (status !== 'on') { toast('AI 연결을 먼저 설정해주세요.'); return; }
+    if (status !== 'on') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setBusy(true); setOutput('');
     try {
       const reply = await call(prompt || basePrompt);

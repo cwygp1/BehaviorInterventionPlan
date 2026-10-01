@@ -4,9 +4,9 @@
   --text:#1f2a44;--sub:#4b5563;--muted:#6b7280;
   --pri:#4f6bed;--pri-l:#e9edff;--pri-d:#3a54cf;--pri-soft:#f0f3ff;
   --acc:#ff8fab;--acc-l:#ffeef4;
-  --ok:#12b886;--ok-l:#e6faf3;
-  --warn:#f59f00;--warn-l:#fff5e1;
-  --err:#ef476f;--err-l:#ffecf2;
+  --ok:#12b886;--ok-l:#e6faf3;--ok-t:#0a7d4e;
+  --warn:#f59f00;--warn-l:#fff5e1;--warn-t:#b45309;
+  --err:#ef476f;--err-l:#ffecf2;--err-t:#c02653;
   --info:#1098ad;--info-l:#e3f7fa;
   --teal:#38b2ac;--teal-l:#e6fbf9;
   --purple:#7c6cf0;--purple-l:#efecff;
@@ -17,6 +17,8 @@
   --sh-card:0 1px 3px rgba(70,90,140,.05),0 2px 8px rgba(70,90,140,.04);
 }
 html{font-size:16px;scroll-behavior:smooth}
+/* ❓ 메뉴의 '글씨 크게' — 기준 글자를 키워 rem으로 잡은 글자·여백이 함께 커진다(숫자 px로 적은 곳은 그대로). mds/44 S1 */
+html[data-font="lg"]{font-size:18px}
 body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
 button{cursor:pointer;font-family:inherit}
 input,select,textarea{font-family:inherit;font-size:.95rem}
@@ -87,7 +89,10 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 .brand-text h2{font-size:.95rem;font-weight:800;color:var(--text);line-height:1.2}
 .brand-text p{font-size:.72rem;color:var(--muted);margin-top:1px}
 .nav-section{padding:8px 12px}
-.nav-label{padding:10px 10px 6px;font-size:.74rem;color:var(--sub);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+/* 메뉴 묶음 제목 — 0716 현장 "상위개념 글자가 더 작고 색이 같아 직관적으로 안 들어온다" → 항목(.88rem·보통·회색)보다
+   크고 진하게, 묶음 사이에 얇은 선 (mds/44 S1) */
+.nav-label{padding:12px 10px 6px;font-size:.9rem;color:var(--text);font-weight:800;letter-spacing:0}
+.nav-section+.nav-section{border-top:1px solid var(--border);margin-top:4px}
 .nav-item{display:flex;align-items:center;gap:12px;padding:10px 12px;color:var(--sub);font-size:.88rem;font-weight:500;cursor:pointer;transition:.15s;border:none;background:none;width:100%;text-align:left;border-radius:10px;margin-bottom:2px;position:relative}
 .nav-item:hover{background:var(--pri-soft);color:var(--pri)}
 .nav-item.active{background:var(--pri-l);color:var(--pri);font-weight:700}
@@ -112,14 +117,14 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 .stepnav-pill .pnum{width:20px;height:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--surface2);color:var(--sub);font-weight:800;font-size:.72rem}
 .stepnav-pill.cur{border-color:var(--pri);background:var(--pri-l);color:var(--pri-d)}
 .stepnav-pill.cur .pnum{background:var(--pri);color:#fff}
-.stepnav-pill.done{color:var(--ok);border-color:var(--ok-l)}
-.stepnav-pill.done .pnum{background:var(--ok);color:#fff}
+.stepnav-pill.done{color:var(--ok-t);border-color:var(--ok-l)}
+.stepnav-pill.done .pnum{background:var(--ok-t);color:#fff}
 @media(max-width:640px){.stepnav-pill{min-width:48px}.stepnav-pill .plabel{display:none}}
 .stepnav{display:flex;align-items:center;gap:12px;margin-top:10px;padding:14px 18px;background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh-card)}
 .stepnav-side{flex:1;display:flex}
 .stepnav-side-right{justify-content:flex-end}
 .stepnav-mid{flex-shrink:0;font-size:.75rem;font-weight:800;letter-spacing:.04em;color:var(--muted)}
-.stepnav-done{font-size:.82rem;font-weight:700;color:var(--ok)}
+.stepnav-done{font-size:.82rem;font-weight:700;color:var(--ok-t)}
 @media(max-width:640px){.stepnav{flex-direction:column;align-items:stretch}.stepnav-side{justify-content:center}}
 
 .flow-strip{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
@@ -129,6 +134,13 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 .flow-body{min-width:0}
 .flow-t{font-size:.86rem;font-weight:700;color:var(--text)}
 .flow-d{font-size:.74rem;color:var(--muted);margin-top:3px}
+/* 사이드바 아래 '글씨 크게' (mds/44 S1) — 이름 줄 바로 위, 맨 아래로 밀기는 이 칸이 맡는다 */
+.sb-font{margin-top:auto;padding:8px 12px 0}
+.sb-font+.sidebar-foot{margin-top:0}
+.sb-font-btn{width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--sub);font-size:.85rem;font-weight:600;text-align:left}
+.sb-font-btn:hover{border-color:var(--pri);color:var(--pri)}
+.sb-font-state{margin-left:auto;font-size:.72rem;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--surface2);color:var(--sub)}
+.sb-font-btn.on .sb-font-state{background:var(--pri);color:#fff}
 .sidebar-foot{margin-top:auto;padding:14px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px}
 .user-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--acc),#ffa7c4);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0}
 .user-info{flex:1;min-width:0}
@@ -238,9 +250,9 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 /* === Buttons === */
 .btn{padding:10px 18px;border-radius:var(--r-sm);font-size:.87rem;font-weight:600;border:none;transition:.15s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .btn-pri{background:var(--pri);color:#fff}.btn-pri:hover{background:var(--pri-d);box-shadow:0 4px 10px rgba(79,107,237,.28);transform:translateY(-1px)}
-.btn-ok{background:var(--ok);color:#fff}.btn-ok:hover{opacity:.92;transform:translateY(-1px)}
-.btn-err{background:var(--err);color:#fff}.btn-err:hover{opacity:.92}
-.btn-warn{background:var(--warn);color:#fff}.btn-warn:hover{opacity:.92}
+.btn-ok{background:var(--ok-t);color:#fff}.btn-ok:hover{opacity:.92;transform:translateY(-1px)}
+.btn-err{background:var(--err-t);color:#fff}.btn-err:hover{opacity:.92}
+.btn-warn{background:var(--warn);color:#3b2600}.btn-warn:hover{opacity:.92}
 .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--sub)}.btn-ghost:hover{border-color:var(--pri);color:var(--pri);background:var(--pri-soft)}
 .btn-sm{padding:6px 12px;font-size:.78rem}
 .btn-block{width:100%;justify-content:center}
@@ -248,7 +260,7 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 /* === Badge === */
 .badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:.76rem;font-weight:600}
 .badge-pri{background:var(--pri-l);color:var(--pri)}
-.badge-ok{background:var(--ok-l);color:var(--ok)}
+.badge-ok{background:var(--ok-l);color:var(--ok-t)}
 .badge-warn{background:var(--warn-l);color:#b45309}
 .badge-err{background:var(--err-l);color:var(--err)}
 .badge-info{background:var(--info-l);color:var(--info)}
@@ -274,7 +286,7 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 .stat-card:hover{transform:translateY(-2px);box-shadow:var(--sh-lg)}
 .stat-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0}
 .stat-icon.pri{background:var(--pri-l);color:var(--pri)}
-.stat-icon.ok{background:var(--ok-l);color:var(--ok)}
+.stat-icon.ok{background:var(--ok-l);color:var(--ok-t)}
 .stat-icon.warn{background:var(--warn-l);color:#b45309}
 .stat-icon.purple{background:var(--purple-l);color:var(--purple)}
 .stat-val{font-size:1.4rem;font-weight:800;color:var(--text);line-height:1.1}
@@ -296,7 +308,7 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 .stu-mini-stat .v{font-size:.95rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:4px}
 .trend{display:inline-flex;align-items:center;gap:2px;font-size:.7rem;font-weight:700;padding:1px 6px;border-radius:99px}
 .trend.up{background:var(--err-l);color:var(--err)}
-.trend.down{background:var(--ok-l);color:var(--ok)}
+.trend.down{background:var(--ok-l);color:var(--ok-t)}
 .trend.flat{background:var(--surface2);color:var(--muted)}
 
 .quick-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
@@ -417,7 +429,7 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 .chat-actions{display:flex;gap:6px;margin-top:6px}
 .chat-actions button{background:none;border:none;font-size:.72rem;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px}
 .chat-actions button:hover{background:var(--surface2);color:var(--pri)}
-.llm-status-ok{color:var(--ok);background:var(--ok-l);padding:6px 12px;border-radius:var(--r-sm)}
+.llm-status-ok{color:var(--ok-t);background:var(--ok-l);padding:6px 12px;border-radius:var(--r-sm)}
 .llm-status-err{color:var(--err);background:var(--err-l);padding:6px 12px;border-radius:var(--r-sm)}
 
 /* === Monitoring === */

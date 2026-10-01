@@ -183,7 +183,7 @@ export default function ObservePage({ onNavigate }) {
 
   // 0719: ABC 누적 기록으로 표적행동 조작적 정의 초안 생성. (0825: BIP 화면에서 이동)
   async function aiOpdef() {
-    if (!aiOn) { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (!aiOn) { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     const abcs = (curStuData?.abc || []).slice(0, 12);
     if (!abcs.length) { toast('ABC 관찰 기록이 없어요. 아래에서 먼저 기록하세요.'); return; }
     setOpdefBusy(true);
@@ -407,7 +407,7 @@ export default function ObservePage({ onNavigate }) {
             <tr style={{ background: 'var(--surface2)' }}>
               <th style={{ padding: 8, textAlign: 'left' }}>구분</th>
               <th style={{ padding: 8, textAlign: 'left', color: 'var(--err)' }}>❌ 나쁜 예시</th>
-              <th style={{ padding: 8, textAlign: 'left', color: 'var(--ok)' }}>✅ 좋은 예시</th>
+              <th style={{ padding: 8, textAlign: 'left', color: 'var(--ok-t)' }}>✅ 좋은 예시</th>
             </tr>
           </thead>
           <tbody>

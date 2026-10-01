@@ -1,5 +1,6 @@
 import { useLLM } from '../../contexts/LLMContext';
 import { useToast } from '../../contexts/ToastContext';
+import { AI_OFF_TEXT } from '../../lib/api/llm';
 
 /**
  * Reusable AI action bar — adapts to LLM connection status.
@@ -39,8 +40,9 @@ export default function AIActionBar({
         </button>
       ) : (
         <>
-          <span style={{ fontSize: '.74rem', color: 'var(--muted)', marginRight: 'auto' }}>
-            🟡 AI 미연결 — 우측 상단 AI 버튼에서 연결을 설정하세요
+          {/* mds/44 S9: '우측 상단에서 연결하세요' → 교사는 관리 비밀번호 없이 못 여는 창이라 할 일을 바로 알려 준다 */}
+          <span style={{ fontSize: '.82rem', color: 'var(--sub)', marginRight: 'auto' }}>
+            🟡 {AI_OFF_TEXT}
           </span>
           {/* 🌐 외부AI 복사→붙여넣기 임시 비활성(0719 요청) — 복원 시 주석 해제
           <button className="btn btn-pri btn-sm" onClick={copyPrompt} disabled={!prompt || disabled}>

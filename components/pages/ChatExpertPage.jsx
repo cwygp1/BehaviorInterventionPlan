@@ -194,7 +194,7 @@ export default function ChatExpertPage() {
     const text = (raw ?? input).trim();
     if (!text || sending) return;
     if (status !== 'on') {
-      toast('AI 연결을 먼저 설정해주세요 (우측 상단 AI 버튼).');
+      toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.');
       return;
     }
     const userMsg = { role: 'user', content: text };
@@ -333,7 +333,7 @@ export default function ChatExpertPage() {
             background: 'var(--err-l)', color: 'var(--err)', borderRadius: 8,
             padding: '8px 12px', fontSize: '.78rem', marginTop: 10,
           }}>
-            AI가 연결되어 있지 않아요. 우측 상단 <b>AI 버튼</b>에서 연결을 설정하면 채팅을 시작할 수 있습니다.
+            AI가 지금 꺼져 있어 채팅을 시작할 수 없어요. 연결은 관리자에게 알려 주세요.
           </div>
         )}
 

@@ -221,7 +221,7 @@ ${bText}
   }
 
   async function runTrend() {
-    if (llmStatus !== 'on') { toast('AI 연결을 먼저 설정해주세요.'); return; }
+    if (llmStatus !== 'on') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     if (!(curStuData?.mon || []).length) { toast('분석할 행동 데이터가 없습니다.'); return; }
     setAiBusy(true); setAiOutput('');
     try {
@@ -400,7 +400,7 @@ ${bText}
       <div className="card" data-tour="mon-fid">
         <div className="card-title">📋 BIP 실행 충실도 (오늘)
           {todayFid && (
-            <span style={{ marginLeft: 8, fontSize: '.72rem', fontWeight: 700, color: 'var(--ok)', background: 'var(--ok-l)', padding: '2px 8px', borderRadius: 99 }}>
+            <span style={{ marginLeft: 8, fontSize: '.72rem', fontWeight: 700, color: 'var(--ok-t)', background: 'var(--ok-l)', padding: '2px 8px', borderRadius: 99 }}>
               {date} 저장됨 · {todayFid.score}/{todayFid.total}
             </span>
           )}

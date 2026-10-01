@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useToast } from '../../contexts/ToastContext';
 import MarkdownView from '../ui/MarkdownView';
+import { toPlainCopyText } from '../../lib/utils/aiText';
 
 /**
  * Shared block for AI prompt builder modals — shows the AI output and the
@@ -52,7 +53,8 @@ export default function PromptResultBlock({ prompt, output, busy, meta, onChange
                 </span>
               )}
               <button className="btn btn-ghost btn-sm" onClick={() => setEditing((e) => !e)}>{editing ? '👁 미리보기' : '✎ 편집'}</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => copy(draft, 'AI 응답')}>📋 복사</button>
+              {/* mds/44 S11: **·# ·| 표 기호를 걷어 한글·나이스에 그대로 붙게 */}
+              <button className="btn btn-ghost btn-sm" onClick={() => copy(toPlainCopyText(draft), 'AI 응답')} title="굵게·표 같은 기호를 빼고 글만 복사해요">📋 복사</button>
             </div>
           )}
         </div>
@@ -74,13 +76,13 @@ export default function PromptResultBlock({ prompt, output, busy, meta, onChange
         )}
         {truncatedExplicit && (
           <div style={{ marginTop: 10, padding: '10px 12px', background: '#fff3d9', border: '1px solid #f3c47b', borderRadius: 6, fontSize: '.82rem', color: '#a76200' }}>
-            ⚠ <strong>응답이 max_tokens 한도(<code>{meta.usage?.completion_tokens || '?'}</code>)에 도달해 잘렸습니다.</strong>
-            우상단 AI 설정에서 "최대 출력 토큰"을 늘려보세요. (LM Studio Context 65535 → 권장 16000~32000)
+            ⚠ <strong>답이 길어서 끝까지 못 쓰고 잘렸어요.</strong> 다시 눌러 보거나, 요청을 조금 짧게 나눠 보세요.
+            계속 잘리면 관리자에게 알려 주세요(AI 설정의 '최대 출력 토큰', 이번 답 {meta.usage?.completion_tokens || '?'}개).
           </div>
         )}
         {truncatedHeuristic && !truncatedExplicit && (
           <div style={{ marginTop: 10, padding: '10px 12px', background: '#fff3d9', border: '1px solid #f3c47b', borderRadius: 6, fontSize: '.82rem', color: '#a76200' }}>
-            ⚠ 응답이 문장 중간에 끝났습니다. 잘렸을 수 있어요. 우상단 AI 설정에서 "최대 출력 토큰"을 늘려보세요.
+            ⚠ 답이 문장 중간에서 끝났어요. 잘렸을 수 있으니 다시 눌러 보거나 요청을 짧게 나눠 보세요.
           </div>
         )}
       </div>

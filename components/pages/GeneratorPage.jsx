@@ -3,6 +3,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { useStudents } from '../../contexts/StudentContext';
 import MarkdownView from '../ui/MarkdownView';
+import { toPlainCopyText } from '../../lib/utils/aiText';
 import {
   GEN_TOOLS,
   GEN_SYSTEM,
@@ -115,7 +116,7 @@ export default function GeneratorPage() {
   }
 
   async function onGenerate() {
-    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     if (tool.requiresStudent && !curStu) { toast('이 도구는 학생을 먼저 선택해야 합니다.'); return; }
     // 최소 입력 체크: 첫 textarea/text 필드 중 하나라도 비어 있으면 경고(완화).
     const firstText = (tool.fields || []).find((f) => f.type === 'textarea' || f.type === 'text');
@@ -236,7 +237,7 @@ export default function GeneratorPage() {
               {history.slice(0, 8).map((h, i) => (
                 <li key={i} data-help="gen-history-row" style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid #f1f5f9', fontSize: '.83rem' }}>
                   <span style={{ color: '#6366f1', flexShrink: 0 }}>{h.title}</span>
-                  <span style={{ color: '#94a3b8', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.preview}</span>
+                  <span style={{ color: 'var(--muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.preview}</span>
                 </li>
               ))}
             </ul>
@@ -278,7 +279,7 @@ export default function GeneratorPage() {
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
               <span className="badge badge-pri">학생 {curStu.code || curStu.student_code}</span>
               {shownCtx.length === 0
-                ? <span style={{ fontSize: '.8rem', color: '#94a3b8' }}>자동 반영할 기록이 아직 없어요(QABF·ABC 입력 시 반영).</span>
+                ? <span style={{ fontSize: '.8rem', color: 'var(--muted)' }}>자동 반영할 기록이 아직 없어요(QABF·ABC 입력 시 반영).</span>
                 : shownCtx.map(([k, v]) => (
                     <span key={k} className="chip" title={v} style={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {k}: {v}
@@ -294,7 +295,7 @@ export default function GeneratorPage() {
         <div className="card-title">입력</div>
         {tool.samples && tool.samples.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 }} data-help="gen-samples">
-            <span style={{ fontSize: '.78rem', color: '#94a3b8', flexShrink: 0 }}>예시 채우기:</span>
+            <span style={{ fontSize: '.78rem', color: 'var(--muted)', flexShrink: 0 }}>예시 채우기:</span>
             {tool.samples.map((s, i) => (
               <button type="button" key={i} className="chip" style={{ cursor: 'pointer' }}
                 onClick={() => applySample(s)} title="입력 칸을 예시 값으로 채웁니다">
@@ -360,13 +361,13 @@ export default function GeneratorPage() {
       {result && (
         <div className="card" data-help="gen-result">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-            <div className="card-title" style={{ marginBottom: 0 }}>결과{result.list ? ` (${result.list.length})` : ''} <span style={{ fontWeight: 400, fontSize: 12, color: '#94a3b8' }}>· 직접 수정 가능</span></div>
+            <div className="card-title" style={{ marginBottom: 0 }}>결과{result.list ? ` (${result.list.length})` : ''} <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--muted)' }}>· 직접 수정 가능</span></div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {!result.list && (
                 <button className="btn btn-ghost btn-sm" onClick={() => setResEdit((e) => !e)}>{resEdit ? '👁 미리보기' : '✎ 편집'}</button>
               )}
-              <button className="btn btn-ghost btn-sm" onClick={() => copy(result.list ? result.list.join('\n') : result.text, '전체 복사했어요.')} data-help="gen-copy">📋 전체 복사</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => copy(cleanText(result.list ? result.list.join('\n') : result.text), 'HWP 안전 텍스트로 복사했어요.')} title="보이지 않는 유니코드·스마트 문장부호를 정리해 복사" data-help="gen-clean-copy">🧹 정리 복사</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => copy(toPlainCopyText(result.list ? result.list.join('\n') : result.text), '전체 복사했어요.')} data-help="gen-copy">📋 전체 복사</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => copy(cleanText(toPlainCopyText(result.list ? result.list.join('\n') : result.text)), 'HWP 안전 텍스트로 복사했어요.')} title="보이지 않는 유니코드·스마트 문장부호를 정리해 복사" data-help="gen-clean-copy">🧹 정리 복사</button>
             </div>
           </div>
 
@@ -391,7 +392,7 @@ export default function GeneratorPage() {
 
           {/* 다듬기 */}
           <div style={{ marginTop: 12, borderTop: '1px dashed #e5e7eb', paddingTop: 10 }} data-help="gen-refine">
-            <div style={{ fontSize: '.78rem', color: '#94a3b8', marginBottom: 6 }}>다듬기 (다시 생성)</div>
+            <div style={{ fontSize: '.78rem', color: 'var(--muted)', marginBottom: 6 }}>다듬기 (다시 생성)</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {REFINE_CHIPS.map((c) => (
                 <button key={c} className="chip" style={{ cursor: 'pointer' }} disabled={busy} onClick={() => onRefine(c)}>{c}</button>
@@ -401,7 +402,7 @@ export default function GeneratorPage() {
         </div>
       )}
 
-      <p style={{ fontSize: '.76rem', color: '#94a3b8', textAlign: 'center', margin: '4px 0 0' }}>
+      <p style={{ fontSize: '.76rem', color: 'var(--muted)', textAlign: 'center', margin: '4px 0 0' }}>
         생성물은 AI 초안입니다. IEP·BIP·평어는 반드시 교사가 검토·수정 후 사용하세요. 성취기준 코드는 NCIC에서 대조하세요.
       </p>
     </>

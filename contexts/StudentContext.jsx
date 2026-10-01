@@ -32,6 +32,16 @@ const DEFAULT_YEAR = new Date().getFullYear();
 // 1학기 = 3~8월, 2학기 = 9~2월 (한국 학사일정 기준).
 const DEFAULT_SEMESTER = (new Date().getMonth() + 1) >= 3 && (new Date().getMonth() + 1) <= 8 ? 1 : 2;
 
+// 고른 학년도·학기·학급·학생을 이 기기에 선생님별로 기억 — 새로고침해도 다시 고르지 않게 (mds/44 S4, mds/30 P2 맥락 기억).
+//   학교 공용 PC를 고려해 키에 사용자 id를 붙인다. 못 읽거나 못 써도 기본값으로 동작한다.
+const ctxKey = (uid) => `kb_ctx_${uid}`;
+function readSavedCtx(uid) {
+  try { return JSON.parse(localStorage.getItem(ctxKey(uid)) || 'null'); } catch (_e) { return null; }
+}
+function writeSavedCtx(uid, v) {
+  try { localStorage.setItem(ctxKey(uid), JSON.stringify(v)); } catch (_e) { /* 저장 못 해도 화면은 그대로 */ }
+}
+
 /**
  * Holds the class hierarchy (선생님 → 년도 → 학급 → 학생), the student list,
  * currently selected year / class / student, the full per-student data cache,
@@ -53,6 +63,7 @@ export function StudentProvider({ children }) {
   const [homeSummary, setHomeSummary] = useState({ summaries: {}, recent: [] });
   const inflightRef = useRef({});
   const seedingRef = useRef(false);
+  const restoredRef = useRef(false); // 저장된 맥락 복원을 끝냈는가 — 끝나기 전엔 기본값으로 덮어쓰지 않는다
 
   // Reset everything when user logs out / changes.
   useEffect(() => {
@@ -68,6 +79,7 @@ export function StudentProvider({ children }) {
       setStudentDataCache({});
       setTier2Groups([]);
       setHomeSummary({ summaries: {}, recent: [] });
+      restoredRef.current = false;
     }
   }, [user]);
 
@@ -316,6 +328,28 @@ export function StudentProvider({ children }) {
     setCurStuId(sid);
     if (sid) await ensureStudentData(sid);
   }, [ensureStudentData]);
+
+  // 저장된 맥락 복원 — 학급·학생 목록을 둘 다 받은 뒤 한 번. 같은 렌더에 학년도·학급·학생을 함께 바꿔야
+  //   위의 '첫 학급 고르기'·'범위 밖 학생 비우기' 효과가 복원값을 지우지 않는다. 없는 학급·학생은 건너뛴다.
+  useEffect(() => {
+    if (!user || !classesLoaded || !studentsLoaded || restoredRef.current) return;
+    restoredRef.current = true;
+    const saved = readSavedCtx(user.id);
+    if (!saved) return;
+    if (saved.semester === 1 || saved.semester === 2) setCurSemester(saved.semester);
+    const cls = classes.find((c) => c.id === saved.classId);
+    if (!cls) return;
+    setCurYear(cls.school_year);
+    setCurClassId(cls.id);
+    const stu = allStudents.find((st) => st.id === saved.stuId && st.class_id === cls.id);
+    if (stu) selectStudent(stu.id).catch(() => {});
+  }, [user, classesLoaded, studentsLoaded, classes, allStudents, selectStudent]);
+
+  // 바뀔 때마다 저장 (복원 전에는 저장하지 않음)
+  useEffect(() => {
+    if (!user || !restoredRef.current) return;
+    writeSavedCtx(user.id, { year: curYear, semester: curSemester, classId: curClassId, stuId: curStuId });
+  }, [user, curYear, curSemester, curClassId, curStuId]);
 
   const updateStudentData = useCallback((sid, partialUpdater) => {
     setStudentDataCache((prev) => {

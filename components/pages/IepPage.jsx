@@ -18,7 +18,7 @@ import { downloadIepFormDocx, downloadTaskSheetDocx } from '../../lib/utils/iepF
 import { downloadNiceIepDocx } from '../../lib/utils/niceIepDocx';
 import { buildStudentSummary as tcBuildStudentSummary, buildTierLinkage as tcBuildTierLinkage } from '../../lib/tierContext';
 import { profileNarrative } from '../../lib/utils/splitNote';
-import { findHanja, findNegative, findCriterion } from '../../lib/utils/aiText';
+import { findHanja, findNegative, findCriterion, toPlainCopyText } from '../../lib/utils/aiText';
 import { goalLadder, goalLadderBlock, GOAL_LEVELS } from '../../lib/utils/goalLadder';
 import { isQuestionList, guardEvalText } from '../../lib/utils/iepEvalGuard';
 import { strategyValue, replaceAutoStrategy } from '../../lib/utils/semStrategy';
@@ -1257,7 +1257,7 @@ export default function IepPage({ onNavigate }) {
   async function aiExpandVerbs() {
     const base = (verb || (sel && sel.verb) || '').trim();
     if (!base) { toast('먼저 측정 가능한 동사를 입력하거나 ✨ AI 분석을 실행하세요.'); return; }
-    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setVerbBusy(true);
     try {
       const prompt =
@@ -1287,7 +1287,7 @@ export default function IepPage({ onNavigate }) {
 
   async function aiDecompose() {
     if (!sel) return;
-    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setAiDecBusy(true);
     try {
       // 1단계: 성취기준 분석 — 대표 동사 + "같은 의미 동사" 목록 + 행위지향 + 서술자만 추출(평가초점 문장은 다음 단계에서).
@@ -1378,7 +1378,7 @@ export default function IepPage({ onNavigate }) {
   //   - 코드 없는 전년도 목표(PRIOR)는 작년 문장을 유일한 '성취기준'으로 삼아 올해 학기목표 한 문장만 만든다(성취기준별 목록은 건드리지 않음).
   async function aiGoalFromStd() {
     if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
-    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     const realStds = [sel, ...selExtra].filter((x) => x && x.code && x.code !== 'PRIOR');
     const prior = !realStds.length;
     const stds = prior ? [{ ...sel, curriculum: '기본' }] : realStds;
@@ -1546,7 +1546,7 @@ export default function IepPage({ onNavigate }) {
   //   교육방법 = 교사의 실제 교수 행동 + 지원을 점차 줄이는 단계 흐름("→" 서술).
   async function aiSemContentMethods() {
     if (!String(goal || '').trim()) { toast('학기목표를 먼저 적어주세요.'); return; }
-    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setSemAiBusy(true);
     try {
       const stds = [sel, ...selExtra].filter(Boolean).map((x) => `[${x.code}] ${x.text}`).join(' / ');
@@ -1610,7 +1610,7 @@ export default function IepPage({ onNavigate }) {
   async function aiRefineGoal() {
     const draft = String(goal || '').trim();
     if (!draft) { toast('학기목표 초안을 먼저 적어주세요.'); return; }
-    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setGoalAiBusy(true);
     try {
       const basePrompt = (strict) =>
@@ -1652,7 +1652,7 @@ export default function IepPage({ onNavigate }) {
   // 오하이오 기능기반 IEPBS 자료의 3단 구조 — 주 목표(학기목표) ← 단기목표(대체행동, 기능 일치)의 과제분석 = 월별 목표.
   async function aiFuncAlt() {
     if (!funcPlan.func) { toast('행동 기능을 먼저 고르세요.'); return; }
-    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setGoalAiBusy(true);
     try {
       const bip = curStuData?.bip || {};
@@ -1684,7 +1684,7 @@ export default function IepPage({ onNavigate }) {
   async function aiGoalFromFunc() {
     const alt = String(funcPlan.alt || '').trim();
     if (!alt) { toast('대체행동(단기목표)을 먼저 정하세요.'); return; }
-    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setGoalAiBusy(true);
     try {
       const bip = curStuData?.bip || {};
@@ -1827,7 +1827,7 @@ export default function IepPage({ onNavigate }) {
   async function aiFociFromGoal() {
     const g = String(goal || '').trim();
     if (!g) { toast('학기목표를 먼저 확정하세요.'); return; }
-    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setFociGoalBusy(true);
     // 0903(B안): 성취기준별 목표가 평가초점의 앵커. 목표 수보다 개수가 적으면 배분이 구조적으로 불가능하므로 올린다.
     const sgAll = (flowMode === 'std' ? stdGoals : []).filter((x) => x && x.code && String(x.goal || '').trim());
@@ -2153,7 +2153,7 @@ export default function IepPage({ onNavigate }) {
 
   async function aiGenerateFromData() {
     if (!sel && !String(goal).trim()) { toast('학기목표를 먼저 쓰거나 성취기준을 선택하세요.'); return; }
-    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     if (!supportTier) toast('참고: 지원체계(모듈4)가 미지정이에요 — 지정하면 교육방법에 지원 강도가 반영됩니다.');
     setAiGenBusy(true);
     // P1(0720): 4~5분 걸리는 작업임을 시작 시점에 예고 — 실패·멈춤과 구분되도록.
@@ -2186,7 +2186,7 @@ export default function IepPage({ onNavigate }) {
       else toast('학생 데이터를 반영해 생성했어요.');
     } catch (e) {
       // P1(0720): 실패를 조용히 넘기지 않는다 — 원인·다음 행동을 함께 안내.
-      toast('AI 생성 실패: ' + e.message + ' — 우측 상단 AI 연결 상태를 확인한 뒤 다시 시도하세요. 이전 초안은 "초안 전환"에 그대로 남아 있어요.');
+      toast('AI 생성 실패: ' + e.message + ' 이전 초안은 "초안 전환"에 그대로 남아 있어요.');
     } finally {
       setAiGenBusy(false);
     }
@@ -2195,7 +2195,7 @@ export default function IepPage({ onNavigate }) {
   // 교과 평어(세부능력·특기사항) 생성 — 선택 성취기준 + 목표/현행수준/평가초점 반영.
   async function aiPyeong() {
     if (!sel) { toast('성취기준을 먼저 선택하세요.'); return; }
-    if (llmStatus === 'off') { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (llmStatus === 'off') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setPyeongBusy(true); setPyeongLines([]);
     try {
       const perfParts = [];
@@ -2222,7 +2222,7 @@ export default function IepPage({ onNavigate }) {
     finally { setPyeongBusy(false); }
   }
   async function copyPyeongAll() {
-    try { await navigator.clipboard.writeText(pyeongLines.map((l) => '- ' + l).join('\n')); toast('평어 전체 복사했어요.'); }
+    try { await navigator.clipboard.writeText(toPlainCopyText(pyeongLines.map((l) => '- ' + l).join('\n'))); toast('평어 전체 복사했어요.'); }
     catch (_) { toast('복사가 막혔어요. 직접 선택해 복사하세요.'); }
   }
   // 생성된 평어는 교사가 직접 수정 가능.
@@ -2770,6 +2770,8 @@ export default function IepPage({ onNavigate }) {
               </label>
               <button className="btn btn-ok btn-sm" data-help="iep-word-nice" onClick={() => exportNiceWord(savedGoals)} disabled={goalsLoading}>📄 나이스 양식 Word(.docx)</button>
               <button className="btn btn-ghost btn-sm" data-help="iep-word-form" onClick={() => exportFormWord(savedGoals)} disabled={goalsLoading}>📄 양식 Word (생활지원/교과 중심)</button>
+              {/* mds/44 S12-①: 나이스 복사는 ④ 계획서 화면에 있는데 여기서 못 찾던 문제 — 기능은 그대로, 입구만 하나 더 */}
+              <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('iepReport')} title="④ 계획서 다듬기·출력 화면 — 영역별 나이스 복사·전체 복사, 계획서 Word">📋 나이스 복사·계획서 출력 →</button>
             </div>
           </div>
           {goalsLoading && (
@@ -3060,7 +3062,7 @@ export default function IepPage({ onNavigate }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div>
               <div className="card-title" style={{ marginBottom: 0 }}>🔍 {stepNo.foci} 평가초점 개발 (학기목표 쪼개기)</div>
-              <div className="card-subtitle">학기목표: {goal} <span style={{ color: '#9ca3af' }}>· {sel ? <>성취기준 [{sel.code}]{selExtra.length ? ` 외 ${selExtra.length}개` : ''}</> : '성취기준 없음'}</span></div>
+              <div className="card-subtitle">학기목표: {goal} <span style={{ color: 'var(--muted)' }}>· {sel ? <>성취기준 [{sel.code}]{selExtra.length ? ` 외 ${selExtra.length}개` : ''}</> : '성취기준 없음'}</span></div>
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
               {/* 0720: AI 버튼 3개(쪼개기/성취기준 분석/동사 펼치기) → 1개로 통합(혼동 방지). */}

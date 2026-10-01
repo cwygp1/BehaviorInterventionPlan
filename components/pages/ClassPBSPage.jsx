@@ -202,7 +202,7 @@ ${question}
   }
 
   async function runCoach() {
-    if (status !== 'on') { toast('AI 연결을 먼저 설정해주세요.'); return; }
+    if (status !== 'on') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setCoachBusy(true); setCoachOutput('');
     try {
       const reply = await call(buildCoachPrompt(), { tier: 'fast' });

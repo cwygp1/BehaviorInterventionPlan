@@ -268,7 +268,7 @@ export default function Tier3Page({ onNavigate }) {
             <div style={{ background: 'var(--pri-soft)', padding: 12, borderRadius: 8, marginTop: 10, fontSize: '.82rem', lineHeight: 1.7 }}>
               <strong style={{ color: 'var(--pri)' }}>예시</strong><br />
               <span style={{ color: 'var(--err)' }}>❌ 문제행동:</span> 휴식 원할 때 책상을 밀친다<br />
-              <span style={{ color: 'var(--ok)' }}>✅ 대체 행동:</span> "쉬고 싶어요" 카드를 든다
+              <span style={{ color: 'var(--ok-t)' }}>✅ 대체 행동:</span> "쉬고 싶어요" 카드를 든다
             </div>
           </div>
 
@@ -279,7 +279,7 @@ export default function Tier3Page({ onNavigate }) {
               <strong>DRO(Differential Reinforcement of Other)</strong>: 정해진 시간 동안 문제행동이 없으면 강화.
             </p>
             <div style={{ background: 'var(--ok-l)', padding: 12, borderRadius: 8, marginTop: 10, fontSize: '.82rem', lineHeight: 1.7 }}>
-              <strong style={{ color: 'var(--ok)' }}>4:1 황금률</strong> — 문제행동 1회 재지도에 대해, 바람직한 행동 4번 이상 인식·강화. PBS의 핵심 비율 원칙.
+              <strong style={{ color: 'var(--ok-t)' }}>4:1 황금률</strong> — 문제행동 1회 재지도에 대해, 바람직한 행동 4번 이상 인식·강화. PBS의 핵심 비율 원칙.
             </div>
           </div>
 

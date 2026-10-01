@@ -300,7 +300,7 @@ ${lines || '  (기록 없음)'}
   }
 
   async function runProgress() {
-    if (llmStatus !== 'on') { toast('AI 연결을 먼저 설정해주세요.'); return; }
+    if (llmStatus !== 'on') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     if (!cicoRecords.length) { toast('요약할 CICO 기록이 없습니다.'); return; }
     setAiBusy(true); setAiOutput('');
     try {

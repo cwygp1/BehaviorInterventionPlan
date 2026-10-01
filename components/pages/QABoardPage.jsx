@@ -303,7 +303,7 @@ export default function QABoardPage() {
           <div className="card-title">❓ 질문 게시판</div>
           <div className="card-subtitle">
             PBS·IEP·위기대응에 대해 질문을 남기면 <b>관리자가 직접 답변</b>합니다.
-            {isAdmin && openCount > 0 && <b style={{ color: 'var(--warn)' }}> · 답변대기 {openCount}건</b>}
+            {isAdmin && openCount > 0 && <b style={{ color: 'var(--warn-t)' }}> · 답변대기 {openCount}건</b>}
           </div>
         </div>
         <button className="btn btn-pri" onClick={() => startWrite(null)} data-help="qa-ask">✍️ 질문하기</button>

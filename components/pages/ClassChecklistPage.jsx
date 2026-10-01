@@ -155,7 +155,7 @@ ${low(SOLVE_ITEMS, r.solve, 4)}
   }
 
   async function runAI() {
-    if (llmStatus !== 'on') { toast('AI 연결을 먼저 설정해주세요.'); return; }
+    if (llmStatus !== 'on') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setAiBusy(true); setAiOut('');
     try {
       const out = await call(buildPrompt(), { tier: 'fast' });

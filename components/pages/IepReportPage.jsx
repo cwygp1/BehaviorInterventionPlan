@@ -147,7 +147,7 @@ export default function IepReportPage() {
   }
   async function aiSynth(g) {
     // 외부AI 폴백 비활성(0719 요청): AI 미연결 시 연결 안내만.
-    if (!aiOn) { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (!aiOn) { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setSynthId(g.id);
     try {
       const prompt = await buildSynthPrompt(g);
@@ -196,7 +196,7 @@ export default function IepReportPage() {
   // 평가계획(eval_plan)이 비어 있는 구간만 골라 AI로 채운다.
   // 평가계획 기능 이전에 저장된 목표를 위해 — 기존 목표·내용·평가는 건드리지 않는다.
   async function aiFillEvalPlans(g) {
-    if (!aiOn) { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (!aiOn) { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     const prompt = buildEvalPlanPrompt(g);
     if (!prompt) { toast('모든 구간에 평가계획이 이미 있어요.'); return; }
     setPlanId(g.id);

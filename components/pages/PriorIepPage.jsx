@@ -117,7 +117,7 @@ export default function PriorIepPage({ onNavigate }) {
   }
 
   async function parseImport() {
-    if (!aiOn) { toast('AI 미설정: 우측 상단 AI 버튼에서 연결을 먼저 설정하세요.'); return; }
+    if (!aiOn) { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     if (!impText.trim() && !impImages.length) { toast('파일을 올리거나 내용을 붙여넣어 주세요.'); return; }
     setImpBusy(true);
     try {

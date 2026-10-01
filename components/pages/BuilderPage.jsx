@@ -181,7 +181,7 @@ export default function BuilderPage() {
   }
 
   async function runAI() {
-    if (status !== 'on') { toast('AI 연결을 먼저 설정해주세요.'); return; }
+    if (status !== 'on') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     const p = buildPrompt();
     if (!p) { toast('칩을 선택하거나 수업 내용을 입력해주세요.'); return; }
     setAiBusy(true); setAiResult(''); setAiMeta(null);

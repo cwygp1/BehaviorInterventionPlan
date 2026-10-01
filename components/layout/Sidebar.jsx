@@ -5,6 +5,7 @@ import { isSimpleMode, SIMPLE_COMMON, SIMPLE_TIERS, FULL_TIERS, softLockFor } fr
 import { useAuth } from '../../contexts/AuthContext';
 import { SECTIONS, PAGE_SECTION, PAGE_META } from '../../lib/tiers';
 import { FOLD_OPEN_EVENT } from '../ui/FoldCard';
+import FontSizeToggle from '../ui/FontSizeToggle';
 
 // 시안 B(런처 포털) 사이드바 — 두 가지 모드:
 //   · 포털 모드(홈·공통 페이지): 공통 메뉴(COMMON_MENU)를 전부 펼쳐 보인다. 영역 진입은 홈 카드로.
@@ -242,6 +243,7 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
             </div>
           </>
         )}
+        <FontSizeToggle />
         <div className="sidebar-foot">
           {/* 관리자에게만 이름 클릭 → 관리자 페이지(가입자 관리). 일반 사용자는 종전처럼 무반응.
               진입점 숨김은 UX일 뿐 — 실제 보호는 /api/admin/* 의 requireRole 서버 검사. */}
