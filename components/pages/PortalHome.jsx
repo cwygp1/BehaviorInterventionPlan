@@ -37,7 +37,7 @@ export default function PortalHome({ onNavigate }) {
   const { status: llmStatus } = useLLM();
   const toast = useToast();
   const { openAddStudent, openAISettings, openManageClasses } = useUIActions();
-  const { startTour } = useGuide();
+  const { startTour, startEscort } = useGuide();
   const [sampleBusy, setSampleBusy] = useState(false);
   const [aiMenuOpen, setAiMenuOpen] = useState(false); // 빠른 메뉴 'AI 도우미' 묶음
   const [quickOpen, setQuickOpen] = useState(false);   // 빠른 메뉴 접힘(넓은 화면 기본 접힘)
@@ -158,7 +158,14 @@ export default function PortalHome({ onNavigate }) {
     <div className="portal">
       <div className="dash-hello">
         <h2>안녕하세요, {user?.name} 선생님 <span className="wave">👋</span></h2>
-        <p>{today.getFullYear()}년 {today.getMonth() + 1}월 {today.getDate()}일 ({wd}) · 카드를 누르면 그 영역만 열려요.{noStudents ? " 처음이라면 맨 아래 '오늘의 안내'에서 샘플로 체험부터 눌러보세요." : ' 오늘 할 일은 맨 아래 안내 한 장에 모아 두었어요.'}</p>
+        <p>{today.getFullYear()}년 {today.getMonth() + 1}월 {today.getDate()}일 ({wd}) · 카드를 누르면 그 영역만 열려요.{noStudents ? " 처음이라면 아래 '길잡이와 시작하기'를 누르세요 — 학생 등록까지 화면에서 짚어 드려요." : ' 오늘 할 일은 맨 아래 안내 한 장에 모아 두었어요.'}</p>
+        {/* 1001 길잡이(mds/44 S2 흡수): 학생 0명일 때만 인사말 줄에 첫 행동 단추 — 맨 아래 '오늘의 안내'까지 내려가지 않게 */}
+        {studentsLoaded && noStudents && (
+          <div className="dash-hello-acts">
+            <button type="button" className="btn btn-pri" onClick={() => startEscort('start')} data-help="ph-escort-start">🧭 길잡이와 시작하기</button>
+            <button type="button" className="btn btn-ghost" onClick={onStartSample} disabled={sampleBusy} data-help="ph-sample">{sampleBusy ? '만드는 중…' : '🧪 샘플로 체험'}</button>
+          </div>
+        )}
       </div>
 
       {/* 0915 현장 요청: IEP 카드를 맨 위로 — 특수교사가 가장 자주 여는 영역. Tier 1·2·3 카드는 그 아래. */}

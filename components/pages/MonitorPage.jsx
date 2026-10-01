@@ -12,6 +12,7 @@ import { createMonitor, updateMonitor, deleteMonitor as apiDelMon, createFidelit
 import ObservationPeriodModal from '../modals/ObservationPeriodModal';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import TeachingRecordPanel from '../student/TeachingRecordPanel';
+import { escortSignal } from '../../lib/escortSignal';
 
 const STD_BEHS = ['자리 이탈', '소리 지르기', '자해', '공격 행동', '거부', '회피', '반복 행동', '울기', '물건 던지기', '도주'];
 
@@ -123,6 +124,7 @@ export default function MonitorPage({ onNavigate }) {
         toast(withFid ? '데이터 저장 완료 (충실도 포함)' : '데이터 저장 완료');
         markSaved(); hintNextStep('eval'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
       }
+      escortSignal('monitor-saved'); // 🧭 길잡이 '저장' 단계 끝(새 기록·수정 모두)
     } catch (e) {
       toast('저장 실패: ' + e.message);
     } finally {

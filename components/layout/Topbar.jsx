@@ -63,6 +63,7 @@ export default function Topbar({ activePage, sectionKey, onNavigate, canGoBack, 
                   title={s.label}
                   role="tab"
                   aria-selected={on}
+                  data-tour={'tb-chip-' + s.key} // 🧭 길잡이: 다른 영역의 화면으로 갈 때 이 단추를 짚는다
                 >
                   {s.key === 'iep' ? 'IEP' : 'T' + s.tier}
                 </button>

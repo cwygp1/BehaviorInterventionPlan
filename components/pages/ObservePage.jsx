@@ -16,6 +16,7 @@ import AssessmentLauncher from '../student/AssessmentLauncher';
 import DeadMansModal from '../modals/DeadMansModal';
 import { createABC as apiCreateABC, deleteABC as apiDeleteABC, saveBIP as apiSaveBIP } from '../../lib/api/students';
 import { parseLooseJSON } from '../../lib/utils/looseJson';
+import { escortSignal } from '../../lib/escortSignal';
 
 const ABC_TIMES = ['1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '쉬는 시간', '점심', '등교', '하교'];
 const ABC_PLACES = ['교실', '복도', '운동장', '급식실', '특별실', '통합학급', '화장실', '보건실'];
@@ -228,6 +229,7 @@ export default function ObservePage({ onNavigate }) {
       try { if (draftKey) sessionStorage.removeItem(draftKey); } catch (_) { /* ignore */ }
       toast('ABC 기록 저장 완료', 'success');
       markSaved(); hintNextStep('qabf'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
+      escortSignal('abc-saved'); // 🧭 길잡이 '저장' 단계 끝
     } catch (e) {
       toast('저장 실패: ' + e.message);
     } finally {

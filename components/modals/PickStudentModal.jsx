@@ -18,7 +18,7 @@ export default function PickStudentModal({ open, onClose, onPicked, onAddNew, fo
   const label = forPage ? PAGE_META[forPage]?.label : '';
   return (
     <Modal open={open} onClose={onClose}>
-      <h3>👤 학생을 먼저 선택해 주세요{label ? <span style={{ fontSize: '.8rem', color: 'var(--muted)', fontWeight: 500, marginLeft: 8 }}>→ {label}</span> : null}</h3>
+      <h3>{students.length === 0 ? '👤 먼저 학생을 한 명 등록해요' : '👤 학생을 먼저 선택해 주세요'}{label ? <span style={{ fontSize: '.8rem', color: 'var(--muted)', fontWeight: 500, marginLeft: 8 }}>→ {label}</span> : null}</h3>
       <p style={{ fontSize: '.85rem', color: 'var(--sub)', margin: '6px 0 14px' }}>
         {INTRO[sec] || '이 화면은 특정 학생에 대한 기록·평가입니다. 작업할 학생을 선택하거나 새로 추가해 주세요.'}
       </p>
@@ -51,7 +51,8 @@ export default function PickStudentModal({ open, onClose, onPicked, onAddNew, fo
       )}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <button className="btn btn-ghost" onClick={onClose}>취소</button>
-        <button className="btn btn-pri" onClick={onAddNew}>➕ 새 학생 추가</button>
+        {/* 1001(mds/44 S2): 학생이 없으면 '새 학생 추가'가 할 수 있는 유일한 일 — 크게 */}
+        <button className="btn btn-pri" onClick={onAddNew} style={students.length === 0 ? { fontSize: '1rem', padding: '10px 18px' } : undefined}>➕ 새 학생 추가</button>
       </div>
     </Modal>
   );

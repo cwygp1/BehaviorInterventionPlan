@@ -868,3 +868,61 @@ body.help-mode-on .app{cursor:help}
 .dz-settings-item{display:flex;gap:8px;align-items:center;font-size:.84rem;padding:6px 8px;border-radius:8px;cursor:pointer;min-height:34px}
 .dz-settings-item:hover{background:var(--pri-soft)}
 .tour-fallback{font-size:.74rem;color:var(--muted);margin-top:6px}
+
+/* === 🧭 길잡이(에스코트) 1001 — components/guide/EscortGuide.jsx · HelpMenu.jsx ===
+   테두리·꼬리표는 클릭을 막지 않는다(pointer-events:none). 창(.modal-bg 1000) 위, ❓ 메뉴(1198~) 아래. */
+.esc-ring{position:fixed;z-index:1100;pointer-events:none;border:3px solid var(--pri);border-radius:12px;box-shadow:0 0 0 4px rgba(79,107,237,.28);transition:top .2s ease,left .2s ease,width .2s ease,height .2s ease;animation:esc-pulse 1.6s ease-in-out infinite}
+.esc-ring.dim{box-shadow:0 0 0 4px rgba(79,107,237,.28),0 0 0 9999px rgba(15,23,42,.22)}
+.esc-ring.flash{animation:esc-flash .35s ease-in-out 4}
+@keyframes esc-pulse{0%,100%{border-color:var(--pri)}50%{border-color:#8ea2ff}}
+@keyframes esc-flash{0%,100%{border-color:var(--pri)}50%{border-color:var(--acc)}}
+.esc-tag{position:fixed;z-index:1101;pointer-events:none;background:var(--pri);color:#fff;font-size:.8rem;font-weight:700;padding:4px 10px;border-radius:99px;box-shadow:0 4px 12px rgba(79,107,237,.35);white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+.esc-dock{position:fixed;right:16px;bottom:16px;z-index:1150;width:320px;max-height:calc(100vh - 96px);overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 16px 44px rgba(15,23,42,.22);padding:12px 14px 14px}
+.esc-dock.top{bottom:auto;top:64px}
+.esc-dock.min{width:auto;padding:0;border:none;border-radius:99px;overflow:visible;background:transparent}
+.esc-pill{border:none;background:var(--pri);color:#fff;font-weight:700;font-size:.88rem;padding:10px 16px;border-radius:99px;cursor:pointer;max-width:min(360px,calc(100vw - 32px));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 8px 24px rgba(79,107,237,.35)}
+.esc-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.esc-title{font-weight:800;font-size:.95rem;color:var(--text);flex:1;min-width:0}
+.esc-count{font-size:.78rem;font-weight:700;color:var(--pri-d);background:var(--pri-l);padding:2px 8px;border-radius:99px;white-space:nowrap}
+.esc-x{border:none;background:transparent;color:var(--muted);font-size:.95rem;width:28px;height:28px;border-radius:8px;cursor:pointer;flex-shrink:0}
+.esc-x:hover{background:var(--surface2);color:var(--text)}
+.esc-list{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:2px}
+.esc-list li{display:flex;align-items:baseline;gap:8px;font-size:.88rem;color:var(--sub);padding:3px 6px;border-radius:6px;flex-wrap:wrap}
+.esc-list li.done{color:var(--muted);text-decoration:line-through}
+.esc-list li.done .esc-mark{color:var(--ok)}
+.esc-list li.now{color:var(--text);font-weight:800;background:var(--pri-soft)}
+.esc-list li.now .esc-mark{color:var(--pri)}
+.esc-mark{width:16px;flex-shrink:0;text-align:center;display:inline-block}
+.esc-opt{font-size:.75rem;color:var(--muted);font-weight:500}
+.esc-now{border-top:1px solid var(--border);padding-top:10px}
+.esc-say{font-size:.95rem;line-height:1.6;color:var(--text);word-break:keep-all}
+.esc-sub{font-size:.82rem;line-height:1.5;color:var(--sub);background:var(--bg);border-radius:8px;padding:6px 9px;margin-top:8px;word-break:keep-all}
+.esc-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+@media (prefers-reduced-motion:reduce){.esc-ring,.esc-ring.flash{animation:none;transition:none}}
+@media (max-width:600px){.esc-dock{left:8px;right:8px;bottom:8px;width:auto}.esc-dock.min{left:auto}}
+/* 길잡이 단추·메뉴(❓ 자리) — 1280px 이상은 '길잡이' 글자, 그 아래는 둥근 🧭 */
+.help-btn{width:auto;min-width:34px;padding:0 12px 0 10px;gap:5px;border-radius:99px}
+.help-btn .help-on-label{font-size:.82rem;font-weight:800;white-space:nowrap}
+.help-btn.esc-on{box-shadow:0 0 0 3px var(--pri-l)}
+@media (max-width:1279px){.help-btn{width:34px;padding:0;gap:0;border-radius:50%}}
+.esc-menu{min-width:300px;max-width:340px;max-height:calc(100vh - 90px);overflow-y:auto}
+.help-drop-k{font-size:.78rem;font-weight:800;color:var(--pri-d);padding:8px 10px 2px}
+.help-drop-hint{font-size:.76rem;color:var(--sub);padding:0 10px 6px;word-break:keep-all}
+.help-drop button.esc-item{display:flex;align-items:center;gap:10px;white-space:normal;padding:9px 10px}
+.help-drop button.esc-item.rec{background:var(--pri-soft);box-shadow:inset 0 0 0 2px var(--pri)}
+.esc-ic{font-size:1.2rem;flex-shrink:0}
+.esc-tx{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
+.esc-tx b{font-size:.9rem}
+.esc-tx small{font-size:.76rem;font-weight:500;color:var(--sub)}
+.esc-rec{font-size:.7rem;font-weight:800;color:#fff;background:var(--pri);padding:2px 8px;border-radius:99px;white-space:nowrap}
+.esc-running{display:flex;flex-direction:column;gap:6px;background:var(--pri-soft);border-radius:10px;padding:8px 10px;margin:2px 2px 6px;font-size:.82rem}
+.esc-running-acts{display:flex;gap:6px}
+.help-drop .esc-running-acts button{padding:5px 10px;font-size:.78rem;background:var(--surface);border:1px solid var(--border)}
+/* 홈 인사말 줄의 첫 행동 단추(학생 0명일 때, mds/44 S2) — 파란 바탕 위라 흰 단추 */
+.dash-hello-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;position:relative;z-index:1}
+.dash-hello-acts .btn-pri{background:#fff;color:var(--pri-d)}
+.dash-hello-acts .btn-pri:hover{background:#f0f3ff;color:var(--pri-d)}
+.dash-hello-acts .btn-ghost{color:#fff;border-color:rgba(255,255,255,.7);background:transparent}
+.dash-hello-acts .btn-ghost:hover{background:rgba(255,255,255,.14);color:#fff;border-color:#fff}
+/* 투어가 가리킬 칸을 못 찾았을 때의 한 줄 — 작은 회색 글씨라 안 읽혀 "뭘 가리키는지" 헷갈렸다(1001 현장) */
+.tour-pop .tour-fallback{font-size:.8rem;line-height:1.5;color:var(--sub);background:var(--warn-l);border-radius:8px;padding:6px 9px;margin-top:8px;word-break:keep-all}

@@ -16,6 +16,7 @@ import { GuideProvider } from '../guide/GuideContext';
 import SpotlightTour from '../guide/SpotlightTour';
 import GlossaryModal from '../guide/GlossaryModal';
 import HoverHelp from '../guide/HoverHelp';
+import EscortGuide from '../guide/EscortGuide';
 
 export default function Layout({ children, activePage, onNavigate, canGoBack, onBack }) {
   const { students, curStuId, selectStudent } = useStudents();
@@ -73,11 +74,12 @@ export default function Layout({ children, activePage, onNavigate, canGoBack, on
     setSidebarOpen(false);
   }
 
-  // ❓ 도움말 '다음 할 일'이 부르는 창 열기 (Topbar는 UIActionsProvider 바깥이라 여기서 넘긴다).
+  // 🧭 길잡이·'다음 할 일'이 부르는 창 열기 (Topbar는 UIActionsProvider 바깥이라 여기서 넘긴다).
   const guideActions = useMemo(() => ({
     openAddStudent: () => setAddOpen(true),
     openAISettings: () => setAISettingsOpen(true),
     openManageClasses: () => setClassesOpen(true),
+    openPickStudent: () => setPickOpen(true), // 길잡이 '학생 고르기' — 갈 화면 없이 고르기만
   }), []);
 
   return (
@@ -138,10 +140,11 @@ export default function Layout({ children, activePage, onNavigate, canGoBack, on
       <ManageClassesModal open={classesOpen} onClose={() => setClassesOpen(false)} />
     </div>
 
-    {/* 안내 레이어 — 화면 투어(스포트라이트) + 용어 사전 (mds/23 기능③) + 도움말 모드 마우스 설명(0923) */}
+    {/* 안내 레이어 — 화면 투어(스포트라이트) + 용어 사전 (mds/23 기능③) + 도움말 모드 마우스 설명(0923) + 길잡이(1001) */}
     <SpotlightTour />
     <GlossaryModal />
     <HoverHelp />
+    <EscortGuide />
     </GuideProvider>
   );
 }

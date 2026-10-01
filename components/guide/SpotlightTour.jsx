@@ -3,7 +3,7 @@ import { useGuide } from './GuideContext';
 import { getTour } from '../../lib/tours';
 import { glossaryById } from '../../lib/glossary';
 import { placeTour, isUsableRect, TOUR_PAD } from '../../lib/tourPlace';
-import { FOLD_OPEN_EVENT } from '../ui/FoldCard';
+import { revealAnchor } from './reveal';
 
 // 스포트라이트 투어 엔진 — 의존성 0, 자체 구현 (mds/23 기능③).
 //
@@ -20,6 +20,22 @@ import { FOLD_OPEN_EVENT } from '../ui/FoldCard';
 //   - 진행 중에는 투명 실드가 오조작을 막는다. ESC/→/←/Enter 키 지원.
 
 const POP_MAX_W = 340; // 팝오버 최대 폭(px) — 실제 폭은 CSS min()으로 화면에 맞춰 줄어든다
+
+// 큰 요소(긴 표·목록)를 위쪽만 밝힐 때 끊을 자리 — 줄·항목의 아래 경계(뷰포트 y). lib/tourPlace.js의 snaps.
+const ROW_SEL = 'tr, li, .card-title, .card-subtitle, [data-help$="-row"], [data-help$="-item"]';
+function rowBottoms(el) {
+  if (!el) return [];
+  try {
+    const box = (list) => [...list].map((c) => c.getBoundingClientRect()).filter((r) => r.height > 0);
+    // 화면 40%보다 큰 '줄'(목표 한 건 전체를 감싼 묶음 등)은 줄이 아니라 묶음 — 가로지름 판정에서 뺀다.
+    const rows = box(el.querySelectorAll(ROW_SEL)).filter((r) => r.height < window.innerHeight * 0.4);
+    // 표 안의 표처럼 줄이 겹쳐 있으면, 안쪽 줄의 아래 경계가 바깥 줄 한가운데일 수 있다 → 어느 줄도 가로지르지 않는 경계만.
+    // (카드의 직계 자식은 큰 묶음이라 끊을 후보로만 쓰고, 가로지름 판정에는 줄만 쓴다.)
+    // 줄의 위 경계도 후보 — 큰 줄 바로 위(앞 줄과의 사이)에서 끊을 수 있게.
+    return [...box(el.children).map((r) => r.bottom), ...rows.map((r) => r.bottom), ...rows.map((r) => r.top)]
+      .filter((y) => !rows.some((q) => q.top < y - 2 && q.bottom > y + 2));
+  } catch (_) { return []; }
+}
 
 // SSR 경고 방지 — 서버에서는 useEffect로 대체.
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -71,48 +87,54 @@ export default function SpotlightTour() {
 
     const readView = () => ({ w: window.innerWidth, h: window.innerHeight });
 
-    // 접힌 컨테이너 안의 요소면 펼침을 요청한다 — FoldCard/사이드바 '더 보기'(data-fold-id)·<details>.
-    function reveal(el) {
-      if (!el) return;
-      try {
-        const fold = el.closest('[data-fold-id]');
-        if (fold) window.dispatchEvent(new CustomEvent(FOLD_OPEN_EVENT, { detail: { id: fold.getAttribute('data-fold-id') } }));
-        let p = el.parentElement;
-        while (p) { if (p.tagName === 'DETAILS' && !p.open) p.open = true; p = p.parentElement; }
-      } catch (_) { /* noop */ }
-    }
+    // 끝내 대상을 못 쓰면 이 스텝은 가운데 카드로 설명만 보여준다(작은 화면·접힘 등).
+    const fallbackNow = (v) => {
+      elRef.current = null;
+      setFallback(true);
+      setView(v);
+      setRect(null);
+      setReady(true);
+    };
 
     function locate() {
       if (!alive) return;
       const el = step.el ? document.querySelector(step.el) : null;
       const v = readView();
-      if (step.el && !isUsableRect(rectOf(el), v.w, v.h)) {
-        if (tries === 0) reveal(el);
+      const r0 = el ? rectOf(el) : null;
+      // 요소가 없거나 크기가 0(접힘·숨김)이면 펼침을 요청하고 잠시 기다린다.
+      // ⚠ '화면 밖'은 여기서 거르지 않는다 — 아래쪽에 있는 요소는 스크롤하면 보인다.
+      //   (1001 현장: 기초조사① 투어 6/6 '저장과 AI 요약'이 맨 아래 카드라 스크롤 전에 '화면 밖'으로 판정돼
+      //    늘 "이 화면 크기·상태에서는…" 가운데 카드로만 떴다. 아래쪽 대상을 짚는 투어 스텝 전부 같은 문제.)
+      if (step.el && !(r0 && (r0.width > 0 || r0.height > 0))) {
+        if (tries === 0) revealAnchor(el);
         if (++tries <= 8) { setTimeout(locate, 180); return; }
-        // 요소가 없거나 화면 밖 — 이 스텝은 가운데 카드로 설명만 보여준다(작은 화면·접힘 등).
-        elRef.current = null;
-        setFallback(true);
-        setView(v);
-        setRect(null);
-        setReady(true);
+        fallbackNow(v);
         return;
       }
       elRef.current = el;
       if (el) {
         try {
           // 화면보다 긴 요소는 최소한만 스크롤(윗부분이 보이게), 아니면 가운데로.
-          const r = rectOf(el);
-          const tall = r && r.height > v.h * 0.9;
+          const tall = r0 && r0.height > v.h * 0.9;
           el.scrollIntoView({ block: tall ? 'nearest' : 'center', behavior: 'smooth' });
         } catch (_) { /* noop */ }
       }
-      // 스크롤이 끝날 시간을 살짝 준 뒤 측정
-      setTimeout(() => {
+      // 스크롤이 끝날 때까지 기다렸다가 측정 — 끝내 화면에 안 들어오면(닫힌 사이드바 서랍 등) 가운데 카드.
+      let waits = 0;
+      const measure = () => {
         if (!alive) return;
-        setView(readView());
-        setRect(el ? rectOf(el) : null);
+        const v2 = readView();
+        const r = el ? rectOf(el) : null;
+        if (el && !isUsableRect(r, v2.w, v2.h)) {
+          if (++waits <= 6) { setTimeout(measure, 150); return; }
+          fallbackNow(v2);
+          return;
+        }
+        setView(v2);
+        setRect(r);
         setReady(true);
-      }, el ? 300 : 0);
+      };
+      setTimeout(measure, el ? 300 : 0);
     }
     locate();
 
@@ -170,6 +192,7 @@ export default function SpotlightTour() {
   // 좌표는 전부 순수 함수가 계산 — 어떤 요소에서도 팝오버는 화면 안에 있다.
   const { hole, pop } = placeTour({
     rect: ready ? rect : null,
+    snaps: ready && rect ? rowBottoms(elRef.current) : [],
     vw: view.w,
     vh: view.h,
     popW: popSize.w,
@@ -195,12 +218,14 @@ export default function SpotlightTour() {
         role="dialog"
         aria-modal="true"
         aria-label="화면 안내"
+        data-target={step.el || ''} // 지금 가리키는 대상(선택자) — 화면 점검·디버깅용
       >
         <div className="tour-count">{idx + 1} / {total}</div>
         <div className="tour-title">{step.title}</div>
         <div className="tour-desc">{step.desc}</div>
         {step.sub && <div className="tour-sub">{step.sub}</div>}
-        {fallback && !step.quietFallback && <div className="tour-fallback">이 화면 크기·상태에서는 해당 요소가 보이지 않아 설명만 보여드려요.</div>}
+        {/* 1001 현장 "뭘 나타내는 거야": 가리킬 칸이 없을 때 이유를 쉬운 말로 — 스텝에 whenMissing이 있으면 그것 */}
+        {fallback && !step.quietFallback && <div className="tour-fallback">📍 {step.whenMissing || '가리킬 칸이 지금 화면에 없어서 설명만 보여드려요.'}</div>}
         {step.action && (
           <button className="btn btn-pri btn-sm tour-action" onClick={() => { finish(); step.action.run(); }}>
             {step.action.label}

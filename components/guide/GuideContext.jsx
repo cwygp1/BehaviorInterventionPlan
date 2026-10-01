@@ -1,12 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { resolveTourKey } from '../../lib/tours';
 
-// 안내(가이드) 상태의 단일 출처 — 화면 투어 + 용어 사전 (mds/23 기능③) + 도움말 모드(0923).
-// Layout이 Provider를 감싸고, Topbar(❓)·SpotlightTour·GlossaryModal·HoverHelp가 소비한다.
+// 안내(가이드) 상태의 단일 출처 — 화면 투어 + 용어 사전 (mds/23 기능③) + 도움말 모드(0923) + 길잡이(1001).
+// Layout이 Provider를 감싸고, Topbar(🧭 길잡이)·SpotlightTour·GlossaryModal·HoverHelp·EscortGuide가 소비한다.
 //
-// 도움말 모드(0923 결정):
-//   · ❓를 누르면 켜지고 메뉴 4개가 뜬다. 켜진 동안 PC에서는 마우스를 올린 곳의 설명이 나온다.
-//   · 마우스 설명은 PC(마우스)에서만 — 터치 기기에서는 ❓가 메뉴만 연다(canHover).
+// 🧭 길잡이(1001 사용자 결정 — ❓ 자리를 길잡이로):
+//   · 단추를 누르면 메뉴가 열린다 — 위는 '무엇을 하고 싶으세요?'(길 고르기), 아래는 기존 도움말.
+//   · 길을 고르면 escort { id, doneIds, min }이 생기고 EscortGuide가 화면 위에서 단계를 짚는다.
+//   · 길잡이는 다른 화면으로 가도 계속되고(0923 결정 ④의 예외), 새로고침해도 이어진다(sessionStorage).
+//
+// 마우스 설명(0923 결정, 1001부터는 길잡이 메뉴 안의 스위치로 켠다):
+//   · 켜진 동안 PC에서는 마우스를 올린 곳의 설명이 나온다. 터치 기기에서는 스위치가 없다(canHover).
 //   · 새로고침하면 꺼지고(저장 안 함), 다른 화면으로 이동해도 꺼진다. Esc로도 끈다.
 
 const NOOP = () => {};
@@ -29,10 +33,23 @@ const GuideCtx = createContext({
   activePage: 'home',
   onNavigate: NOOP,
   navigateRaw: NOOP,
+  escort: null,
+  startEscort: NOOP,
+  stopEscort: NOOP,
+  markEscortDone: NOOP,
+  setEscortMin: NOOP,
 });
 
 const doneKey = (key) => 'kb_tour_done:' + key;
 const HOVER_MQ = '(hover: hover) and (pointer: fine)';
+// 길잡이 진행 상태 — 새로고침해도 이어지게 탭 단위로 둔다(다른 탭·다음 날까지 끌고 가지 않음).
+const ESCORT_KEY = 'kb_escort';
+function readEscort() {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(ESCORT_KEY) || 'null');
+    return v && typeof v.id === 'string' ? { id: v.id, doneIds: Array.isArray(v.doneIds) ? v.doneIds : [], min: !!v.min } : null;
+  } catch (_) { return null; }
+}
 
 export function GuideProvider({ activePage, onNavigate, navigateRaw, actions, children }) {
   const [tourKey, setTourKey] = useState(null);
@@ -45,6 +62,33 @@ export function GuideProvider({ activePage, onNavigate, navigateRaw, actions, ch
   const [helpMode, setHelpMode] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [canHover, setCanHover] = useState(false);
+  const [escort, setEscort] = useState(null);
+
+  // 길잡이 — 새로고침 전 상태를 되살리고, 바뀔 때마다 적어 둔다.
+  useEffect(() => { const v = readEscort(); if (v) setEscort(v); }, []);
+  useEffect(() => {
+    try {
+      if (escort) sessionStorage.setItem(ESCORT_KEY, JSON.stringify(escort));
+      else sessionStorage.removeItem(ESCORT_KEY);
+    } catch (_) { /* 사생활 모드 등 — 새로고침 시 이어가기만 안 됨 */ }
+  }, [escort]);
+  const startEscort = useCallback((id) => {
+    setMenuOpen(false);
+    setTourKey(null);
+    setCustomSteps(null);
+    setEscort({ id, doneIds: [], min: false });
+  }, []);
+  const stopEscort = useCallback(() => setEscort(null), []);
+  const markEscortDone = useCallback((ids) => {
+    const list = (Array.isArray(ids) ? ids : [ids]).filter(Boolean);
+    if (!list.length) return;
+    setEscort((e) => {
+      if (!e) return e;
+      const add = list.filter((x) => !e.doneIds.includes(x));
+      return add.length ? { ...e, doneIds: [...e.doneIds, ...add] } : e;
+    });
+  }, []);
+  const setEscortMin = useCallback((min) => setEscort((e) => (e ? { ...e, min: !!min } : e)), []);
 
   // 투어 시작 — 키가 없으면 현재 페이지 기준으로 알맞은 투어를 고른다.
   const startTour = useCallback(
@@ -89,16 +133,8 @@ export function GuideProvider({ activePage, onNavigate, navigateRaw, actions, ch
     setTourPaused(false);
   }, []);
 
-  // 최초 방문 1회 — 홈 투어 자동 시작(화면이 안정된 뒤). 완료/그만 보기 시 기록됨.
-  useEffect(() => {
-    let seen = '1';
-    try { seen = localStorage.getItem(doneKey('home')) || ''; } catch (_) { seen = '1'; }
-    if (seen) return undefined;
-    const t = setTimeout(() => startTour('home'), 900);
-    return () => clearTimeout(t);
-    // 마운트 시 1회만 — startTour는 마운트 시점의 activePage('home')면 충분.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // 최초 방문 1회 — 예전엔 홈 투어(9단계)를 자동으로 띄웠다. 1001부터는 길잡이가 맡는다
+  // (학생 0명이면 '처음 시작하기' 길, 있으면 길잡이 메뉴 — components/guide/EscortGuide.jsx, mds/44 S2 흡수).
 
   // 마우스가 있는 기기인지 — 마우스 설명은 PC에서만 켠다(0923 결정 ③).
   useEffect(() => {
@@ -139,9 +175,11 @@ export function GuideProvider({ activePage, onNavigate, navigateRaw, actions, ch
       glossary, openGlossary, closeGlossary,
       helpMode, setHelpMode, menuOpen, setMenuOpen, canHover,
       actions: actions || {}, activePage, onNavigate, navigateRaw: navigateRaw || onNavigate,
+      escort, startEscort, stopEscort, markEscortDone, setEscortMin,
     }),
     [tourKey, tourPaused, customSteps, startTour, startCustomTour, stopTour, glossary, openGlossary, closeGlossary,
-      helpMode, menuOpen, canHover, actions, activePage, onNavigate, navigateRaw]
+      helpMode, menuOpen, canHover, actions, activePage, onNavigate, navigateRaw,
+      escort, startEscort, stopEscort, markEscortDone, setEscortMin]
   );
   return <GuideCtx.Provider value={value}>{children}</GuideCtx.Provider>;
 }

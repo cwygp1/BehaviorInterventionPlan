@@ -35,6 +35,7 @@ import DailyLifeExampleCards from '../ui/DailyLifeExampleCards';
 import { loadCurriculumContent, contentEntries, curriculumContentBlock, CONTENT_CAVEAT, hasUnverified, loadCurriculumGuides, guideKeysOf, guideUnitsFor, curriculumGuideBlock } from '../../lib/curriculumContent';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import { GRADES_BY_LEVEL } from '../modals/EditStudentModal';
+import { escortSignal } from '../../lib/escortSignal';
 
 const GRADE = { 0: '일상생활(공통)', 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
 const GORDER = [2, 4, 6, 9, 12];
@@ -2294,6 +2295,7 @@ export default function IepPage({ onNavigate }) {
       const r = await saveIEPGoal(curStuId, body);
       toast(editingId ? 'IEP 목표 수정 완료' : 'IEP 목표 저장 완료');
       markSaved(); hintNextStep('iepReport'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
+      escortSignal('iep-goal-saved'); // 🧭 길잡이 '저장' 단계 끝
       if (r?.goal?.id) setEditingId(r.goal.id);
       const d = await fetchIEP(curStuId);
       setSavedGoals(d.goals || []);
@@ -3369,7 +3371,7 @@ export default function IepPage({ onNavigate }) {
               </div>
             </div>
           )}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} data-help="iep-month-gen">
             <button className="btn btn-pri" data-help="iep-rule-draft" onClick={generate}>규칙 초안 (빠름, AI 없음)</button>
             {aiOn && <button className="btn btn-ok" data-help="iep-ai-gen" onClick={aiGenerateFromData} disabled={aiGenBusy}>{aiGenBusy ? '⏳ AI 생성 중… (약 3~5분)' : '✨ AI 생성 (학생 데이터 반영)'}</button>}
             {aiGenBusy && (
