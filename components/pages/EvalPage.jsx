@@ -108,7 +108,7 @@ export default function EvalPage() {
   const rangeChips = rangeOptions(allSorted);
   const sortedMon = filterByBehavior(filterByRange(allSorted, range), behChips.length ? behSel : BEH_ALL);
   const header = chartHeader(sortedMon);
-  const notes = noteMarks(sortedMon);
+  const notes = noteMarks(sortedMon, sortedMon.length > 25 ? 0 : 6); // 점이 많으면 ▲만(글은 툴팁·아래 목록)
   const metricChips = availableMetrics(sortedMon);
   const metricShort = Object.fromEntries(metricChips.map(([k, l]) => [k, l]));
   useChart(behRef, () => {
@@ -220,8 +220,7 @@ export default function EvalPage() {
           const cy = y.getPixelForValue(v) - 9;
           ctx.fillStyle = '#f59f00';
           ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx - 4, cy - 6); ctx.lineTo(cx + 4, cy - 6); ctx.closePath(); ctx.fill();
-          ctx.fillStyle = '#92400e';
-          ctx.fillText(m.short, cx, cy - 9);
+          if (m.short) { ctx.fillStyle = '#92400e'; ctx.fillText(m.short, cx, cy - 9); }
         });
         ctx.restore();
       },

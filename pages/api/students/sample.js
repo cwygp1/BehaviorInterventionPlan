@@ -62,8 +62,8 @@ export default requireAuth(async function handler(req, res) {
           `;
           for (const m of def.monitor) {
             await sql`
-              INSERT INTO monitor_records (student_id, date, behavior, frequency, duration, intensity, alternative, phase, obs_hours, note)
-              VALUES (${sid}, ${workdayBefore(m.d)}, ${def.behaviorLabel}, ${m.freq}, ${m.dur}, ${m.int}, ${m.alt || 'N'}, ${m.phase}, ${m.h ?? null}, ${m.note || ''})
+              INSERT INTO monitor_records (student_id, date, behavior, frequency, duration, intensity, alternative, alt_freq, dbr, phase, obs_hours, note)
+              VALUES (${sid}, ${workdayBefore(m.d)}, ${m.beh || def.behaviorLabel}, ${m.freq}, ${m.dur}, ${m.int}, ${m.alt || 'N'}, ${m.alt_freq ?? 0}, ${m.dbr ?? 0}, ${m.phase}, ${m.h ?? null}, ${m.note || ''})
             `;
           }
           for (const f of def.fidelity) {
