@@ -67,7 +67,7 @@ export default requireStudentAccess(async function handler(req, res) {
         lat: r.latency,
       })),
       qabf: (qabfRes.rows[0]?.responses) || new Array(25).fill(-1),
-      bip: bipRes.rows[0] ? { ...bipRes.rows[0], updated_at: fmtKst(bipRes.rows[0].updated_at) } : {},
+      bip: bipRes.rows[0] ? { ...bipRes.rows[0], updated_at: fmtKst(bipRes.rows[0].updated_at), design_since: bipRes.rows[0].design_since ? fmtDate(bipRes.rows[0].design_since) : null } : {},
       fid: fidRes.rows.map((r) => ({ ...r, date: fmtDate(r.date), created_at: fmtKst(r.created_at) })),
       sz: szRes.rows.map((r) => ({
         ...r,

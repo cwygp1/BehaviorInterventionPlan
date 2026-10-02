@@ -7,6 +7,7 @@ import { pnd, pndInterpretation, tauU, tauUInterpretation } from '../../lib/util
 import QabfFnChart from '../ui/QabfFnChart';
 import FoldCard from '../ui/FoldCard';
 import { METRICS, availableMetrics, sortByDate, phaseRuns, runMean, phaseSeries, noteMarks, periodMarks, chartHeader, rangeOptions, filterByRange, semesterMarks, behaviorOptions, filterByBehavior, parseGoalLine, RANGE_ALL, BEH_ALL } from '../../lib/utils/scedChart';
+import { normalizeDesign, designTitle, sinceRangeKey } from '../../lib/scedDesigns';
 
 const PHASE_COLOR = { A: '#ef476f', B: '#12b886' };
 
@@ -42,6 +43,12 @@ export default function EvalPage() {
   // 1001 2차(교사 엑셀 반영): 행동 고르기(합산/행동별) · 기간 고르기(전체/학기) · 목표선(가로 기준선, 기기에 저장).
   const [behSel, setBehSel] = useState(BEH_ALL);
   const [range, setRange] = useState(RANGE_ALL);
+  // 1002(mds/47 ①·§4-1): 설계 시작일이 있으면 '현재 설계(MM-DD~)' 칩을 기본 선택 — 설계를 바꾼 뒤 옛 기록을 그래프에서 분리.
+  const design = normalizeDesign(curStuData?.bip?.design);
+  const sinceKey = sinceRangeKey(curStuData?.bip?.design_since);
+  //   단, 시작일 뒤 기록이 아직 없으면(방금 바꾼 경우) 빈 그래프가 되므로 '전체'를 기본으로.
+  const sinceHasData = !!sinceKey && (curStuData?.mon || []).some((r) => (r.date || '') >= sinceKey.slice(6));
+  useEffect(() => { setRange(sinceKey && sinceHasData ? sinceKey : RANGE_ALL); setBehSel(BEH_ALL); }, [curStu?.id, sinceKey, sinceHasData]);
   const goalKey = `kb_goal_line_${curStu?.id || 0}_${metric}`;
   const [goalInput, setGoalInput] = useState('');
   useEffect(() => { try { setGoalInput(localStorage.getItem(goalKey) || ''); } catch (_) { setGoalInput(''); } }, [goalKey]);
@@ -105,7 +112,7 @@ export default function EvalPage() {
   //   흐름: 날짜 정렬 → 기간 고르기 → 행동 고르기(합산이면 같은 날짜를 하나로) → 그래프.
   const allSorted = sortByDate(mon);
   const behChips = behaviorOptions(allSorted);
-  const rangeChips = rangeOptions(allSorted);
+  const rangeChips = rangeOptions(allSorted, { since: sinceKey ? sinceKey.slice(6) : null });
   const sortedMon = filterByBehavior(filterByRange(allSorted, range), behChips.length ? behSel : BEH_ALL);
   const header = chartHeader(sortedMon);
   const notes = noteMarks(sortedMon, 40); // 글은 그릴 때 이웃 메모와의 간격에 맞춰 자른다(아래 플러그인)
@@ -119,7 +126,7 @@ export default function EvalPage() {
     const means = runs.map((run) => runMean(sorted, run, metric));
     const marks = notes;
     const pMarks = periodMarks(sorted, curStuData?.periods);
-    const sMarks = range === RANGE_ALL ? semesterMarks(sorted) : []; // 학기 구분선은 전체 보기에서만
+    const sMarks = range === RANGE_ALL || String(range).startsWith('since:') ? semesterMarks(sorted) : []; // 학기 구분선은 전체·현재 설계 보기에서
     const goal = goalLine;
 
     // 단계 변경선·단계 이름·단계 안 평균선·메모·관찰 기간 구분선을 한 플러그인에서 그린다.
@@ -375,6 +382,7 @@ export default function EvalPage() {
             {/* 엑셀 서식 제목 "(학생이름)의 OO행동 총발생횟수그래프 (관찰지속 기간)"과 같은 틀 */}
             <span><strong>{curStu.code}</strong>의 <strong>{header.behaviors.length ? header.behaviors.join(' · ') : '대상 행동'}</strong> {metricShort[metric] || ''} 그래프</span>
             <span style={{ color: 'var(--muted)' }}>{header.from} ~ {header.to} · {header.count}회기</span>
+            <span style={{ color: 'var(--muted)' }}>· 설계 {designTitle(design)}{sinceKey ? ` · ${sinceKey.slice(11)}부터` : ''}</span>
             {curStuData?.bip?.opdef && <span style={{ color: 'var(--muted)' }} title={curStuData.bip.opdef}>정의: {curStuData.bip.opdef.length > 40 ? curStuData.bip.opdef.slice(0, 40) + '…' : curStuData.bip.opdef}</span>}
           </div>
         )}

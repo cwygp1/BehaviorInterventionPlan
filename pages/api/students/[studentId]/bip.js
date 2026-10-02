@@ -1,5 +1,6 @@
 import { sql } from '../../../../lib/db';
 import { requireStudentAccess } from '../../../../lib/auth';
+import { DESIGN_CODES } from '../../../../lib/scedDesigns';
 
 export default requireStudentAccess(async function handler(req, res) {
   const { studentId } = req.query;
@@ -23,7 +24,8 @@ export default requireStudentAccess(async function handler(req, res) {
   // expected by the legacy SPA's fetchStudentData).
   const toEnvelope = (row) => {
     if (!row) return { data: null, bip: null };
-    const formatted = { ...row, updated_at: fmtKst(row.updated_at) };
+    // design_since는 DATE — pg Date가 JSON에서 UTC로 직렬화돼 하루 밀리지 않게 KST 날짜 글자로.
+    const formatted = { ...row, updated_at: fmtKst(row.updated_at), design_since: row.design_since ? fmtKst(row.design_since).slice(0, 10) : null };
     return { data: formatted, bip: formatted };
   };
 
@@ -38,7 +40,7 @@ export default requireStudentAccess(async function handler(req, res) {
 
       case 'POST':
       case 'PUT': {
-        const { alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest, hypothesis, interview, roles } = req.body || {};
+        const { alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest, hypothesis, interview, roles, design, design_cfg, design_since } = req.body || {};
         // 0719 피드백: 조작적 정의(opdef)·행동목표(bgoal) — /api/migrate 전에도 동작하도록 셀프힐.
         await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS opdef TEXT NOT NULL DEFAULT ''`;
         await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS bgoal TEXT NOT NULL DEFAULT ''`;
@@ -49,14 +51,23 @@ export default requireStudentAccess(async function handler(req, res) {
         await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS interview JSONB NOT NULL DEFAULT '{}'`;
         // 0914(홍준표 부록): 실행 역할분담표 [{task, owner, period, check, decision}] — 셀프힐 컬럼.
         await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS roles JSONB NOT NULL DEFAULT '[]'`;
+        // 1002(mds/47 ①): 단일대상설계 — design·design_cfg·design_since 셀프힐. design은 5개 코드만, 바뀔 때만 design_since를 찍는다.
+        await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS design VARCHAR(20) NOT NULL DEFAULT 'AB'`;
+        await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS design_cfg JSONB NOT NULL DEFAULT '{}'`;
+        await sql`ALTER TABLE bip_data ADD COLUMN IF NOT EXISTS design_since DATE NULL`;
+        const designCode = design === undefined ? undefined : (DESIGN_CODES.includes(String(design).toUpperCase()) ? String(design).toUpperCase() : 'AB');
+        const cfgJson = design_cfg === undefined ? null : JSON.stringify(design_cfg && typeof design_cfg === 'object' ? design_cfg : {});
+        // 시작일: 본문에 YYYY-MM-DD가 오면 그 날, 없으면 오늘(KST). design이 안 왔으면 건드리지 않는다.
+        const sinceStr = typeof design_since === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(design_since) ? design_since : fmtKst(new Date()).slice(0, 10);
         const rolesJson = roles === undefined ? null : JSON.stringify(Array.isArray(roles) ? roles.slice(0, 30) : []);
         const dest = bgoal_dest === undefined ? undefined : (['iep', 'subject'].includes(bgoal_dest) ? bgoal_dest : '');
         const interviewJson = interview === undefined ? null : JSON.stringify(interview || {});
         // 부분 업데이트: 전달되지 않은(undefined) 필드는 기존 값을 유지한다 —
         // 초기면담지 모달처럼 일부만 저장하는 화면이 BIP 본문을 지우지 않게(반대도 동일).
         const result = await sql`
-          INSERT INTO bip_data (student_id, alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest, hypothesis, interview, roles, updated_at)
-          VALUES (${studentId}, ${alt || ''}, ${fct || ''}, ${crit || ''}, ${prev || ''}, ${teach || ''}, ${reinf || ''}, ${resp || ''}, ${opdef || ''}, ${bgoal || ''}, ${dest || ''}, ${hypothesis || ''}, ${interviewJson || '{}'}::jsonb, ${rolesJson || '[]'}::jsonb, NOW())
+          INSERT INTO bip_data (student_id, alt, fct, crit, prev, teach, reinf, resp, opdef, bgoal, bgoal_dest, hypothesis, interview, roles, design, design_cfg, design_since, updated_at)
+          VALUES (${studentId}, ${alt || ''}, ${fct || ''}, ${crit || ''}, ${prev || ''}, ${teach || ''}, ${reinf || ''}, ${resp || ''}, ${opdef || ''}, ${bgoal || ''}, ${dest || ''}, ${hypothesis || ''}, ${interviewJson || '{}'}::jsonb, ${rolesJson || '[]'}::jsonb,
+            ${designCode || 'AB'}, ${cfgJson || '{}'}::jsonb, ${designCode ? sinceStr : null}::date, NOW())
           ON CONFLICT (student_id)
           DO UPDATE SET
             alt = COALESCE(${alt ?? null}, bip_data.alt),
@@ -72,6 +83,11 @@ export default requireStudentAccess(async function handler(req, res) {
             hypothesis = COALESCE(${hypothesis ?? null}, bip_data.hypothesis),
             interview = COALESCE(${interviewJson}::jsonb, bip_data.interview),
             roles = COALESCE(${rolesJson}::jsonb, bip_data.roles),
+            design = COALESCE(${designCode ?? null}::text, bip_data.design),
+            design_cfg = COALESCE(${cfgJson}::jsonb, bip_data.design_cfg),
+            design_since = CASE
+              WHEN ${designCode ?? null}::text IS NOT NULL AND ${designCode ?? null}::text IS DISTINCT FROM bip_data.design THEN ${sinceStr}::date
+              ELSE bip_data.design_since END,
             updated_at = NOW()
           RETURNING *
         `;

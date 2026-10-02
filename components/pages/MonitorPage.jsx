@@ -12,6 +12,9 @@ import { createMonitor, updateMonitor, deleteMonitor as apiDelMon, createFidelit
 import ObservationPeriodModal from '../modals/ObservationPeriodModal';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import TeachingRecordPanel from '../student/TeachingRecordPanel';
+import DesignPicker from '../student/DesignPicker';
+import StageTabs from '../student/StageTabs';
+import { stageTabsFor, runIndexOfRecord, suggestsABAB, normalizeDesign, designTitle } from '../../lib/scedDesigns';
 import { escortSignal } from '../../lib/escortSignal';
 
 import { STD_BEHS } from '../../lib/chartCatalog'; // 칩 단일 출처(1001, 사용자 차트와 공유)
@@ -41,8 +44,16 @@ export default function MonitorPage({ onNavigate }) {
   const [editingId, setEditingId] = useState(null); // 0719: 기록 목록에서 불러와 수정
   // 0819 피드백: 저장 성공 후 "다음 단계(결과 평가)로 이동" 배너 — 새 기록을 입력하면 숨김.
   const [savedOk, markSaved] = useSavedFlag([date, beh, freq, dur, intensity, alt, altFreq, lat, dbr, obsHours, note]);
-  // 기본값은 A(기초선). 학생별로 한 번, 데이터가 있으면 가장 최근 기록의 단계를 이어받는다.
-  const [phase, setPhase] = useState('A');
+  // 1002(mds/47 ①): 단계는 A/B 칩이 아니라 '단계 탭'으로 고른다. 저장 값은 여전히 A/B.
+  //   탭 목록·"지금 구간"은 저장된 기록을 날짜순 phaseRuns로 유도(작성 순서 recs[0]가 아님 — 과거 A를 뒤늦게 채워도 어긋나지 않게).
+  const design = normalizeDesign(curStuData?.bip?.design);
+  const tabDesign = design === 'ABAB' ? 'ABAB' : 'AB'; // 기준변경·교대중재·중다기초선 탭은 ②~④
+  const [extraStages, setExtraStages] = useState(0); // '+ 단계'(ABABAB)
+  const stage = useMemo(() => stageTabsFor(tabDesign, curStuData?.mon || [], { extra: extraStages }), [tabDesign, curStuData?.mon, extraStages]);
+  const [stageIdx, setStageIdx] = useState(0);
+  const [lockedStage, setLockedStage] = useState(null); // 수정 중: 그 기록이 속한 구간만 강조·나머지 잠금
+  const phase = stage.tabs[stageIdx]?.phase || 'A';
+  const stageNow = stage.tabs[stageIdx];
   const phaseInitedFor = useRef(null);
 
   const [fidPrev, setFidPrev] = useState(false);
@@ -57,15 +68,15 @@ export default function MonitorPage({ onNavigate }) {
   const pickTab = (t) => { setTab(t); try { sessionStorage.setItem('kb_monitor_tab', t); } catch (_) { /* 무시 */ } };
   const [periodModalOpen, setPeriodModalOpen] = useState(false);
 
-  // 학생을 처음 열 때(데이터 도착 후) 한 번만 적절한 단계로 초기화.
+  // 학생을 열 때·기록이 바뀔 때(저장·삭제 뒤) 단계 탭을 "지금 구간"으로 맞춘다. 수정 중에는 건드리지 않는다.
   useEffect(() => {
     if (!curStuId) return;
-    const recs = curStuData?.mon;
-    if (!recs) return; // 데이터 로딩 대기
-    if (phaseInitedFor.current === curStuId) return;
-    phaseInitedFor.current = curStuId;
-    setPhase(recs.length ? (recs[0].phase || 'A') : 'A');
-  }, [curStuId, curStuData?.mon]);
+    if (!curStuData?.mon) return; // 데이터 로딩 대기
+    if (phaseInitedFor.current !== curStuId) { phaseInitedFor.current = curStuId; setExtraStages(0); setLockedStage(null); }
+    if (lockedStage != null) return;
+    setStageIdx(stage.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [curStuId, curStuData?.mon, stage.current]);
 
   const recentBehs = useMemo(() => {
     const cached = curStuData?.mon || [];
@@ -112,7 +123,7 @@ export default function MonitorPage({ onNavigate }) {
         // 0719: 기록 목록에서 불러온 항목 수정
         const res = await updateMonitor(curStuId, { ...body, id: editingId });
         updateStudentData(curStuId, (cur) => ({ ...cur, mon: cur.mon.map((r) => (r.id === editingId ? res.record : r)) }));
-        setEditingId(null);
+        setEditingId(null); setLockedStage(null);
         toast('기록을 수정했어요.');
         markSaved(); hintNextStep('eval'); // 저장 확인 + 사이드바 다음 메뉴 반짝임
       } else {
@@ -140,7 +151,9 @@ export default function MonitorPage({ onNavigate }) {
     setFreq(r.freq ?? 0); setDur(r.dur ?? 0); setIntensity(r.int ?? 1);
     setAlt(r.alt || 'N'); setAltFreq(r.alt_freq ?? 0); setLat(r.lat ?? 0); setDbr(r.dbr ?? 5);
     setObsHours(r.obs_hours == null ? '' : String(r.obs_hours)); setNote(r.note || '');
-    setPhase(r.phase || 'A');
+    // 수정 중에는 그 기록이 속한 구간 탭만 강조하고 나머지는 잠근다(단계가 바뀌지 않게).
+    const ri = runIndexOfRecord(stage.runs, stage.sorted, r);
+    if (ri >= 0) { setStageIdx(ri); setLockedStage(ri); } else { setLockedStage(null); }
     setTimeout(() => {
       const el = typeof document !== 'undefined' && document.getElementById('mon-form');
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -152,6 +165,7 @@ export default function MonitorPage({ onNavigate }) {
     setBeh(''); setFreq(0); setDur(0); setIntensity(1); setAlt('Y'); setAltFreq(0); setLat(0); setDbr(5);
     setObsHours(''); setNote('');
     setDate(new Date().toISOString().slice(0, 10));
+    setLockedStage(null); setStageIdx(stage.current); // 취소 → 지금 구간으로
   }
 
   // 0824 퀵윈⑦: 매일 반복 입력 단축 — 최근 기록 값으로 폼을 채우되
@@ -165,7 +179,7 @@ export default function MonitorPage({ onNavigate }) {
     setFreq(r.freq ?? 0); setDur(r.dur ?? 0); setIntensity(r.int ?? 1);
     setAlt(r.alt || 'N'); setAltFreq(r.alt_freq ?? 0); setLat(r.lat ?? 0); setDbr(r.dbr ?? 5);
     setObsHours(r.obs_hours == null ? '' : String(r.obs_hours)); setNote(''); // 메모는 그날의 일이라 비운다
-    setPhase(r.phase || 'A');
+    setLockedStage(null); setStageIdx(stage.current); // 단계는 지금 구간(날짜순)으로
     toast(`최근 기록(${r.date})과 같게 채웠어요 — 오늘 수치만 고치고 저장(Enter)하세요.`);
   }
 
@@ -276,24 +290,24 @@ ${bText}
             <div className="card-subtitle">단일대상연구의 핵심 — <strong>A(기초선)</strong>는 중재 전 현재 수준, <strong>B(중재)</strong>는 BIP·전략을 <u>실제로 적용한 이후</u>의 데이터입니다. 두 단계를 명확히 구분해야 결과 차트가 의미를 가집니다.</div>
           </div>
         </div>
-        <div className="qchip-area" style={{ marginTop: 10 }} role="group" aria-label="관찰 단계 선택">
-          <span
-            className={'qchip' + (phase === 'A' ? ' on' : '')}
-            role="button" tabIndex={0} aria-pressed={phase === 'A'}
-            onClick={() => setPhase('A')}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPhase('A'); } }}
-            style={phase === 'A' ? { background: 'var(--err)', borderColor: 'var(--err)', color: '#fff' } : { borderColor: 'var(--err)', color: 'var(--err)' }}
-          >📊 A · 기초선 (중재 전)</span>
-          <span
-            className={'qchip' + (phase === 'B' ? ' on' : '')}
-            role="button" tabIndex={0} aria-pressed={phase === 'B'}
-            onClick={() => setPhase('B')}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPhase('B'); } }}
-            style={phase === 'B' ? { background: 'var(--pri)', borderColor: 'var(--pri)', color: '#fff' } : { borderColor: 'var(--pri)', color: 'var(--pri)' }}
-          >🎯 B · 중재 (전략 적용 후)</span>
-        </div>
+        {/* 1002(mds/47 ①): 설계 고르기(접힘) + 단계 탭. 저장 값은 A/B, 탭 이름·번호는 날짜순 구간에서 유도. */}
+        <div style={{ marginTop: 10 }}><DesignPicker /></div>
+        <StageTabs
+          tabs={stage.tabs}
+          selected={stageIdx}
+          lockedIndex={lockedStage}
+          onPick={(i) => setStageIdx(i)}
+          onAddStage={tabDesign === 'ABAB' && stage.tabs.length <= stage.runs.length ? () => setExtraStages((n) => n + 1) : undefined}
+        />
+        {suggestsABAB(design, stage.runs) && (
+          <div style={{ marginTop: 8, fontSize: '.8rem', color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '6px 10px' }} data-tour="mon-abab-suggest">
+            중재를 멈춘 구간이 보여요(기초선 → 중재 → 다시 기초선). 위 "설계: 바꾸기"에서 <strong>ABAB(반전설계)</strong>로 바꾸면 철회·재개 단계 이름이 붙어요.
+          </div>
+        )}
         <p style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 8 }}>
-          현재 저장될 phase: <strong style={{ color: 'var(--pri)' }}>{phase}</strong> — 먼저 <strong>A(기초선)</strong>으로 중재 전 수준을 충분히 모은 뒤, BIP·중재 전략을 <strong>실제로 적용한 다음</strong> 그 효과 데이터를 <strong>B(중재)</strong>로 기록하세요. (B는 기초선이 아니라 전략 적용 이후의 수집 데이터입니다.)
+          {lockedStage != null
+            ? <>수정 중인 기록은 <strong style={{ color: 'var(--pri)' }}>{stageNow?.label}({stageNow?.short})</strong> 구간이에요. 단계는 바꿀 수 없고, 날짜를 바꾸면 그 날짜의 구간으로 들어가요.</>
+            : <>지금 저장하면 <strong style={{ color: 'var(--pri)' }}>{stageNow?.label} ({stageNow?.short} · {phase === 'A' ? '기초선' : '중재'})</strong>{stageNow?.state === 'next' ? ' — 새 단계로 넘어가요' : ''}. {tabDesign === 'ABAB' ? '중재를 잠깐 멈출 때는 "중재 철회" 탭을 눌러요. 하루 빠진 날은 메모에 적어요.' : '먼저 기초선으로 중재 전 수준을 충분히 모은 뒤, BIP 전략을 실제로 적용한 다음 "중재" 탭으로 넘어가요.'}</>}
           {curStuData?.periods?.length > 0 && (() => {
             const active = curStuData.periods.find((p) => !p.end_date);
             if (active) {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import StuHero, { NoStudentHint } from '../student/StuHero';
+import DesignPicker from '../student/DesignPicker';
 import { FormLoading } from '../../lib/hooks/useFormLoad';
 import useAutoSave from '../../lib/hooks/useAutoSave';
 import { useStudents } from '../../contexts/StudentContext';
@@ -258,6 +259,13 @@ export default function BipPage({ onNavigate }) {
       {/* 0825 피드백: 표적행동 선정·조작적 정의는 관찰 화면으로 이동 — 이 화면은 가설부터 시작 */}
       <div className="card" style={{ background: 'var(--pri-soft)', borderColor: 'var(--pri-l)', fontSize: '.84rem', lineHeight: 1.6 }} data-tour="bip-order">
         🧭 <strong>작성 순서</strong> — 관찰 화면에서 표적행동 정의·ABC 기록을 마친 뒤, ① <strong>행동기능 가설</strong>을 세우고, ② 대체행동·중재 전략(BIP)을 정한 다음, ③ <strong>행동목표(메이거식)</strong>를 만들어 마무리합니다. 행동목표는 IEP의 개별화 학기목표로도 쓸 수 있어요.
+      </div>
+
+      {/* 1002(mds/47 ①): 단일대상설계 — 행동 데이터 화면과 같은 값. 어느 쪽에서든 바꿀 수 있다(갑 Q6). */}
+      <div className="card" style={{ padding: '12px 16px' }} data-tour="bip-design">
+        <div className="card-title" style={{ marginBottom: 6 }}>📐 단일대상설계</div>
+        <div className="card-subtitle" style={{ marginBottom: 8 }}>이 학생의 행동 데이터를 어떤 설계로 기록·평가할지 정해요. 행동 데이터 화면의 단계 탭과 결과 평가 그래프가 이 설계를 따라요.</div>
+        <DesignPicker />
       </div>
 
       {/* 관찰 화면에서 작성한 조작적 정의를 참고로 보여준다(가설의 [행동] 재료). */}
