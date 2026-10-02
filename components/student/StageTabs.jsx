@@ -10,7 +10,7 @@ export default function StageTabs({ tabs = [], selected = 0, onPick, lockedIndex
       {tabs.map((t, i) => {
         const locked = lockedIndex != null ? i !== lockedIndex : (t.state === 'done' || t.state === 'future');
         const on = i === selected;
-        const color = COLOR[t.phase] || 'var(--pri)';
+        const color = t.color || COLOR[t.phase] || 'var(--pri)'; // 교대중재는 조건마다 자기 색
         return (
           <button
             key={t.index ?? i}
@@ -31,8 +31,11 @@ export default function StageTabs({ tabs = [], selected = 0, onPick, lockedIndex
               fontWeight: 700, fontSize: '.84rem', transition: '.15s',
             }}
           >
-            <span style={{ fontSize: '.68rem', opacity: 0.85, fontWeight: 600 }}>{i + 1}단계 · {t.short}{t.state === 'current' ? ' · 지금' : t.state === 'next' ? ' · 다음' : t.state === 'done' ? ' · 지남' : ''}</span>
-            <span>{t.label}</span>
+            <span style={{ fontSize: '.68rem', opacity: 0.85, fontWeight: 600 }}>
+              {t.hint != null ? t.hint : <>{i + 1}단계 · {t.short}{t.state === 'current' ? ' · 지금' : t.state === 'next' ? ' · 다음' : t.state === 'done' ? ' · 지남' : ''}</>}
+              {t.hint != null && t.state === 'current' ? ' · 지금' : ''}
+            </span>
+            <span>{t.marker && t.color ? <span style={{ marginRight: 4 }}>{({ circle: '●', triangle: '▲', rect: '■', rectRot: '◆' })[t.marker] || '●'}</span> : null}{t.label}</span>
           </button>
         );
       })}

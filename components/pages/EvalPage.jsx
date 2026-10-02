@@ -6,7 +6,7 @@ import EvalReportModal from '../modals/EvalReportModal';
 import { pnd, pndInterpretation, tauU, tauUInterpretation } from '../../lib/utils/effectSize';
 import QabfFnChart from '../ui/QabfFnChart';
 import FoldCard from '../ui/FoldCard';
-import { METRICS, availableMetrics, sortByDate, phaseRuns, runMean, phaseSeries, noteMarks, periodMarks, chartHeader, rangeOptions, filterByRange, semesterMarks, behaviorOptions, filterByBehavior, parseGoalLine, RANGE_ALL, BEH_ALL, ccConfig, criterionStats, CC_HIT_LABEL } from '../../lib/utils/scedChart';
+import { METRICS, availableMetrics, sortByDate, phaseRuns, runMean, phaseSeries, noteMarks, periodMarks, chartHeader, rangeOptions, filterByRange, semesterMarks, behaviorOptions, filterByBehavior, parseGoalLine, RANGE_ALL, BEH_ALL, ccConfig, criterionStats, CC_HIT_LABEL, atdConfig, conditionSeries, conditionStats, conditionPairs, ATD_MARKER_GLYPH } from '../../lib/utils/scedChart';
 import { normalizeDesign, designTitle, sinceRangeKey } from '../../lib/scedDesigns';
 
 const PHASE_COLOR = { A: '#ef476f', B: '#12b886' };
@@ -46,6 +46,7 @@ export default function EvalPage() {
   // 1002(mds/47 ①·§4-1): 설계 시작일이 있으면 '현재 설계(MM-DD~)' 칩을 기본 선택 — 설계를 바꾼 뒤 옛 기록을 그래프에서 분리.
   const design = normalizeDesign(curStuData?.bip?.design);
   const cc = ccConfig(curStuData?.bip?.design_cfg);
+  const atd = atdConfig(curStuData?.bip?.design_cfg);
   const sinceKey = sinceRangeKey(curStuData?.bip?.design_since);
   //   단, 시작일 뒤 기록이 아직 없으면(방금 바꾼 경우) 빈 그래프가 되므로 '전체'를 기본으로.
   const sinceHasData = !!sinceKey && (curStuData?.mon || []).some((r) => (r.date || '') >= sinceKey.slice(6));
@@ -119,6 +120,10 @@ export default function EvalPage() {
   const sortedMon = filterByBehavior(filterByRange(allSorted, range), ccBehavior || (behChips.length ? behSel : BEH_ALL));
   const ccActive = design === 'CC' && metric === cc.metric;
   const ccStats = ccActive ? criterionStats(sortedMon, cc) : [];
+  // 1002 ③ 교대중재: 조건별 경로(같은 조건끼리만 선) + 범례(이 설계만) + 조건별 표·조건 간 비교(평균 차·Tau-U).
+  const atdActive = design === 'ATD';
+  const atdStats = atdActive ? conditionStats(sortedMon, atd, metric) : [];
+  const atdPairs = atdActive ? conditionPairs(atdStats) : [];
   const header = chartHeader(sortedMon);
   const notes = noteMarks(sortedMon, 40); // 글은 그릴 때 이웃 메모와의 간격에 맞춰 자른다(아래 플러그인)
   const metricChips = availableMetrics(sortedMon);
@@ -127,6 +132,7 @@ export default function EvalPage() {
     const sorted = sortedMon;
     const labels = sorted.map((r) => (r.date || '').slice(5));
     const { a: baseData, b: intData } = phaseSeries(sorted, metric);
+    const atdSeries = atdActive ? conditionSeries(sorted, atd, metric) : null;
     const runs = phaseRuns(sorted);
     const means = runs.map((run) => runMean(sorted, run, metric));
     const marks = notes;
@@ -192,7 +198,7 @@ export default function EvalPage() {
             ctx.fillText(run.label, (x0 + x1) / 2, top + 12);
           }
           const m = means[k];
-          if (m != null && run.end > run.start && !(ccActive && run.phase === 'B')) {
+          if (m != null && run.end > run.start && !((ccActive || atdActive) && run.phase === 'B')) {
             ctx.setLineDash([4, 4]);
             ctx.strokeStyle = color;
             ctx.lineWidth = 1;
@@ -307,7 +313,14 @@ export default function EvalPage() {
     });
     return {
       type: 'line',
-      data: { labels, datasets: [mkSet('기초선 (A)', baseData, PHASE_COLOR.A), mkSet('중재 (B)', intData, PHASE_COLOR.B)] },
+      data: { labels, datasets: atdSeries
+        ? [
+          mkSet('기초선 (A)', baseData, PHASE_COLOR.A),
+          // 조건별 경로 — 같은 조건끼리만 잇는다(spanGaps true). 점 모양 ●▲■◆, 무중재는 회색 ○.
+          ...atdSeries.series.map((c) => ({ ...mkSet(c.name, c.data, c.color), spanGaps: true, pointStyle: c.marker, pointRadius: 5, pointBackgroundColor: c.control ? '#fff' : c.color, pointBorderColor: c.color, pointBorderWidth: 2, borderDash: c.control ? [4, 3] : undefined })),
+          ...(atdSeries.hasNone ? [{ ...mkSet('조건 없음', atdSeries.none, '#9ca3af'), showLine: false, pointStyle: 'circle', pointBackgroundColor: '#d1d5db' }] : []),
+        ]
+        : [mkSet('기초선 (A)', baseData, PHASE_COLOR.A), mkSet('중재 (B)', intData, PHASE_COLOR.B)] },
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -315,7 +328,7 @@ export default function EvalPage() {
         // 'index' 모드: 그 날짜 열 어디에 마우스를 올려도(▲·메모 글 위 포함) 툴팁이 뜬다 → 메모 전문 확인.
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { display: false },
+          legend: { display: !!atdSeries, position: 'bottom', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 }, filter: (item) => item.text !== '기초선 (A)' || baseData.some((v) => v != null) } }, // 범례는 교대중재에서만(조건 이름)
           tooltip: {
             filter: (item) => item.raw != null,
             callbacks: {
@@ -338,7 +351,7 @@ export default function EvalPage() {
       },
       plugins: [scedOverlay],
     };
-  }, [mon, metric, curStuData?.periods, behSel, range, goalLine, design, cc.metric, cc.direction, cc.hitRuns, cc.nearPct, cc.behavior]);
+  }, [mon, metric, curStuData?.periods, behSel, range, goalLine, design, cc.metric, cc.direction, cc.hitRuns, cc.nearPct, cc.behavior, JSON.stringify(atd)]);
 
   useChart(fidRef, () => {
     const sorted = [...fid].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
@@ -456,6 +469,11 @@ export default function EvalPage() {
             {!ccActive && <> 기준선은 <strong>{METRICS[cc.metric]?.label}</strong> 지표를 볼 때 그려져요.</>}
           </div>
         )}
+        {atdActive && (
+          <div style={{ fontSize: '.78rem', color: '#075985', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '6px 10px', marginBottom: 8 }}>
+            🔀 교대중재설계 — 조건 {atd.conditions.map((c) => `${ATD_MARKER_GLYPH[c.marker] || '●'} ${c.name}`).join(' · ')}{atd.control ? ' · ○ 무중재' : ''}. 같은 조건끼리만 선을 잇고, 조건별 경로가 벌어질수록(겹침이 적을수록) 차이가 분명해요.
+          </div>
+        )}
         <div style={{ display: ccActive ? 'none' : 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }} data-help="ev-goal">
           <span style={{ fontSize: '.74rem', color: 'var(--muted)', minWidth: 34 }}>목표선</span>
           <input type="number" className="form-input" min="0" step="any" value={goalInput} onChange={(e) => onGoalChange(e.target.value)} placeholder={`예: ${METRICS[metric]?.higherIsBetter ? '8' : '2'}`} style={{ width: 110, padding: '4px 8px', fontSize: '.84rem' }} />
@@ -467,7 +485,45 @@ export default function EvalPage() {
           {behSel === BEH_ALL && behChips.length > 0 && ' · 합산 = 같은 날 행동들의 빈도·지속·대체행동은 더하고 강도는 최대, DBR은 평균'}
           {metric === 'rate' && ' · 시간당 발생률 = 빈도 ÷ 학교에 있었던 시간(관찰 시간을 적은 날만 표시)'}
           {ccActive && ' · 보라 실선 = 그 구간의 기준, 보라 세로 점선 = 기준이 바뀐 자리, ✓ 달성 · △ 과잉 달성(기준보다 훨씬 아래 — 기준이 이끈 증거 아님) · ✕ 미달성'}
+          {atdActive && ' · 조건별 색·점 모양은 아래 범례, 회색 점 = 조건 없이 저장된 기록(기록 목록에서 조건을 붙여요)'}
         </div>
+        {atdActive && atdStats.some((c) => c.sessions > 0) && (
+          <div style={{ marginTop: 10 }} data-tour="ev-atd-table">
+            <div style={{ fontWeight: 700, fontSize: '.86rem', marginBottom: 4 }}>🔀 조건별 결과 <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: '.76rem' }}>— {METRICS[metric]?.label || metric}. 조건 비교는 평균 차·Tau-U로(PND는 기초선 기준이라 조건 비교엔 안 맞아요)</span></div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.82rem' }}>
+              <thead><tr style={{ background: '#f0f9ff' }}><th style={{ padding: 6, textAlign: 'left' }}>조건</th><th>회기</th><th>평균</th><th>최근 5회 평균</th></tr></thead>
+              <tbody>
+                {atdStats.map((c) => (
+                  <tr key={c.name} style={{ borderTop: '1px solid var(--border)' }}>
+                    <td style={{ padding: 6 }}><span style={{ color: c.color }}>{ATD_MARKER_GLYPH[c.marker] || '●'}</span> {c.name}</td>
+                    <td style={{ textAlign: 'center' }}>{c.sessions}</td>
+                    <td style={{ textAlign: 'center' }}>{c.mean ?? '—'}</td>
+                    <td style={{ textAlign: 'center' }}>{c.recent ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {atdPairs.length > 0 && (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.82rem', marginTop: 8 }}>
+                <thead><tr style={{ background: '#f0f9ff' }}><th style={{ padding: 6, textAlign: 'left' }}>비교</th><th>평균 차 (뒤 − 앞)</th><th>Tau-U</th><th>해석</th></tr></thead>
+                <tbody>
+                  {atdPairs.map((p) => {
+                    const ti = tauUInterpretation(p.tau);
+                    const better = p.diff == null ? null : (METRICS[metric]?.higherIsBetter ? p.diff > 0 : p.diff < 0) ? p.b : (METRICS[metric]?.higherIsBetter ? p.diff < 0 : p.diff > 0) ? p.a : null;
+                    return (
+                      <tr key={p.a + p.b} style={{ borderTop: '1px solid var(--border)' }}>
+                        <td style={{ padding: 6 }}>{p.a} vs {p.b}</td>
+                        <td style={{ textAlign: 'center' }}>{p.diff == null ? '—' : (p.diff > 0 ? '+' : '') + p.diff}</td>
+                        <td style={{ textAlign: 'center', fontWeight: 700, color: ti.color }}>{p.tau == null ? '—' : p.tau.toFixed(2)}</td>
+                        <td style={{ textAlign: 'center', fontSize: '.78rem', color: 'var(--sub)' }}>{ti.label}{better ? ` · ${better} 쪽이 나음` : ''}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
         {ccActive && ccStats.length > 0 && (
           <div style={{ marginTop: 10 }} data-tour="ev-cc-table">
             <div style={{ fontWeight: 700, fontSize: '.86rem', marginBottom: 4 }}>🎯 구간별 기준 달성 <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: '.76rem' }}>— 기준변경설계의 주 지표. 아래 PND·Tau-U는 참고치</span></div>
