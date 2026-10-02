@@ -7,7 +7,8 @@ import { pnd, pndInterpretation, tauU, tauUInterpretation } from '../../lib/util
 import QabfFnChart from '../ui/QabfFnChart';
 import FoldCard from '../ui/FoldCard';
 import { METRICS, availableMetrics, sortByDate, phaseRuns, runMean, phaseSeries, noteMarks, periodMarks, chartHeader, rangeOptions, filterByRange, semesterMarks, behaviorOptions, filterByBehavior, parseGoalLine, RANGE_ALL, BEH_ALL, ccConfig, criterionStats, CC_HIT_LABEL, atdConfig, conditionSeries, conditionStats, conditionPairs, ATD_MARKER_GLYPH, mblConfig, mblFilterBehavior, mblPanels, mblTierStats, MBL_DIMENSIONS } from '../../lib/utils/scedChart';
-import { normalizeDesign, designTitle, sinceRangeKey } from '../../lib/scedDesigns';
+import { normalizeDesign, sinceRangeKey } from '../../lib/scedDesigns';
+import DesignPicker from '../student/DesignPicker';
 
 const PHASE_COLOR = { A: '#ef476f', B: '#12b886' };
 
@@ -480,12 +481,14 @@ export default function EvalPage() {
 
       <div className="card" data-tour="ev-trend">
         <div className="card-title">📈 행동 변화 추이 (기초선 A vs 중재 B)</div>
+        {/* 1002 햇살: 그래프 화면에서도 설계를 바로 보고 바꿀 수 있게(눈에 띄는 띠) */}
+        <div style={{ marginBottom: 10 }}><DesignPicker where="eval" /></div>
         {header.count > 0 && (
           <div className="card-subtitle" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             {/* 엑셀 서식 제목 "(학생이름)의 OO행동 총발생횟수그래프 (관찰지속 기간)"과 같은 틀 */}
             <span><strong>{curStu.code}</strong>의 <strong>{header.behaviors.length ? header.behaviors.join(' · ') : '대상 행동'}</strong> {metricShort[metric] || ''} 그래프</span>
             <span style={{ color: 'var(--muted)' }}>{header.from} ~ {header.to} · {header.count}회기</span>
-            <span style={{ color: 'var(--muted)' }}>· 설계 {designTitle(design)}{sinceKey ? ` · ${sinceKey.slice(11)}부터` : ''}</span>
+            {sinceKey && <span style={{ color: 'var(--muted)' }}>· {sinceKey.slice(11)}부터 현재 설계</span>}
             {curStuData?.bip?.opdef && <span style={{ color: 'var(--muted)' }} title={curStuData.bip.opdef}>정의: {curStuData.bip.opdef.length > 40 ? curStuData.bip.opdef.slice(0, 40) + '…' : curStuData.bip.opdef}</span>}
           </div>
         )}

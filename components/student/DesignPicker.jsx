@@ -11,7 +11,9 @@ import MblSettingsModal from '../modals/MblSettingsModal';
 //   매일 누르는 단계 탭 옆에 같은 모양 칩을 두면 잘못 눌러 학생 설정이 바뀌므로(검토 §11-2) 접어 둔다.
 //   적용을 눌러야 BIP에 저장되고, 기록이 있는 학생은 확인 한 번. 서버가 설계가 바뀔 때 design_since를 찍는다.
 //   기준변경·교대중재·중다기초선은 ②~④에서 열린다(지금은 '준비 중').
-export default function DesignPicker({ compact = false }) {
+// 1002 햇살 피드백 "설계 변경 가능함을 좀 눈에 띄게": 접힌 한 줄은 유지하되(잘못 누름 방지, §11-2) 띠 모양·📐 아이콘·테두리 있는 '설계 바꾸기' 단추로 눈에 띄게.
+//   where: 'monitor'(기록 화면) | 'eval'(결과 평가 — 여기서도 바로 바꿀 수 있게)
+export default function DesignPicker({ compact = false, where = 'monitor' }) {
   const { curStuId, curStuData, updateStudentData } = useStudents();
   const toast = useToast();
   const saved = normalizeDesign(curStuData?.bip?.design);
@@ -59,16 +61,17 @@ export default function DesignPicker({ compact = false }) {
   }
 
   return (
-    <div data-tour="mon-design" style={{ fontSize: '.84rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ color: 'var(--sub)' }}>설계:</span>
-        <strong>{designTitle(saved)}</strong>
+    <div data-tour={where === 'eval' ? 'ev-design' : 'mon-design'} style={{ fontSize: '.84rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 12px', borderRadius: 10, background: 'var(--pri-soft)', border: '1px solid var(--pri-l)' }}>
+        <span style={{ fontSize: '1.05rem' }}>📐</span>
+        <span style={{ color: 'var(--pri-d)', fontWeight: 700 }}>이 학생의 설계</span>
+        <strong style={{ fontSize: '.92rem' }}>{designTitle(saved)}</strong>
         {since && !compact && <span style={{ color: 'var(--muted)', fontSize: '.76rem' }}>· {since}부터</span>}
-        {!open && <button type="button" className="btn btn-ghost btn-sm" onClick={openPicker} style={{ padding: '2px 10px' }}>바꾸기 ▾</button>}
+        {!open && <button type="button" className="btn btn-sm" onClick={openPicker} style={{ padding: '3px 12px', border: '1px solid var(--pri)', color: 'var(--pri)', background: '#fff', fontWeight: 700 }} title="AB · ABAB · 기준변경 · 교대중재 · 중다기초선 중에서 고르기">⚙ 설계 바꾸기 ▾</button>}
         {!open && saved === 'CC' && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPick('CC'); setCcOpen(true); }} style={{ padding: '2px 10px' }} title="기준 지표·방향·달성 판정">⚙ 설정</button>}
         {!open && saved === 'ATD' && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPick('ATD'); setAtdOpen(true); }} style={{ padding: '2px 10px' }} title="비교할 조건·무중재·기초선">⚙ 조건 설정</button>}
         {!open && saved === 'MBL' && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPick('MBL'); setMblOpen(true); }} style={{ padding: '2px 10px' }} title="무엇 간인지·층 이름">⚙ 층 설정</button>}
-        <span style={{ color: 'var(--muted)', fontSize: '.76rem' }} title={designTitle(saved) + ' — ' + (DESIGNS.find((d) => d.code === saved)?.desc || '')}>ⓘ {DESIGNS.find((d) => d.code === saved)?.desc}</span>
+        <span style={{ color: 'var(--muted)', fontSize: '.76rem', flexBasis: '100%' }}>ⓘ {DESIGNS.find((d) => d.code === saved)?.desc}{where === 'eval' ? ' · 설계를 바꾸면 그래프 모양과 기록 칸이 그에 맞게 바뀌고, 기록은 그대로예요.' : ''}</span>
       </div>
       {open && (
         <div role="radiogroup" aria-label="단일대상설계 고르기" style={{ marginTop: 8, padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
