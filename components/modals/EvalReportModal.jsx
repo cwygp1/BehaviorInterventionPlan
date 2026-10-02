@@ -6,6 +6,8 @@ import { useLLM } from '../../contexts/LLMContext';
 import { useToast } from '../../contexts/ToastContext';
 import { printEvalReport } from '../../lib/utils/printEvalReport';
 import AIActionBar from '../ui/AIActionBar';
+import { designSummaryForPrompt, designOfData } from '../../lib/utils/scedSummary';
+import { designTitle } from '../../lib/scedDesigns';
 
 export default function EvalReportModal({ open, onClose, chartRefs, effectSize, period }) {
   const { curStu, curStuData } = useStudents();
@@ -26,12 +28,15 @@ export default function EvalReportModal({ open, onClose, chartRefs, effectSize, 
     const fid = curStuData?.fid || [];
     const fidPct = fid.length ? Math.round(fid.reduce((s, r) => s + (r.score / r.total) * 100, 0) / fid.length) : null;
 
-    return `당신은 특수교육 PBS 컨설턴트입니다. 다음 학생의 결과 평가 보고서에 들어갈 "교사 종합 의견" 섹션을 한국어로 작성해주세요.
+    const designBlock = designSummaryForPrompt(curStuData, 'freq'); // 1002 ⑤: 설계별 묶음(AB·ABAB는 빈 문자열)
+    return `당신은 특수교육 PBS 컨설턴트입니다. 다음 학생의 결과 평가 보고서에 들어갈 "교사 종합 의견" 섹션을 한국어로 작성해주세요. 설계: ${designTitle(designOfData(curStuData))}.
 
 ## 학생 (비식별)
 - ID: ${curStu?.code} · ${curStu?.level} · ${curStu?.disability}
 - 비식별 요약: ${curStu?.note || '(없음)'}
-
+${designBlock ? `
+${designBlock}
+` : ''}
 ## 데이터 요약
 - 기초선(A): ${monA.length}건, 평균 빈도 ${avgFreq(monA)}
 - 중재(B): ${monB.length}건, 평균 빈도 ${avgFreq(monB)}
@@ -45,7 +50,7 @@ export default function EvalReportModal({ open, onClose, chartRefs, effectSize, 
   2) Trend (경향성)
   3) Variability (변동성)
   4) Immediacy (즉각성)
-- 효과 판정: Effective / Promising / Inconclusive / Ineffective 중 하나로 결론
+- 효과 판정: Effective / Promising / Inconclusive / Ineffective 중 하나로 결론${designBlock ? '\n- 설계 절의 해석 지시를 따를 것(기준변경은 기준 추종, 교대중재는 조건 간 분리, 중다기초선은 중재 안 한 층의 안정성)' : ''}
 - 다음 단계 권고: BIP 유지 / 수정 / Tier 강화 / FBA 재실시 등 1가지
 - 학부모님과 관리자도 이해할 수 있는 평이한 표현 사용`;
   }
@@ -107,7 +112,7 @@ export default function EvalReportModal({ open, onClose, chartRefs, effectSize, 
           <li>학생 정보 (익명 ID·학교급·장애·비식별 요약)</li>
           <li>핵심 지표 (PND, Tau-U, 평균 빈도)</li>
           <li>5종 차트 이미지 (행동 추이·QABF·충실도·SZ 분포·SZ 월별)</li>
-          <li>지표별 데이터 비교 표 (기초선 vs 중재)</li>
+          <li>지표별 데이터 비교 표 (기초선 vs 중재){['CC', 'ATD', 'MBL'].includes(designOfData(curStuData)) ? ' + 설계별 표(구간·조건·층)' : ''}</li>
           <li>적용된 BIP 중재 전략(PTR + 반응 절차) 요약</li>
           <li>교사 종합 의견 + 서명란</li>
         </ul>

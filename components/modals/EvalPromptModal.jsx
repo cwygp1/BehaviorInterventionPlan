@@ -6,24 +6,30 @@ import { useLLM } from '../../contexts/LLMContext';
 import { useToast } from '../../contexts/ToastContext';
 import AIActionBar from '../ui/AIActionBar';
 import { buildFullStudentContext } from '../../lib/tierContext';
+import { designSummaryForPrompt, designOfData } from '../../lib/utils/scedSummary';
+import { designTitle } from '../../lib/scedDesigns';
 
 function buildPrompt(stu, data) {
   const mon = (data?.mon || []).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const monLines = mon.map((r) =>
-    `${r.date} | Phase ${r.phase || 'B'} | 행동 "${r.beh || ''}" | 빈도 ${r.freq}${r.obs_hours ? ` (관찰 ${r.obs_hours}h, 시간당 ${(r.freq / r.obs_hours).toFixed(1)})` : ''} | 지속 ${r.dur}분 | 강도 ${r.int} | DBR ${r.dbr}${r.note ? ` | 메모: ${r.note}` : ''}`
+    `${r.date} | Phase ${r.phase || 'B'} | 행동 "${r.beh || ''}" | 빈도 ${r.freq}${r.obs_hours ? ` (관찰 ${r.obs_hours}h, 시간당 ${(r.freq / r.obs_hours).toFixed(1)})` : ''} | 지속 ${r.dur}분 | 강도 ${r.int} | DBR ${r.dbr}${r.criterion != null && r.criterion !== '' ? ` | 기준 ${r.criterion}` : ''}${r.condition ? ` | 조건 ${r.condition}` : ''}${r.tier ? ` | 층 ${r.tier}` : ''}${r.note ? ` | 메모: ${r.note}` : ''}`
   ).join('\n');
   const fid = (data?.fid || []).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const fidLines = fid.map((r) => `${r.date} | ${r.score}/${r.total}`).join('\n');
   const sz = (data?.sz || []).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const szLines = sz.map((r) => `${r.date} | 사유: ${r.reason} | 시간: ${r.in_t}~${r.out_t} | 복귀: ${r.ret}`).join('\n');
 
+  // 1002(mds/47 ⑤): 설계가 기준변경·교대중재·중다기초선이면 설계 논리에 맞는 묶음과 해석 지시를 붙인다(AB·ABAB는 빈 문자열).
+  const designBlock = designSummaryForPrompt(data, 'freq');
   return `당신은 단일대상연구(Single Subject Design) 분석 전문가입니다.
-다음 학생의 행동 데이터를 분석하여 4가지 시각적 분석 지표로 해석해주세요.
+다음 학생의 행동 데이터를 분석하여 4가지 시각적 분석 지표로 해석해주세요. 이 학생의 설계는 **${designTitle(designOfData(data))}**입니다${designBlock ? ' — 아래 "설계" 절의 묶음과 해석 지시를 우선하세요' : ''}.
 
 ## 학생 (비식별)
 - ID: ${stu?.code} · ${stu?.level} · ${stu?.disability}
 - 비식별 요약: ${stu?.note || '(없음)'}
-
+${designBlock ? `
+${designBlock}
+` : ''}
 ## 행동 모니터링 (Phase 표시)
 ${monLines || '(데이터 없음)'}
 
