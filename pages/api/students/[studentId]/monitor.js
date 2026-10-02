@@ -44,6 +44,14 @@ export default requireStudentAccess(async function handler(req, res) {
     await sql`ALTER TABLE monitor_records ADD COLUMN IF NOT EXISTS note VARCHAR(300) DEFAULT ''`;
   };
   const numOrNull = (v) => { if (v === '' || v == null) return null; const n = Number(v); return Number.isFinite(n) && n >= 0 ? n : null; };
+  // 1002(mds/47 ②·③): 기준변경 기준값 스냅숏(criterion) · 교대중재 조건(condition). PUT에서는 이 열들만 "안 왔으면 기존 값 유지"(§11-6).
+  const ensureDesignCols = async () => {
+    await sql`ALTER TABLE monitor_records ADD COLUMN IF NOT EXISTS criterion REAL NULL`;
+    await sql`ALTER TABLE monitor_records ADD COLUMN IF NOT EXISTS condition VARCHAR(50) DEFAULT ''`;
+  };
+  // undefined → 건드리지 않음(null 반환해 COALESCE로 기존 값), ''·null → 지움(빈 값으로), 숫자 → 그 값
+  const critIn = (body) => (body.criterion === undefined ? undefined : numOrNull(body.criterion));
+  const condIn = (body) => (body.condition === undefined ? undefined : String(body.condition || '').slice(0, 50));
   const noteOf = (body) => String(body.note ?? '').slice(0, 300);
 
   try {
@@ -75,9 +83,12 @@ export default requireStudentAccess(async function handler(req, res) {
         }
         await ensureAltFreq();
         await ensureHoursNote();
+        await ensureDesignCols();
+        const criterion = critIn(body) ?? null;
+        const condition = condIn(body) ?? '';
         const result = await sql`
-          INSERT INTO monitor_records (student_id, date, behavior, frequency, duration, intensity, alternative, alt_freq, latency, dbr, phase, obs_hours, note)
-          VALUES (${studentId}, ${date}, ${behavior}, ${frequency}, ${duration}, ${intensity}, ${alternative}, ${altFreq}, ${latency}, ${dbr}, ${phase}, ${obsHours}, ${note})
+          INSERT INTO monitor_records (student_id, date, behavior, frequency, duration, intensity, alternative, alt_freq, latency, dbr, phase, obs_hours, note, criterion, condition)
+          VALUES (${studentId}, ${date}, ${behavior}, ${frequency}, ${duration}, ${intensity}, ${alternative}, ${altFreq}, ${latency}, ${dbr}, ${phase}, ${obsHours}, ${note}, ${criterion}, ${condition})
           RETURNING *
         `;
         return res.status(201).json({ record: toResponse(result.rows[0]) });
@@ -103,11 +114,17 @@ export default requireStudentAccess(async function handler(req, res) {
         const note = noteOf(body);
         await ensureAltFreq();
         await ensureHoursNote();
+        await ensureDesignCols();
+        // criterion·condition: 본문에 없으면(undefined) 기존 값 유지. 있으면 그 값(null·''도 "지움"으로 반영).
+        const critU = critIn(body); const condU = condIn(body);
+        const keepCrit = critU === undefined; const keepCond = condU === undefined;
         const result = await sql`
           UPDATE monitor_records
           SET date = ${date}, behavior = ${behavior}, frequency = ${frequency}, duration = ${duration},
               intensity = ${intensity}, alternative = ${alternative}, alt_freq = ${altFreq},
-              latency = ${latency}, dbr = ${dbr}, phase = ${phase}, obs_hours = ${obsHours}, note = ${note}
+              latency = ${latency}, dbr = ${dbr}, phase = ${phase}, obs_hours = ${obsHours}, note = ${note},
+              criterion = CASE WHEN ${keepCrit} THEN monitor_records.criterion ELSE ${critU ?? null}::real END,
+              condition = CASE WHEN ${keepCond} THEN monitor_records.condition ELSE ${condU ?? ''}::varchar END
           WHERE id = ${id} AND student_id = ${studentId}
           RETURNING *
         `;

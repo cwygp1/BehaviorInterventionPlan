@@ -6,7 +6,7 @@ import EvalReportModal from '../modals/EvalReportModal';
 import { pnd, pndInterpretation, tauU, tauUInterpretation } from '../../lib/utils/effectSize';
 import QabfFnChart from '../ui/QabfFnChart';
 import FoldCard from '../ui/FoldCard';
-import { METRICS, availableMetrics, sortByDate, phaseRuns, runMean, phaseSeries, noteMarks, periodMarks, chartHeader, rangeOptions, filterByRange, semesterMarks, behaviorOptions, filterByBehavior, parseGoalLine, RANGE_ALL, BEH_ALL } from '../../lib/utils/scedChart';
+import { METRICS, availableMetrics, sortByDate, phaseRuns, runMean, phaseSeries, noteMarks, periodMarks, chartHeader, rangeOptions, filterByRange, semesterMarks, behaviorOptions, filterByBehavior, parseGoalLine, RANGE_ALL, BEH_ALL, ccConfig, criterionStats, CC_HIT_LABEL } from '../../lib/utils/scedChart';
 import { normalizeDesign, designTitle, sinceRangeKey } from '../../lib/scedDesigns';
 
 const PHASE_COLOR = { A: '#ef476f', B: '#12b886' };
@@ -45,6 +45,7 @@ export default function EvalPage() {
   const [range, setRange] = useState(RANGE_ALL);
   // 1002(mds/47 ①·§4-1): 설계 시작일이 있으면 '현재 설계(MM-DD~)' 칩을 기본 선택 — 설계를 바꾼 뒤 옛 기록을 그래프에서 분리.
   const design = normalizeDesign(curStuData?.bip?.design);
+  const cc = ccConfig(curStuData?.bip?.design_cfg);
   const sinceKey = sinceRangeKey(curStuData?.bip?.design_since);
   //   단, 시작일 뒤 기록이 아직 없으면(방금 바꾼 경우) 빈 그래프가 되므로 '전체'를 기본으로.
   const sinceHasData = !!sinceKey && (curStuData?.mon || []).some((r) => (r.date || '') >= sinceKey.slice(6));
@@ -113,7 +114,11 @@ export default function EvalPage() {
   const allSorted = sortByDate(mon);
   const behChips = behaviorOptions(allSorted);
   const rangeChips = rangeOptions(allSorted, { since: sinceKey ? sinceKey.slice(6) : null });
-  const sortedMon = filterByBehavior(filterByRange(allSorted, range), behChips.length ? behSel : BEH_ALL);
+  // 1002 ② 기준변경: 행동이 여럿이면 표적행동(CC.behavior, 비면 첫 행동)으로 고정하고 합산 경로를 타지 않는다. 기준선·달성 표시는 설정 지표를 볼 때만.
+  const ccBehavior = design === 'CC' && behChips.length ? (cc.behavior && behChips.some(([k]) => k === cc.behavior) ? cc.behavior : behChips[1]?.[0]) : null;
+  const sortedMon = filterByBehavior(filterByRange(allSorted, range), ccBehavior || (behChips.length ? behSel : BEH_ALL));
+  const ccActive = design === 'CC' && metric === cc.metric;
+  const ccStats = ccActive ? criterionStats(sortedMon, cc) : [];
   const header = chartHeader(sortedMon);
   const notes = noteMarks(sortedMon, 40); // 글은 그릴 때 이웃 메모와의 간격에 맞춰 자른다(아래 플러그인)
   const metricChips = availableMetrics(sortedMon);
@@ -127,7 +132,8 @@ export default function EvalPage() {
     const marks = notes;
     const pMarks = periodMarks(sorted, curStuData?.periods);
     const sMarks = range === RANGE_ALL || String(range).startsWith('since:') ? semesterMarks(sorted) : []; // 학기 구분선은 전체·현재 설계 보기에서
-    const goal = goalLine;
+    const goal = ccActive ? null : goalLine; // 기준변경에서는 기준선이 목표선 역할(목표선 칸 숨김)
+    const ccRuns = ccActive ? ccStats : [];
 
     // 단계 변경선·단계 이름·단계 안 평균선·메모·관찰 기간 구분선을 한 플러그인에서 그린다.
     const scedOverlay = {
@@ -138,6 +144,7 @@ export default function EvalPage() {
         const { left, right, top, bottom } = chartArea;
         const px = (i) => x.getPixelForValue(i);
         const mid = (i, j) => (px(i) + px(j)) / 2;
+        const slotWFor = () => (labels.length > 1 ? Math.abs(px(1) - px(0)) : (right - left));
         ctx.save();
 
         // ⓪ 학기 구분선(굵은 회색 점선) — 엑셀 '1학기/2학기' 행에 해당
@@ -185,7 +192,7 @@ export default function EvalPage() {
             ctx.fillText(run.label, (x0 + x1) / 2, top + 12);
           }
           const m = means[k];
-          if (m != null && run.end > run.start) {
+          if (m != null && run.end > run.start && !(ccActive && run.phase === 'B')) {
             ctx.setLineDash([4, 4]);
             ctx.strokeStyle = color;
             ctx.lineWidth = 1;
@@ -213,6 +220,39 @@ export default function EvalPage() {
             ctx.textAlign = 'right';
             ctx.fillText('목표 ' + goal, right - 4, gy - 4);
           }
+        }
+
+        // ②-2 기준변경설계(mds/47 §4): 구간마다 보라 실선 기준선 + '기준 N', 기준이 바뀌는 자리 세로 점선, 구간 끝에 ✓/△/✕, 구간 안 평균 점선.
+        if (ccRuns.length) {
+          ccRuns.forEach((run, k) => {
+            const x0 = px(run.start) - slotWFor() / 2;
+            const x1 = px(run.end) + slotWFor() / 2;
+            const cy = y.getPixelForValue(run.criterion);
+            if (cy >= top && cy <= bottom) {
+              ctx.setLineDash([]);
+              ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 2;
+              ctx.beginPath(); ctx.moveTo(Math.max(left, x0), cy); ctx.lineTo(Math.min(right, x1), cy); ctx.stroke();
+              ctx.font = 'bold 10px sans-serif'; ctx.fillStyle = '#6d28d9'; ctx.textAlign = 'left';
+              ctx.fillText(`기준${k + 1} · ${run.criterion}`, Math.max(left, x0) + 4, cy - 4);
+            }
+            if (k > 0) { // 기준이 바뀐 자리 — 세로 점선(실선은 A↔B 경계에만)
+              const bx = mid(run.start - 1, run.start);
+              ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(124,58,237,.6)'; ctx.lineWidth = 1;
+              ctx.beginPath(); ctx.moveTo(bx, top); ctx.lineTo(bx, bottom); ctx.stroke();
+              ctx.setLineDash([]);
+              if (ccRuns[k - 1].status === 'miss') { ctx.font = '10px sans-serif'; ctx.fillStyle = '#b45309'; ctx.textAlign = 'center'; ctx.fillText('미달성 중 변경', bx, bottom - 18); }
+            }
+            if (run.mean != null && run.end > run.start) { // 구간 안 평균(초록 점선)
+              const yy = y.getPixelForValue(run.mean);
+              ctx.setLineDash([4, 4]); ctx.strokeStyle = PHASE_COLOR.B; ctx.lineWidth = 1;
+              ctx.beginPath(); ctx.moveTo(px(run.start), yy); ctx.lineTo(px(run.end), yy); ctx.stroke(); ctx.setLineDash([]);
+            }
+            // 구간 끝 판정 표식
+            const mark = run.status === 'hit' ? '✓' : run.status === 'over' ? '△' : run.status === 'miss' ? '✕' : '…';
+            const mc = run.status === 'hit' ? '#0d7d4e' : run.status === 'over' ? '#6b7280' : run.status === 'miss' ? '#dc2626' : '#9ca3af';
+            ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = mc; ctx.textAlign = 'center';
+            ctx.fillText(mark, px(run.end), Math.max(top + 24, (cy >= top && cy <= bottom ? cy : top + 30) - 10));
+          });
         }
 
         // ③ 메모(배경사건·특이사항) — 점 위에 ▲ + 글. 글은 이웃 메모까지의 간격에 맞춰 자르고,
@@ -292,13 +332,13 @@ export default function EvalPage() {
           },
         },
         scales: {
-          y: { beginAtZero: true, grace: '15%', suggestedMax: goal != null ? goal : undefined, title: { display: true, text: METRICS[metric]?.label || '값' }, grid: { color: 'rgba(0,0,0,.06)' } }, // grace: 단계 이름이 맨 위 점과 겹치지 않게 머리 공간
+          y: { beginAtZero: true, grace: '15%', suggestedMax: goal != null ? goal : (ccRuns.length ? Math.max(...ccRuns.map((r) => r.criterion)) : undefined), title: { display: true, text: METRICS[metric]?.label || '값' }, grid: { color: 'rgba(0,0,0,.06)' } }, // grace: 단계 이름이 맨 위 점과 겹치지 않게 머리 공간
           x: { title: { display: true, text: '회기 (관찰일)' }, grid: { display: false } },
         },
       },
       plugins: [scedOverlay],
     };
-  }, [mon, metric, curStuData?.periods, behSel, range, goalLine]);
+  }, [mon, metric, curStuData?.periods, behSel, range, goalLine, design, cc.metric, cc.direction, cc.hitRuns, cc.nearPct, cc.behavior]);
 
   useChart(fidRef, () => {
     const sorted = [...fid].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
@@ -394,7 +434,8 @@ export default function EvalPage() {
         </div>
         {(behChips.length > 0 || rangeChips.length > 1) && (
           <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap', alignItems: 'center' }} data-help="ev-filters">
-            {behChips.length > 0 && (<>
+            {ccBehavior && <span style={{ fontSize: '.78rem', color: '#6d28d9' }}>표적행동 <strong>{ccBehavior}</strong> (기준변경 설정 ⚙에서 바꿔요)</span>}
+            {behChips.length > 0 && !ccBehavior && (<>
               <span style={{ fontSize: '.74rem', color: 'var(--muted)', minWidth: 34 }}>행동</span>
               {behChips.map(([k, l]) => (
                 <span key={k} className={'qchip' + (behSel === k ? ' on' : '')} onClick={() => setBehSel(k)}>{l}</span>
@@ -409,7 +450,13 @@ export default function EvalPage() {
             </>)}
           </div>
         )}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }} data-help="ev-goal">
+        {design === 'CC' && (
+          <div style={{ fontSize: '.78rem', color: '#5b21b6', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8, padding: '6px 10px', marginBottom: 8 }}>
+            🎯 기준변경설계 — 기준 지표 <strong>{METRICS[cc.metric]?.label}</strong> · {cc.direction === 'up' ? '늘리기' : '줄이기'} · 달성 = 연속 {cc.hitRuns}회기 기준 근처(폭 {cc.nearPct}%).
+            {!ccActive && <> 기준선은 <strong>{METRICS[cc.metric]?.label}</strong> 지표를 볼 때 그려져요.</>}
+          </div>
+        )}
+        <div style={{ display: ccActive ? 'none' : 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }} data-help="ev-goal">
           <span style={{ fontSize: '.74rem', color: 'var(--muted)', minWidth: 34 }}>목표선</span>
           <input type="number" className="form-input" min="0" step="any" value={goalInput} onChange={(e) => onGoalChange(e.target.value)} placeholder={`예: ${METRICS[metric]?.higherIsBetter ? '8' : '2'}`} style={{ width: 110, padding: '4px 8px', fontSize: '.84rem' }} />
           <span style={{ fontSize: '.74rem', color: 'var(--muted)' }}>{goalLine != null ? `보라 점선 — ${metricShort[metric] || ''} 목표 ${goalLine} (이 기기에만 저장)` : '그래프에 가로 기준선을 그어요 (지표마다 따로, 이 기기에만 저장)'}</span>
@@ -419,7 +466,29 @@ export default function EvalPage() {
           세로 실선 = 단계가 바뀐 자리(선은 경계를 넘어 잇지 않아요) · 색 점선 = 그 단계의 평균 · ▲ = 그날 메모(배경사건, 글이 잘렸으면 그 날짜 위에 마우스를 올리면 전문) · 회색 점선 = 관찰 기간 시작 · 굵은 회색 점선 = 학기 바뀜 · 보라 점선 = 목표선
           {behSel === BEH_ALL && behChips.length > 0 && ' · 합산 = 같은 날 행동들의 빈도·지속·대체행동은 더하고 강도는 최대, DBR은 평균'}
           {metric === 'rate' && ' · 시간당 발생률 = 빈도 ÷ 학교에 있었던 시간(관찰 시간을 적은 날만 표시)'}
+          {ccActive && ' · 보라 실선 = 그 구간의 기준, 보라 세로 점선 = 기준이 바뀐 자리, ✓ 달성 · △ 과잉 달성(기준보다 훨씬 아래 — 기준이 이끈 증거 아님) · ✕ 미달성'}
         </div>
+        {ccActive && ccStats.length > 0 && (
+          <div style={{ marginTop: 10 }} data-tour="ev-cc-table">
+            <div style={{ fontWeight: 700, fontSize: '.86rem', marginBottom: 4 }}>🎯 구간별 기준 달성 <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: '.76rem' }}>— 기준변경설계의 주 지표. 아래 PND·Tau-U는 참고치</span></div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.82rem' }}>
+              <thead><tr style={{ background: '#f5f3ff' }}><th style={{ padding: 6, textAlign: 'left' }}>구간</th><th>기준</th><th>회기</th><th>평균</th><th>평균−기준</th><th>기준 안 회기</th><th>판정</th></tr></thead>
+              <tbody>
+                {ccStats.map((r, i) => (
+                  <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
+                    <td style={{ padding: 6 }}>기준{i + 1} <span style={{ color: 'var(--muted)' }}>({(sortedMon[r.start]?.date || '').slice(5)} ~ {(sortedMon[r.end]?.date || '').slice(5)})</span></td>
+                    <td style={{ textAlign: 'center' }}>{r.criterion}</td>
+                    <td style={{ textAlign: 'center' }}>{r.sessions}</td>
+                    <td style={{ textAlign: 'center' }}>{r.mean ?? '—'}</td>
+                    <td style={{ textAlign: 'center', color: r.diff == null ? 'inherit' : (cc.direction === 'up' ? r.diff >= 0 : r.diff <= 0) ? 'var(--ok)' : 'var(--err)' }}>{r.diff == null ? '—' : (r.diff > 0 ? '+' : '') + r.diff}</td>
+                    <td style={{ textAlign: 'center' }}>{r.insidePct == null ? '—' : r.insidePct + '%'}</td>
+                    <td style={{ textAlign: 'center', fontWeight: 700, color: r.status === 'hit' ? '#0d7d4e' : r.status === 'over' ? '#6b7280' : r.status === 'miss' ? '#dc2626' : 'var(--muted)' }}>{CC_HIT_LABEL[r.status]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         {notes.length > 0 && (
           <details className="fold-inline" style={{ marginTop: 8 }}>
             <summary>📝 메모 있는 날 {notes.length}건</summary>

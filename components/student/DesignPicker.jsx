@@ -3,6 +3,7 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { saveBIP } from '../../lib/api/students';
 import { DESIGNS, normalizeDesign, designTitle } from '../../lib/scedDesigns';
+import CriterionSettingsModal from '../modals/CriterionSettingsModal';
 
 // 단일대상설계 고르기 (mds/47 ① · §2-1) — 평소엔 "설계: AB (바꾸기)" 한 줄, 바꾸기를 눌러야 선택지가 펼쳐진다.
 //   매일 누르는 단계 탭 옆에 같은 모양 칩을 두면 잘못 눌러 학생 설정이 바뀌므로(검토 §11-2) 접어 둔다.
@@ -16,25 +17,39 @@ export default function DesignPicker({ compact = false }) {
   const [open, setOpen] = useState(false);
   const [pick, setPick] = useState(saved);
   const [busy, setBusy] = useState(false);
+  const [ccOpen, setCcOpen] = useState(false); // 기준변경 설정 모달(②) — 고를 때 바로, 저장 뒤엔 ⚙로
   const recCount = (curStuData?.mon || []).length;
+  const designCfg = (curStuData?.bip?.design_cfg && typeof curStuData.bip.design_cfg === 'object') ? curStuData.bip.design_cfg : {};
+  const behaviors = [...new Set((curStuData?.mon || []).map((r) => (r.beh || '').trim()).filter(Boolean))];
 
   function openPicker() { setPick(saved); setOpen(true); }
 
-  async function apply() {
-    if (!curStuId || pick === saved) { setOpen(false); return; }
-    if (recCount > 0 && !window.confirm(`기록 ${recCount}건은 그대로예요. 그래프 모양과 입력 칸만 바뀌어요.\n설계를 ${designTitle(pick)}(으)로 바꿀까요?`)) return;
+  // 실제 저장 — design(바뀔 때만)과 설계별 설정을 함께. 서버가 설계가 바뀌면 design_since를 찍는다.
+  async function persist(nextDesign, cfgPatch) {
     setBusy(true);
     try {
-      const res = await saveBIP(curStuId, { design: pick });
+      const body = {};
+      if (nextDesign && nextDesign !== saved) body.design = nextDesign;
+      if (cfgPatch) body.design_cfg = { ...designCfg, ...cfgPatch };
+      const res = await saveBIP(curStuId, body);
       const row = res?.bip || res?.data || {};
-      updateStudentData(curStuId, (cur) => ({ ...cur, bip: { ...(cur.bip || {}), design: row.design || pick, design_since: row.design_since ?? (cur.bip || {}).design_since ?? null, design_cfg: row.design_cfg ?? (cur.bip || {}).design_cfg ?? {} } }));
-      toast(`설계: ${designTitle(pick)}(으)로 저장했어요${recCount > 0 ? ' — 결과 평가에서 "현재 설계" 기간으로 새 구간만 볼 수 있어요' : ''}`);
-      setOpen(false);
+      updateStudentData(curStuId, (cur) => ({ ...cur, bip: { ...(cur.bip || {}), design: row.design || nextDesign || saved, design_since: row.design_since ?? (cur.bip || {}).design_since ?? null, design_cfg: row.design_cfg ?? body.design_cfg ?? (cur.bip || {}).design_cfg ?? {} } }));
+      const changed = nextDesign && nextDesign !== saved;
+      toast(changed ? `설계: ${designTitle(nextDesign)}(으)로 저장했어요${recCount > 0 ? ' — 결과 평가에서 "현재 설계" 기간으로 새 구간만 볼 수 있어요' : ''}` : '설정을 저장했어요');
+      setOpen(false); setCcOpen(false);
     } catch (e) {
       toast('설계 저장 실패: ' + e.message);
     } finally {
       setBusy(false);
     }
+  }
+
+  async function apply() {
+    if (!curStuId || pick === saved) { setOpen(false); return; }
+    if (recCount > 0 && !window.confirm(`기록 ${recCount}건은 그대로예요. 그래프 모양과 입력 칸만 바뀌어요.\n설계를 ${designTitle(pick)}(으)로 바꿀까요?`)) return;
+    // 설정이 필요한 설계(기준변경)는 설정 모달을 먼저 — 취소하면 이전 설계 그대로(저장 안 함).
+    if (DESIGNS.find((d) => d.code === pick)?.needsSetup) { setCcOpen(true); return; }
+    await persist(pick, null);
   }
 
   return (
@@ -44,6 +59,7 @@ export default function DesignPicker({ compact = false }) {
         <strong>{designTitle(saved)}</strong>
         {since && !compact && <span style={{ color: 'var(--muted)', fontSize: '.76rem' }}>· {since}부터</span>}
         {!open && <button type="button" className="btn btn-ghost btn-sm" onClick={openPicker} style={{ padding: '2px 10px' }}>바꾸기 ▾</button>}
+        {!open && saved === 'CC' && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPick('CC'); setCcOpen(true); }} style={{ padding: '2px 10px' }} title="기준 지표·방향·달성 판정">⚙ 설정</button>}
         <span style={{ color: 'var(--muted)', fontSize: '.76rem' }} title={designTitle(saved) + ' — ' + (DESIGNS.find((d) => d.code === saved)?.desc || '')}>ⓘ {DESIGNS.find((d) => d.code === saved)?.desc}</span>
       </div>
       {open && (
@@ -63,10 +79,17 @@ export default function DesignPicker({ compact = false }) {
           })}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 4 }}>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpen(false)} disabled={busy}>취소</button>
-            <button type="button" className="btn btn-pri btn-sm" onClick={apply} disabled={busy || pick === saved}>{busy ? '저장 중…' : '적용'}</button>
+            <button type="button" className="btn btn-pri btn-sm" onClick={apply} disabled={busy || pick === saved}>{busy ? '저장 중…' : (DESIGNS.find((d) => d.code === pick)?.needsSetup && pick !== saved ? '다음: 설정 →' : '적용')}</button>
           </div>
         </div>
       )}
+      <CriterionSettingsModal
+        open={ccOpen}
+        onClose={() => setCcOpen(false)}
+        initial={designCfg.CC}
+        behaviors={behaviors}
+        onSave={(cc) => persist(pick === 'CC' ? 'CC' : saved, { CC: cc })}
+      />
     </div>
   );
 }

@@ -14,7 +14,8 @@ import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner
 import TeachingRecordPanel from '../student/TeachingRecordPanel';
 import DesignPicker from '../student/DesignPicker';
 import StageTabs from '../student/StageTabs';
-import { stageTabsFor, runIndexOfRecord, suggestsABAB, normalizeDesign, designTitle } from '../../lib/scedDesigns';
+import { stageTabsFor, criterionStageTabs, runIndexOfRecord, suggestsABAB, normalizeDesign, designTitle } from '../../lib/scedDesigns';
+import { ccConfig, criterionWarning, METRICS } from '../../lib/utils/scedChart';
 import { escortSignal } from '../../lib/escortSignal';
 
 import { STD_BEHS } from '../../lib/chartCatalog'; // 칩 단일 출처(1001, 사용자 차트와 공유)
@@ -47,14 +48,26 @@ export default function MonitorPage({ onNavigate }) {
   // 1002(mds/47 ①): 단계는 A/B 칩이 아니라 '단계 탭'으로 고른다. 저장 값은 여전히 A/B.
   //   탭 목록·"지금 구간"은 저장된 기록을 날짜순 phaseRuns로 유도(작성 순서 recs[0]가 아님 — 과거 A를 뒤늦게 채워도 어긋나지 않게).
   const design = normalizeDesign(curStuData?.bip?.design);
-  const tabDesign = design === 'ABAB' ? 'ABAB' : 'AB'; // 기준변경·교대중재·중다기초선 탭은 ②~④
+  const tabDesign = design === 'ABAB' ? 'ABAB' : design === 'CC' ? 'CC' : 'AB'; // 교대중재·중다기초선 탭은 ③~④
   const [extraStages, setExtraStages] = useState(0); // '+ 단계'(ABABAB)
-  const stage = useMemo(() => stageTabsFor(tabDesign, curStuData?.mon || [], { extra: extraStages }), [tabDesign, curStuData?.mon, extraStages]);
+  // 1002 ②: 기준변경은 탭이 '기초선 → 기준1·10 → 기준2·7 → + 새 기준'(criterionRuns). 저장 값은 A/B + criterion 스냅숏.
+  const cc = useMemo(() => ccConfig(curStuData?.bip?.design_cfg), [curStuData?.bip?.design_cfg]);
+  const stage = useMemo(() => (tabDesign === 'CC' ? criterionStageTabs(curStuData?.mon || []) : stageTabsFor(tabDesign, curStuData?.mon || [], { extra: extraStages })), [tabDesign, curStuData?.mon, extraStages]);
+  const [criterion, setCriterion] = useState(''); // 기준변경: 현재 기준값(글자 상태, 저장 때 숫자)
   const [stageIdx, setStageIdx] = useState(0);
   const [lockedStage, setLockedStage] = useState(null); // 수정 중: 그 기록이 속한 구간만 강조·나머지 잠금
   const phase = stage.tabs[stageIdx]?.phase || 'A';
   const stageNow = stage.tabs[stageIdx];
   const phaseInitedFor = useRef(null);
+  // 기준변경: 탭을 고르면 기준값 칸을 맞춘다 — 지금 구간 탭이면 그 기준값, '+ 새 기준' 탭이면 비움(새 값 입력). 수정 중에는 기록 값 그대로.
+  useEffect(() => {
+    if (tabDesign !== 'CC' || lockedStage != null) return;
+    const t = stage.tabs[stageIdx];
+    if (!t) return;
+    if (t.phase !== 'B') { setCriterion(''); return; }
+    setCriterion(t.isNew ? '' : (t.criterion == null ? '' : String(t.criterion)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabDesign, stageIdx, stage.tabs, lockedStage]);
 
   const [fidPrev, setFidPrev] = useState(false);
   const [fidTeach, setFidTeach] = useState(false);
@@ -116,9 +129,16 @@ export default function MonitorPage({ onNavigate }) {
 
   async function onSaveMon() {
     if (!beh.trim()) { toast('대상 행동을 입력해주세요.'); return; }
+    if (tabDesign === 'CC' && phase === 'B') {
+      if (criterion === '') { toast('기준변경설계는 중재 회기마다 "현재 기준값"이 필요해요.'); return; }
+      const prevCrit = lockedStage != null ? null : [...stage.runs].reverse().find((r) => r.phase === 'B' && r.criterion != null && (stageNow?.isNew || r.criterion !== Number(criterion)))?.criterion ?? null;
+      const warn = criterionWarning(stageNow?.isNew ? prevCrit : null, criterion, cc);
+      if (warn && (warn.includes('0 이상') || !window.confirm(warn))) { if (warn.includes('0 이상')) toast(warn); return; }
+    }
     setBusy(true);
     try {
-      const body = { date, beh, freq: +freq, dur: +dur, int: +intensity, alt, alt_freq: +altFreq, lat: +lat, dbr: +dbr, phase, obs_hours: obsHours === '' ? null : +obsHours, note: note.trim() };
+      // criterion은 설계와 무관하게 항상 실어 보낸다(설계를 되돌려 칸이 숨어도 값이 지워지지 않게, §11-6). 기초선(A)에는 기준이 없다.
+      const body = { date, beh, freq: +freq, dur: +dur, int: +intensity, alt, alt_freq: +altFreq, lat: +lat, dbr: +dbr, phase, obs_hours: obsHours === '' ? null : +obsHours, note: note.trim(), criterion: phase === 'A' || criterion === '' ? null : +criterion };
       if (editingId) {
         // 0719: 기록 목록에서 불러온 항목 수정
         const res = await updateMonitor(curStuId, { ...body, id: editingId });
@@ -151,6 +171,7 @@ export default function MonitorPage({ onNavigate }) {
     setFreq(r.freq ?? 0); setDur(r.dur ?? 0); setIntensity(r.int ?? 1);
     setAlt(r.alt || 'N'); setAltFreq(r.alt_freq ?? 0); setLat(r.lat ?? 0); setDbr(r.dbr ?? 5);
     setObsHours(r.obs_hours == null ? '' : String(r.obs_hours)); setNote(r.note || '');
+    setCriterion(r.criterion == null ? '' : String(r.criterion));
     // 수정 중에는 그 기록이 속한 구간 탭만 강조하고 나머지는 잠근다(단계가 바뀌지 않게).
     const ri = runIndexOfRecord(stage.runs, stage.sorted, r);
     if (ri >= 0) { setStageIdx(ri); setLockedStage(ri); } else { setLockedStage(null); }
@@ -163,7 +184,7 @@ export default function MonitorPage({ onNavigate }) {
   function cancelEdit() {
     setEditingId(null);
     setBeh(''); setFreq(0); setDur(0); setIntensity(1); setAlt('Y'); setAltFreq(0); setLat(0); setDbr(5);
-    setObsHours(''); setNote('');
+    setObsHours(''); setNote(''); setCriterion('');
     setDate(new Date().toISOString().slice(0, 10));
     setLockedStage(null); setStageIdx(stage.current); // 취소 → 지금 구간으로
   }
@@ -179,6 +200,7 @@ export default function MonitorPage({ onNavigate }) {
     setFreq(r.freq ?? 0); setDur(r.dur ?? 0); setIntensity(r.int ?? 1);
     setAlt(r.alt || 'N'); setAltFreq(r.alt_freq ?? 0); setLat(r.lat ?? 0); setDbr(r.dbr ?? 5);
     setObsHours(r.obs_hours == null ? '' : String(r.obs_hours)); setNote(''); // 메모는 그날의 일이라 비운다
+    setCriterion(r.criterion == null ? '' : String(r.criterion)); // 기준값도 같게(글자 그대로 '같게', §11-3)
     setLockedStage(null); setStageIdx(stage.current); // 단계는 지금 구간(날짜순)으로
     toast(`최근 기록(${r.date})과 같게 채웠어요 — 오늘 수치만 고치고 저장(Enter)하세요.`);
   }
@@ -208,7 +230,7 @@ export default function MonitorPage({ onNavigate }) {
   // 학생 이름 등 PII는 절대 포함하지 않고 학생 코드만 사용한다.
   function buildTrendPrompt() {
     const recs = (curStuData?.mon || []);
-    const fmt = (r) => `  - ${r.date} [${r.beh || '대상행동'}] 빈도 ${r.freq}회${r.obs_hours ? ` (관찰 ${r.obs_hours}시간 → 시간당 ${(r.freq / r.obs_hours).toFixed(1)}회)` : ''} · 지속 ${r.dur}분 · 강도 ${r.int}/5 · 대체행동수행 ${r.alt}${r.alt_freq ? `(${r.alt_freq}회)` : ''} · 지연 ${r.lat}분 · DBR ${r.dbr}/10${r.note ? ` · 메모: ${r.note}` : ''}`;
+    const fmt = (r) => `  - ${r.date} [${r.beh || '대상행동'}] 빈도 ${r.freq}회${r.obs_hours ? ` (관찰 ${r.obs_hours}시간 → 시간당 ${(r.freq / r.obs_hours).toFixed(1)}회)` : ''} · 지속 ${r.dur}분 · 강도 ${r.int}/5 · 대체행동수행 ${r.alt}${r.alt_freq ? `(${r.alt_freq}회)` : ''} · 지연 ${r.lat}분 · DBR ${r.dbr}/10${r.criterion != null && r.criterion !== '' ? ` · 기준 ${r.criterion}` : ''}${r.note ? ` · 메모: ${r.note}` : ''}`;
     // 오래된→최근 순으로 정렬해 추세를 읽기 쉽게.
     const ordered = [...recs].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const phaseA = ordered.filter((r) => (r.phase || 'B') === 'A');
@@ -228,7 +250,7 @@ ${bText}
 
 ## 분석 요구
 - A(기초선) 대비 B(중재) 단계의 추세를 요약 (빈도·지속·강도·대체행동·DBR 변화 중심. 관찰 시간이 있으면 빈도 대신 시간당 발생률로 비교)
-- 메모(수면·몸 상태·날씨 같은 배경사건)가 있는 날의 수치 변화를 따로 짚어 중재 효과와 구분
+- 메모(수면·몸 상태·날씨 같은 배경사건)가 있는 날의 수치 변화를 따로 짚어 중재 효과와 구분${design === 'CC' ? `\n- 이 학생은 기준변경설계(기준 지표: ${METRICS[cc.metric]?.label || cc.metric}, ${cc.direction === 'up' ? '늘리기' : '줄이기'}). 구간마다 '기준 N'이 적혀 있으니 기준을 바꿀 때 행동이 따라왔는지(기준 근처에 머물렀는지)로 판단` : ''}
 - 문제행동이 개선되고 있는지(감소/유지/악화) 데이터 근거로 판단
 - 구체적인 다음 단계 제안 — 현 중재를 (1) 그대로 지속, (2) 조정, (3) 강화/집중 중 무엇이 적절한지와 이유
 - 한국어로, 특수교사가 바로 참고할 수 있게 작성`;
@@ -307,7 +329,7 @@ ${bText}
         <p style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 8 }}>
           {lockedStage != null
             ? <>수정 중인 기록은 <strong style={{ color: 'var(--pri)' }}>{stageNow?.label}({stageNow?.short})</strong> 구간이에요. 단계는 바꿀 수 없고, 날짜를 바꾸면 그 날짜의 구간으로 들어가요.</>
-            : <>지금 저장하면 <strong style={{ color: 'var(--pri)' }}>{stageNow?.label} ({stageNow?.short} · {phase === 'A' ? '기초선' : '중재'})</strong>{stageNow?.state === 'next' ? ' — 새 단계로 넘어가요' : ''}. {tabDesign === 'ABAB' ? '중재를 잠깐 멈출 때는 "중재 철회" 탭을 눌러요. 하루 빠진 날은 메모에 적어요.' : '먼저 기초선으로 중재 전 수준을 충분히 모은 뒤, BIP 전략을 실제로 적용한 다음 "중재" 탭으로 넘어가요.'}</>}
+            : <>지금 저장하면 <strong style={{ color: 'var(--pri)' }}>{stageNow?.label} ({stageNow?.short} · {phase === 'A' ? '기초선' : '중재'})</strong>{stageNow?.state === 'next' ? ' — 새 단계로 넘어가요' : ''}. {tabDesign === 'ABAB' ? '중재를 잠깐 멈출 때는 "중재 철회" 탭을 눌러요. 하루 빠진 날은 메모에 적어요.' : tabDesign === 'CC' ? '기준을 바꿀 때는 "+ 새 기준" 탭을 누르고 새 기준값을 적어요. 같은 기준이면 지금 구간 탭 그대로 저장해요.' : '먼저 기초선으로 중재 전 수준을 충분히 모은 뒤, BIP 전략을 실제로 적용한 다음 "중재" 탭으로 넘어가요.'}</>}
           {curStuData?.periods?.length > 0 && (() => {
             const active = curStuData.periods.find((p) => !p.end_date);
             if (active) {
@@ -357,6 +379,15 @@ ${bText}
             <input type="number" className="form-input" min="0" max="12" step="0.5" placeholder="예: 6 (조퇴한 날은 짧게)" value={obsHours} onChange={(e) => setObsHours(e.target.value)} />
           </div>
         </div>
+        {tabDesign === 'CC' && phase === 'B' && (
+          <div className="form-group" data-tour="mon-criterion" style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 10, padding: '10px 12px' }}>
+            <label className="form-label" style={{ color: '#5b21b6' }}>🎯 현재 기준값 ({METRICS[cc.metric]?.label || cc.metric} · {cc.direction === 'up' ? '늘리기' : '줄이기'}){stageNow?.isNew ? ' — 새 기준' : ''}</label>
+            <input type="number" className="form-input" min="0" step="any" value={criterion} onChange={(e) => setCriterion(e.target.value)} placeholder={stageNow?.isNew ? '새 기준값' : '이 구간의 기준값'} disabled={lockedStage != null && false} style={{ maxWidth: 200 }} />
+            <div style={{ fontSize: '.74rem', color: '#6d28d9', marginTop: 4 }}>
+              {stageNow?.isNew ? '이 값으로 새 구간이 시작돼요. 이전 기준과 방향이 다르거나 크게 바뀌면 한 번 물어봐요.' : '지금 구간의 기준이에요. 값을 바꿔 저장하면 그 날짜부터 새 구간이 돼요.'} 달성 판정: 연속 {cc.hitRuns}회기 · 근처 폭 {cc.nearPct}%.
+            </div>
+          </div>
+        )}
         <div className="form-group">
           <label className="form-label">기록 대상 행동 (목표행동 = 줄이려는 문제행동)</label>
           <EditableChipGroup storageKey="mon_beh" defaults={behOptions} mode="set" target={beh} onChange={setBeh} />
@@ -466,7 +497,7 @@ ${bText}
                 <button className="data-item-del" onClick={(e) => { e.stopPropagation(); onDeleteMon(r.id); }} title="삭제" aria-label="삭제">×</button>
                 <div className="data-item-head">
                   <span className="badge badge-pri" title="기록 해당일(관찰일)">📅 {r.date}</span>
-                  <span className="data-item-date">{r.beh || ''} <span style={{ marginLeft: 8, padding: '2px 6px', background: r.phase === 'A' ? '#ffe3e3' : '#dbe8ff', borderRadius: 4, fontSize: '.7rem' }}>Phase {r.phase || 'B'}</span></span>
+                  <span className="data-item-date">{r.beh || ''} <span style={{ marginLeft: 8, padding: '2px 6px', background: r.phase === 'A' ? '#ffe3e3' : '#dbe8ff', borderRadius: 4, fontSize: '.7rem' }}>Phase {r.phase || 'B'}</span>{r.criterion != null && r.criterion !== '' && <span style={{ marginLeft: 4, padding: '2px 6px', background: '#ede9fe', color: '#5b21b6', borderRadius: 4, fontSize: '.7rem' }}>기준 {r.criterion}</span>}</span>
                 </div>
                 <div className="data-item-body">
                   문제행동 — 빈도:{r.freq}회{r.obs_hours ? ` (${r.obs_hours}시간 중)` : ''} | 지속:{r.dur}분 | 강도:{r.int} · 대체행동 — 수행:{r.alt}{r.alt_freq ? ` | 빈도:${r.alt_freq}회` : ''} · DBR:{r.dbr}
