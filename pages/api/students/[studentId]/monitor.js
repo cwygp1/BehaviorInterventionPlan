@@ -48,10 +48,12 @@ export default requireStudentAccess(async function handler(req, res) {
   const ensureDesignCols = async () => {
     await sql`ALTER TABLE monitor_records ADD COLUMN IF NOT EXISTS criterion REAL NULL`;
     await sql`ALTER TABLE monitor_records ADD COLUMN IF NOT EXISTS condition VARCHAR(50) DEFAULT ''`;
+    await sql`ALTER TABLE monitor_records ADD COLUMN IF NOT EXISTS tier VARCHAR(50) DEFAULT ''`; // ④ 중다기초선 층(상황·사람 간)
   };
   // undefined → 건드리지 않음(null 반환해 COALESCE로 기존 값), ''·null → 지움(빈 값으로), 숫자 → 그 값
   const critIn = (body) => (body.criterion === undefined ? undefined : numOrNull(body.criterion));
   const condIn = (body) => (body.condition === undefined ? undefined : String(body.condition || '').slice(0, 50));
+  const tierIn = (body) => (body.tier === undefined ? undefined : String(body.tier || '').slice(0, 50));
   const noteOf = (body) => String(body.note ?? '').slice(0, 300);
 
   try {
@@ -86,9 +88,10 @@ export default requireStudentAccess(async function handler(req, res) {
         await ensureDesignCols();
         const criterion = critIn(body) ?? null;
         const condition = condIn(body) ?? '';
+        const tier = tierIn(body) ?? '';
         const result = await sql`
-          INSERT INTO monitor_records (student_id, date, behavior, frequency, duration, intensity, alternative, alt_freq, latency, dbr, phase, obs_hours, note, criterion, condition)
-          VALUES (${studentId}, ${date}, ${behavior}, ${frequency}, ${duration}, ${intensity}, ${alternative}, ${altFreq}, ${latency}, ${dbr}, ${phase}, ${obsHours}, ${note}, ${criterion}, ${condition})
+          INSERT INTO monitor_records (student_id, date, behavior, frequency, duration, intensity, alternative, alt_freq, latency, dbr, phase, obs_hours, note, criterion, condition, tier)
+          VALUES (${studentId}, ${date}, ${behavior}, ${frequency}, ${duration}, ${intensity}, ${alternative}, ${altFreq}, ${latency}, ${dbr}, ${phase}, ${obsHours}, ${note}, ${criterion}, ${condition}, ${tier})
           RETURNING *
         `;
         return res.status(201).json({ record: toResponse(result.rows[0]) });
@@ -116,15 +119,16 @@ export default requireStudentAccess(async function handler(req, res) {
         await ensureHoursNote();
         await ensureDesignCols();
         // criterion·condition: 본문에 없으면(undefined) 기존 값 유지. 있으면 그 값(null·''도 "지움"으로 반영).
-        const critU = critIn(body); const condU = condIn(body);
-        const keepCrit = critU === undefined; const keepCond = condU === undefined;
+        const critU = critIn(body); const condU = condIn(body); const tierU = tierIn(body);
+        const keepCrit = critU === undefined; const keepCond = condU === undefined; const keepTier = tierU === undefined;
         const result = await sql`
           UPDATE monitor_records
           SET date = ${date}, behavior = ${behavior}, frequency = ${frequency}, duration = ${duration},
               intensity = ${intensity}, alternative = ${alternative}, alt_freq = ${altFreq},
               latency = ${latency}, dbr = ${dbr}, phase = ${phase}, obs_hours = ${obsHours}, note = ${note},
               criterion = CASE WHEN ${keepCrit} THEN monitor_records.criterion ELSE ${critU ?? null}::real END,
-              condition = CASE WHEN ${keepCond} THEN monitor_records.condition ELSE ${condU ?? ''}::varchar END
+              condition = CASE WHEN ${keepCond} THEN monitor_records.condition ELSE ${condU ?? ''}::varchar END,
+              tier = CASE WHEN ${keepTier} THEN monitor_records.tier ELSE ${tierU ?? ''}::varchar END
           WHERE id = ${id} AND student_id = ${studentId}
           RETURNING *
         `;

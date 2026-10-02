@@ -5,6 +5,7 @@ import { saveBIP } from '../../lib/api/students';
 import { DESIGNS, normalizeDesign, designTitle } from '../../lib/scedDesigns';
 import CriterionSettingsModal from '../modals/CriterionSettingsModal';
 import ConditionSettingsModal from '../modals/ConditionSettingsModal';
+import MblSettingsModal from '../modals/MblSettingsModal';
 
 // 단일대상설계 고르기 (mds/47 ① · §2-1) — 평소엔 "설계: AB (바꾸기)" 한 줄, 바꾸기를 눌러야 선택지가 펼쳐진다.
 //   매일 누르는 단계 탭 옆에 같은 모양 칩을 두면 잘못 눌러 학생 설정이 바뀌므로(검토 §11-2) 접어 둔다.
@@ -20,6 +21,8 @@ export default function DesignPicker({ compact = false }) {
   const [busy, setBusy] = useState(false);
   const [ccOpen, setCcOpen] = useState(false); // 기준변경 설정 모달(②) — 고를 때 바로, 저장 뒤엔 ⚙로
   const [atdOpen, setAtdOpen] = useState(false); // 교대중재 조건 설정 모달(③)
+  const [mblOpen, setMblOpen] = useState(false); // 중다기초선 설정 모달(④)
+  const usedTiers = [...new Set((curStuData?.mon || []).map((r) => String(r.tier || '').trim()).filter(Boolean))];
   const usedConditions = [...new Set((curStuData?.mon || []).map((r) => String(r.condition || '').trim()).filter(Boolean))];
   const recCount = (curStuData?.mon || []).length;
   const designCfg = (curStuData?.bip?.design_cfg && typeof curStuData.bip.design_cfg === 'object') ? curStuData.bip.design_cfg : {};
@@ -39,7 +42,7 @@ export default function DesignPicker({ compact = false }) {
       updateStudentData(curStuId, (cur) => ({ ...cur, bip: { ...(cur.bip || {}), design: row.design || nextDesign || saved, design_since: row.design_since ?? (cur.bip || {}).design_since ?? null, design_cfg: row.design_cfg ?? body.design_cfg ?? (cur.bip || {}).design_cfg ?? {} } }));
       const changed = nextDesign && nextDesign !== saved;
       toast(changed ? `설계: ${designTitle(nextDesign)}(으)로 저장했어요${recCount > 0 ? ' — 결과 평가에서 "현재 설계" 기간으로 새 구간만 볼 수 있어요' : ''}` : '설정을 저장했어요');
-      setOpen(false); setCcOpen(false); setAtdOpen(false);
+      setOpen(false); setCcOpen(false); setAtdOpen(false); setMblOpen(false);
     } catch (e) {
       toast('설계 저장 실패: ' + e.message);
     } finally {
@@ -51,7 +54,7 @@ export default function DesignPicker({ compact = false }) {
     if (!curStuId || pick === saved) { setOpen(false); return; }
     if (recCount > 0 && !window.confirm(`기록 ${recCount}건은 그대로예요. 그래프 모양과 입력 칸만 바뀌어요.\n설계를 ${designTitle(pick)}(으)로 바꿀까요?`)) return;
     // 설정이 필요한 설계(기준변경)는 설정 모달을 먼저 — 취소하면 이전 설계 그대로(저장 안 함).
-    if (DESIGNS.find((d) => d.code === pick)?.needsSetup) { if (pick === 'ATD') setAtdOpen(true); else setCcOpen(true); return; }
+    if (DESIGNS.find((d) => d.code === pick)?.needsSetup) { if (pick === 'ATD') setAtdOpen(true); else if (pick === 'MBL') setMblOpen(true); else setCcOpen(true); return; }
     await persist(pick, null);
   }
 
@@ -64,6 +67,7 @@ export default function DesignPicker({ compact = false }) {
         {!open && <button type="button" className="btn btn-ghost btn-sm" onClick={openPicker} style={{ padding: '2px 10px' }}>바꾸기 ▾</button>}
         {!open && saved === 'CC' && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPick('CC'); setCcOpen(true); }} style={{ padding: '2px 10px' }} title="기준 지표·방향·달성 판정">⚙ 설정</button>}
         {!open && saved === 'ATD' && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPick('ATD'); setAtdOpen(true); }} style={{ padding: '2px 10px' }} title="비교할 조건·무중재·기초선">⚙ 조건 설정</button>}
+        {!open && saved === 'MBL' && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPick('MBL'); setMblOpen(true); }} style={{ padding: '2px 10px' }} title="무엇 간인지·층 이름">⚙ 층 설정</button>}
         <span style={{ color: 'var(--muted)', fontSize: '.76rem' }} title={designTitle(saved) + ' — ' + (DESIGNS.find((d) => d.code === saved)?.desc || '')}>ⓘ {DESIGNS.find((d) => d.code === saved)?.desc}</span>
       </div>
       {open && (
@@ -87,6 +91,14 @@ export default function DesignPicker({ compact = false }) {
           </div>
         </div>
       )}
+      <MblSettingsModal
+        open={mblOpen}
+        onClose={() => setMblOpen(false)}
+        initial={designCfg.MBL}
+        behaviors={behaviors}
+        usedTiers={usedTiers}
+        onSave={(mbl) => persist(pick === 'MBL' ? 'MBL' : saved, { MBL: mbl })}
+      />
       <ConditionSettingsModal
         open={atdOpen}
         onClose={() => setAtdOpen(false)}
