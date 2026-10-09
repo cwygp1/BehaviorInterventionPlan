@@ -1,5 +1,5 @@
 import { sql } from '../../../lib/db';
-import { requireAuth, isDemoReq, rejectDemo } from '../../../lib/auth';
+import { requireAuth, isDemoReq, rejectDemo, checkEditPassword } from '../../../lib/auth';
 import { ensureLlmConfigCached } from '../../../lib/ensureSchema';
 
 // 전체 공용 LLM (LM Studio) 설정 — 모든 선생님이 같은 연결을 공유한다.
@@ -10,7 +10,7 @@ import { ensureLlmConfigCached } from '../../../lib/ensureSchema';
 //
 // 조회는 누구나(로그인 사용자) 가능하지만, 수정/삭제는 비밀번호가 필요하다.
 // 비밀번호는 현재 'clsrnfkd'으로 하드코딩되어 있다(추후 환경변수로 이전 가능).
-const EDIT_PASSWORD = 'clsrnfkd';
+// 1009(mds/48 #2): 비밀번호 비교는 lib/auth.js checkEditPassword(환경변수 AI_EDIT_PASSWORD)로 — 번들에 두지 않는다.
 
 export default requireAuth(async function handler(req, res) {
   // `/api/migrate`가 아직 안 돌았어도 공용 설정 테이블이 보장되도록 자가치유.
@@ -48,7 +48,7 @@ export default requireAuth(async function handler(req, res) {
 
   if (req.method === 'PUT') {
     const { endpoint, model, model_fast, max_tokens, password } = req.body || {};
-    if (password !== EDIT_PASSWORD) {
+    if (!checkEditPassword(password)) {
       return res.status(403).json({ error: '비밀번호가 올바르지 않습니다.' });
     }
     if (typeof endpoint !== 'string' || !endpoint.trim()) {
@@ -79,7 +79,7 @@ export default requireAuth(async function handler(req, res) {
 
   if (req.method === 'DELETE') {
     const { password } = req.body || {};
-    if (password !== EDIT_PASSWORD) {
+    if (!checkEditPassword(password)) {
       return res.status(403).json({ error: '비밀번호가 올바르지 않습니다.' });
     }
     await sql`DELETE FROM app_llm_config WHERE id = 1`;

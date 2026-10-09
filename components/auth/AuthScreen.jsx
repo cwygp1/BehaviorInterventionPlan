@@ -100,7 +100,9 @@ export default function AuthScreen() {
             <div className="auth-demo-t">처음이세요? 가입 없이 먼저 보세요</div>
             <div className="auth-demo-d">화면이 저절로 움직이며 학생 등록 → 행동 기록 → IEP 목표 → 그래프까지 3분 안에 보여 드려요. 언제든 멈추고 직접 해 볼 수 있어요.</div>
             <button type="button" className="auth-demo-btn" onClick={onDemo} disabled={busy}>▶ 3분 체험하기</button>
-            <div className="auth-demo-note">체험 기록은 24시간 뒤 자동으로 지워져요.</div>
+            <div className="auth-demo-note">체험 기록은 24시간 뒤 자동으로 지워져요. 체험에서 만든 학생·기록은 가입 계정으로 옮겨지지 않아요.</div>
+            {/* 1009(mds/48): 시연 대본은 컴퓨터 화면 기준 — 좁은 화면에서는 단추를 숨기고 안내만(CSS .auth-demo-mobile) */}
+            <div className="auth-demo-mobile">📺 체험 시연은 <strong>컴퓨터 화면</strong>에서 볼 수 있어요. 휴대폰·태블릿 세로 화면에서는 가입 뒤 바로 써 보세요.</div>
           </div>
           <div className="auth-divider">또는 로그인</div>
 

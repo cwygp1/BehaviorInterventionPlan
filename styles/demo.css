@@ -10,10 +10,18 @@
 .auth-demo { background: linear-gradient(135deg, #fff7ef, #fff1e3); border: 1px solid #ffd2a8; border-radius: 14px; padding: 14px 16px; text-align: center; }
 .auth-demo-t { font-weight: 800; color: #9a4a00; font-size: .95rem; }
 .auth-demo-d { font-size: .8rem; color: #6b4a2b; line-height: 1.55; margin: 6px 0 10px; }
-.auth-demo-btn { width: 100%; padding: 12px; border: none; border-radius: 10px; background: linear-gradient(135deg, #ff8a2b, #ff6a3d); color: #fff; font-size: 1rem; font-weight: 800; cursor: pointer; transition: .2s; }
-.auth-demo-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255, 106, 61, .35); }
+/* 1009(mds/48 #6): 흰 글자 대비 AA(4.5:1) — #c2410c 계열(약 5.2:1). 예전 #ff8a2b~#ff6a3d는 2.4~2.9:1이었다. */
+.auth-demo-btn { width: 100%; padding: 12px; border: none; border-radius: 10px; background: linear-gradient(135deg, #d9480f, #c2410c); color: #fff; font-size: 1rem; font-weight: 800; cursor: pointer; transition: .2s; }
+.auth-demo-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(194, 65, 12, .35); }
+.auth-demo-btn:focus-visible { outline: 3px solid #1f2a44; outline-offset: 2px; }
 .auth-demo-btn:disabled { opacity: .7; cursor: not-allowed; transform: none; box-shadow: none; }
-.auth-demo-note { font-size: .72rem; color: #8a6a4a; margin-top: 6px; }
+.auth-demo-note { font-size: .72rem; color: #6b4a2b; margin-top: 6px; }
+/* 1009(mds/48 놓친 것 3): 대본은 PC 화면 기준 — 좁은 화면에서는 단추 대신 안내 */
+.auth-demo-mobile { display: none; font-size: .8rem; color: #6b4a2b; background: #fff; border: 1px dashed #ffd2a8; border-radius: 10px; padding: 10px; line-height: 1.5; }
+@media (max-width: 767px) {
+  .auth-demo-btn, .auth-demo-note { display: none; }
+  .auth-demo-mobile { display: block; }
+}
 
 /* 재생 중 화면을 누르면 멈추는 투명 막 */
 .demo-shield { position: fixed; inset: 0; z-index: 10040; background: transparent; cursor: pointer; }
@@ -49,6 +57,7 @@
 .demo-b { border: 1px solid rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .08); color: #fff; border-radius: 9px; padding: 7px 12px; font-size: .86rem; font-weight: 700; cursor: pointer; }
 .demo-b:hover { background: rgba(255, 255, 255, .18); }
 .demo-b:disabled { opacity: .5; cursor: not-allowed; }
+.demo-b:focus-visible { outline: 3px solid #ffd2a8; outline-offset: 2px; } /* 1009(mds/48 #22): 키보드 초점 보이게 */
 .demo-b.pri { background: var(--demo-pri); border-color: var(--demo-pri); }
 .demo-b.ok { background: var(--demo-ok); border-color: var(--demo-ok); margin-left: auto; }
 .demo-b.sm { padding: 5px 10px; font-size: .8rem; }

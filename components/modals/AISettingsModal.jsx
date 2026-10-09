@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
-import { AI_EDIT_PASSWORD, LLM_DEFAULT_ENDPOINT, llmRequest } from '../../lib/api/llm';
+import { LLM_DEFAULT_ENDPOINT, llmRequest } from '../../lib/api/llm';
+import { apiPost } from '../../lib/api/client';
 import { useLLM } from '../../contexts/LLMContext';
 import { useToast } from '../../contexts/ToastContext';
 import UsageDashboard from './UsageDashboard';
@@ -19,6 +20,7 @@ export default function AISettingsModal({ open, onClose }) {
 
   // 수정 잠금: 기본은 보기 전용. 비밀번호 입력 후에만 편집/저장 가능.
   const [unlocked, setUnlocked] = useState(false);
+  const [pw, setPw] = useState(''); // 1009: 확인된 관리 비밀번호(서버 비교) — 저장·초기화·사용량 조회에 그대로 보낸다
   const [pwInput, setPwInput] = useState('');
   const [pwErr, setPwErr] = useState('');
 
@@ -37,14 +39,17 @@ export default function AISettingsModal({ open, onClose }) {
     }
   }, [open, config]);
 
-  function tryUnlock() {
-    if (pwInput === AI_EDIT_PASSWORD) {
+  async function tryUnlock() {
+    // 1009(mds/48 #2): 비밀번호는 서버에서만 비교한다(번들에 없음). 체험 계정은 서버가 403으로 막는다.
+    try {
+      await apiPost('/api/usage/unlock', { password: pwInput });
+      setPw(pwInput);
       setUnlocked(true);
       setPwErr('');
       setPwInput('');
       setAdvanced(true);
-    } else {
-      setPwErr('비밀번호가 올바르지 않습니다.');
+    } catch (e) {
+      setPwErr(e?.message || '비밀번호가 올바르지 않습니다.');
     }
   }
 
@@ -122,7 +127,7 @@ export default function AISettingsModal({ open, onClose }) {
     try {
       await saveConfig(
         { endpoint: endpoint.trim(), model: model.trim(), model_fast: modelFast.trim(), max_tokens: mt },
-        AI_EDIT_PASSWORD
+        pw
       );
       toast('공용 AI 연결 설정이 저장되었습니다. (모든 선생님에게 적용)');
       onClose();
@@ -134,7 +139,7 @@ export default function AISettingsModal({ open, onClose }) {
   async function onClear() {
     if (!window.confirm('공용 AI 연결 설정을 초기화할까요? 모든 선생님에게 적용됩니다.')) return;
     try {
-      await clearConfig(AI_EDIT_PASSWORD);
+      await clearConfig(pw);
       setEndpoint(LLM_DEFAULT_ENDPOINT);
       setModel('');
       setModelFast('');
@@ -266,7 +271,7 @@ export default function AISettingsModal({ open, onClose }) {
             📊 사용량 · 비용 분석 (클라우드 전환 시 예상)
           </summary>
           <div style={{ marginTop: 12 }}>
-            <UsageDashboard />
+            <UsageDashboard password={pw} />
           </div>
         </details>
       )}

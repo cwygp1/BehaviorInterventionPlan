@@ -1,15 +1,16 @@
 import { sql } from '../../../lib/db';
-import { requireAuth } from '../../../lib/auth';
+import { requireAuth, isDemoReq, rejectDemo, checkEditPassword } from '../../../lib/auth';
 import { ensureUsageSchemaCached } from '../../../lib/ensureSchema';
 
 // 기간별 AI 사용량 집계 + 클라우드 단가 + 환율을 한 번에 반환한다.
-// 관리 비밀번호(clsrnfkd) 게이트. 대시보드 조회 전용.
+// 관리 비밀번호 게이트(서버 비교, lib/auth.js checkEditPassword). 대시보드 조회 전용.
 //   POST /api/usage/stats { password, days }
-const EDIT_PASSWORD = 'clsrnfkd';
+// 1009(mds/48 #2·#9): 체험 계정은 차단(전체 교사 이메일·사용량이 보임), 집계에서 체험 사용자 제외.
 const num = (v) => Number(v) || 0;
 
 export default requireAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (isDemoReq(req)) return rejectDemo(res);
 
   try {
     await ensureUsageSchemaCached();
@@ -18,7 +19,7 @@ export default requireAuth(async function handler(req, res) {
   }
 
   const { password } = req.body || {};
-  if (password !== EDIT_PASSWORD) {
+  if (!checkEditPassword(password)) {
     return res.status(403).json({ error: '비밀번호가 올바르지 않습니다.' });
   }
 
@@ -32,8 +33,10 @@ export default requireAuth(async function handler(req, res) {
              COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
              COALESCE(SUM(total_tokens), 0) AS total_tokens,
              COUNT(DISTINCT user_id)::int AS active_users
-        FROM ai_usage_log
-       WHERE created_at >= NOW() - make_interval(days => ${days})
+        FROM ai_usage_log l
+        LEFT JOIN users u ON u.id = l.user_id
+       WHERE l.created_at >= NOW() - make_interval(days => ${days})
+         AND COALESCE(u.is_demo, FALSE) = FALSE
     `;
 
     const perUserR = await sql`
@@ -47,6 +50,7 @@ export default requireAuth(async function handler(req, res) {
         FROM ai_usage_log l
         LEFT JOIN users u ON u.id = l.user_id
        WHERE l.created_at >= NOW() - make_interval(days => ${days})
+         AND COALESCE(u.is_demo, FALSE) = FALSE
        GROUP BY l.user_id, u.name, u.email
        ORDER BY total_tokens DESC
        LIMIT 200
@@ -58,8 +62,10 @@ export default requireAuth(async function handler(req, res) {
              COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
              COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
              COALESCE(SUM(total_tokens), 0) AS total_tokens
-        FROM ai_usage_log
-       WHERE created_at >= NOW() - make_interval(days => ${days})
+        FROM ai_usage_log l
+        LEFT JOIN users u ON u.id = l.user_id
+       WHERE l.created_at >= NOW() - make_interval(days => ${days})
+         AND COALESCE(u.is_demo, FALSE) = FALSE
        GROUP BY 1
        ORDER BY total_tokens DESC
     `;

@@ -1,12 +1,12 @@
 import { sql } from '../../../lib/db';
-import { requireAuth } from '../../../lib/auth';
+import { requireAuth, isDemoReq, rejectDemo, checkEditPassword } from '../../../lib/auth';
 import { ensureUsageSchemaCached } from '../../../lib/ensureSchema';
 
 // 클라우드 모델 단가 + 환율 관리.
 //   GET /api/usage/pricing                 → { pricing, fx }  (로그인)
 //   PUT /api/usage/pricing { password, rows, fx } → 단가 전체 교체 + 환율 저장
-// PUT는 관리 비밀번호(clsrnfkd) 필요. rows 전체를 받아 DELETE 후 재삽입(전체 교체)한다.
-const EDIT_PASSWORD = 'clsrnfkd';
+// PUT는 관리 비밀번호 필요(서버 비교, lib/auth.js checkEditPassword). rows 전체를 받아 DELETE 후 재삽입(전체 교체)한다.
+// 1009(mds/48 #2): 체험 계정은 PUT 차단.
 const num = (v) => Number(v) || 0;
 
 export default requireAuth(async function handler(req, res) {
@@ -38,8 +38,9 @@ export default requireAuth(async function handler(req, res) {
   }
 
   if (req.method === 'PUT') {
+    if (isDemoReq(req)) return rejectDemo(res);
     const { password, rows, fx } = req.body || {};
-    if (password !== EDIT_PASSWORD) {
+    if (!checkEditPassword(password)) {
       return res.status(403).json({ error: '비밀번호가 올바르지 않습니다.' });
     }
 

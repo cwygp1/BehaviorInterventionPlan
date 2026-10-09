@@ -1,5 +1,5 @@
 import { sql } from '../../../lib/db';
-import { requireAuth } from '../../../lib/auth';
+import { requireAuth, isDemoReq } from '../../../lib/auth';
 import { ensureUsageSchemaCached } from '../../../lib/ensureSchema';
 
 // 요청별 AI 토큰 사용량 기록. 로그인 사용자면 누구나 자기 사용량을 남긴다.
@@ -7,6 +7,8 @@ import { ensureUsageSchemaCached } from '../../../lib/ensureSchema';
 //   POST /api/usage/log { model, tier, label, prompt_tokens, completion_tokens, total_tokens }
 export default requireAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  // 1009(mds/48 #9): 체험 계정은 기록하지 않는다 — 가짜 토큰 수로 비용 통계를 오염시킬 수 있고, 24h 정리 뒤 고아 행(SET NULL)이 남는다.
+  if (isDemoReq(req)) return res.status(200).json({ ok: true, skipped: true, demo: true });
 
   try {
     await ensureUsageSchemaCached();

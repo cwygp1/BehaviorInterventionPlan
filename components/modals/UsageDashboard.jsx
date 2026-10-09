@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiPost, apiPut } from '../../lib/api/client';
-import { AI_EDIT_PASSWORD } from '../../lib/api/llm';
 
 // ────────────────────────────────────────────────────────────────────────────
 // AI 사용량 · 비용 대시보드 (AISettingsModal 안, 잠금 해제 시 표시)
@@ -55,7 +54,7 @@ const tdR = { ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' };
 const card = { background: 'var(--surface-2, var(--pri-soft))', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '12px 14px', margin: '0 0 14px' };
 const secTitle = { fontWeight: 800, fontSize: '.92rem', margin: '18px 0 8px', color: 'var(--ink)' };
 
-export default function UsageDashboard() {
+export default function UsageDashboard({ password = '' }) { // 1009: 비밀번호는 AI 설정 창에서 서버 확인을 거쳐 넘어온다
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -83,7 +82,7 @@ export default function UsageDashboard() {
     setLoading(true);
     setError('');
     try {
-      const r = await apiPost('/api/usage/stats', { password: AI_EDIT_PASSWORD, days: d });
+      const r = await apiPost('/api/usage/stats', { password, days: d });
       setData(r);
       // 실측으로 가정값 시드
       const t = r.total || {};
@@ -103,7 +102,8 @@ export default function UsageDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [password]); // 1009: 비밀번호가 바뀌면 다시 묶는다
 
   useEffect(() => { load(30); }, [load]);
 
@@ -198,7 +198,7 @@ export default function UsageDashboard() {
     setSaveMsg('');
     try {
       await apiPut('/api/usage/pricing', {
-        password: AI_EDIT_PASSWORD,
+        password,
         rows: editRows.map((r, i) => ({
           provider: r.provider,
           model: r.model,

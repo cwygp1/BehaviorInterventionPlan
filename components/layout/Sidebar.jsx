@@ -270,7 +270,8 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
               )}
             </div>
           </div>
-          <button className="logout-btn" onClick={logout} title="로그아웃">↪</button>
+          {/* 1009(mds/48): 체험 계정은 비밀번호가 난수라 나가면 되돌아올 수 없다 — 확인 한 번 */}
+          <button className="logout-btn" onClick={() => { if (user?.is_demo && !window.confirm('체험 계정은 로그아웃하면 다시 들어올 수 없어요(체험 기록도 지워져요).\n나갈까요?')) return; logout(); }} title={user?.is_demo ? '체험 끝내기' : '로그아웃'}>↪</button>
         </div>
       </aside>
     </>

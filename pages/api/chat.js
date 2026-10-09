@@ -1,12 +1,17 @@
-export default async function handler(req, res) {
+import { requireAuth, isDemoReq, rejectDemo } from '../../lib/auth';
+
+// 1009(mds/48 #3): 옛 SPA(public/index.html)용 LLM 중계. 인증이 전혀 없고 body.endpoint로 임의 URL에 요청을 보낼 수 있어
+//   누구나 서버를 통해 바깥으로 요청을 쏘는 구멍이었다 → 로그인 필수, 체험 계정 차단, endpoint는 서버 환경변수만.
+export default requireAuth(async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+  if (isDemoReq(req)) return rejectDemo(res);
 
-  const { messages, model, test } = req.body;
+  const { messages, model, test } = req.body || {};
 
-  // LM Studio endpoint (user configurable via env or request body)
-  const LLM_URL = process.env.LLM_API_URL || req.body.endpoint || 'http://localhost:1234/v1/chat/completions';
+  // LM Studio endpoint — 서버 환경변수만(요청 본문의 endpoint는 무시).
+  const LLM_URL = process.env.LLM_API_URL || 'http://localhost:1234/v1/chat/completions';
 
   // Connection test mode — non-streaming, short response
   if (test) {
@@ -84,7 +89,7 @@ export default async function handler(req, res) {
       message: error.message
     });
   }
-}
+});
 
 export const config = {
   api: {
