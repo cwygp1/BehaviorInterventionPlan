@@ -12,12 +12,13 @@ import { printDPRCard } from '../../lib/utils/printDPR';
 import { EditableChipGroup } from '../ui/QChip';
 import AIActionBar from '../ui/AIActionBar';
 import PromptResultBlock from '../modals/PromptResultBlock';
+import { isSecondary } from '../../lib/schoolLevel';
 
 // 행동 계약서는 Tier 2 독립 메뉴(ContractPage)로 분리 (0827 동료 피드백).
 
 const PRESETS = {
   '초등 (7교시 + 종례)': ['1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '종례'],
-  '중등 (8교시 + 종례)': ['1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '7교시', '8교시', '종례'],
+  '중·고등 (8교시 + 종례)': ['1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '7교시', '8교시', '종례'],
   '오전 4교시': ['1교시', '2교시', '3교시', '4교시'],
   '오후 4교시': ['5교시', '6교시', '7교시', '종례'],
 };
@@ -33,8 +34,8 @@ const COMMON_GOALS = [
 ];
 
 function defaultPeriods(level) {
-  return (level === '중등' || level === '고등')
-    ? PRESETS['중등 (8교시 + 종례)']
+  return isSecondary(level) // 1020: 전공과 포함
+    ? PRESETS['중·고등 (8교시 + 종례)']
     : PRESETS['초등 (7교시 + 종례)'];
 }
 

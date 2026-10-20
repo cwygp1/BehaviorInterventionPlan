@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { levelLabel } from '../../lib/schoolLevel';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -242,7 +243,7 @@ export default function Tier2GroupPanel({ selectedGroupId, onSelectGroup }) {
                   title="이 학생 선택 (아래 CICO 기록 대상)"
                   style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 700, fontSize: '.92rem', color: 'var(--pri)', padding: 0 }}
                 >
-                  {m.code}{stu?.level ? <span style={{ color: 'var(--muted)', fontWeight: 500 }}> · {stu.level}</span> : null}
+                  {m.code}{stu?.level ? <span style={{ color: 'var(--muted)', fontWeight: 500 }}> · {levelLabel(stu.level)}</span> : null}
                 </button>
                 {selected && <span style={{ fontSize: '.7rem', fontWeight: 700, color: 'var(--pri)' }}>● 선택됨</span>}
                 <div style={{ flex: 1 }} />

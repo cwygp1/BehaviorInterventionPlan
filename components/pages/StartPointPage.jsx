@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { levelLabel } from '../../lib/schoolLevel';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -157,7 +158,7 @@ export default function StartPointPage({ onNavigate }) {
       '너는 특수교육 IEPBS(생활중심 IEP + PBS) 전문가다. 아래 "학습자 분석(모듈1 출발점)" 입력을 바탕으로, ' +
       '행동문제를 "문제"가 아니라 "지원 요구의 신호"로 해석해 IEP의 출발점이 될 산출물 3가지를 도출하라.\n' +
       '삶·생활맥락·참여 관점에서 생활중심으로 작성한다.\n\n' +
-      `[학생] ${curStu.code} / 학교급 ${curStu.level || '-'} / 장애영역 ${curStu.disability || '-'}\n` +
+      `[학생] ${curStu.code} / 학교급 ${levelLabel(curStu.level) || '-'} / 장애영역 ${curStu.disability || '-'}\n` +
       `[가족 또는 학생의 희망사항] ${f.guardian || '-'}\n` +
       `[행동특성(교사관찰)] ${f.observation || '-'}\n` +
       `[기능평가 FBA] ${f.fba || '-'}\n` +

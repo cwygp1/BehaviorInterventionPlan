@@ -98,7 +98,7 @@ export default function Tier3Page({ onNavigate }) {
       // Tier 1(학급 보편)·Tier 2(소그룹/CICO) 연동 맥락을 문서에 함께 내보낸다.
       const { linkage } = await buildFullStudentContext({ student: curStu, studentId: curStuId, data, tier2Groups, semester: curSemester });
       downloadTier3Doc({
-        student: { code: curStu.code, level: curStu.level, disability: curStu.disability, note: curStu.note },
+        student: { code: curStu.code, level: curStu.level, grade: curStu.grade, disability: curStu.disability, note: curStu.note },
         teacherName: user?.name || '',
         school: user?.school || '',
         goals,

@@ -1,4 +1,5 @@
 import { useStudents } from '../../../contexts/StudentContext';
+import { levelLabel } from '../../../lib/schoolLevel';
 import { SECTIONS } from '../../../lib/tiers';
 import DashGrid from './DashGrid';
 import Sparkline from '../../ui/Sparkline';
@@ -65,7 +66,7 @@ export default function Tier3Dashboard({ onNavigate }) {
                 <tr key={r.id} data-help="t3-roster-row">
                   <td className="strong">
                     {tier3Ids.has(r.id) && <span title="Tier 3 지정 학생">🎯 </span>}{r.code}
-                    <div className="dim" style={{ fontWeight: 400 }}>{[r.level, r.disability].filter(Boolean).join(' · ')}</div>
+                    <div className="dim" style={{ fontWeight: 400 }}>{[levelLabel(r.level), r.disability].filter(Boolean).join(' · ')}</div>
                   </td>
                   <td onClick={() => go(r.id, 'observe')} className="click">
                     {(d.abc || 0) > 0 ? <Chip kind="info">{d.abc}건</Chip> : <Chip kind="muted">0건</Chip>}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { levelGradeLabel } from '../../lib/schoolLevel';
 import { useStudents } from '../../contexts/StudentContext';
 import EditStudentModal from '../modals/EditStudentModal';
 import { stuColor } from '../../lib/utils/colors';
@@ -52,7 +53,7 @@ export default function StuHero() {
       </div>
       <div className="stu-hero-main">
         <div className="stu-hero-name">{curStu.code}
-          <span className="badge badge-pri">{curStu.level}{curStu.grade ? ` ${curStu.grade}학년` : ''}</span>
+          <span className="badge badge-pri">{levelGradeLabel(curStu.level, curStu.grade) || '학교급 미지정'}</span>
           <span className="badge badge-purple">{curStu.disability}</span>
           <button type="button" className="btn btn-ghost btn-sm" style={{ marginLeft: 6, padding: '2px 8px', fontSize: '.74rem' }}
             onClick={() => setEditOpen(true)} title="이 화면에서 바로 학생 프로필(학년·장애·강점/어려움) 수정">

@@ -1,5 +1,6 @@
 import { sql } from '../../../../lib/db';
 import { requireStudentAccess } from '../../../../lib/auth';
+import { ensureCrisisScenariosCached } from '../../../../lib/ensureSchema';
 
 // GET /api/students/[studentId]/all
 //
@@ -30,7 +31,8 @@ export default requireStudentAccess(async function handler(req, res) {
   const fmtDate = (d) => fmtKst(d).slice(0, 10);
 
   try {
-    const [abcRes, monRes, qabfRes, bipRes, fidRes, szRes, raisdRes, priorityRes, periodsRes, lettersRes, cicoRes] = await Promise.all([
+    await ensureCrisisScenariosCached(); // 1020: crisis_scenarios 자가치유(없으면 일괄 로드 전체가 500이 되므로)
+    const [abcRes, monRes, qabfRes, bipRes, fidRes, szRes, raisdRes, priorityRes, periodsRes, lettersRes, cicoRes, crisisRes] = await Promise.all([
       sql`SELECT * FROM abc_records WHERE student_id = ${studentId} ORDER BY created_at DESC`,
       sql`SELECT * FROM monitor_records WHERE student_id = ${studentId} ORDER BY created_at DESC`,
       sql`SELECT * FROM qabf_data WHERE student_id = ${studentId}`,
@@ -42,6 +44,7 @@ export default requireStudentAccess(async function handler(req, res) {
       sql`SELECT id, tier, start_date::text AS start_date, end_date::text AS end_date, note, created_at FROM observation_periods WHERE student_id = ${studentId} ORDER BY start_date DESC`,
       sql`SELECT * FROM family_letters WHERE student_id = ${studentId} ORDER BY created_at DESC`,
       sql`SELECT id, date::text AS date, goals, periods, scores, check_in_time, check_out_time, comment, total_score, max_score, created_at FROM cico_records WHERE student_id = ${studentId} ORDER BY date DESC`,
+      sql`SELECT * FROM crisis_scenarios WHERE student_id = ${studentId} ORDER BY created_at DESC`, // 1020 위기 시나리오 이력
     ]);
 
     return res.status(200).json({
@@ -87,6 +90,7 @@ export default requireStudentAccess(async function handler(req, res) {
         created_at: fmtKst(r.created_at),
       })),
       cico: cicoRes.rows.map((r) => ({ ...r, created_at: fmtKst(r.created_at) })),
+      crisis: crisisRes.rows.map((r) => ({ ...r, created_at: fmtKst(r.created_at), updated_at: fmtKst(r.updated_at) })),
     });
   } catch (e) {
     console.error('Bulk student data error:', e);

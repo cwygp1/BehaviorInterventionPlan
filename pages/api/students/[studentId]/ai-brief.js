@@ -1,4 +1,5 @@
 import { sql } from '../../../../lib/db';
+import { levelLabel } from '../../../../lib/schoolLevel';
 import { requireStudentAccess } from '../../../../lib/auth';
 
 // AI 전문가 채팅의 '학생 맞춤 상담'용 비식별 요약 (mds/28 P3 · C-7).
@@ -42,7 +43,7 @@ export default requireStudentAccess(async function handler(req, res) {
   `;
 
   const lines = [];
-  lines.push(`- 학생 코드: ${s.student_code} / 학년: ${s.grade || '미입력'} / 장애 영역: ${s.disability || '미입력'} / 수준: ${s.level || '미입력'}`);
+  lines.push(`- 학생 코드: ${s.student_code} / 학년: ${s.grade || '미입력'} / 장애 영역: ${s.disability || '미입력'} / 학교급: ${levelLabel(s.level) || '미입력'}`);
   if (s.strengths) lines.push(`- 강점: ${clip(s.strengths)}`);
   if (s.difficulties) lines.push(`- 어려움·행동특성: ${clip(s.difficulties)}`);
   if (b.opdef) lines.push(`- 표적행동 조작적 정의: ${clip(b.opdef)}`);

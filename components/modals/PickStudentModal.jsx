@@ -1,4 +1,5 @@
 import Modal from '../ui/Modal';
+import { levelLabel } from '../../lib/schoolLevel';
 import { useStudents } from '../../contexts/StudentContext';
 import { stuColor } from '../../lib/utils/colors';
 import { PAGE_SECTION, PAGE_META } from '../../lib/tiers';
@@ -41,7 +42,7 @@ export default function PickStudentModal({ open, onClose, onPicked, onAddNew, fo
                 </div>
                 <div>
                   <div className="name">{s.code}</div>
-                  <div className="meta">{s.level || ''}{s.disability ? ' · ' + s.disability : ''}</div>
+                  <div className="meta">{levelLabel(s.level)}{s.disability ? (s.level ? ' · ' : '') + s.disability : ''}</div>
                 </div>
                 <div className="arrow">›</div>
               </li>

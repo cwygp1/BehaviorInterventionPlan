@@ -8,7 +8,10 @@ import { extractFromFile } from '../../lib/utils/extractText';
 import ExternalAIModal from '../ui/ExternalAIModal';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 
-const gradeFromLevel = (lv) => (lv?.includes('고') ? 12 : lv?.includes('중') ? 9 : 6);
+import { priorIepGradeCode } from '../../lib/schoolLevel';
+
+// 1020: 학교급 단일 출처 — 전공과는 고등(12). (종전 includes('고'/'중') 판정은 전공을 6으로 떨어뜨렸다)
+const gradeFromLevel = (lv) => priorIepGradeCode(lv);
 
 export default function PriorIepPage({ onNavigate }) {
   const { curStu, curStuId } = useStudents();

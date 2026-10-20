@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { levelLabel, levelGradeLabel } from '../../lib/schoolLevel';
 import Modal from '../ui/Modal';
 import LineTable from '../ui/LineTable';
 import useColumnWidths, { MONTHLY_COL_DEFAULT } from '../../lib/hooks/useColumnWidths';
@@ -130,7 +131,7 @@ export default function IepReportPage() {
     const mon = (g.monthly || []).map((m) => `${m.month}월) 목표:${(m.goal || '').replace(/\n/g, ' ')} / 내용:${(m.content || '').replace(/\n/g, ' ')} / 평가:${(m.eval || '').replace(/\n/g, ' ')}`).join('\n');
     return (
       `너는 특수교육 IEP 전문가다. 아래 한 영역의 월별 계획을 종합하여 학기 단위의 현행수준·학기목표·평가를 작성하라.\n\n` +
-      `[학생] ${curStu.code} · ${curStu.level || ''} · ${curStu.disability || ''}\n${note}` +
+      `[학생] ${curStu.code} · ${levelLabel(curStu.level)} · ${curStu.disability || ''}\n${note}` +
       `[영역] ${g.subject}${g.area ? ' · ' + g.area : ''} (${g.semester}학기)\n` +
       `[월별 계획]\n${mon || '(없음)'}\n\n` +
       `요구사항:\n- 현행수준(plop): 학생 자료에 근거해 구체적으로.\n- 학기목표(semester_goal): 월별을 종합한 학기 도달점을 "- "로 시작하는 2~4개 항목으로 다양하게.\n- 평가(semestral_eval): [중요] 이 학기는 아직 끝나지 않았다. 결과를 이미 이룬 것처럼 완료형("~향상되었으며", "~달성함", "~검증됨")으로 쓰면 허위 기록이 된다. 학기말에 "무엇을 어떤 기준으로 평가할지"의 평가 계획·기준 어투("~도달 여부를 확인함", "~를 기준으로 평가함", "~변화를 서술 평가함")로만 쓸 것. "- "로 시작하는 2~4개 항목.\n- 실명/식별정보 금지.\n\n` +
@@ -237,7 +238,7 @@ export default function IepReportPage() {
   function onWord() {
     if (!list.length) { toast('출력할 목표가 없습니다.'); return; }
     downloadNiceIepDocx({
-      student: { code: curStu.code, level: curStu.level },
+      student: { code: curStu.code, level: curStu.level, grade: curStu.grade },
       teacherName: teacher, year: yearF || curYear, semester: sem, goals: list,
     })
       .then(() => toast('나이스 양식 Word 파일을 내려받았어요 — 브라우저 다운로드 폴더를 확인하세요.', 'success'))
@@ -268,7 +269,7 @@ export default function IepReportPage() {
         </div>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12, fontSize: 13 }}>
           <tbody>
-            <tr><td style={hl}>성명</td><td style={td}>{curStu.code}</td><td style={hl}>학년·반</td><td style={td}>{curStu.level}</td><td style={hl}>담임</td><td style={td}>{teacher}</td></tr>
+            <tr><td style={hl}>성명</td><td style={td}>{curStu.code}</td><td style={hl}>학년·반</td><td style={td}>{levelGradeLabel(curStu.level, curStu.grade)}</td><td style={hl}>담임</td><td style={td}>{teacher}</td></tr>
             <tr><td style={hl}>장애유형</td><td style={td}>{curStu.disability}</td><td style={hl}>학교</td><td style={td}>{user?.school || ''}</td><td style={hl}>학년도</td><td style={td}>{yearF || '전체'}</td></tr>
           </tbody>
         </table>

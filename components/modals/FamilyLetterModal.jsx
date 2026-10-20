@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { levelLabel } from '../../lib/schoolLevel';
 import Modal from '../ui/Modal';
 import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -289,7 +290,7 @@ export default function FamilyLetterModal({ open, onClose }) {
 
 ## 학생 (비식별)
 - ID: ${curStu?.code}
-- 학교급: ${curStu?.level}
+- 학교급: ${levelLabel(curStu?.level)}
 - 비식별 요약: ${curStu?.note || '(없음)'}
 - BIP 요지: ${bipSummary}
 - 최근 행동 모니터링: ${recentMon || '(없음)'}${raisd.length ? '\n' + raisd.map((l) => `- ${l}`).join('\n') + '\n※ 가정에서 협력해 주실 부분을 제안할 때 위 선호/강화물을 활용하고, 사용 금지 항목은 절대 제안하지 마세요.' : ''}

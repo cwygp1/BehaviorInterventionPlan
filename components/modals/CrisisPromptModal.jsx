@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { levelLabel } from '../../lib/schoolLevel';
 import Modal from '../ui/Modal';
 import PromptResultBlock from './PromptResultBlock';
 import { useStudents } from '../../contexts/StudentContext';
@@ -6,6 +7,9 @@ import { useLLM } from '../../contexts/LLMContext';
 import { useToast } from '../../contexts/ToastContext';
 import AIActionBar from '../ui/AIActionBar';
 import { buildFullStudentContext } from '../../lib/tierContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { printCrisisScenario } from '../../lib/utils/printCrisisScenario';
+import { createCrisisScenario, updateCrisisScenario } from '../../lib/api/students';
 
 function buildPrompt(stu, situation) {
   return `당신은 특수교육 위기관리 전문가입니다.
@@ -13,7 +17,7 @@ function buildPrompt(stu, situation) {
 
 ## 학생 (비식별)
 - ID: ${stu?.code || '미선택'}
-- 학교급: ${stu?.level || ''}
+- 학교급: ${levelLabel(stu?.level)}
 - 주요 장애: ${stu?.disability || ''}
 - 비식별 요약: ${stu?.note || '(없음)'}
 
@@ -35,15 +39,47 @@ ${situation}
 마지막에 "신체적 개입 5대 원칙(안전 최우선/최후의 수단/최소한의 힘/일시적 사용/기록·보고)"을 준수했는지 자가점검 체크리스트도 포함.`;
 }
 
-export default function CrisisPromptModal({ open, onClose }) {
-  const { curStu, curStuId, curStuData, tier2Groups, curSemester } = useStudents();
+// initial: CrisisPage '저장된 시나리오' 목록에서 '다시 보기'로 열 때 넘기는 기록({id, situation, output}).
+export default function CrisisPromptModal({ open, onClose, initial }) {
+  const { curStu, curStuId, curStuData, tier2Groups, curSemester, updateStudentData } = useStudents();
   const { call, status } = useLLM();
+  const { user } = useAuth();
   const toast = useToast();
   const [situation, setSituation] = useState('');
   const [output, setOutput] = useState('');
   const [busy, setBusy] = useState(false);
   // 위기 대응이 실제 운영 중인 다층 지원(특히 Tier1/2 연동)을 고려하도록 맥락 접미부를 미리 만들어 둔다.
   const [tierSuffix, setTierSuffix] = useState('');
+  // 1020(피드백 3차 ①): 저장된 기록 id — 있으면 '저장'이 그 기록을 덮어쓴다(교사 편집본). 새로 생성하면 null로.
+  const [savedId, setSavedId] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  // 다시 보기로 열리면 저장된 상황·결과를 채운다.
+  useEffect(() => {
+    if (!open || !initial) return;
+    setSituation(initial.situation || '');
+    setOutput(initial.output || '');
+    setSavedId(initial.id || null);
+  }, [open, initial]);
+
+  async function onSave() {
+    if (!curStuId) { toast('학생을 먼저 선택해주세요.'); return; }
+    if (!output.trim()) { toast('저장할 시나리오가 아직 없어요.'); return; }
+    setSaving(true);
+    try {
+      if (savedId) {
+        const res = await updateCrisisScenario(curStuId, { id: savedId, situation, output });
+        updateStudentData(curStuId, (cur) => ({ ...cur, crisis: (cur.crisis || []).map((r) => (r.id === savedId ? res.record : r)) }));
+        toast('시나리오를 고쳐 저장했어요. 위기행동 대처 화면의 "저장된 위기 시나리오"에서 다시 볼 수 있어요.');
+      } else {
+        const res = await createCrisisScenario(curStuId, { situation, output });
+        setSavedId(res.record.id);
+        updateStudentData(curStuId, (cur) => ({ ...cur, crisis: [res.record, ...(cur.crisis || [])] }));
+        toast('저장했어요. 위기행동 대처 화면의 "저장된 위기 시나리오"에서 다시 볼 수 있어요.');
+      }
+    } catch (e) { toast('저장 실패: ' + e.message); }
+    finally { setSaving(false); }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -61,10 +97,20 @@ export default function CrisisPromptModal({ open, onClose }) {
 
   const fullPrompt = situation.trim() ? buildPrompt(curStu, situation) + tierSuffix : '';
 
+  // 1020(피드백 3차 ②): 결과를 그대로 인쇄. 교사 편집본(PromptResultBlock onChange)이 output에 반영된다.
+  function onPrint() {
+    if (!output.trim()) { toast('인쇄할 시나리오가 아직 없어요.'); return; }
+    printCrisisScenario({
+      studentId: curStu?.code, level: levelLabel(curStu?.level), disability: curStu?.disability,
+      situation, output, teacherName: user?.name, school: user?.school,
+    });
+  }
+
   async function runAI() {
     if (!situation.trim()) { toast('위기 상황을 묘사해주세요.'); return; }
     if (status !== 'on') { toast('AI가 지금 꺼져 있어요. 직접 쓰기는 그대로 돼요 — 연결은 관리자에게 알려 주세요.'); return; }
     setBusy(true); setOutput('');
+    setSavedId(null); // 새로 만든 결과는 새 기록으로 저장
     try {
       const reply = await call(fullPrompt);
       setOutput(reply);
@@ -90,8 +136,16 @@ export default function CrisisPromptModal({ open, onClose }) {
         disabled={!situation.trim()}
         align="flex-start"
       />
-      {(output || busy) && <PromptResultBlock prompt={fullPrompt} output={output} busy={busy} />}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+      {(output || busy) && <PromptResultBlock prompt={fullPrompt} output={output} busy={busy} onChange={setOutput} />}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+        {output && !busy && (
+          <>
+            <button className="btn btn-ghost" onClick={onPrint} title="시나리오 전체를 인쇄 창으로 (PDF 저장도 여기서)" data-help="cr-ai-print">🖨 인쇄 / PDF</button>
+            <button className="btn btn-ok" onClick={onSave} disabled={saving} title={savedId ? '고친 내용을 같은 기록에 덮어써요' : '이 학생의 위기 시나리오 이력에 저장해요'} data-help="cr-ai-save">
+              {saving ? '저장 중...' : savedId ? '💾 고쳐 저장' : '💾 저장'}
+            </button>
+          </>
+        )}
         <button className="btn btn-ghost" onClick={onClose}>닫기</button>
       </div>
     </Modal>

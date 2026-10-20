@@ -522,6 +522,11 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 
 /* === Print Hide === */
 @media print{.sidebar,.topbar,.mobile-toggle{display:none!important}.main{overflow:visible}.content{padding:0}}
+/* 1020(피드백 3차 ②): 앱 틀(.app 100vh·overflow hidden)과 모달(.modal 85vh 스크롤)이 그대로라 어느 화면에서든
+   브라우저 인쇄(Ctrl+P)가 첫 화면 한 장만 찍혔다. 인쇄 때는 높이·overflow 고정을 풀어 전체가 나오게 한다. */
+@media print{.app{height:auto!important;overflow:visible!important}.content{overflow:visible!important}
+  .modal-bg.show{position:static!important;display:block!important;background:none!important;backdrop-filter:none!important}
+  .modal{max-height:none!important;overflow:visible!important;width:auto!important;max-width:none!important;box-shadow:none!important}}
 @media print{.md-body table{page-break-inside:avoid}.md-table-wrap{overflow:visible}}
 
 /* === Tier 진입 허브 + 사용 단계 설정 (2026-08-14) ===

@@ -35,6 +35,7 @@ import DailyLifeExampleCards from '../ui/DailyLifeExampleCards';
 import { loadCurriculumContent, contentEntries, curriculumContentBlock, CONTENT_CAVEAT, hasUnverified, loadCurriculumGuides, guideKeysOf, guideUnitsFor, curriculumGuideBlock } from '../../lib/curriculumContent';
 import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner';
 import { GRADES_BY_LEVEL } from '../modals/EditStudentModal';
+import { levelLabel as schoolLevelLabel, levelGradeLabel, gradePresetFor as levelGradePreset, allowedGradeCodesFor } from '../../lib/schoolLevel';
 import { escortSignal } from '../../lib/escortSignal';
 
 const GRADE = { 0: '일상생활(공통)', 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
@@ -586,8 +587,7 @@ export default function IepPage({ onNavigate }) {
   useEffect(() => {
     if (!curStuId || gradePresetFor.current === curStuId) return;
     gradePresetFor.current = curStuId;
-    const lv = String(curStu?.level || '');
-    const preset = lv.includes('중') ? '9' : lv.includes('고') ? '12' : '';
+    const preset = levelGradePreset(curStu?.level); // 1020: 전공과 → 12(고등)
     if (preset) { setFGrade(preset); setFArea(''); }
     // 0902: 시각·청각·지체·학습·건강장애는 공통교육과정 적용 대상 → 성취기준 목록 기본값을 공통으로.
     setFCurr(COMMON_CURR_DIS.test(String(curStu?.disability || '')) ? '공통' : '기본');
@@ -1751,19 +1751,10 @@ export default function IepPage({ onNavigate }) {
   // 학생 학교급·학년이 허용하는 학년군 코드. 일상생활 활동(공통, 0)은 학년 구분이 없어 항상 포함.
   // 0819(동료 피드백): 프로필에 세부 학년(초1~6)이 있으면 해당 학년군까지 좁힌다
   // (초1~2→2, 초3~4→4, 초5~6→6). 학년 미지정이면 종전대로 학교급 전체.
-  function allowedGradeCodes() {
-    const lv = String(curStu?.level || '');
-    const gr = parseInt(String(curStu?.grade || '').replace(/[^0-9]/g, ''), 10);
-    if (lv.includes('중')) return [0, 9];
-    if (lv.includes('고')) return [0, 12];
-    if (lv.includes('초')) {
-      if (gr >= 1 && gr <= 6) return [0, gr <= 2 ? 2 : gr <= 4 ? 4 : 6];
-      return [0, 2, 4, 6];
-    }
-    return null; // 학교급 미상 → 제한 없음
-  }
-  // 추천 안내에 쓸 학년 표기(예: '초등 3학년').
-  const levelLabel = `${curStu?.level || ''}${curStu?.grade ? ` ${curStu.grade}학년` : ''}`.trim();
+  // 1020: 학교급 단일 출처(lib/schoolLevel.js) — 전공과는 고등(12).
+  function allowedGradeCodes() { return allowedGradeCodesFor(curStu?.level, curStu?.grade); }
+  // 추천 안내에 쓸 학년 표기(예: '초등학교 3학년').
+  const levelLabel = levelGradeLabel(curStu?.level, curStu?.grade);
   // 0819(동료 재요청): 학년이 비어 있으면 조용히 학교급 전체로 돌아가 "학년이 반영 안 된다"고 느껴졌다
   //   → 추천 박스에 지금 적용 중인 기준을 항상 보여주고, 학년을 그 자리에서 바로 입력하게 한다.
   const gradeBasisLabel = (() => {
@@ -1816,7 +1807,7 @@ export default function IepPage({ onNavigate }) {
       }
       setStdRecs(picked);
       toast(widened
-        ? `이 학교급(${curStu?.level}) 성취기준에서는 관련 후보가 없어 전체 학년에서 추천했어요 — 학년군을 확인하고 고르세요.`
+        ? `이 학교급(${schoolLevelLabel(curStu?.level)}) 성취기준에서는 관련 후보가 없어 전체 학년에서 추천했어요 — 학년군을 확인하고 고르세요.`
         : `학기목표와 관련된 성취기준 ${picked.length}개를 추천했어요${levelLabel ? ` (${levelLabel} 학년군 기준)` : ''}. 눌러서 연결하세요.`);
     } finally { setStdRecBusy(false); }
   }
@@ -2323,7 +2314,7 @@ export default function IepPage({ onNavigate }) {
   function exportNiceWord(goals) {
     if (!goals.length) { toast('저장된 IEP 목표가 없습니다. 먼저 저장하세요.'); return; }
     downloadNiceIepDocx({
-      student: { code: curStu.code, level: curStu.level },
+      student: { code: curStu.code, level: curStu.level, grade: curStu.grade },
       teacherName: user?.name || '',
       year: schoolYear,
       goals,
@@ -2334,7 +2325,7 @@ export default function IepPage({ onNavigate }) {
   function exportFormWord(goals) {
     if (!goals.length) { toast('저장된 IEP 목표가 없습니다. 먼저 저장하세요.'); return; }
     downloadIepFormDocx({
-      student: { code: curStu.code, level: curStu.level, disability: curStu.disability },
+      student: { code: curStu.code, level: curStu.level, grade: curStu.grade, disability: curStu.disability },
       teacherName: user?.name || '',
       goals,
     })
@@ -2354,7 +2345,7 @@ export default function IepPage({ onNavigate }) {
     const steps = (taskSteps || []).map((t) => t.trim()).filter(Boolean);
     if (!steps.length) { toast('단계를 먼저 만들어 주세요.'); return; }
     downloadTaskSheetDocx({
-      student: { code: curStu.code, level: curStu.level, disability: curStu.disability },
+      student: { code: curStu.code, level: curStu.level, grade: curStu.grade, disability: curStu.disability },
       teacherName: user?.name || '',
       goalText: goal,
       steps, chainType, promptSystem,

@@ -243,7 +243,7 @@ async function main() {
     }
 
     // ====== CICO: 18-22 weekday entries ======
-    const cicoPeriods = (s.level === '중등' || s.level === '고등') ? CICO_PERIODS_MIDDLE : CICO_PERIODS_ELEM;
+    const cicoPeriods = ['중등', '고등', '전공'].includes(s.level) ? CICO_PERIODS_MIDDLE : CICO_PERIODS_ELEM; // 1020 전공과 포함
     const studentGoals = [
       pick(CICO_GOALS_POOL),
       pick(CICO_GOALS_POOL.filter((g) => g !== CICO_GOALS_POOL[0])),
@@ -277,7 +277,7 @@ async function main() {
           ${JSON.stringify(studentGoals)}::jsonb,
           ${JSON.stringify(cicoPeriods)}::jsonb,
           ${JSON.stringify(scoresJson)}::jsonb,
-          ${'08:50'}, ${(s.level === '중등' || s.level === '고등') ? '15:30' : '14:00'},
+          ${'08:50'}, ${['중등', '고등', '전공'].includes(s.level) ? '15:30' : '14:00'},
           ${total >= max * 0.75 ? '오늘 정말 잘했어요!' : (total >= max * 0.5 ? '내일 더 잘해봐요.' : '')},
           ${total}, ${max}
         )

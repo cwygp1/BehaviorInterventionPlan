@@ -2,7 +2,7 @@ import LLMIndicator from './LLMIndicator';
 import HelpMenu from '../guide/HelpMenu';
 import SaveBadge from '../ui/SaveBadge';
 import { useStudents } from '../../contexts/StudentContext';
-import { SECTIONS, PAGE_SECTION, pageTitle } from '../../lib/tiers';
+import { SECTIONS, PAGE_SECTION, WORKSPACE_COMMON_IDS, pageTitle } from '../../lib/tiers';
 
 // 상단 제목은 lib/tiers.js PAGE_META 단일 출처에서 파생한다(0914 P0) — 사이드바 라벨과 항상 같은 이름.
 
@@ -31,7 +31,11 @@ export default function Topbar({ activePage, sectionKey, onNavigate, canGoBack, 
   // 0824: 공통 페이지에서도 직전 영역 맥락을 유지하도록 Layout이 내려준 값을 우선 사용.
   const curSection = sectionKey !== undefined ? sectionKey : (PAGE_SECTION[activePage] || null);
   // Tier 1·2·3 + IEP는 항상 전부 표시(2026-08-14: '사용 단계 설정' 숨김 기능 폐지).
-  const chips = curSection ? Object.values(SECTIONS) : [];
+  // 1020(피드백 3차 ③ "이 화면에서 T3나 IEP로 가는 아이콘이 없다"): 홈을 거쳐 공통 페이지(위기행동 대처 등)에
+  // 들어오면 직전 영역이 없어 칩이 통째로 비었다. Layout의 포털 판단(Layout.jsx stickySection)과 같은 규칙으로
+  // — 홈·관리자 같은 포털 전용 화면이 아니면 영역이 없어도 칩을 보인다(켜진 칩이 없을 수 있음).
+  const portalOnly = !curSection && !WORKSPACE_COMMON_IDS.includes(activePage);
+  const chips = portalOnly ? [] : Object.values(SECTIONS);
 
   return (
     <div className="topbar">

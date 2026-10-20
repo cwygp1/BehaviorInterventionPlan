@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { levelLabel } from '../../lib/schoolLevel';
 import StuHero from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -6,7 +7,9 @@ import { useEntryDate } from '../../lib/hooks/useEntryDate';
 import { EditableChipGroup, makeAppender } from '../ui/QChip';
 import CrisisPromptModal from '../modals/CrisisPromptModal';
 import ResourceDownloads from '../ui/ResourceDownloads';
-import { createSZ, deleteSZ as apiDelSz } from '../../lib/api/students';
+import { createSZ, deleteSZ as apiDelSz, deleteCrisisScenario } from '../../lib/api/students';
+import { useAuth } from '../../contexts/AuthContext';
+import { printCrisisScenario } from '../../lib/utils/printCrisisScenario';
 import { CRISIS_OFFICIAL_DOCS, CRISIS_SUPPORT_LINKS } from '../../lib/officialDocs';
 
 // 0819(동료 피드백): 공식 가이드북·매뉴얼은 lib/officialDocs 카탈로그가 단일 출처 —
@@ -64,6 +67,8 @@ export default function CrisisPage() {
   const toast = useToast();
   const [openStage, setOpenStage] = useState(null);
   const [aiOpen, setAiOpen] = useState(false);
+  const [aiInitial, setAiInitial] = useState(null); // 1020: 저장된 시나리오 '다시 보기'
+  const { user } = useAuth();
 
   // SZ form state
   const entryDate = useEntryDate('crisis'); // 기록 달력에서 고른 날짜(mds/33)
@@ -102,6 +107,26 @@ export default function CrisisPage() {
   }
 
   const szRecords = curStuData?.sz || [];
+  const crisisRecords = curStuData?.crisis || []; // 1020(피드백 3차 ①): 저장된 위기 시나리오(최신순)
+
+  function openSaved(r) { setAiInitial(r); setAiOpen(true); }
+  function openNew() { setAiInitial(null); setAiOpen(true); }
+  async function onDeleteCrisis(id) {
+    const r = crisisRecords.find((x) => x.id === id);
+    const label = r ? (r.created_at || '').slice(0, 10) : '';
+    if (!window.confirm(`이 위기 시나리오${label ? `(${label})` : ''}를 삭제할까요?\n지운 기록은 되돌릴 수 없어요.`)) return;
+    try {
+      await deleteCrisisScenario(curStuId, id);
+      updateStudentData(curStuId, (cur) => ({ ...cur, crisis: (cur.crisis || []).filter((x) => x.id !== id) }));
+      toast('삭제됨');
+    } catch (e) { toast('삭제 실패: ' + e.message); }
+  }
+  function printSaved(r) {
+    printCrisisScenario({
+      studentId: curStu?.code, level: levelLabel(curStu?.level), disability: curStu?.disability,
+      situation: r.situation, output: r.output, teacherName: user?.name, school: user?.school, createdAt: r.created_at,
+    });
+  }
 
   return (
     <>
@@ -120,7 +145,7 @@ export default function CrisisPage() {
           className="btn btn-pri"
           onClick={() => {
             if (!curStu) { toast('학생을 먼저 선택해주세요. (우측 상단 학생 선택)'); return; }
-            setAiOpen(true);
+            openNew();
           }}
           disabled={!curStu}
           title={!curStu ? '학생을 먼저 선택해야 이용할 수 있어요' : undefined}
@@ -300,7 +325,36 @@ export default function CrisisPage() {
         </div>
       )}
 
-      <CrisisPromptModal open={aiOpen} onClose={() => setAiOpen(false)} />
+      {/* 1020(피드백 3차 ①): 저장된 위기 시나리오 목록 — "저장이 어디에 되는지, 다시 찾기, 이대로 인쇄" */}
+      {curStu && (
+        <div className="card" data-help="cr-ai-list">
+          <div className="card-title">🚨 저장된 위기 시나리오 <span className="badge badge-pri">{crisisRecords.length}건</span></div>
+          {crisisRecords.length === 0 ? (
+            <div className="empty-state"><span className="emoji">🗂️</span>저장된 시나리오가 없어요. 위에서 시나리오를 만든 뒤 <b>💾 저장</b>을 누르면 여기에 쌓여요.</div>
+          ) : (
+            <ul className="data-list">
+              {crisisRecords.map((r) => (
+                <li key={r.id} className="data-item" data-help="cr-ai-row">
+                  <button className="data-item-del" onClick={() => onDeleteCrisis(r.id)} title="삭제" aria-label="삭제">×</button>
+                  <div className="data-item-head">
+                    <span className="badge badge-warn">7단계</span>
+                    <span className="data-item-date">{(r.created_at || '').slice(0, 16)}{r.updated_at && r.updated_at !== r.created_at ? ' (고침)' : ''}</span>
+                  </div>
+                  <div className="data-item-body" style={{ whiteSpace: 'pre-wrap', wordBreak: 'keep-all' }}>
+                    {(r.situation || '').slice(0, 120)}{(r.situation || '').length > 120 ? '…' : ''}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => openSaved(r)}>👁 다시 보기 · 고치기</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => printSaved(r)}>🖨 인쇄 / PDF</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      <CrisisPromptModal open={aiOpen} onClose={() => setAiOpen(false)} initial={aiInitial} />
     </>
   );
 }

@@ -1,4 +1,5 @@
 import { useStudents } from '../../../contexts/StudentContext';
+import { levelLabel } from '../../../lib/schoolLevel';
 import { SECTIONS } from '../../../lib/tiers';
 import DashGrid from './DashGrid';
 import { computeIepReviews } from '../../../lib/dashReviews';
@@ -50,7 +51,7 @@ export default function IepDashboard({ onNavigate }) {
             const d = r.d;
             return (
               <tr key={r.id} data-help="di-row">
-                <td className="strong">{r.code}<div className="dim" style={{ fontWeight: 400 }}>{[r.level, r.disability].filter(Boolean).join(' · ')}</div></td>
+                <td className="strong">{r.code}<div className="dim" style={{ fontWeight: 400 }}>{[levelLabel(r.level), r.disability].filter(Boolean).join(' · ')}</div></td>
                 <td onClick={() => go(r.id, 'priorIep')} className="click"><Chip kind="muted">확인</Chip></td>
                 <td onClick={() => go(r.id, 'startpoint')} className="click">{d.startpointDone ? <Chip kind="ok">완료</Chip> : <Chip kind="muted">미완료</Chip>}</td>
                 <td onClick={() => go(r.id, 'iep')} className="click">{(d.iepSemGoals || 0) > 0 ? <Chip kind="ok">{d.iepSemGoals}개</Chip> : (d.iepGoals || 0) > 0 ? <Chip kind="warn">작성중</Chip> : <Chip kind="muted">없음</Chip>}</td>

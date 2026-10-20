@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Sidebar, { PBS_PAGES, WORKSPACE_COMMON_IDS } from './Sidebar';
-import { PAGE_SECTION } from '../../lib/tiers';
+import Sidebar, { PBS_PAGES } from './Sidebar';
+import { PAGE_SECTION, WORKSPACE_COMMON_IDS } from '../../lib/tiers';
 import Topbar from './Topbar';
 import SecurityBanner from './SecurityBanner';
 import AIBusyOverlay from './AIBusyOverlay';

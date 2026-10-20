@@ -1,4 +1,5 @@
 import { useStudents } from '../../contexts/StudentContext';
+import { levelLabel } from '../../lib/schoolLevel';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { useUIActions } from '../../contexts/UIActionsContext';
@@ -233,7 +234,7 @@ export default function HomePage({ onNavigate }) {
                     </div>
                     <div>
                       <div className="stu-mini-name">{s.code}</div>
-                      <div className="stu-mini-meta">{s.level} · {s.disability}</div>
+                      <div className="stu-mini-meta">{[levelLabel(s.level), s.disability].filter(Boolean).join(' · ')}</div>
                     </div>
                   </div>
                   <div className="stu-mini-body">{s.note || '(요약 없음)'}</div>

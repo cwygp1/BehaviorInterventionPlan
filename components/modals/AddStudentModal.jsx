@@ -6,8 +6,7 @@ import { EditableChipGroup, makeAppender } from '../ui/QChip';
 import { composeNote } from '../../lib/utils/splitNote';
 import { DISABILITIES, DIS_NONE, joinDisability } from '../../lib/disability';
 import { GRADES_BY_LEVEL } from './EditStudentModal';
-
-const LEVELS = ['초등', '중등', '고등'];
+import { LEVEL_OPTIONS, levelGradeLabel } from '../../lib/schoolLevel';
 const STEPS = ['기본 정보', '프로파일·현행수준', '확인'];
 
 const STRENGTH_CHIPS = ['시각자료 이해 우수', '규칙 준수 양호', '또래 관심 있음', '특정 주제 흥미 높음', '모방 능력 좋음', '신체활동 선호'];
@@ -19,7 +18,7 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
   const toast = useToast();
   const [step, setStep] = useState(0);
   const [code, setCode] = useState('');
-  const [level, setLevel] = useState(LEVELS[0]);
+  const [level, setLevel] = useState('초등');
   const [grade, setGrade] = useState(''); // 0819: 세부 학년(선택) — 성취기준 추천 학년군에 반영
   const [dis, setDis] = useState(DISABILITIES[0]);
   const [dis2, setDis2] = useState(DIS_NONE); // 중복장애: 추가 장애 영역(선택)
@@ -87,7 +86,7 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">학교급</label>
-              <select className="form-select" data-demo="stu-add-level" value={level} onChange={(e) => { setLevel(e.target.value); setGrade(''); }}>{LEVELS.map((l) => <option key={l}>{l}</option>)}</select>
+              <select className="form-select" data-demo="stu-add-level" value={level} onChange={(e) => { setLevel(e.target.value); setGrade(''); }}>{LEVEL_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}</select>
             </div>
             <div className="form-group">
               <label className="form-label">학년 (선택)</label>
@@ -140,7 +139,7 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
         <div data-demo="stu-add-review" style={{ border: '1px solid #e3e6eb', borderRadius: 10, padding: 14 }}>
           <div style={{ fontWeight: 700, marginBottom: 8 }}>입력 내용 확인</div>
           <Row k="익명 ID" v={code || '(미입력)'} />
-          <Row k="학교급" v={level + (grade ? ` ${grade}학년` : '')} />
+          <Row k="학교급" v={levelGradeLabel(level, grade) || '미지정'} />
           <Row k="장애 영역" v={joinDisability(dis, dis2)} />
           <Row k="강점" v={strengths || '(없음)'} />
           <Row k="어려움" v={difficulties || '(없음)'} />

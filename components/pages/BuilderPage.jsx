@@ -1,3 +1,4 @@
+import { builderGradeChip } from '../../lib/schoolLevel';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
@@ -35,18 +36,10 @@ function findDisabilityChips(disability) {
   return [...new Set(chips)];
 }
 
-// 학교급(level: 초등·중등·고등) + 세부 학년(grade)이 있으면 그것으로, 없으면 비식별 요약에서 추정.
+// 학교급(level) + 세부 학년(grade)이 있으면 그것으로(lib/schoolLevel.js 단일 출처, 1020: 전공과→고등학교 칩), 없으면 비식별 요약에서 추정.
 function inferGradeChip(student) {
-  const level = student?.level || '';
-  const grade = parseInt(student?.grade, 10);
-  if (level === '초등' && grade >= 1) {
-    if (grade <= 2) return '1~2학년';
-    if (grade <= 4) return '3~4학년';
-    return '5~6학년';
-  }
-  if (level === '중등') return '중학교';
-  if (level === '고등') return '고등학교';
-  if (level === '유치원') return '🧡 유치원';
+  const byLevel = builderGradeChip(student?.level, student?.grade);
+  if (byLevel) return byLevel;
   const note = student?.note || '';
   if (/유치|유아/.test(note)) return '🧡 유치원';
   const m = note.match(/(?:초|초등)\s*(\d+)\s*학년/);

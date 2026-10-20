@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { levelLabel } from '../../lib/schoolLevel';
 import StuHero, { NoStudentHint, ProfileSummary } from '../student/StuHero';
 import { FormLoading } from '../../lib/hooks/useFormLoad';
 import useAutoSave from '../../lib/hooks/useAutoSave';
@@ -259,7 +260,7 @@ export default function ObservePage({ onNavigate }) {
         <div className="card-title">👤 학생 프로필</div>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '.88rem', color: 'var(--sub)' }}>
           <span><strong>ID:</strong> {curStu.code}</span>
-          <span><strong>학교급:</strong> {curStu.level}</span>
+          <span><strong>학교급:</strong> {levelLabel(curStu.level) || '미지정'}</span>
           <span><strong>장애:</strong> {curStu.disability}</span>
         </div>
         <ProfileSummary stu={curStu} style={{ marginTop: 8 }} />

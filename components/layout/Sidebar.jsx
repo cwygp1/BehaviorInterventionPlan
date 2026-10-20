@@ -3,7 +3,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import { isSimpleMode, SIMPLE_COMMON, SIMPLE_TIERS, FULL_TIERS, softLockFor } from '../../lib/onboarding';
 import { useAuth } from '../../contexts/AuthContext';
-import { SECTIONS, PAGE_SECTION, PAGE_META } from '../../lib/tiers';
+import { SECTIONS, PAGE_SECTION, PAGE_META, COMMON_MENU, COMMON_IDS, WORKSPACE_COMMON_IDS } from '../../lib/tiers';
 import { FOLD_OPEN_EVENT } from '../ui/FoldCard';
 import FontSizeToggle from '../ui/FontSizeToggle';
 
@@ -26,20 +26,9 @@ const SECTION_ITEMS = Object.fromEntries(
   Object.values(SECTIONS).map((s) => [s.key, s.pages.map((id) => item(id))])
 );
 
-// 공통 메뉴 단일 정의. always: 워크스페이스에서 항상 보이는 항목(나머지는 '더 보기').
-// 0915(mds/33): 기록 달력 추가 — 영역 화면에서도 바로 열 수 있게 always.
-const COMMON_MENU = [
-  { group: '우리 반·학생', items: ['home', 'students', 'calendar'], always: ['students', 'calendar'] },
-  { group: '도움·자료', items: ['crisis', 'qaBoard', 'support', 'videos'], always: ['crisis', 'qaBoard'] },
-  { group: 'AI 도우미', items: ['chatExpert', 'generator', 'builder'], always: [] },
-];
-const COMMON_IDS = COMMON_MENU.flatMap((g) => g.items);
+// 공통 메뉴(COMMON_MENU)·WORKSPACE_COMMON_IDS는 lib/tiers.js 단일 출처(1020 이동).
 const WS_ALWAYS = COMMON_MENU.flatMap((g) => g.always);
 const WS_MORE = COMMON_IDS.filter((id) => id !== 'home' && !WS_ALWAYS.includes(id));
-
-// 0824: 워크스페이스에서 이 공통 페이지로 이동해도 사이드바가 포털 모드로 바뀌지 않도록
-// Layout이 "마지막 영역 유지" 판단에 쓰는 페이지 id 목록. (0914: 영상 강의도 포함 — 갔다 오면 메뉴가 바뀌던 문제 해소)
-export const WORKSPACE_COMMON_IDS = COMMON_IDS.filter((id) => id !== 'home');
 
 // 학생 선택이 필요한 페이지 목록(Layout의 학생 선택 가드가 사용).
 export const PBS_PAGES = Object.keys(PAGE_META).filter((id) => PAGE_META[id].requiresStudent);

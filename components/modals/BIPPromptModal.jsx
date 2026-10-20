@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { levelLabel } from '../../lib/schoolLevel';
 import Modal from '../ui/Modal';
 import PromptResultBlock from './PromptResultBlock';
 import { useStudents } from '../../contexts/StudentContext';
@@ -38,7 +39,7 @@ function buildPrompt(stu, data) {
 
 ## 학생 프로필 (비식별)
 - ID: ${stu?.code}
-- 학교급: ${stu?.level}
+- 학교급: ${levelLabel(stu?.level)}
 - 주요 장애: ${stu?.disability}
 - 강점: ${studentProfileParts(stu).strengths || '(미입력)'}
 - 어려움(지원 요구): ${studentProfileParts(stu).difficulties || '(미입력)'}${raisdLines(data).length ? '\n' + raisdLines(data).map((l) => `- ${l}`).join('\n') + '\n※ [REINF] 강화 전략은 위 선호/강화물을 우선 활용하고, 사용 금지 항목은 절대 포함하지 마세요.' : ''}

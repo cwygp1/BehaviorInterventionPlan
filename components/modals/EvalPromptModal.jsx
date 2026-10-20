@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { levelLabel } from '../../lib/schoolLevel';
 import Modal from '../ui/Modal';
 import PromptResultBlock from './PromptResultBlock';
 import { useStudents } from '../../contexts/StudentContext';
@@ -25,7 +26,7 @@ function buildPrompt(stu, data) {
 다음 학생의 행동 데이터를 분석하여 4가지 시각적 분석 지표로 해석해주세요. 이 학생의 설계는 **${designTitle(designOfData(data))}**입니다${designBlock ? ' — 아래 "설계" 절의 묶음과 해석 지시를 우선하세요' : ''}.
 
 ## 학생 (비식별)
-- ID: ${stu?.code} · ${stu?.level} · ${stu?.disability}
+- ID: ${stu?.code} · ${levelLabel(stu?.level)} · ${stu?.disability}
 - 비식별 요약: ${stu?.note || '(없음)'}
 ${designBlock ? `
 ${designBlock}

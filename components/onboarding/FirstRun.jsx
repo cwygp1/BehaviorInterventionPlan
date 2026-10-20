@@ -5,6 +5,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useGuide } from '../guide/GuideContext';
 import { DISABILITIES } from '../../lib/disability';
 import { GRADES_BY_LEVEL } from '../modals/EditStudentModal';
+import { LEVEL_OPTIONS } from '../../lib/schoolLevel';
 
 // 가입 직후 1회(mds/46 방법 3·5) — AuthContext.signup이 남긴 표시를 읽는다.
 //   방법 3  첫 설정 마법사: ① 반 이름 → ② 첫 학생 등록(나중에 해도 됨) → ③ 무엇부터 해 볼지 고르기.
@@ -14,7 +15,6 @@ import { GRADES_BY_LEVEL } from '../modals/EditStudentModal';
 
 const FIRST_RUN_KEY = 'kb_first_run';
 const SEED_KEY = 'kb_seed_samples';
-const LEVELS = ['초등', '중등', '고등'];
 const ssGet = (k) => { try { return sessionStorage.getItem(k); } catch (_e) { return null; } };
 const ssDel = (k) => { try { sessionStorage.removeItem(k); } catch (_e) { /* noop */ } };
 
@@ -47,7 +47,7 @@ function Wizard({ onNavigate, onDone }) {
   const [busy, setBusy] = useState(false);
   const [className, setClassName] = useState('');
   const [code, setCode] = useState('');
-  const [level, setLevel] = useState(LEVELS[0]);
+  const [level, setLevel] = useState('초등');
   const [grade, setGrade] = useState('');
   const [dis, setDis] = useState(DISABILITIES[2] || DISABILITIES[0]); // 기본 '지적장애'(가장 흔한 배치)
   const [created, setCreated] = useState(null);
@@ -134,7 +134,7 @@ function Wizard({ onNavigate, onDone }) {
             <div className="ob-wiz-row">
               <label className="ob-wiz-field">
                 <span>학교급</span>
-                <select className="form-select" value={level} onChange={(e) => { setLevel(e.target.value); setGrade(''); }}>{LEVELS.map((l) => <option key={l}>{l}</option>)}</select>
+                <select className="form-select" value={level} onChange={(e) => { setLevel(e.target.value); setGrade(''); }}>{LEVEL_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}</select>
               </label>
               <label className="ob-wiz-field">
                 <span>학년 (선택)</span>

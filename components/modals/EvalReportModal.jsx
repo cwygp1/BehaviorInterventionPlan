@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { levelLabel } from '../../lib/schoolLevel';
 import Modal from '../ui/Modal';
 import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -32,7 +33,7 @@ export default function EvalReportModal({ open, onClose, chartRefs, effectSize, 
     return `당신은 특수교육 PBS 컨설턴트입니다. 다음 학생의 결과 평가 보고서에 들어갈 "교사 종합 의견" 섹션을 한국어로 작성해주세요. 설계: ${designTitle(designOfData(curStuData))}.
 
 ## 학생 (비식별)
-- ID: ${curStu?.code} · ${curStu?.level} · ${curStu?.disability}
+- ID: ${curStu?.code} · ${levelLabel(curStu?.level)} · ${curStu?.disability}
 - 비식별 요약: ${curStu?.note || '(없음)'}
 ${designBlock ? `
 ${designBlock}
@@ -69,7 +70,7 @@ ${designBlock}
   function onPrint() {
     if (!curStu) return;
     printEvalReport({
-      student: { code: curStu.code, level: curStu.level, disability: curStu.disability, note: curStu.note },
+      student: { code: curStu.code, level: curStu.level, grade: curStu.grade, disability: curStu.disability, note: curStu.note },
       teacherName: user?.name,
       school: user?.school,
       charts: chartRefs,
