@@ -7,84 +7,17 @@ import AuthScreen from '../components/auth/AuthScreen';
 import Layout from '../components/layout/Layout';
 import LoadingOverlay from '../components/ui/LoadingOverlay';
 
-import PortalHome from '../components/pages/PortalHome';
-import Tier1Dashboard from '../components/pages/dash/Tier1Dashboard';
-import Tier2Dashboard from '../components/pages/dash/Tier2Dashboard';
-import Tier3Dashboard from '../components/pages/dash/Tier3Dashboard';
-import IepDashboard from '../components/pages/dash/IepDashboard';
-import StudentsPage from '../components/pages/StudentsPage';
-import CalendarPage from '../components/pages/CalendarPage';
-import StartPointPage from '../components/pages/StartPointPage';
-import ObservePage from '../components/pages/ObservePage';
-import QabfPage from '../components/pages/QabfPage';
-import BipPage from '../components/pages/BipPage';
-import MonitorPage from '../components/pages/MonitorPage';
-import EvalPage from '../components/pages/EvalPage';
-import IepPage from '../components/pages/IepPage';
-import IepReportPage from '../components/pages/IepReportPage';
-import PriorIepPage from '../components/pages/PriorIepPage';
-import BuilderPage from '../components/pages/BuilderPage';
-import CrisisPage from '../components/pages/CrisisPage';
-import SupportPage from '../components/pages/SupportPage';
-import ClassPBSPage from '../components/pages/ClassPBSPage';
-import PbsSurveyPage from '../components/pages/PbsSurveyPage';
-import SchoolRulesPage from '../components/pages/SchoolRulesPage';
-import ClassChecklistPage from '../components/pages/ClassChecklistPage';
-import ClassFidelityPage from '../components/pages/ClassFidelityPage';
-import GeneratorPage from '../components/pages/GeneratorPage';
-import Tier2Page from '../components/pages/Tier2Page';
-import ContractPage from '../components/pages/ContractPage';
-import Tier3Page from '../components/pages/Tier3Page';
-import VideoLecturesPage from '../components/pages/VideoLecturesPage';
-import AdminPage from '../components/pages/AdminPage';
-import QABoardPage from '../components/pages/QABoardPage';
-import ChatExpertPage from '../components/pages/ChatExpertPage';
-import StepNav from '../components/ui/StepNav';
+import LegacyPageRouter from '../components/layout/LegacyPageRouter';
 import DemoPlayer from '../components/demo/DemoPlayer';
 import PageFrame from '../components/onboarding/PageFrame';
 import FirstRun from '../components/onboarding/FirstRun';
 
-// 화면 id 전체 목록 — 주소 해시(#dash3 등)로 화면을 복원할 때 유효성 검사에 쓴다.
-// PageRouter의 case와 반드시 일치해야 한다(새 페이지 추가 시 여기도 추가).
-const VALID_PAGES = new Set([
-  'home', 'dash1', 'dash2', 'dash3', 'dashIep', 'students', 'calendar', 'startpoint',
-  'observe', 'qabf', 'bip', 'monitor', 'eval', 'iep', 'priorIep', 'iepReport',
-  'builder', 'crisis', 'support', 'classpbs', 'pbssurvey', 'schoolrules', 'classcheck', 'classcheck2',
-  'tier2', 'contract', 'tier3', 'videos', 'generator', 'admin', 'qaBoard', 'chatExpert',
-]);
-
-// 없어진 화면 id의 후계 화면 — 북마크·히스토리의 옛 해시를 새 화면으로 보낸다.
-//   qa: 'PBS Q&A 전문가'(단발) → 'AI 전문가 채팅'으로 흡수 (2026-08-27)
-const LEGACY_PAGES = { qa: 'chatExpert' };
-
-// 현재 주소 해시에서 화면 id를 읽는다. 유효하지 않으면 홈.
-function pageFromHash() {
-  if (typeof window === 'undefined') return 'home';
-  const h = (window.location.hash || '').replace(/^#\/?/, '');
-  if (LEGACY_PAGES[h]) return LEGACY_PAGES[h];
-  return VALID_PAGES.has(h) ? h : 'home';
-}
-
-// AI 생성 중 이동 확인(기존 문구 유지) — navigate와 브라우저 뒤로가기 양쪽에서 쓴다.
-function confirmLeaveWhileBusy() {
-  return window.confirm(
-    'AI가 생성 중입니다. 지금 다른 메뉴로 이동하면 생성 중인 결과가 사라질 수 있어요.\n그래도 이동할까요?'
-  );
-}
-
-// 히스토리 깊이 백업 — Next.js 라우터가 부팅 때 현재 히스토리 항목의 state를
-// 자기 것으로 덮어써서, 새로고침하면 pushState에 실어둔 idx가 사라진다.
-// 같은 탭 안에서만 유효한 sessionStorage에 깊이를 함께 적어 두고 복원한다.
-const NAV_IDX_KEY = 'kkobak-nav-idx';
-function saveNavIdx(idx) {
-  try { window.sessionStorage.setItem(NAV_IDX_KEY, String(idx)); } catch (_e) { /* noop */ }
-}
-function loadNavIdx() {
-  try {
-    const n = parseInt(window.sessionStorage.getItem(NAV_IDX_KEY) || '', 10);
-    return Number.isFinite(n) && n >= 0 ? n : 0;
-  } catch (_e) { return 0; }
-}
+// 화면 id 목록·옛 해시 후계·해시 읽기·AI 생성 중 이동 확인·히스토리 깊이 백업은
+// 새 디자인(/new)과 같이 쓰려고 lib/nav/legacyNav.js로 옮겼다(내용 그대로).
+import { VALID_PAGES, pageFromHash, confirmLeaveWhileBusy, saveNavIdx, loadNavIdx } from '../lib/nav/legacyNav';
+// 새 디자인 병행(mds/54 §4): 로그인한 사용자가 '새 디자인'을 골랐으면 /new로 보낸다(옛 해시는 새 자리로).
+import { useRouter } from 'next/router';
+import { wantsNewDesign } from '../lib/uiMode';
 
 export default function Home() {
   const { user, status } = useAuth();
@@ -99,6 +32,17 @@ export default function Home() {
   pageRef.current = activePage;
   const idxRef = useRef(0);       // 히스토리 깊이(0 = 첫 화면) — 뒤로가기 가능 여부 판단
   const initedRef = useRef(false); // 로그인 후 해시 복원을 1회만
+
+  // 새 디자인을 고른 사용자는 /new로(체험 계정은 1단계에서 기존 디자인 고정 — lib/uiMode.js).
+  //   그리기 전에 판단해 기존 화면이 한 번 보였다가 튀지 않게 한다(아래 LoadingOverlay 분기).
+  const router = useRouter();
+  const goNew = status === 'authed' && wantsNewDesign(user);
+  useEffect(() => {
+    if (!goNew) return;
+    const h = (window.location.hash || '').replace(/^#\/?/, '');
+    // 옛 해시 북마크(#iep 등)는 /new가 새 자리로 바꾼다(lib/routes.js parseHash 'go').
+    router.replace('/new' + (h && VALID_PAGES.has(pageFromHash()) && pageFromHash() !== 'home' ? '#go/' + pageFromHash() : ''));
+  }, [goNew]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 메뉴·카드 클릭 이동 — 브라우저 히스토리에 쌓아 뒤로가기/앞으로가기가 동작하게 한다.
   // AI 생성 중 페이지 이동 가드: 이동하면 진행 중인 결과가 사라지므로 한 번 확인한다.
@@ -183,7 +127,7 @@ export default function Home() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [busy]);
 
-  if (status === 'loading') {
+  if (status === 'loading' || goNew) {
     return (
       <>
         <Head><title>꼬박꼬박 행동중재 통합 운영 시스템</title></Head>
@@ -208,7 +152,7 @@ export default function Home() {
         <Layout activePage={activePage} onNavigate={navigate} canGoBack={canGoBack} onBack={goBack}>
           {/* 1001(mds/46 방법 2·4·6): 화면 맨 위 안내(소개 한 줄·빈 화면 첫 할 일·홈 시작하기) — 화면 파일은 그대로 */}
           <PageFrame key={activePage} page={activePage} onNavigate={navigate} />
-          <PageRouter activePage={activePage} onNavigate={navigate} />
+          <LegacyPageRouter activePage={activePage} onNavigate={navigate} />
           {/* ▶ 3분 체험하기(mds/46) — 체험 계정일 때만. 화면은 document.body로 포털. */}
           {user.is_demo && <DemoPlayer activePage={activePage} onNavigate={navigate} />}
           {/* 가입 직후 1회: 첫 설정 마법사 + 본보기 학생(mds/46 방법 3·5). 회원가입이 남긴 표시가 있을 때만 뜬다(체험하기는 남기지 않음). */}
@@ -217,43 +161,4 @@ export default function Home() {
       </StudentProvider>
     </>
   );
-}
-
-function PageRouter({ activePage, onNavigate }) {
-  switch (activePage) {
-    case 'home': return <PortalHome onNavigate={onNavigate} />;
-    case 'dash1': return <Tier1Dashboard onNavigate={onNavigate} />;
-    case 'dash2': return <Tier2Dashboard onNavigate={onNavigate} />;
-    case 'dash3': return <Tier3Dashboard onNavigate={onNavigate} />;
-    case 'dashIep': return <IepDashboard onNavigate={onNavigate} />;
-    case 'students': return <StudentsPage />;
-    case 'calendar': return <CalendarPage onNavigate={onNavigate} />;
-    // 0819 피드백: 저장 후 다음 단계로 바로 이동 — IEP 영역에도 StepNav + 페이지 내 CTA 배너 적용.
-    case 'startpoint': return <><StartPointPage onNavigate={onNavigate} /><StepNav flow="iep" cur="startpoint" onNavigate={onNavigate} /></>;
-    case 'observe': return <><ObservePage onNavigate={onNavigate} /><StepNav flow="tier3" cur="observe" onNavigate={onNavigate} /></>;
-    case 'qabf': return <><QabfPage onNavigate={onNavigate} /><StepNav flow="tier3" cur="qabf" onNavigate={onNavigate} /></>;
-    case 'bip': return <><BipPage onNavigate={onNavigate} /><StepNav flow="tier3" cur="bip" onNavigate={onNavigate} /></>;
-    case 'monitor': return <><MonitorPage onNavigate={onNavigate} /><StepNav flow="tier3" cur="monitor" onNavigate={onNavigate} /></>;
-    case 'eval': return <><EvalPage /><StepNav flow="tier3" cur="eval" onNavigate={onNavigate} /></>;
-    case 'iep': return <><IepPage onNavigate={onNavigate} /><StepNav flow="iep" cur="iep" onNavigate={onNavigate} /></>;
-    case 'priorIep': return <><PriorIepPage onNavigate={onNavigate} /><StepNav flow="iep" cur="priorIep" onNavigate={onNavigate} /></>;
-    case 'iepReport': return <><IepReportPage /><StepNav flow="iep" cur="iepReport" onNavigate={onNavigate} /></>;
-    case 'builder': return <BuilderPage />;
-    case 'crisis': return <CrisisPage />;
-    case 'support': return <SupportPage />;
-    case 'classpbs': return <ClassPBSPage onNavigate={onNavigate} />;
-    case 'pbssurvey': return <PbsSurveyPage />;
-    case 'schoolrules': return <SchoolRulesPage />;
-    case 'classcheck': return <ClassChecklistPage />;
-    case 'classcheck2': return <ClassFidelityPage />;
-    case 'tier2': return <Tier2Page onNavigate={onNavigate} />;
-    case 'contract': return <ContractPage />;
-    case 'tier3': return <Tier3Page onNavigate={onNavigate} />;
-    case 'videos': return <VideoLecturesPage onNavigate={onNavigate} />;
-    case 'generator': return <GeneratorPage />;
-    case 'admin': return <AdminPage />;
-    case 'qaBoard': return <QABoardPage />;
-    case 'chatExpert': return <ChatExpertPage />;
-    default: return <PortalHome onNavigate={onNavigate} />;
-  }
 }
