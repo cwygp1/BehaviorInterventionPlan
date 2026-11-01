@@ -108,7 +108,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
   }, [need, sid, doneIds, onSaved]);
 
   const setDirtyFor = useCallback((m) => (v) => setDirty((d) => (d[m] === v ? d : { ...d, [m]: v })), []);
-  const dirtyCbs = useMemo(() => ({ obs: setDirtyFor('obs'), num: setDirtyFor('num'), chk: setDirtyFor('chk') }), [setDirtyFor]);
+  const dirtyCbs = useMemo(() => ({ obs: setDirtyFor('obs'), num: setDirtyFor('num'), chk: setDirtyFor('chk'), ses: setDirtyFor('ses') }), [setDirtyFor]);
   const onChkSaved = useCallback(() => markSaved('chk'), [markSaved]);
   const onSesSaved = useCallback(() => markSaved('ses'), [markSaved]);
 
@@ -156,6 +156,8 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
   // 저장하고 닫기(또는 저장하고 다음) — 쓰던 모드를 차례로 저장. 하나라도 실패하면 멈추고 알려 준다.
   async function saveAllThen() {
     const target = confirm;
+    // 회기는 패널 안 '💾 회기 저장' 단추로만 저장된다(3단계: 쓰다 만 표시는 SessionForm onDirty) — 그 모드로 돌려보낸다.
+    if (dirty.ses) { setConfirm(null); setMode('ses'); setVisited((v) => ({ ...v, ses: true })); setErr('회기 기록은 칸 안의 ‘💾 회기 저장’ 단추로 저장해 주세요. 저장하면 다시 닫을 수 있어요.'); return; }
     const ms = ['obs', 'num', 'chk'].filter((m) => dirty[m]);
     for (const m of ms) {
       // eslint-disable-next-line no-await-in-loop
@@ -238,7 +240,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
           {visited.ses && (
             <div hidden={mode !== 'ses'}>
               <p className="kb-dnote">회기 기록은 아래 칸의 저장 단추로 저장해요. 저장하면 위 ‘회기’에 ✓가 붙어요.</p>
-              <SessionForm studentId={sid} onNavigate={onNavigate} onSaved={onSesSaved} />
+              <SessionForm studentId={sid} onNavigate={onNavigate} onSaved={onSesSaved} onDirty={dirtyCbs.ses} />
             </div>
           )}
         </div>
