@@ -14,9 +14,41 @@ import TodayPage, { StudentList } from '../pages/TodayPage';
 import { OldScreen, SubTabs } from './OldScreen';
 import ClassCicoTable from '../class/ClassCicoTable';
 import CrisisAsk from '../crisis/CrisisAsk';
+import DocsPage from '../docs/DocsPage';
+import { confirmLogout } from '../../lib/confirmLogout';
 
 // 새 디자인 본문 — 주소(route.kind)마다 무엇을 그릴지(mds/54 §3-1). 옛 화면은 OldScreen으로 통째로.
 //   모든 본문 key에 route.seq를 넣어 이동마다 다시 마운트한다(보이는 것 하나만 마운트).
+
+function ClassManage({ onNavigate, actions }) {
+  const { curYear, curClass, curSemester, students, hasSamples, clearSamples, classes } = useStudents();
+  const toast = useToast();
+  const onClear = async () => {
+    if (!window.confirm('샘플 학생 2명과 그 기록을 모두 삭제할까요?\n(선생님이 직접 등록한 학생은 그대로 남아요.)')) return;
+    try { await clearSamples(); toast('샘플을 정리했어요.'); } catch (e) { toast('샘플 삭제 실패: ' + e.message); }
+  };
+  return (
+    <div className="kb-stack">
+      <section className="kb-card" data-tour="class-manage">
+        <h3 className="kb-h3">지금 학급</h3>
+        <div className="kb-muted">{curYear}학년도 · {curClass ? curClass.name : '학급 없음'} · {curSemester}학기 · 학생 {students.length}명 · 학급 {classes.length}개</div>
+        <div className="kb-q-grp">
+          <button type="button" className="kb-btn kb-pri" onClick={actions.openManageClasses} data-tour="class-manage-open">학급·학년도 관리 열기</button>
+          <button type="button" className="kb-btn kb-out" onClick={actions.openAddStudent} disabled={!curClass}>학생 추가</button>
+          <button type="button" className="kb-btn" onClick={() => onNavigate('#students')}>학생 고치기 · 학급 옮기기</button>
+        </div>
+        <p className="kb-small">새 학년도·학급 추가, 이름 바꾸기, 지난 학년도 소그룹 가져오기는 ‘학급·학년도 관리’ 창에서 해요. 학기·학급은 위 상단의 학년도·학급 단추로 바로 바꿔요.</p>
+      </section>
+      {hasSamples && (
+        <section className="kb-card">
+          <h3 className="kb-h3">샘플 학생</h3>
+          <div className="kb-muted">구경하려고 넣은 샘플 학생이 있어요. 현황판이 샘플로 섞이지 않게 다 보셨으면 지워 주세요.</div>
+          <div><button type="button" className="kb-btn" onClick={onClear} data-tour="class-sample-clear">샘플 학생 지우기</button></div>
+        </section>
+      )}
+    </div>
+  );
+}
 
 function ClassArea({ route, onNavigate, actions }) {
   const [hint] = useNextHint();
@@ -39,55 +71,49 @@ function ClassArea({ route, onNavigate, actions }) {
             {t.label}
           </button>
         ))}
-        <button type="button" className="kb-tab" onClick={actions.openManageClasses} title="새 학년도·학급 추가, 이름 바꾸기">⚙ 학급 관리</button>
       </div>
+      {/* 현황 4종은 하위 칩으로 고르고, 고른 하나만 마운트(숨긴 탭의 gridstack 위젯 높이 0 저장 방지, mds/54 §6 위험 3) */}
       <SubTabs subs={tab.subs} cur={route.sub} onPick={(sub) => go(tab.key, sub)} hint={hint} label={tab.label + ' 안 화면'} />
       <div key={`${route.tab}|${route.sub}|${route.seq}`}>
         {/* 2단계: 매일 점검표 탭 맨 위에 다학생 표(새 기능). 소그룹·목표·교시 설정과 한 학생 자세히는 아래 기존 화면 그대로. */}
         {tab.key === 'cico' && <ClassCicoTable onNavigate={onNavigate} />}
+        {tab.key === 'manage' && <ClassManage onNavigate={onNavigate} actions={actions} />}
         <OldScreen page={route.sub} onNavigate={onNavigate} />
       </div>
     </div>
   );
 }
 
-const DOC_TILES = [
-  { sub: 'generator', desc: '가정통신문·상담 기록 등 문서 초안을 AI와 함께 만들어요.' },
-  { sub: 'builder', desc: '수업자료 요청문을 칩으로 조립해요. AI가 꺼져 있어도 요청문을 복사해 쓸 수 있어요.' },
-  { sub: 'support', desc: '양식·자료를 내려받아요.' },
-  { sub: 'videos', desc: 'PBS 영상 강의를 순서대로 봐요.' },
+// 문서·자료 — 탭(밑줄): 문서 내보내기(허브) · 문서 초안 · 수업자료 주문서 · 자료실 · 영상 강의(프로토타입 vDocs).
+const DOC_TABS = [
+  { sub: '', label: '문서 내보내기', tour: 'docs-tab-export' },
+  { sub: 'generator', label: '문서 초안' },
+  { sub: 'builder', label: '수업자료 주문서' },
+  { sub: 'support', label: '교사 지원 자료실' },
+  { sub: 'videos', label: '영상 강의실' },
 ];
 
-function DocsHub({ route, onNavigate, actions }) {
-  const { curStuId } = useStudents();
-  if (route.sub) {
-    return <div key={`${route.sub}|${route.seq}`}><OldScreen page={DOCS_SUBS[route.sub]} onNavigate={onNavigate} /></div>;
-  }
+function DocsHub({ route, onNavigate }) {
   return (
-    <div className="kb-stack">
-      <div className="kb-grid">
-        {DOC_TILES.map((d) => {
-          const id = DOCS_SUBS[d.sub];
-          return (
-            <button key={d.sub} type="button" className="kb-tile" onClick={() => onNavigate('#docs/' + d.sub)} data-tour={'nav-' + id}>
-              <b><span aria-hidden="true">{PAGE_META[id].icon}</span> {PAGE_META[id].label}</b>
-              <span>{d.desc}</span>
-            </button>
-          );
-        })}
-      </div>
-      <div className="kb-card">
-        <h2 className="kb-h3">학생별 문서</h2>
-        <div className="kb-muted">IEP 계획서·행동중재계획(BIP)·결과 보고서·가정통신문·행동 계약서는 학생 수첩의 <b>문서</b> 탭에 모여 있어요.</div>
-        <div>
+    <div>
+      <div className="kb-tabs" role="tablist" aria-label="문서·자료">
+        {DOC_TABS.map((t) => (
           <button
+            key={t.sub || 'export'}
             type="button"
-            className="kb-btn kb-out"
-            onClick={() => (curStuId ? onNavigate(`#student/${curStuId}/docs`) : actions.openPicker(null))}
+            role="tab"
+            className="kb-tab"
+            aria-selected={(route.sub || '') === t.sub}
+            onClick={() => onNavigate(t.sub ? '#docs/' + t.sub : '#docs')}
+            data-tour={t.sub ? 'nav-' + DOCS_SUBS[t.sub] : t.tour}
+            title={t.sub ? PAGE_META[DOCS_SUBS[t.sub]].title : '학생을 고르고 문서를 내보내요'}
           >
-            📄 학생 문서 열기
+            {t.label}
           </button>
-        </div>
+        ))}
+      </div>
+      <div key={`${route.sub}|${route.seq}`}>
+        {route.sub ? <OldScreen page={DOCS_SUBS[route.sub]} onNavigate={onNavigate} /> : <DocsPage mode="hub" onNavigate={onNavigate} />}
       </div>
     </div>
   );
@@ -119,47 +145,50 @@ function HelpHub({ route, onNavigate, actions }) {
     <div className="kb-stack">
       <div className="kb-grid">
         <button type="button" className="kb-tile" onClick={() => onNavigate('#help/board')} data-tour="nav-qaBoard">
-          <b>❓ 질문 게시판</b><span>사람(관리자)이 답해 드려요.</span>
+          <b>질문 게시판</b><span>사람(관리자)이 답해 드려요.</span>
         </button>
         <button type="button" className="kb-tile" onClick={() => onNavigate('#help/ai')} data-tour="nav-chatExpert">
-          <b>🗨️ AI에게 묻기</b><span>행동지원·IEP를 AI 전문가와 이야기해요.</span>
+          <b>AI에게 묻기</b><span>행동지원·IEP를 AI 전문가와 이야기해요.</span>
         </button>
         <button type="button" className="kb-tile" onClick={() => startTour()}>
-          <b>🔦 이 화면 둘러보기</b><span>지금 화면을 한 곳씩 짚어 드려요. 길잡이는 오른쪽 위 🧭 단추.</span>
+          <b>이 화면 둘러보기</b><span>지금 화면을 한 곳씩 짚어 드려요. 길잡이는 위 🧭 단추.</span>
         </button>
         <button type="button" className="kb-tile" onClick={() => openGlossary()}>
-          <b>📖 용어 사전</b><span>ABC·QABF·BIP 같은 낱말 뜻.</span>
+          <b>용어 사전</b><span>ABC·QABF·BIP 같은 낱말 뜻.</span>
         </button>
       </div>
 
-      <div className="kb-card">
-        <h2 className="kb-h3">설정</h2>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <LLMIndicator onClick={actions.openAISettings} />
-          <button type="button" className="kb-btn" onClick={actions.openAISettings}>🤖 AI 연결 설정</button>
+      <section className="kb-card">
+        <h2 className="kb-h3">보기</h2>
+        <div className="kb-q-grp" style={{ alignItems: 'center' }}>
           <div style={{ minWidth: 200 }}><FontSizeToggle /></div>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button type="button" className="kb-btn kb-out" onClick={toLegacy} disabled={busy} data-tour="kb-ui-switch">🔁 화면 모양 바꾸기 — 기존 디자인으로</button>
-          <span className="kb-small">기록은 그대로예요. 기존 디자인 왼쪽 아래 '새 디자인으로 보기'로 언제든 돌아와요.</span>
-        </div>
-        <div>
           <button type="button" className="kb-btn" onClick={() => onNavigate('#menu')}>☰ 전체 메뉴 (옛 메뉴 32화면)</button>
         </div>
-      </div>
+      </section>
 
-      <div className="kb-card">
-        <h2 className="kb-h3">계정·기타</h2>
-        <div className="kb-muted">
-          {user?.name || '선생님'} · {user?.school || '학교 미입력'}{isAdmin ? ' · 관리자' : ''} · 새 디자인{BUILD_LABEL ? ` · 빌드 ${BUILD_LABEL}` : ''}
+      {/* 도움 맨 아래 묶음(mds/54 §2-3 N7·N10, §6 위험 11): 관리자·AI 연결·약관·샘플 지우기·화면 모양·빌드 라벨·로그아웃 */}
+      <section className="kb-card kb-help-foot" data-tour="help-foot" aria-labelledby="kb-help-foot-h">
+        <h2 className="kb-h3" id="kb-help-foot-h">계정 · 설정</h2>
+        <div className="kb-user-line">
+          <span className="kb-av1" aria-hidden="true">{(user?.name || 'T').charAt(0)}</span>
+          <div>
+            <b>{user?.name || '선생님'}</b>{isAdmin ? ' · 관리자' : ''}{user?.is_demo ? ' · 체험 계정' : ''}
+            <div className="kb-small">{user?.school || '학교 미입력'} · 화면 모양: 새 디자인(new){BUILD_LABEL ? ` · 빌드 ${BUILD_LABEL}` : ''}</div>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {isAdmin && <button type="button" className="kb-btn" onClick={() => onNavigate('admin')} data-tour="nav-admin">🛡️ 가입자 관리 (관리자)</button>}
-          {hasSamples && <button type="button" className="kb-btn" onClick={onClear}>🧹 샘플 학생 지우기</button>}
-          <button type="button" className="kb-btn" onClick={actions.openTerms}>📜 이용약관 보기</button>
-          <button type="button" className="kb-btn" onClick={() => logout()}>↪ 로그아웃</button>
+        <div className="kb-q-grp">
+          {isAdmin && <button type="button" className="kb-btn" onClick={() => onNavigate('admin')} data-tour="nav-admin">가입자 관리 (관리자)</button>}
+          <button type="button" className="kb-btn" onClick={actions.openAISettings} data-tour="help-ai-settings">AI 연결 설정</button>
+          <LLMIndicator onClick={actions.openAISettings} />
         </div>
-      </div>
+        <div className="kb-q-grp">
+          <button type="button" className="kb-btn" onClick={actions.openTerms} data-tour="help-terms">이용약관 보기</button>
+          {hasSamples && <button type="button" className="kb-btn" onClick={onClear} data-tour="help-sample-clear">샘플 학생 지우기</button>}
+          {!user?.is_demo && <button type="button" className="kb-btn kb-out" onClick={toLegacy} disabled={busy} data-tour="kb-ui-switch">화면 모양 바꾸기 — 기존 디자인으로</button>}
+          <button type="button" className="kb-btn" onClick={() => { if (confirmLogout(user)) logout(); }} data-tour="help-logout">{user?.is_demo ? '체험 끝내기 (로그아웃)' : '로그아웃'}</button>
+        </div>
+        <p className="kb-small">화면 모양을 바꿔도 기록은 그대로예요. 기존 디자인 왼쪽 아래 ‘새 디자인으로 보기’로 언제든 돌아와요.</p>
+      </section>
     </div>
   );
 }

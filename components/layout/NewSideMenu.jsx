@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { MENUS, menuOf, parseHash, toNew } from '../../lib/routes';
 import { useNextHint } from '../../lib/hooks/useNextHint';
+import { confirmLogout } from '../../lib/confirmLogout';
 
 // 새 디자인 메뉴 — PC(1024px 이상)는 왼쪽 남색 세로 메뉴 248px, 태블릿·폰은 글자 있는 아래 탭바 5칸(mds/52 §5-1).
 //   맨 아래 '☰ 전체 메뉴(옛 메뉴)' = 기존 32화면 목록(#menu). 사용자 칸: 이름·학교·빌드 라벨(새 디자인 표시)·로그아웃.
@@ -65,7 +66,7 @@ export default function NewSideMenu({ route, onNavigate }) {
               <div>{user?.school || '로그인됨'}</div>
               <div style={{ fontSize: 11, opacity: 0.7 }}>새 디자인{BUILD_LABEL ? ` · 빌드 ${BUILD_LABEL}` : ''}</div>
             </div>
-            <button type="button" className="kb-btn kb-sq" style={{ background: 'transparent', color: '#fff', borderColor: 'var(--kb-navy-line)' }} onClick={() => logout()} title="로그아웃" aria-label="로그아웃">↪</button>
+            <button type="button" className="kb-btn kb-sq" style={{ background: 'transparent', color: '#fff', borderColor: 'var(--kb-navy-line)' }} onClick={() => { if (confirmLogout(user)) logout(); }} title={user?.is_demo ? '체험 끝내기' : '로그아웃'} aria-label={user?.is_demo ? '체험 끝내기(로그아웃)' : '로그아웃'}>↪</button>
           </div>
         </div>
       </aside>
