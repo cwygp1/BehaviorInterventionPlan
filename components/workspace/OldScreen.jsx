@@ -17,10 +17,14 @@ export function OldScreen({ page, onNavigate }) {
 
 // 탭 안 하위 화면 고르기(알약 칩). 옛 화면 id마다 data-tour="nav-{id}" — 길잡이가 옛 사이드바 메뉴 대신 이 칩을 짚는다.
 //   done: { [옛 id]: true } 이면 ✓ (Tier 3 흐름은 기록 기준, StepNav tier3DoneMap과 같은 판정).
-export function SubTabs({ subs, cur, onPick, done, hint, label }) {
+//   lead: { label, tour } 이면 맨 앞에 '하위 화면 없음(sub '')' 칩 하나를 더 둔다(4단계 IEP 탭 '목표 카드').
+export function SubTabs({ subs, cur, onPick, done, hint, label, lead }) {
   if (!subs || subs.length < 2) return null;
   return (
     <div className="kb-subtabs" role="group" aria-label={label || '하위 화면'}>
+      {lead && (
+        <button type="button" className="kb-chip" aria-pressed={!cur} onClick={() => onPick('')} data-tour={lead.tour}>{lead.label}</button>
+      )}
       {subs.map((id) => (
         <button
           key={id}

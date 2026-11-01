@@ -299,6 +299,37 @@
 /* 옛 화면을 접힌 줄 안에 넣을 때 가로 넘침 막기 */
 .kb-new .kb-fold2-in > * { max-width: 100%; }
 
+/* ── 4단계: IEP 목표 카드(components/iep/*) ── */
+.kb-new .kb-iep-head { align-items: center; flex-wrap: wrap; }
+.kb-new .kb-iep-head .kb-h3 { margin: 0; }
+.kb-new .kb-iep-head > .kb-small { flex: 1 1 180px; }
+.kb-new .kb-iep-top { align-items: center; flex-wrap: wrap; gap: 12px; }
+.kb-new .kb-iep-top .kb-h3 { margin: 0; min-width: 200px; }
+.kb-new .kb-iep-draft { border-left: 4px solid var(--kb-amber-ink); }
+.kb-new .kb-iep-goal { font-size: var(--kb-fs-body); line-height: 1.6; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
+.kb-new .kb-gsteps { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
+.kb-new .kb-gsteps li { flex: 1 1 120px; min-height: 44px; display: flex; align-items: center; justify-content: center; padding: 0 12px; border-radius: 12px;
+  border: 1px solid var(--kb-line); background: var(--kb-surface2); color: var(--kb-ink2); font-size: var(--kb-fs-sub); font-weight: 600; text-align: center; }
+.kb-new .kb-gsteps li.kb-gs-done { background: var(--kb-green-bg); color: var(--kb-green-ink); border-color: transparent; }
+.kb-new .kb-gsteps li.kb-gs-now { background: var(--kb-primary); color: var(--kb-on-primary); border-color: var(--kb-primary); font-weight: 700; }
+.kb-new .kb-iep-next, .kb-new .kb-iep-months, .kb-new .kb-iep-evalbox { display: flex; flex-direction: column; gap: 10px; }
+.kb-new .kb-iep-next p { margin: 0; }
+.kb-new .kb-iep-plan { background: var(--kb-surface2); border: 1px solid var(--kb-line); border-radius: 12px; padding: 12px 14px; font-size: var(--kb-fs-body); line-height: 1.55; display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
+.kb-new .kb-iep-ladder { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.kb-new .kb-iep-ladder li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border: 1px solid var(--kb-line); border-radius: 12px; padding: 8px 12px; font-size: var(--kb-fs-body); }
+.kb-new .kb-iep-ladder li .kb-grow { flex: 1 1 220px; min-width: 0; }
+.kb-new .kb-iep-guide { overflow-x: auto; max-width: 100%; }
+/* 기존 지도서 카드 부품(CurriculumGuideUnits)은 인라인 .7~.84rem — 새 디자인 14px 하한에 맞춰 덮는다(부품 파일은 그대로) */
+.kb-new .kb-iep-guide, .kb-new .kb-iep-guide * { font-size: var(--kb-fs-sub) !important; }
+/* 학생 수첩 안에서는 옛 화면 머리표(StuHero)를 숨긴다 — 수첩 머리와 겹침(이월 5-c). 프로필 수정은 프로필 탭. */
+.kb-new .kb-ws-body .stu-hero { display: none; }
+/* 설정 화면 */
+.kb-new .kb-set-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 0; border-top: 1px solid var(--kb-line); }
+.kb-new .kb-set-row:first-of-type { border-top: 0; }
+.kb-new .kb-set-row > div:first-child { flex: 1 1 260px; min-width: 0; }
+/* 글씨 크게(html[data-font=lg]) — 새 디자인 네 단 글자를 1.125배로 한꺼번에(mds/52 §7) */
+html[data-font="lg"] .kb-new { --kb-fs-title: 24.75px; --kb-fs-head: 20.25px; --kb-fs-body: 18px; --kb-fs-sub: 15.75px; }
+
 /* 폭별 보이기 */
 .kb-new .kb-show-sm { display: none !important; }
 .kb-new .kb-touch-only { display: none !important; }
