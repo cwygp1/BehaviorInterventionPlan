@@ -23,7 +23,7 @@ function titleOf(route) {
     case 'student': return '학생 수첩 · ' + (STUDENT_TABS.find((t) => t.key === route.tab)?.label || '');
     case 'class': return '우리 반 · ' + (CLASS_TABS.find((t) => t.key === route.tab)?.label || '');
     case 'docs': return route.sub ? pageTitle(DOCS_SUBS[route.sub]) : '문서·자료';
-    case 'help': return route.sub ? pageTitle(HELP_SUBS[route.sub]) : '도움';
+    case 'help': return route.sub === 'settings' ? '도움 · 설정' : route.sub ? pageTitle(HELP_SUBS[route.sub]) : '도움';
     case 'crisis': return pageTitle('crisis');
     case 'menu': return '전체 메뉴 (옛 메뉴)';
     case 'page': return pageTitle(route.old);
@@ -112,7 +112,8 @@ export default function NewTopbar({ route, onNavigate, canGoBack, onBack, action
         <span className="kb-hide-sm"><SaveBadge activePage={route.hash} /></span>
         <HelpMenu />
         <button type="button" className="kb-btn kb-sq kb-touch-only kb-hide-sm" onClick={toAccount} title={`${user?.name || '선생님'} — 계정·설정·로그아웃`} aria-label="계정 · 설정 · 로그아웃" data-tour="kb-top-user">{(user?.name || 'T').charAt(0)}</button>
-        <button type="button" className="kb-btn kb-danger" onClick={() => onNavigate('crisis')} title="위기행동 대처 화면을 바로 열어요(학생 없이도 열려요)">🚨 급해요</button>
+        {/* 4단계: 학생 수첩에서는 수첩 머리의 🚨 급해요 하나만(두 개가 나란히 보이지 않게, 프로토타입과 같음) */}
+        {route.kind !== 'student' && <button type="button" className="kb-btn kb-danger" onClick={() => onNavigate('crisis')} title="위기행동 대처 화면을 바로 열어요(학생 없이도 열려요)">🚨 급해요</button>}
       </div>
     </div>
   );

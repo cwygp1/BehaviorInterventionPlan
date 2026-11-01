@@ -27,10 +27,11 @@ import OffscreenCharts, { OffscreenQabfChart } from '../student/OffscreenCharts'
 // 문서 내보내기 — 학생 수첩 '문서' 탭(학생 고정)과 '문서·자료' 허브(학생 고르기부터)가 같이 쓴다(3단계, mds/52 §5-1·§8).
 //   1 학생 → 2 문서 종류 카드 → 내보내기 방식 알약. 출력은 전부 기존 lib/utils 함수를 같은 입력으로 부른다(lib/docs.js).
 //   각 화면 안의 1클릭 출력 단추는 그대로 — 여기는 입구를 하나 더 둔 것.
-//   카드는 많이 쓰는 7종을 늘 보이고(행동 계약서·Tier 3 통합 문서 포함, mds/54 §2-1 #10·#14), 나머지 3종은 '다른 출력' 접힘.
+//   4단계(이월 5-a): '한 화면 카드 5장' 규칙 — 자주 쓰는 5종(IEP·BIP·결과 보고서·가정 통신문·Tier 3 통합 문서)만 늘 보이고,
+//   행동 계약서·위기 시나리오와 나머지 3종은 '더 보기' 접힘(행동 계약서는 이유·계획 탭 '함께 만들기'에도 입구가 있다).
 
-const MAIN = ['iep', 'bip', 'eval', 'letter', 'contract', 'crisis', 'tier3'];
-const MORE = ['qabf', 'dpr', 'aac'];
+const MAIN = ['iep', 'bip', 'eval', 'letter', 'tier3'];
+const MORE = ['contract', 'crisis', 'qabf', 'dpr', 'aac'];
 const curYearNow = () => new Date().getFullYear();
 
 function Dot({ tone, children }) {
@@ -346,7 +347,7 @@ export default function DocsPage({ mode = 'hub', onNavigate }) {
       <p className="kb-small">각 화면 안의 출력 단추(Word·인쇄·복사)는 그대로 있어요. 여기는 한곳에서 모아 내보내는 입구예요. 인쇄 창이 안 뜨면 주소창 오른쪽의 팝업 차단을 풀어 주세요.</p>
       <div className="kb-docs">{MAIN.map((k) => cards[k])}</div>
       <button type="button" className="kb-fold" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-tour="doc-more">
-        <span>다른 출력 3가지 — 이유 질문지(QABF) 엑셀 · 매일 점검표 카드 · AAC 카드</span>
+        <span>더 보기 5가지 — 행동 계약서 · 위기 시나리오 · 이유 질문지(QABF) 엑셀 · 매일 점검표 카드 · AAC 카드</span>
         <span className="kb-go">{moreOpen ? '접기 ▾' : '펼치기 ▸'}</span>
       </button>
       {moreOpen && <div className="kb-docs">{MORE.map((k) => cards[k])}</div>}

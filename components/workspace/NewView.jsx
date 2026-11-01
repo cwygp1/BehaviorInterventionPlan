@@ -4,7 +4,6 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useGuide } from '../guide/GuideContext';
 import LLMIndicator from '../layout/LLMIndicator';
-import FontSizeToggle from '../ui/FontSizeToggle';
 import { BUILD_LABEL } from '../layout/NewSideMenu';
 import { CLASS_TABS, DOCS_SUBS, HELP_SUBS, formatRoute } from '../../lib/routes';
 import { COMMON_MENU, SECTIONS, PAGE_META } from '../../lib/tiers';
@@ -16,6 +15,8 @@ import ClassCicoTable from '../class/ClassCicoTable';
 import CrisisAsk from '../crisis/CrisisAsk';
 import DocsPage from '../docs/DocsPage';
 import { confirmLogout } from '../../lib/confirmLogout';
+import { isSimpleMode } from '../../lib/onboarding';
+import SettingsPage from '../settings/SettingsPage';
 
 // 새 디자인 본문 — 주소(route.kind)마다 무엇을 그릴지(mds/54 §3-1). 옛 화면은 OldScreen으로 통째로.
 //   모든 본문 key에 route.seq를 넣어 이동마다 다시 마운트한다(보이는 것 하나만 마운트).
@@ -50,14 +51,23 @@ function ClassManage({ onNavigate, actions }) {
   );
 }
 
+// 4단계 설정 '점검표 묶음 접기'(users.used_tiers='3', 기존 디자인 간단 모드와 같은 값) — 접으면 이 탭들은 '더 보기' 한 칸으로.
+const CLASS_FOLDABLE = ['promise', 'cico', 'survey', 'check'];
+
 function ClassArea({ route, onNavigate, actions }) {
   const [hint] = useNextHint();
+  const { user } = useAuth();
   const tab = CLASS_TABS.find((t) => t.key === route.tab) || CLASS_TABS[0];
   const go = (tabKey, sub) => onNavigate(formatRoute({ kind: 'class', tab: tabKey, sub: sub || '' }));
+  const folded = isSimpleMode(user);
+  const [unfold, setUnfold] = useState(false);
+  // 지금 연 탭·반짝임 안내가 가리키는 탭은 접혀 있어도 보인다(길잡이·주소로 들어와도 탭이 사라지지 않게).
+  const visible = (t) => !folded || unfold || !CLASS_FOLDABLE.includes(t.key) || t.key === tab.key || (hint && t.subs.includes(hint));
+  const hiddenN = CLASS_TABS.filter((t) => !visible(t)).length;
   return (
     <div>
       <div className="kb-tabs" role="tablist" aria-label="우리 반">
-        {CLASS_TABS.map((t) => (
+        {CLASS_TABS.filter(visible).map((t) => (
           <button
             key={t.key}
             type="button"
@@ -71,6 +81,11 @@ function ClassArea({ route, onNavigate, actions }) {
             {t.label}
           </button>
         ))}
+        {folded && (hiddenN > 0 || unfold) && (
+          <button type="button" className="kb-tab" aria-expanded={unfold} onClick={() => setUnfold(!unfold)} data-tour="class-tabs-more" title="도움 › 설정 ‘점검표 묶음 접기’로 접어 둔 탭">
+            {unfold ? '점검표 묶음 접기 ▴' : `더 보기 (${hiddenN}) ▾`}
+          </button>
+        )}
       </div>
       {/* 현황 4종은 하위 칩으로 고르고, 고른 하나만 마운트(숨긴 탭의 gridstack 위젯 높이 0 저장 방지, mds/54 §6 위험 3) */}
       <SubTabs subs={tab.subs} cur={route.sub} onPick={(sub) => go(tab.key, sub)} hint={hint} label={tab.label + ' 안 화면'} />
@@ -127,6 +142,7 @@ function HelpHub({ route, onNavigate, actions }) {
   const [busy, setBusy] = useState(false);
   const isAdmin = user?.role === 'admin';
 
+  if (route.sub === 'settings') return <div key={`settings|${route.seq}`}><SettingsPage /></div>;
   if (route.sub) {
     return <div key={`${route.sub}|${route.seq}`}><OldScreen page={HELP_SUBS[route.sub]} onNavigate={onNavigate} /></div>;
   }
@@ -159,9 +175,9 @@ function HelpHub({ route, onNavigate, actions }) {
       </div>
 
       <section className="kb-card">
-        <h2 className="kb-h3">보기</h2>
+        <h2 className="kb-h3">보기 · 설정</h2>
         <div className="kb-q-grp" style={{ alignItems: 'center' }}>
-          <div style={{ minWidth: 200 }}><FontSizeToggle /></div>
+          <button type="button" className="kb-btn kb-out" onClick={() => onNavigate('#help/settings')} data-tour="help-settings-open">설정 — 화면 모양 · 점검표 묶음 접기 · 글씨 크게</button>
           <button type="button" className="kb-btn" onClick={() => onNavigate('#menu')}>☰ 전체 메뉴 (옛 메뉴 32화면)</button>
         </div>
       </section>

@@ -7,6 +7,7 @@ import DesignPicker from '../../student/DesignPicker';
 import DeadMansModal from '../../modals/DeadMansModal';
 import ObservationPeriodModal from '../../modals/ObservationPeriodModal';
 import QuickRecordDrawer from '../../quick/QuickRecordDrawer';
+import CicoRowForm from '../../record/CicoRowForm';
 import { OldScreen } from '../OldScreen';
 import Fold from './Fold';
 
@@ -119,6 +120,19 @@ export default function RecordTab({ route, onNavigate }) {
           <button type="button" className="kb-btn" onClick={() => openQuick('num')}>행동 수치</button>
           <button type="button" className="kb-btn" onClick={() => openQuick('ses')}>교수 회기</button>
         </div>
+      </section>
+
+      {/* 4단계(이월 5-d): 매일 점검표 개인 점수 — 우리 반 소그룹 학생이면 오늘 점수 칸(빠른 기록 '점검표'와 같은 폼, 고르면 자동 저장) */}
+      <section className="kb-card" data-tour="ws-rec-cico" aria-labelledby="kb-rec-cico-h">
+        <h3 className="kb-h3" id="kb-rec-cico-h">매일 점검표 — 오늘 개인 점수</h3>
+        {inGroup
+          ? <CicoRowForm studentId={curStuId} />
+          : (
+            <div className="kb-q-grp" style={{ alignItems: 'center' }}>
+              <span className="kb-muted">이 학생은 매일 점검표 소그룹에 아직 없어요. 소그룹·목표·교시는 우리 반 › 매일 점검표에서 정해요.</span>
+              <button type="button" className="kb-btn" onClick={() => onNavigate('#class/cico')}>소그룹 정하기</button>
+            </div>
+          )}
       </section>
 
       {rec.rows.length > 0 && (

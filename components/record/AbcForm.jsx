@@ -94,9 +94,10 @@ export function useAbcForm({ studentId, entryDate = null, variant = 'page' }) {
 
   // ── 작성 중 내용 자동 임시저장 (학생별, 브라우저 세션) ──────────────
   // 다른 페이지/학생을 다녀와도 작성하던 ABC 내용이 사라지지 않도록 복원한다.
-  //   빠른 기록 창도 같은 키를 쓴다(창에서 쓰다 만 내용이 기록 탭에서도 이어짐). 단 창은 시간·장소를 지난번 값으로
-  //   미리 채우므로, 사건 내용(A·B·C·배경사건)이 하나라도 있을 때만 적는다.
-  const draftKey = studentId ? `abcDraft:${studentId}` : null;
+  //   4단계(이월 5-e): 빠른 기록 창은 따로 abcQuickDraft:학생id를 쓴다. 같은 키를 쓰면 기록 탭에서 아래 관찰 화면과 창이 동시에
+  //   떠 있을 때 두 폼이 한 자리를 번갈아 덮고, 창에서 저장해 지운 초안을 아래 화면이 다시 써 넣어 같은 사건을 두 번 저장할 수 있었다.
+  //   창은 시간·장소를 지난번 값으로 미리 채우므로, 사건 내용(A·B·C·배경사건)이 하나라도 있을 때만 적는다.
+  const draftKey = studentId ? `${quick ? 'abcQuickDraft' : 'abcDraft'}:${studentId}` : null;
   const restoredRef = useRef(false);
   useEffect(() => {
     if (!draftKey) return;
