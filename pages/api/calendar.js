@@ -78,7 +78,7 @@ async function runQueries(userId, classId, readFrom, to, schoolYear, semester) {
           AND (p.end_date IS NULL OR p.end_date >= ${readFrom}::date)) AS periods,
       (SELECT COALESCE(json_agg(json_build_object('subject', g.subject, 'monthly', g.monthly) ORDER BY g.id), '[]'::json)
          FROM iep_goals g
-        WHERE g.student_id = s.id AND g.semester = ${semester}
+        WHERE g.student_id = s.id AND g.semester = ${semester} AND g.status <> 'draft'
           AND g.school_year IN (${schoolYear}, 0)) AS iep
     FROM students s
     WHERE s.user_id = ${userId} AND (${classId}::int IS NULL OR s.class_id = ${classId}::int)

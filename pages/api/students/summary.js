@@ -1,5 +1,6 @@
 import { sql } from '../../../lib/db';
 import { requireAuth } from '../../../lib/auth';
+import { ensureIepStatusColCached } from '../../../lib/ensureSchema';
 
 // GET /api/students/summary
 //
@@ -24,6 +25,8 @@ export default requireAuth(async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   const userId = req.userId;
+  // 1101: 초안 상태 열 자가 치유(첫 요청 1번) — 실패해도 아래 쿼리가 알려 준다.
+  try { await ensureIepStatusColCached(); } catch (_e) { /* noop */ }
   try {
     const [summaryRes, recentRes] = await Promise.all([
       sql`
@@ -32,7 +35,9 @@ export default requireAuth(async function handler(req, res) {
           COALESCE((SELECT COUNT(*) FROM abc_records      WHERE student_id = s.id), 0)::int AS abc_count,
           COALESCE((SELECT COUNT(*) FROM monitor_records  WHERE student_id = s.id), 0)::int AS mon_count,
           COALESCE((SELECT COUNT(*) FROM sz_records       WHERE student_id = s.id), 0)::int AS sz_count,
-          COALESCE((SELECT COUNT(*) FROM iep_goals        WHERE student_id = s.id), 0)::int AS iep_count,
+          -- 1101(새 디자인 4단계 D1): 초안(status='draft')은 목표 수에서 뺀다 — 홈 IEP 카드·softLock·시작하기 목록 수치 불변.
+          COALESCE((SELECT COUNT(*) FROM iep_goals        WHERE student_id = s.id AND status <> 'draft'), 0)::int AS iep_count,
+          COALESCE((SELECT COUNT(*) FROM iep_goals        WHERE student_id = s.id AND status = 'draft'), 0)::int AS iep_draft_count,
           (SELECT frequency FROM monitor_records
              WHERE student_id = s.id ORDER BY date ASC,  id ASC  LIMIT 1) AS first_freq,
           (SELECT frequency FROM monitor_records
@@ -85,7 +90,8 @@ export default requireAuth(async function handler(req, res) {
         abc_count: row.abc_count,
         mon_count: row.mon_count,
         sz_count: row.sz_count,
-        iep_count: row.iep_count, // 1001(mds/46): 홈 '시작하기' 체크리스트·IEP 빈 화면 안내
+        iep_count: row.iep_count, // 1001(mds/46): 홈 '시작하기' 체크리스트·IEP 빈 화면 안내 (1101: 초안 제외)
+        iep_draft_count: row.iep_draft_count, // 1101(추가): 초안 목표 수 — 새 디자인만 읽는다
         first_freq: row.first_freq,
         last_freq: row.last_freq,
         last_beh: row.last_beh,

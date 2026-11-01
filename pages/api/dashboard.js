@@ -1,6 +1,7 @@
 import { sql } from '../../lib/db';
 import { requireAuth } from '../../lib/auth';
 import { ensureSchema } from '../../lib/ensureSchema';
+import { monthEvalTodoCount, kstToday } from '../../lib/iepCard';
 
 // GET /api/dashboard?class_id=&semester=
 // 영역별 대시보드(Tier1·2·3·IEP)가 쓰는 집계를 반·학기 기준으로 한 번에 내려준다.
@@ -53,7 +54,10 @@ async function runQueries(userId, classId, semester) {
            COALESCE(ig.goals, 0) AS iep_goals,
            COALESCE(ig.sem_goals, 0) AS iep_sem_goals,
            COALESCE(ig.monthly_filled, 0) AS iep_monthly,
-           COALESCE(ig.month_eval_missing, 0) AS iep_month_eval_missing
+           COALESCE(ig.month_eval_missing, 0) AS iep_month_eval_missing,
+           ig.month_marks AS iep_month_marks,
+           (SELECT COUNT(*)::int FROM iep_goals gd WHERE gd.student_id = s.id AND gd.status = 'draft'
+              AND (gd.school_year = (SELECT school_year FROM classes WHERE id = ${classId} AND user_id = ${userId}) OR gd.school_year = 0)) AS iep_drafts
     FROM students s
     LEFT JOIN bip_data b ON b.student_id = s.id
     LEFT JOIN qabf_data q ON q.student_id = s.id
@@ -91,9 +95,16 @@ async function runQueries(userId, classId, semester) {
                SELECT 1 FROM jsonb_array_elements(COALESCE(g.monthly,'[]'::jsonb)) e
                WHERE e->>'month' = to_char(NOW() AT TIME ZONE 'Asia/Seoul', 'FMMM')
                  AND COALESCE(e->>'eval','') = ''
-             ))::int AS month_eval_missing
+             ))::int AS month_eval_missing,
+             -- 1101(추가): 새 디자인 '이달 평가 남음' 재료 — 이번 학기 목표의 월 칸 라벨·평가 표시(lib/iepCard monthEvalTodoCount).
+             json_agg(json_build_object('semester', g.semester, 'monthly', (
+               SELECT COALESCE(json_agg(json_build_object('month', e->>'month', 'eval_at', COALESCE(e->>'eval_at', ''), 'eval_mark', COALESCE(e->>'eval_mark', ''))), '[]'::json)
+               FROM jsonb_array_elements(COALESCE(g.monthly, '[]'::jsonb)) e
+             ))) FILTER (WHERE g.semester = ${semester}) AS month_marks
       FROM iep_goals g
       WHERE g.student_id = s.id
+        -- 1101(새 디자인 4단계 D1): 초안은 목표 수·월별·이달 평가 집계에서 뺀다(IEP 현황판·검토 목록 수치 불변).
+        AND g.status <> 'draft'
         AND (g.school_year = (SELECT school_year FROM classes WHERE id = ${classId} AND user_id = ${userId})
              OR g.school_year = 0)
     ) ig ON true
@@ -207,6 +218,9 @@ export default requireAuth(async function handler(req, res) {
         startpointDone: Object.values(spData).some((v) => hasText(String(v || ''))),
         iepGoals: r.iep_goals || 0, iepSemGoals: r.iep_sem_goals || 0, iepMonthly: r.iep_monthly || 0,
         iepMonthEvalMissing: r.iep_month_eval_missing || 0,
+        // 1101(추가, 새 디자인만 읽음): 초안 목표 수 · '이달 평가 남음'(새 디자인에서 평가 표시를 안 한 이번 달 칸 수).
+        iepDrafts: r.iep_drafts || 0,
+        iepMonthEvalTodo: monthEvalTodoCount(r.iep_month_marks || [], kstToday().month),
       };
     });
 

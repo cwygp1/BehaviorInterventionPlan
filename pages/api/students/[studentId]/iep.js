@@ -1,5 +1,6 @@
 import { sql } from '../../../../lib/db';
 import { requireStudentAccess } from '../../../../lib/auth';
+import { resolveGoalStatus } from '../../../../lib/iepCard';
 
 // IEP (개별화교육계획) goals for a student. Each row = one 성취기준 기반 목표
 // with its 학기목표·현행수준·평가기준·월별 점증 계획.
@@ -50,6 +51,8 @@ export default requireStudentAccess(async function handler(req, res) {
         await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS func_plan JSONB NOT NULL DEFAULT '{}'`;
         // 0915: 기회 중 성공 횟수의 분모(5·10·20) 자가 치유.
         await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS crit_of INTEGER NOT NULL DEFAULT 10`;
+        // 1101(새 디자인 4단계, D1): 초안 상태 'active'|'draft' 자가 치유.
+        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS status VARCHAR(10) NOT NULL DEFAULT 'active'`;
 
         // 저장 값 정규화. UPDATE는 "부분 갱신": body에 없는(undefined) 필드는 기존 행 값을 유지한다.
         // 계획서 페이지 자동저장·전년도 페이지처럼 일부 필드만 보내는 호출자가 관련 성취기준·교육내용 등을
@@ -85,6 +88,9 @@ export default requireStudentAccess(async function handler(req, res) {
           chain_type: str('chain_type', 'forward'), prompt_system: str('prompt_system', 'mtl'),
           monthly: jsonArr('monthly'), semestral_eval: str('semestral_eval'),
         };
+        // 1101(D1): 월별 계획이 있으면 언제나 'active', 없으면 보낸 값 → 기존 값 → 'active'(lib/iepCard resolveGoalStatus).
+        //   옛 화면은 status를 보내지 않으므로 예전 그대로 'active'로 저장·유지된다.
+        v.status = resolveGoalStatus({ hasBodyStatus: has('status'), bodyStatus: b.status, curStatus: cur?.status, monthlyLen: JSON.parse(v.monthly).length });
 
         if (b.id) {
           const r = await sql`
@@ -103,7 +109,7 @@ export default requireStudentAccess(async function handler(req, res) {
               eval_foci = ${v.eval_foci}::jsonb,
               task_steps = ${v.task_steps}::jsonb,
               chain_type = ${v.chain_type}, prompt_system = ${v.prompt_system},
-              monthly = ${v.monthly}::jsonb, semestral_eval = ${v.semestral_eval}, updated_at = NOW()
+              monthly = ${v.monthly}::jsonb, semestral_eval = ${v.semestral_eval}, status = ${v.status}, updated_at = NOW()
             WHERE id = ${b.id} AND student_id = ${studentId}
             RETURNING *
           `;
@@ -112,9 +118,9 @@ export default requireStudentAccess(async function handler(req, res) {
         }
         const r = await sql`
           INSERT INTO iep_goals
-            (student_id, school_year, subject, grade_code, area, standard_code, standard_text, related_stds, semester, semester_goal, plop, sem_content, sem_methods, std_goals, func_plan, crit_type, crit_start, crit_end, crit_of, support_tier, tier2_group_id, eval_foci, task_steps, chain_type, prompt_system, monthly, semestral_eval, updated_at)
+            (student_id, school_year, subject, grade_code, area, standard_code, standard_text, related_stds, semester, semester_goal, plop, sem_content, sem_methods, std_goals, func_plan, crit_type, crit_start, crit_end, crit_of, support_tier, tier2_group_id, eval_foci, task_steps, chain_type, prompt_system, monthly, semestral_eval, status, updated_at)
           VALUES
-            (${studentId}, ${v.school_year}, ${v.subject}, ${v.grade_code}, ${v.area}, ${v.standard_code}, ${v.standard_text}, ${v.related_stds}::jsonb, ${v.semester}, ${v.semester_goal}, ${v.plop}, ${v.sem_content}, ${v.sem_methods}, ${v.std_goals}::jsonb, ${v.func_plan}::jsonb, ${v.crit_type}, ${v.crit_start}, ${v.crit_end}, ${v.crit_of}, ${v.support_tier}, ${v.tier2_group_id}, ${v.eval_foci}::jsonb, ${v.task_steps}::jsonb, ${v.chain_type}, ${v.prompt_system}, ${v.monthly}::jsonb, ${v.semestral_eval}, NOW())
+            (${studentId}, ${v.school_year}, ${v.subject}, ${v.grade_code}, ${v.area}, ${v.standard_code}, ${v.standard_text}, ${v.related_stds}::jsonb, ${v.semester}, ${v.semester_goal}, ${v.plop}, ${v.sem_content}, ${v.sem_methods}, ${v.std_goals}::jsonb, ${v.func_plan}::jsonb, ${v.crit_type}, ${v.crit_start}, ${v.crit_end}, ${v.crit_of}, ${v.support_tier}, ${v.tier2_group_id}, ${v.eval_foci}::jsonb, ${v.task_steps}::jsonb, ${v.chain_type}, ${v.prompt_system}, ${v.monthly}::jsonb, ${v.semestral_eval}, ${v.status}, NOW())
           RETURNING *
         `;
         return res.status(200).json({ goal: fmtRow(r.rows[0]) });

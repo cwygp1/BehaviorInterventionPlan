@@ -1,5 +1,6 @@
 import { query } from '../../lib/db';
 import { requireAuth } from '../../lib/auth';
+import { ensureIepStatusColCached } from '../../lib/ensureSchema';
 import { validateChart, normalizeChart } from '../../lib/chartCatalog';
 import { buildQuery, shapeResponse, rangeOf, STUDENTS_SQL } from '../../lib/chartSql';
 
@@ -26,6 +27,7 @@ export default requireAuth(async function handler(req, res) {
   const cfg = normalizeChart(raw);
 
   try {
+    if (cfg.source === 'iep') await ensureIepStatusColCached(); // 1101: 초안 상태 열 자가 치유(첫 요청 1번)
     const { from, to } = rangeOf(cfg, semester);
     const ctx = { userId: req.userId, classId, semester, from, to };
     const q = buildQuery(cfg, ctx);
