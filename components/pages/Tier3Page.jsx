@@ -4,21 +4,14 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { fetchIEP } from '../../lib/api/students';
-import { QABF_QUESTIONS, QABF_FUNCTION_LABELS } from '../../lib/qabf';
+import { qabfFunctionText } from '../../lib/qabf';
 import { downloadTier3Doc } from '../../lib/utils/printTier3';
 import { buildFullStudentContext } from '../../lib/tierContext';
 import { interviewProgress } from '../modals/InitialInterviewModal';
 import FoldCard from '../ui/FoldCard';
 import { pageLabel } from '../../lib/tiers';
 
-// QABF 응답(0~3, 25문항)에서 심각도 합이 가장 큰 기능(들)을 행동의 기능 문구로.
-function qabfFunctionText(responses) {
-  const totals = { attention: 0, escape: 0, sensory: 0, physical: 0, tangible: 0 };
-  (responses || []).forEach((v, i) => { if (v >= 0 && QABF_QUESTIONS[i]) totals[QABF_QUESTIONS[i].f] += v; });
-  const max = Math.max(...Object.values(totals));
-  if (max <= 0) return '';
-  return Object.keys(totals).filter((f) => totals[f] === max).map((f) => QABF_FUNCTION_LABELS[f]).join(' · ');
-}
+// qabfFunctionText(QABF 응답 → 행동의 기능 문구)는 lib/qabf.js로 옮겼다 — 새 디자인 문서 허브도 같은 함수로 Tier 3 문서를 만든다.
 
 // 0822(동료 피드백): 5단계 → 8단계 워크플로로 촘촘하게 재구성.
 // ① 확인·기본정보(초기면담지·표적행동 우선순위) → ② 표적행동 선정·조작적 정의 →
