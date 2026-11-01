@@ -62,7 +62,9 @@ const PHYS_PRINCIPLES = [
 
 const SZ_STRATEGY = ['호흡법', '그라운딩 5-4-3-2-1', '음악 듣기', '빛 차단', '무게감 담요', '스퀴즈볼', '타이머 시각화', '그림책 읽기', '점진적 이완', '산책'];
 
-export default function CrisisPage() {
+// askStudent(선택): 새 디자인(/new)의 래퍼(components/crisis/CrisisAsk.jsx)가 넘긴다 — 학생 없이 시나리오·기록을 누르면
+//   학생 고르기 창을 띄우고, 고르면(Promise true) 하려던 일을 잇는다. 없으면(기존 디자인) 예전 그대로 토스트.
+export default function CrisisPage({ askStudent } = {}) {
   const { curStu, curStuId, curStuData, updateStudentData } = useStudents();
   const toast = useToast();
   const [openStage, setOpenStage] = useState(null);
@@ -82,7 +84,7 @@ export default function CrisisPage() {
   const [busy, setBusy] = useState(false);
 
   async function onSaveSZ() {
-    if (!curStuId) { toast('학생을 먼저 선택해주세요.'); return; }
+    if (!curStuId) { if (askStudent) { askStudent(); return; } toast('학생을 먼저 선택해주세요.'); return; }
     setBusy(true);
     try {
       const body = { date: szDate, reason: szReason, in_t: szIn, out_t: szOut, strategy: szStrategy, intv: szIntv, ret: szReturn };
@@ -136,7 +138,7 @@ export default function CrisisPage() {
       {!curStu && (
         <div style={{ fontSize: '.84rem', color: '#274690', background: '#eef4ff', border: '1px solid #b9cdf0', borderRadius: 8, padding: '9px 13px', marginBottom: 12 }}>
           💡 <strong>7단계 대처·자료실·그라운딩은 학생 선택 없이</strong> 바로 볼 수 있어요.
-          <strong> 위기 시나리오 AI 생성</strong>과 <strong>심리안정실 기록</strong>은 우측 상단에서 학생을 선택하면 이용할 수 있습니다.
+          <strong> 위기 시나리오 AI 생성</strong>과 <strong>심리안정실 기록</strong>은 {askStudent ? '단추를 누르면 학생을 먼저 고르고 이어집니다.' : '우측 상단에서 학생을 선택하면 이용할 수 있습니다.'}
         </div>
       )}
 
@@ -144,15 +146,18 @@ export default function CrisisPage() {
         <button
           className="btn btn-pri"
           onClick={() => {
-            if (!curStu) { toast('학생을 먼저 선택해주세요. (우측 상단 학생 선택)'); return; }
+            if (!curStu) {
+              if (askStudent) { askStudent().then((ok) => { if (ok) openNew(); }); return; }
+              toast('학생을 먼저 선택해주세요. (우측 상단 학생 선택)'); return;
+            }
             openNew();
           }}
-          disabled={!curStu}
-          title={!curStu ? '학생을 먼저 선택해야 이용할 수 있어요' : undefined}
+          disabled={!curStu && !askStudent}
+          title={!curStu ? (askStudent ? '누르면 학생을 먼저 골라요' : '학생을 먼저 선택해야 이용할 수 있어요') : undefined}
           data-help="cr-ai"
         >🚨 위기 시나리오 AI 프롬프트</button>
         <span style={{ fontSize: '.78rem', color: 'var(--muted)' }}>
-          {curStu ? '학생 상황 묘사 → 7단계 대응 시나리오 자동 생성' : '🔒 학생 선택 후 이용 가능'}
+          {curStu ? '학생 상황 묘사 → 7단계 대응 시나리오 자동 생성' : (askStudent ? '누르면 학생을 먼저 고른 뒤 이어져요' : '🔒 학생 선택 후 이용 가능')}
         </span>
       </div>
 
@@ -262,7 +267,7 @@ export default function CrisisPage() {
       <div className="card" data-help="cr-sz-form">
         <div className="card-title">💚 심리안정실(Safety Zone) 이용 기록</div>
         {!curStu ? (
-          <div className="empty-state"><span className="emoji">👤</span>학생을 선택하면 기록을 남길 수 있습니다.</div>
+          <div className="empty-state"><span className="emoji">👤</span>학생을 선택하면 기록을 남길 수 있습니다.{askStudent && <div style={{ marginTop: 10 }}><button className="btn btn-pri" onClick={() => askStudent()}>학생 고르고 기록하기</button></div>}</div>
         ) : (
           <>
             <div className="form-row">

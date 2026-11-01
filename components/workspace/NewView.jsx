@@ -12,6 +12,8 @@ import { useNextHint } from '../../lib/hooks/useNextHint';
 import StudentWorkspace from './StudentWorkspace';
 import TodayPage, { StudentList } from '../pages/TodayPage';
 import { OldScreen, SubTabs } from './OldScreen';
+import ClassCicoTable from '../class/ClassCicoTable';
+import CrisisAsk from '../crisis/CrisisAsk';
 
 // 새 디자인 본문 — 주소(route.kind)마다 무엇을 그릴지(mds/54 §3-1). 옛 화면은 OldScreen으로 통째로.
 //   모든 본문 key에 route.seq를 넣어 이동마다 다시 마운트한다(보이는 것 하나만 마운트).
@@ -41,6 +43,8 @@ function ClassArea({ route, onNavigate, actions }) {
       </div>
       <SubTabs subs={tab.subs} cur={route.sub} onPick={(sub) => go(tab.key, sub)} hint={hint} label={tab.label + ' 안 화면'} />
       <div key={`${route.tab}|${route.sub}|${route.seq}`}>
+        {/* 2단계: 매일 점검표 탭 맨 위에 다학생 표(새 기능). 소그룹·목표·교시 설정과 한 학생 자세히는 아래 기존 화면 그대로. */}
+        {tab.key === 'cico' && <ClassCicoTable onNavigate={onNavigate} />}
         <OldScreen page={route.sub} onNavigate={onNavigate} />
       </div>
     </div>
@@ -225,7 +229,8 @@ export default function NewView({ route, onNavigate, actions }) {
     case 'help':
       return <HelpHub route={route} onNavigate={onNavigate} actions={actions} />;
     case 'crisis':
-      return <div key={route.seq}><OldScreen page="crisis" onNavigate={onNavigate} /></div>;
+      // 2단계: 학생 없이 열었을 때 저장·AI 생성 전에 학생을 묻는 래퍼(mds/54 §2-1 #31).
+      return <div key={route.seq}><CrisisAsk onNavigate={onNavigate} /></div>;
     case 'menu':
       return <FullMenu onNavigate={onNavigate} />;
     case 'page':
