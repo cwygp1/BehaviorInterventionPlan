@@ -1,7 +1,8 @@
 import { sql } from '../../../lib/db';
 import bcrypt from 'bcryptjs';
-import { signSessionToken, setAuthCookie } from '../../../lib/auth';
-import { ensureUserTierColCached, ensureUserRoleColCached, bootstrapAdminIfNone, BOOTSTRAP_ADMIN_EMAIL } from '../../../lib/ensureSchema';
+import { signSessionToken, setAuthCookie, setUiCookie, setDemoCookie } from '../../../lib/auth';
+import { ensureUserTierColCached, ensureUserRoleColCached, ensureUserUiModeColCached, bootstrapAdminIfNone, BOOTSTRAP_ADMIN_EMAIL } from '../../../lib/ensureSchema';
+import { normalizeUiMode } from '../../../lib/uiMode';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -10,6 +11,8 @@ export default async function handler(req, res) {
 
   try {
     const { email, password, name, school, consent } = req.body || {};
+    // 1101(mds/54 §4-4): 새 가입자 기본은 새 디자인. 가입 창에서 '기존 디자인'을 고르면 그대로.
+    const uiMode = normalizeUiMode((req.body || {}).ui_mode) || 'new';
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'email, password, and name are required' });
@@ -28,12 +31,13 @@ export default async function handler(req, res) {
     // 홈에서 사용 단계 선택을 유도한다.
     await ensureUserTierColCached();
     await ensureUserRoleColCached();
+    await ensureUserUiModeColCached();
     // 1001(mds/46 D3): 새 가입자는 '간단 모드'로 시작 — used_tiers='3'(IEP + Tier 3만 앞에, 나머지는 '더 보기').
     //   사이드바 아래 '모든 메뉴 보기'로 언제든 끈다(lib/onboarding.js isSimpleMode).
     const result = await sql`
-      INSERT INTO users (email, password_hash, name, school, terms_version, terms_agreed_at, user_agent, used_tiers)
-      VALUES (${email}, ${password_hash}, ${name}, ${school || ''}, ${terms_version}, NOW(), ${user_agent}, '3')
-      RETURNING id, email, name, school, used_tiers, role, terms_version, terms_agreed_at, created_at
+      INSERT INTO users (email, password_hash, name, school, terms_version, terms_agreed_at, user_agent, used_tiers, ui_mode)
+      VALUES (${email}, ${password_hash}, ${name}, ${school || ''}, ${terms_version}, NOW(), ${user_agent}, '3', ${uiMode})
+      RETURNING id, email, name, school, used_tiers, role, ui_mode, terms_version, terms_agreed_at, created_at
     `;
 
     const user = result.rows[0];
@@ -57,8 +61,10 @@ export default async function handler(req, res) {
 
     const token = signSessionToken({ sub: user.id, email: user.email });
     setAuthCookie(res, token);
+    setUiCookie(res, user.ui_mode);
+    setDemoCookie(res, false);
 
-    return res.status(201).json({ user });
+    return res.status(201).json({ user: { ...user, is_demo: false, ui_mode: user.ui_mode === 'new' ? 'new' : 'legacy' } });
   } catch (error) {
     console.error('Register error:', error);
     if (error.code === '23505') {

@@ -68,7 +68,14 @@ function NavItem({ item: it, activePage, onNavigate, hasStudent, hint, softLock 
 }
 
 export default function Sidebar({ activePage, onNavigate, open, onClose, hasStudent, sectionKey: sectionKeyProp }) {
-  const { user, logout, updateUsedTiers } = useAuth();
+  const { user, logout, updateUsedTiers, setUiMode } = useAuth();
+  // 1101(mds/54 §4-1): 새 디자인 병행 — 전환 단추. 체험 계정은 1단계에서 기존 디자인 고정이라 숨긴다.
+  const [uiBusy, setUiBusy] = useState(false);
+  const toNewDesign = async () => {
+    if (uiBusy) return;
+    setUiBusy(true);
+    try { await setUiMode('new'); } catch (e) { window.alert('화면 모양을 바꾸지 못했어요: ' + (e?.message || e)); setUiBusy(false); }
+  };
   const isAdmin = user?.role === 'admin';
   // 1001(mds/46 방법 7·D3): 간단 모드 — 새 가입자 기본. 저장은 users.used_tiers='3'(예전 Tier 스코핑 칸 재사용).
   const simple = isSimpleMode(user);
@@ -233,6 +240,13 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
           </>
         )}
         <FontSizeToggle />
+        {!user?.is_demo && (
+          <div className="sb-font">
+            <button type="button" className="sb-font-btn" onClick={toNewDesign} disabled={uiBusy} title="메뉴 5개·학생 수첩으로 정리한 새 화면으로 바꿔요 — 기록은 그대로, 언제든 되돌릴 수 있어요">
+              <span aria-hidden="true">✨</span> 새 디자인으로 보기
+            </button>
+          </div>
+        )}
         <div className="sidebar-foot">
           {/* 관리자에게만 이름 클릭 → 관리자 페이지(가입자 관리). 일반 사용자는 종전처럼 무반응.
               진입점 숨김은 UX일 뿐 — 실제 보호는 /api/admin/* 의 requireRole 서버 검사. */}

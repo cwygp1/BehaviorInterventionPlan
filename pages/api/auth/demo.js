@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { sql } from '../../../lib/db';
-import { signSessionToken, setAuthCookie, DEMO_TTL_SECONDS, getSessionFromReq } from '../../../lib/auth';
+import { signSessionToken, setAuthCookie, setDemoCookie, DEMO_TTL_SECONDS, getSessionFromReq } from '../../../lib/auth';
 import { ensureUserTierColCached, ensureUserRoleColCached, ensureUserDemoColCached } from '../../../lib/ensureSchema';
 
 // POST /api/auth/demo — 로그인 창 '▶ 3분 체험하기'(mds/46 D1, 1001 사용자 결정 '나안').
@@ -123,7 +123,9 @@ export default async function handler(req, res) {
 
     const token = signSessionToken({ sub: user.id, email: user.email, demo: true }, DEMO_TTL_SECONDS);
     setAuthCookie(res, token, DEMO_TTL_SECONDS);
-    return res.status(201).json({ user });
+    // 1101(mds/54 §1 조건 6): 체험은 1단계에서 기존 디자인 고정 — 화면 모양 쿠키(kb_ui)는 건드리지 않고 체험 표시만 켠다.
+    setDemoCookie(res, true, DEMO_TTL_SECONDS);
+    return res.status(201).json({ user: { ...user, is_demo: true, ui_mode: 'legacy' } });
   } catch (error) {
     console.error('Demo account error:', error);
     return res.status(500).json({ error: '체험 계정을 만들지 못했어요. 잠시 뒤 다시 눌러 주세요.' });

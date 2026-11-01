@@ -1,4 +1,4 @@
-import { clearAuthCookie, getSessionFromReq } from '../../../lib/auth';
+import { clearAuthCookie, getSessionFromReq, setDemoCookie } from '../../../lib/auth';
 import { sql } from '../../../lib/db';
 
 export default async function handler(req, res) {
@@ -16,5 +16,7 @@ export default async function handler(req, res) {
     console.error('Demo user delete on logout skipped:', e?.message || e);
   }
   clearAuthCookie(res);
+  // 화면 모양 쿠키(kb_ui)는 지우지 않는다 — 다음 로그인 창에 전 선택이 미리 찍힌다(mds/54 §4-1). 체험 표시만 끈다.
+  setDemoCookie(res, false);
   return res.status(200).json({ success: true });
 }

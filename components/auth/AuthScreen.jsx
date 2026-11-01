@@ -3,6 +3,30 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import LoadingOverlay from '../ui/LoadingOverlay';
 import TermsModal from './TermsModal';
+import { readUiCookie } from '../../lib/uiMode';
+
+// 화면 모양 고르기(mds/54 §4) — 라디오 2개. 기본값은 이 기기의 마지막 선택(kb_ui 쿠키),
+//   없으면 로그인=기존 디자인(쓰던 화면을 갑자기 바꾸지 않음) · 가입=새 디자인.
+function UiModePick({ value, onChange, name }) {
+  return (
+    <fieldset className="auth-ui-pick" style={{ border: 'none', padding: 0, margin: '2px 0 10px' }}>
+      <legend style={{ fontSize: '.82rem', fontWeight: 700, color: 'var(--sub)', marginBottom: 6 }}>화면 모양</legend>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '.9rem', cursor: 'pointer', minHeight: 32 }}>
+          <input type="radio" style={{ width: 18, height: 18 }} name={name} value="new" checked={value === 'new'} onChange={() => onChange('new')} /> 새 디자인
+        </label>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '.9rem', cursor: 'pointer', minHeight: 32 }}>
+          <input type="radio" style={{ width: 18, height: 18 }} name={name} value="legacy" checked={value === 'legacy'} onChange={() => onChange('legacy')} /> 기존 디자인
+        </label>
+      </div>
+      <div style={{ fontSize: '.76rem', color: 'var(--muted)', marginTop: 2 }}>
+        {value === 'legacy'
+          ? '✨ 새 디자인 써 보기 — 메뉴 5개와 학생 수첩으로 정리한 화면이에요. 언제든 다시 바꿀 수 있어요.'
+          : '처음이면 새 디자인을 권해요 · 언제든 기존 디자인으로 바꿀 수 있어요.'}
+      </div>
+    </fieldset>
+  );
+}
 
 export default function AuthScreen() {
   const { login, signup, startDemo } = useAuth();
@@ -11,6 +35,13 @@ export default function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const [busyMsg, setBusyMsg] = useState('');
   const [termsOpen, setTermsOpen] = useState(false);
+  // 화면 모양 — 쿠키는 그린 뒤에 읽는다(서버 그림과 어긋나지 않게).
+  const [uiLogin, setUiLogin] = useState('legacy');
+  const [uiSignup, setUiSignup] = useState('new');
+  useEffect(() => {
+    const last = readUiCookie();
+    if (last) { setUiLogin(last); setUiSignup(last); }
+  }, []);
 
   // 체험을 마치고 '내 계정 만들기'를 누르면 회원가입 탭으로 연다(DemoPlayer가 표시를 남김).
   useEffect(() => {
@@ -49,7 +80,7 @@ export default function AuthScreen() {
     setBusy(true);
     setBusyMsg('로그인 중입니다...');
     try {
-      await login(loginEmail.trim(), loginPw);
+      await login(loginEmail.trim(), loginPw, uiLogin);
     } catch (err) {
       toast('로그인 실패: ' + err.message);
     } finally {
@@ -76,6 +107,7 @@ export default function AuthScreen() {
         name: suName.trim(),
         school: suSchool.trim(),
         consent: { terms_version: 'v1.0', user_agent: navigator.userAgent.slice(0, 300) },
+        ui_mode: uiSignup,
       });
       toast(suName + ' 선생님, 환영합니다!');
     } catch (err) {
@@ -100,7 +132,7 @@ export default function AuthScreen() {
             <div className="auth-demo-t">처음이세요? 가입 없이 먼저 보세요</div>
             <div className="auth-demo-d">화면이 저절로 움직이며 학생 등록 → 행동 기록 → IEP 목표 → 그래프까지 3분 안에 보여 드려요. 언제든 멈추고 직접 해 볼 수 있어요.</div>
             <button type="button" className="auth-demo-btn" onClick={onDemo} disabled={busy}>▶ 3분 체험하기</button>
-            <div className="auth-demo-note">체험 기록은 24시간 뒤 자동으로 지워져요. 체험에서 만든 학생·기록은 가입 계정으로 옮겨지지 않아요.</div>
+            <div className="auth-demo-note">체험은 기존 디자인으로 열려요. 체험 기록은 24시간 뒤 자동으로 지워져요. 체험에서 만든 학생·기록은 가입 계정으로 옮겨지지 않아요.</div>
             {/* 1009(mds/48): 시연 대본은 컴퓨터 화면 기준 — 좁은 화면에서는 단추를 숨기고 안내만(CSS .auth-demo-mobile) */}
             <div className="auth-demo-mobile">📺 체험 시연은 <strong>컴퓨터 화면</strong>에서 볼 수 있어요. 휴대폰·태블릿 세로 화면에서는 가입 뒤 바로 써 보세요.</div>
           </div>
@@ -121,6 +153,7 @@ export default function AuthScreen() {
                 <label>비밀번호</label>
                 <input type="password" value={loginPw} onChange={(e) => setLoginPw(e.target.value)} placeholder="••••••••" required />
               </div>
+              <UiModePick name="ui-login" value={uiLogin} onChange={setUiLogin} />
               <button type="submit" className="auth-btn" disabled={busy}>
                 {busy ? <><span className="btn-spinner" /><span>로그인 중...</span></> : '로그인하기'}
               </button>
@@ -139,6 +172,7 @@ export default function AuthScreen() {
                   <button type="button" className="terms-link" onClick={() => setTermsOpen(true)}>전문 보기</button>
                 </label>
               </div>
+              <UiModePick name="ui-signup" value={uiSignup} onChange={setUiSignup} />
               <button type="submit" className="auth-btn" disabled={busy}>
                 {busy ? <><span className="btn-spinner" /><span>가입 중...</span></> : '가입하고 시작하기'}
               </button>

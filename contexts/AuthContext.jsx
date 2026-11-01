@@ -10,7 +10,23 @@ const AuthContext = createContext({
   refresh: async () => {},
   updateUsedTiers: async () => {},
   startDemo: async () => {},
+  setUiMode: async () => {},
 });
+
+// 로그아웃 때 이 탭에 남은 화면 상태(kb_* sessionStorage)를 지운다 — 공용 PC에서 다음 교사가 전 사람의
+//   길잡이·하위 탭 상태로 들어가지 않게(mds/54 N8). 체험 끝 '내 계정 만들기'가 남긴 가입 탭 표시는 남긴다.
+//   화면 모양 쿠키(kb_ui)는 지우지 않는다(다음 로그인 창의 기본 선택).
+const KEEP_ON_LOGOUT = ['kb_auth_tab'];
+function clearTabState() {
+  try {
+    const keys = [];
+    for (let i = 0; i < sessionStorage.length; i += 1) {
+      const k = sessionStorage.key(i);
+      if (k && k.startsWith('kb_') && !KEEP_ON_LOGOUT.includes(k)) keys.push(k);
+    }
+    keys.forEach((k) => sessionStorage.removeItem(k));
+  } catch (_e) { /* 사생활 모드 */ }
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -44,8 +60,11 @@ export function AuthProvider({ children }) {
     refresh();
   }, [refresh]);
 
-  const login = useCallback(async (email, password) => {
-    const data = await api('/api/auth/login', 'POST', { email, password });
+  // uiMode: 로그인 창에서 고른 화면 모양('new' | 'legacy', mds/54 §4). 없으면 계정에 저장된 값.
+  const login = useCallback(async (email, password, uiMode) => {
+    const body = { email, password };
+    if (uiMode) body.ui_mode = uiMode;
+    const data = await api('/api/auth/login', 'POST', body);
     setUser(data.user);
     setStatus('authed');
     return data.user;
@@ -78,18 +97,27 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  // 화면 모양 바꾸기(mds/54 §4-1 전환 단추) — 서버가 계정 값·kb_ui 쿠키를 함께 바꾼다.
+  //   돌려받은 user.ui_mode가 바뀌면 pages/index.js·pages/new.js가 알맞은 쪽으로 옮긴다.
+  const setUiMode = useCallback(async (mode) => {
+    const data = await api('/api/me', 'PATCH', { ui_mode: mode });
+    setUser(data.user);
+    return data.user;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
     } catch (_e) {
       // Network failure — clear local state anyway.
     }
+    clearTabState();
     setUser(null);
     setStatus('guest');
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, status, login, signup, logout, refresh, updateUsedTiers, startDemo }}>
+    <AuthContext.Provider value={{ user, status, login, signup, logout, refresh, updateUsedTiers, startDemo, setUiMode }}>
       {children}
     </AuthContext.Provider>
   );
