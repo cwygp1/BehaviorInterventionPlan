@@ -9,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
 import { fetchIEP, saveIEPGoal } from '../../lib/api/students';
+import { activeGoals } from '../../lib/iepCard';
 import { downloadNiceIepDocx } from '../../lib/utils/niceIepDocx';
 import { buildNeisGoalText, buildNeisAllText, copyToClipboard } from '../../lib/utils/neisCopy';
 import useAutoSave from '../../lib/hooks/useAutoSave';
@@ -50,7 +51,8 @@ export default function IepReportPage() {
     if (!curStuId) { setGoals([]); savedMapRef.current = {}; return; }
     setLoading(true);
     fetchIEP(curStuId).then((d) => {
-      const list0 = d.goals || [];
+      // 1101(새 디자인 4단계): 초안(학기목표만, 월별 계획 없음)은 계획서·나이스 복사·Word에서 뺀다 — 초안은 ③ 목표 만들기에 '초안' 배지로 보인다.
+      const list0 = activeGoals(d.goals);
       setGoals(list0);
       savedMapRef.current = Object.fromEntries(list0.map((g) => [g.id, JSON.stringify(goalBody(g))]));
     }).catch(() => toast('IEP 목표를 불러오지 못했습니다.')).finally(() => setLoading(false));

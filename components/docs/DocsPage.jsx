@@ -3,6 +3,7 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { fetchIEP } from '../../lib/api/students';
+import { activeGoals } from '../../lib/iepCard';
 import { buildFullStudentContext } from '../../lib/tierContext';
 import {
   DOC_KINDS, docKind, iepFilter, iepYears, niceWordPayload, formWordPayload, taskGoals, taskSheetPayload,
@@ -106,7 +107,8 @@ export default function DocsPage({ mode = 'hub', onNavigate }) {
     setGoals(null); setTaskGoalId(''); setLetterId(''); setCrisisId(''); setEvalStep(''); setEvalRefs(null); setQabfRun(0);
     if (!curStuId) return undefined;
     let alive = true;
-    fetchIEP(curStuId).then((d) => { if (alive) setGoals(d.goals || []); }).catch(() => { if (alive) setGoals([]); });
+    fetchIEP(curStuId).then((d) => { if (alive) setGoals(activeGoals(d.goals)); }) // 4단계: 초안 목표는 출력에서 뺀다
+      .catch(() => { if (alive) setGoals([]); });
     return () => { alive = false; };
   }, [curStuId]);
 
@@ -196,7 +198,7 @@ export default function DocsPage({ mode = 'hub', onNavigate }) {
         await wrap(async () => {
           const data = curStuData;
           let gs = [];
-          try { const d = await fetchIEP(curStuId); gs = d.goals || []; } catch (_) { /* IEP 미작성 가능 */ }
+          try { const d = await fetchIEP(curStuId); gs = activeGoals(d.goals); } catch (_) { /* IEP 미작성 가능 */ }
           const { linkage } = await buildFullStudentContext({ student: stu, studentId: curStuId, data, tier2Groups, semester: curSemester });
           downloadTier3Doc(tier3Payload({ stu, user, goals: gs, data, linkage }));
           toast('Tier 3 통합 문서(Word)를 생성했어요.', 'success');

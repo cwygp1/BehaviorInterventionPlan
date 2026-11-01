@@ -37,6 +37,7 @@ import NextStepBanner, { useSavedFlag, hintNextStep } from '../ui/NextStepBanner
 import { GRADES_BY_LEVEL } from '../modals/EditStudentModal';
 import { levelLabel as schoolLevelLabel, levelGradeLabel, gradePresetFor as levelGradePreset, allowedGradeCodesFor } from '../../lib/schoolLevel';
 import { escortSignal } from '../../lib/escortSignal';
+import { isDraft, activeGoals, IEP_OPEN_KEY } from '../../lib/iepCard';
 
 const GRADE = { 0: '일상생활(공통)', 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '초등학교 5~6학년', 9: '중학교 1~3학년', 12: '고등학교 1~3학년' };
 const GORDER = [2, 4, 6, 9, 12];
@@ -600,6 +601,27 @@ export default function IepPage({ onNavigate }) {
     setGoalsLoading(true);
     fetchIEP(curStuId).then((d) => setSavedGoals(d.goals || [])).catch(() => {}).finally(() => setGoalsLoading(false));
   }, [curStuId]);
+
+  // 1101(새 디자인 4단계): 목표 카드의 '자세히 고치기(기존 화면)'·'월별 계획 만들기'가 남긴 요청(sessionStorage kb_iep_open
+  //   = {sid, goalId, gen}) — 목표·성취기준 목록이 오면 그 목표를 ✏ 수정과 똑같이 불러오고, gen='rule'이면 규칙 초안을 한 번 만든다.
+  //   요청이 없으면 아무 일도 하지 않는다(기존 디자인에서는 이 키를 쓰는 곳이 없다).
+  const openReqRef = useRef(null);
+  useEffect(() => {
+    if (!curStuId || goalsLoading || !savedGoals.length || !rows.length) return;
+    let req = null;
+    try { req = JSON.parse(sessionStorage.getItem(IEP_OPEN_KEY) || 'null'); } catch (_) { req = null; }
+    if (!req || Number(req.sid) !== curStuId) return;
+    try { sessionStorage.removeItem(IEP_OPEN_KEY); } catch (_) { /* 무시 */ }
+    const g = savedGoals.find((x) => x.id === Number(req.goalId));
+    if (!g) return;
+    loadGoal(g);
+    if (req.gen === 'rule') openReqRef.current = g.id;
+  }, [curStuId, goalsLoading, savedGoals, rows.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!openReqRef.current || editingId !== openReqRef.current) return;
+    openReqRef.current = null;
+    if (!monthly.length) generate();
+  }, [editingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 0916: 저장된 목표가 오면 이 학생의 올해 목표 방식으로 화면을 연다(편집 중이거나 교사가 직접 고른 뒤에는 건드리지 않는다).
   useEffect(() => {
@@ -2311,8 +2333,9 @@ export default function IepPage({ onNavigate }) {
   }
 
   // 나이스 양식(학기별/월별/평가계획) 진짜 .docx 내보내기 — 깨짐 없이 열린다.
-  function exportNiceWord(goals) {
-    if (!goals.length) { toast('저장된 IEP 목표가 없습니다. 먼저 저장하세요.'); return; }
+  function exportNiceWord(goals0) {
+    const goals = activeGoals(goals0); // 1101(새 디자인 4단계): 초안(월별 계획 없음)은 내보내지 않는다
+    if (!goals.length) { toast(goals0.length ? '초안 목표는 월별 계획을 만든 뒤 내보낼 수 있어요.' : '저장된 IEP 목표가 없습니다. 먼저 저장하세요.'); return; }
     downloadNiceIepDocx({
       student: { code: curStu.code, level: curStu.level, grade: curStu.grade },
       teacherName: user?.name || '',
@@ -2322,8 +2345,9 @@ export default function IepPage({ onNavigate }) {
   }
 
   // 평가초점 연수자료 양식(생활지원/교과 중심)대로 Word 내보내기 — 진짜 .docx (0824)
-  function exportFormWord(goals) {
-    if (!goals.length) { toast('저장된 IEP 목표가 없습니다. 먼저 저장하세요.'); return; }
+  function exportFormWord(goals0) {
+    const goals = activeGoals(goals0); // 1101(새 디자인 4단계): 초안은 내보내지 않는다
+    if (!goals.length) { toast(goals0.length ? '초안 목표는 월별 계획을 만든 뒤 내보낼 수 있어요.' : '저장된 IEP 목표가 없습니다. 먼저 저장하세요.'); return; }
     downloadIepFormDocx({
       student: { code: curStu.code, level: curStu.level, grade: curStu.grade, disability: curStu.disability },
       teacherName: user?.name || '',
@@ -2774,6 +2798,7 @@ export default function IepPage({ onNavigate }) {
             <div key={g.id} data-help="iep-saved-row" style={{ border: '1px solid ' + (editingId === g.id ? '#7c4dff' : '#e3e6eb'), background: editingId === g.id ? '#f5f0ff' : '#fff', borderRadius: 9, padding: '10px 12px', marginTop: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <div style={{ minWidth: 220, flex: 1 }}>
+                  {isDraft(g) && <span className="badge badge-warn" style={{ marginBottom: 3 }} title="새 디자인에서 학기목표만 적어 둔 목표 — 월별 계획을 만들어 저장하면 '저장됨'이 돼요">초안 (월별 계획 전)</span>}
                   <div style={{ fontSize: 12, color: '#3b6ef5', fontWeight: 700 }}>{g.standard_code ? `[${g.standard_code}]` : '성취기준 없음'}{Array.isArray(g.related_stds) && g.related_stds.length ? ` 외 ${g.related_stds.length}개` : ''} {g.subject}{g.area ? ' · ' + g.area : ''}{g.subject && GRADE[g.grade_code] ? ' · ' + GRADE[g.grade_code] : ''} · {g.semester}학기</div>
                   <div style={{ fontSize: 13, marginTop: 3 }}>{g.semester_goal}</div>
                   <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 3 }}>월별 {Array.isArray(g.monthly) ? g.monthly.length : 0}개월{critSummary(g)} · 수정 {g.updated_at}</div>

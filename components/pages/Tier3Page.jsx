@@ -4,6 +4,7 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { fetchIEP } from '../../lib/api/students';
+import { activeGoals } from '../../lib/iepCard';
 import { qabfFunctionText } from '../../lib/qabf';
 import { downloadTier3Doc } from '../../lib/utils/printTier3';
 import { buildFullStudentContext } from '../../lib/tierContext';
@@ -87,7 +88,7 @@ export default function Tier3Page({ onNavigate }) {
     try {
       const data = curStuData || (await ensureStudentData(curStuId));
       let goals = [];
-      try { const d = await fetchIEP(curStuId); goals = d.goals || []; } catch (_) { /* IEP 미작성 가능 */ }
+      try { const d = await fetchIEP(curStuId); goals = activeGoals(d.goals); } catch (_) { /* IEP 미작성 가능 */ } // 1101: 초안 목표 제외
       // Tier 1(학급 보편)·Tier 2(소그룹/CICO) 연동 맥락을 문서에 함께 내보낸다.
       const { linkage } = await buildFullStudentContext({ student: curStu, studentId: curStuId, data, tier2Groups, semester: curSemester });
       downloadTier3Doc({
