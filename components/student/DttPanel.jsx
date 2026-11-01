@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { escortSignal } from '../../lib/escortSignal';
 import { useEntryDate } from '../../lib/hooks/useEntryDate';
 import {
   fetchIEP, fetchSessions, createSession, updateSession, deleteSession,
@@ -139,6 +140,7 @@ export default function DttPanel() {
         const next = [...sessions, saved].sort((a, b) => (a.date + String(a.session_no).padStart(3, '0')).localeCompare(b.date + String(b.session_no).padStart(3, '0')));
         setSessions(next); resetForm(next.filter((s) => s.kind === 'dtt' && String(s.program_id) === programId));
       }
+      escortSignal('session-saved'); // 새 디자인 빠른 기록 창 '✓ 저장함' 표시(components/record/SessionForm.jsx)
       toast(`${saved.date} ${saved.session_no}회기 ${editingId ? '고침' : '저장'} · ${isCount ? countText(saved.correct_count, saved.scored_count) + ' 성공' : `독립 수행 ${saved.pct}%`}`);
     } catch (e) { toast('저장 실패: ' + e.message); }
     finally { setBusy(false); }

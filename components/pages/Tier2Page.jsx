@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import StuHero from '../student/StuHero';
 import Tier2GroupPanel from '../student/Tier2GroupPanel';
 import { useStudents } from '../../contexts/StudentContext';
@@ -6,46 +6,14 @@ import { useToast } from '../../contexts/ToastContext';
 import { useEntryDate } from '../../lib/hooks/useEntryDate';
 import { semesterOf } from '../../lib/utils/calendarRules';
 import { useLLM } from '../../contexts/LLMContext';
-import { saveCICO, deleteCICO } from '../../lib/api/students';
-import { useAutoSaveBody } from '../../lib/hooks/useAutoSave';
-import { printDPRCard } from '../../lib/utils/printDPR';
-import { EditableChipGroup } from '../ui/QChip';
+import { deleteCICO } from '../../lib/api/students';
 import AIActionBar from '../ui/AIActionBar';
 import PromptResultBlock from '../modals/PromptResultBlock';
-import { isSecondary } from '../../lib/schoolLevel';
+import { useCicoForm, CicoDailyCard, SCORE_COLORS, readPeriodData } from '../record/CicoRowForm';
 
 // 행동 계약서는 Tier 2 독립 메뉴(ContractPage)로 분리 (0827 동료 피드백).
-
-const PRESETS = {
-  '초등 (7교시 + 종례)': ['1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '종례'],
-  '중·고등 (8교시 + 종례)': ['1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '7교시', '8교시', '종례'],
-  '오전 4교시': ['1교시', '2교시', '3교시', '4교시'],
-  '오후 4교시': ['5교시', '6교시', '7교시', '종례'],
-};
-
-const SCORES = [3, 2, 1, 0];
-const SCORE_COLORS = { 3: '#0a7d4e', 2: '#12b886', 1: '#f59f00', 0: '#ef476f' };
-const SCORE_LABELS = { 3: '매우 잘함', 2: '잘함', 1: '노력 필요', 0: '못함' };
-
-const COMMON_GOALS = [
-  '자리에 앉아 과제 수행', '교사 지시 1회 따르기', '또래에게 친절한 말 사용',
-  '시각 일과표 확인', '쉬어 카드 사용', '도와주세요 카드 사용',
-  '활동 전환 시 따라가기', '4:1 긍정 행동',
-];
-
-function defaultPeriods(level) {
-  return isSecondary(level) // 1020: 전공과 포함
-    ? PRESETS['중·고등 (8교시 + 종례)']
-    : PRESETS['초등 (7교시 + 종례)'];
-}
-
-// Normalize legacy score values (number) into { score, comment } shape.
-function readPeriodData(scores, periodName) {
-  const v = scores?.[periodName];
-  if (v == null) return { score: null, comment: '' };
-  if (typeof v === 'object') return { score: v.score ?? null, comment: v.comment || '' };
-  return { score: Number(v), comment: '' };
-}
+// 하루치 입력 폼(날짜·목표·교시·점수·코멘트·자동 저장)과 교시 프리셋·점수 색은 components/record/CicoRowForm.jsx로 옮겼다
+// (새 디자인 2단계 — 빠른 기록 창과 같은 폼·같은 저장).
 
 export default function Tier2Page({ onNavigate }) {
   const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData, curClassId, tier2Groups, curYear, curSemester, selectSemester } = useStudents();
@@ -57,15 +25,9 @@ export default function Tier2Page({ onNavigate }) {
   const [aiBusy, setAiBusy] = useState(false);
 
   const entryDate = useEntryDate('tier2'); // 기록 달력에서 고른 날짜(mds/33)
-  const [date, setDate] = useState(() => entryDate || new Date().toISOString().slice(0, 10));
-  const [goalsInput, setGoalsInput] = useState('');
-  const [goals, setGoals] = useState([]);
-  const [periodList, setPeriodList] = useState([]);
-  const [scores, setScores] = useState({}); // { periodName: { score, comment } }
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
-  const [comment, setComment] = useState('');
-  const [busy, setBusy] = useState(false);
+  // 하루치 입력 폼 — 옮기기 전과 같은 자리(페이지 맨 위 훅)에서 지금 학생으로 부른다.
+  const cf = useCicoForm({ studentId: curStuId, entryDate });
+  const { date, setDate, goals } = cf;
   const [expandedHist, setExpandedHist] = useState(null);
   const [groupId, setGroupId] = useState(null); // 현재 선택된 Tier 2 소그룹
 
@@ -102,54 +64,6 @@ export default function Tier2Page({ onNavigate }) {
   useEffect(() => { setAiOutput(''); setAiBusy(false); }, [curStuId]);
 
   const cicoRecords = curStuData?.cico || [];
-  const todayRecord = cicoRecords.find((r) => r.date === date);
-  // 자동 저장 무장 시점 + 폼 재초기화 트리거(삭제 등) — resetTick을 올리면 기준값 재무장.
-  const [cicoLoaded, setCicoLoaded] = useState(false);
-  const [resetTick, setResetTick] = useState(0);
-
-  // Load existing record OR initialize defaults for new entries.
-  // ⚠ 자동 저장 도입(0824): 저장 때마다 캐시가 갱신되는데, 그때마다 이 로더가
-  //   재실행되면 저장 요청 중 입력한 값이 되돌아간다 → 날짜·학생·데이터 도착
-  //   시에만 실행 (deps에서 todayRecord/cicoRecords.length 제외).
-  useEffect(() => {
-    setCicoLoaded(false);
-    if (!curStuId || !curStuDataLoaded) return;
-    const recs = curStuData?.cico || [];
-    const today = recs.find((r) => r.date === date);
-    if (today) {
-      setGoals(today.goals || []);
-      setPeriodList(
-        today.periods?.length
-          ? today.periods
-          : Object.keys(today.scores || {}) // legacy fallback
-              .filter((k) => k !== '_periods')
-      );
-      setScores(today.scores || {});
-      setCheckIn(today.check_in_time || '');
-      setCheckOut(today.check_out_time || '');
-      setComment(today.comment || '');
-    } else {
-      // For a new entry, copy structure from the most recent record (so the
-      // teacher doesn't have to re-define periods every day) — fall back to
-      // level-based defaults.
-      const last = recs[0];
-      const lastPeriods = last?.periods?.length ? last.periods : null;
-      setGoals([]);
-      setPeriodList(lastPeriods || defaultPeriods(curStu?.level));
-      setScores({});
-      setCheckIn(''); setCheckOut(''); setComment('');
-    }
-    setCicoLoaded(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, curStuId, curStuDataLoaded, resetTick]);
-
-  // 자동 저장(0824) — 오늘 기록이 로드 시점과 달라지면 입력이 멎은 뒤 upsert 저장.
-  const { dirty: cicoDirty } = useAutoSaveBody({
-    enabled: !!curStuId && cicoLoaded,
-    resetKey: `${curStuId}:${date}:${resetTick}`,
-    body: { date, goals, periods: periodList, scores: buildCleanScores(), check_in_time: checkIn, check_out_time: checkOut, comment },
-    save: saveCore,
-  });
 
   if (!curClassId) {
     return (
@@ -161,102 +75,6 @@ export default function Tier2Page({ onNavigate }) {
     );
   }
 
-  function addGoal(text) {
-    const t = text.trim();
-    if (!t) return;
-    if (goals.includes(t)) { toast('이미 추가된 목표입니다.'); return; }
-    setGoals((g) => [...g, t]);
-    setGoalsInput('');
-  }
-  function removeGoal(i) { setGoals((g) => g.filter((_, idx) => idx !== i)); }
-
-  function setScore(period, val) {
-    setScores((prev) => {
-      const cur = readPeriodData(prev, period);
-      const next = { ...prev };
-      next[period] = { score: cur.score === val ? null : val, comment: cur.comment };
-      return next;
-    });
-  }
-  function setPeriodComment(period, text) {
-    setScores((prev) => {
-      const cur = readPeriodData(prev, period);
-      return { ...prev, [period]: { score: cur.score, comment: text } };
-    });
-  }
-
-  function addPeriod() {
-    setPeriodList((p) => [...p, `${p.length + 1}교시`]);
-  }
-  function renamePeriod(i, newName) {
-    const oldName = periodList[i];
-    if (!newName.trim() || oldName === newName) return;
-    setPeriodList((p) => p.map((x, idx) => idx === i ? newName : x));
-    if (scores[oldName] != null) {
-      setScores((s) => {
-        const next = { ...s };
-        next[newName] = next[oldName];
-        delete next[oldName];
-        return next;
-      });
-    }
-  }
-  function removePeriod(i) {
-    const name = periodList[i];
-    setPeriodList((p) => p.filter((_, idx) => idx !== i));
-    setScores((s) => {
-      const next = { ...s }; delete next[name]; return next;
-    });
-  }
-  function applyPreset(presetName) {
-    const list = PRESETS[presetName];
-    if (!list) return;
-    if (Object.keys(scores).length > 0 && !window.confirm('기존 입력된 점수가 새 교시 구성에 맞지 않으면 사라질 수 있습니다. 계속할까요?')) return;
-    setPeriodList(list);
-    // Keep scores only for periods that still exist
-    setScores((s) => Object.fromEntries(Object.entries(s).filter(([k]) => list.includes(k))));
-  }
-
-  // Compute totals (using only filled periods)
-  const filledScores = periodList.map((p) => readPeriodData(scores, p)).filter((d) => d.score != null);
-  const total = filledScores.reduce((a, d) => a + (Number(d.score) || 0), 0);
-  const max = filledScores.length * 3;
-  const pct = max ? Math.round((total / max) * 100) : 0;
-
-  // Clean scores: only include periods that have at least a score or comment.
-  // (함수 선언 호이스팅으로 위 useAutoSaveBody의 body에서도 참조 가능)
-  function buildCleanScores() {
-    const cleanScores = {};
-    periodList.forEach((p) => {
-      const d = readPeriodData(scores, p);
-      if (d.score != null || (d.comment && d.comment.trim())) {
-        cleanScores[p] = { score: d.score, comment: d.comment || '' };
-      }
-    });
-    return cleanScores;
-  }
-
-  async function saveCore() {
-    const res = await saveCICO(curStuId, {
-      date, goals, periods: periodList, scores: buildCleanScores(),
-      check_in_time: checkIn, check_out_time: checkOut, comment,
-    });
-    updateStudentData(curStuId, (cur) => {
-      const others = (cur.cico || []).filter((r) => r.date !== date);
-      return { ...cur, cico: [res.record, ...others].sort((a, b) => (b.date || '').localeCompare(a.date || '')) };
-    });
-  }
-
-  async function onSave() {
-    if (!curStuId) return;
-    setBusy(true);
-    try {
-      await saveCore();
-      toast(`CICO 저장됨 — ${total}/${max}점 (${pct}%)`);
-    } catch (e) { toast('저장 실패: ' + e.message); }
-    finally { setBusy(false); }
-  }
-
   async function onDelete(id) {
     if (!window.confirm('이 CICO 기록을 삭제할까요?')) return;
     try {
@@ -265,13 +83,9 @@ export default function Tier2Page({ onNavigate }) {
       updateStudentData(curStuId, (cur) => ({ ...cur, cico: (cur.cico || []).filter((r) => r.id !== id) }));
       // 오늘(현재 날짜) 기록을 지웠으면 폼을 재초기화 — 그대로 두면 자동 저장이
       // 남아 있는 폼 값으로 방금 지운 기록을 다시 만들어 버린다.
-      if (rec && rec.date === date) setResetTick((t) => t + 1);
+      if (rec && rec.date === date) cf.bumpReset();
       toast('삭제됨');
     } catch (e) { toast('삭제 실패: ' + e.message); }
-  }
-
-  function onPrintDPR() {
-    printDPRCard({ studentId: curStu.code, date, periods: periodList, goals, level: curStu.level });
   }
 
   // 최근 CICO 기록을 비식별 텍스트로 정리해 소그룹/학생 진전 요약 프롬프트를 만든다.
@@ -360,152 +174,7 @@ ${lines || '  (기록 없음)'}
       <StuHero />
 
       {/* 일일 입력 폼 */}
-      <div className="card" data-tour="t2-daily">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <div className="card-title" style={{ marginBottom: 0 }}>📋 오늘의 CICO 기록</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-ghost btn-sm" data-help="t2-print" onClick={onPrintDPR}>🖨 빈 DPR 카드 인쇄</button>
-            {todayRecord && (
-              <span style={{ fontSize: '.74rem', color: '#0a7d4e', background: '#e7f7ee', padding: '5px 12px', borderRadius: 99, fontWeight: 700 }}>
-                ✓ 저장됨 ({todayRecord.total_score}/{todayRecord.max_score})
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="form-row" style={{ marginTop: 12 }}>
-          <div className="form-group"><label className="form-label">날짜</label><input type="date" className="form-input" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">🌅 입실(Check-In)</label><input type="time" className="form-input" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">🌇 퇴실(Check-Out)</label><input type="time" className="form-input" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} /></div>
-        </div>
-
-        {/* 오늘의 목표 */}
-        <div className="form-group" data-help="t2-goal-pick">
-          <label className="form-label" data-tour="t2-goals">🎯 오늘의 목표 행동 <span style={{ color: 'var(--muted)', fontSize: '.74rem', fontWeight: 500 }}>(1~3개 권장)</span></label>
-          <EditableChipGroup storageKey="tier2_goals" defaults={COMMON_GOALS} onPick={(g) => addGoal(g)} />
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              className="form-input"
-              value={goalsInput}
-              onChange={(e) => setGoalsInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addGoal(goalsInput); } }}
-              placeholder="목표 직접 입력 후 Enter"
-            />
-            <button className="btn btn-ghost btn-sm" onClick={() => addGoal(goalsInput)}>추가</button>
-          </div>
-          {goals.length > 0 && (
-            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {goals.map((g, i) => (
-                <div key={i} data-help="t2-goal-row" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f0f3ff', borderRadius: 6, border: '1px solid var(--pri-l)' }}>
-                  <span style={{ fontSize: '.74rem', fontWeight: 700, color: 'var(--pri)', background: '#fff', padding: '2px 8px', borderRadius: 99 }}>목표 {i + 1}</span>
-                  <span style={{ flex: 1, fontSize: '.92rem' }}>{g}</span>
-                  <button onClick={() => removeGoal(i)} style={{ width: 24, height: 24, borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: 0 }}>×</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* 교시 구성 + 점수 + 코멘트 */}
-        <div className="form-group" data-tour="t2-periods">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-            <label className="form-label" style={{ marginBottom: 0 }}>📊 교시별 점수 + 코멘트</label>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: '.74rem', color: 'var(--muted)' }}>프리셋:</span>
-              {Object.keys(PRESETS).map((name) => (
-                <button key={name} className="qchip" style={{ fontSize: '.72rem' }} onClick={() => applyPreset(name)}>{name}</button>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {periodList.map((p, i) => {
-              const data = readPeriodData(scores, p);
-              const filled = data.score != null;
-              return (
-                <div key={i} data-help="t2-period-row" style={{
-                  background: filled ? '#f6f8ff' : 'var(--surface2)',
-                  border: '1px solid var(--border)', borderRadius: 8, padding: 10,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <input
-                      type="text"
-                      value={p}
-                      onChange={(e) => renamePeriod(i, e.target.value)}
-                      placeholder="예: 1교시 수학"
-                      style={{
-                        width: 160, padding: '5px 10px', fontSize: '.86rem', fontWeight: 700,
-                        border: '1px solid var(--border)', borderRadius: 6, background: '#fff',
-                      }}
-                    />
-                    <div style={{ display: 'flex', gap: 4, flex: 1 }}>
-                      {SCORES.map((v) => {
-                        const on = data.score === v;
-                        return (
-                          <button
-                            key={v}
-                            onClick={() => setScore(p, v)}
-                            style={{
-                              flex: 1, padding: '6px 4px', borderRadius: 6, cursor: 'pointer', fontSize: '.78rem', fontWeight: 700,
-                              border: '1px solid ' + (on ? SCORE_COLORS[v] : 'var(--border)'),
-                              background: on ? SCORE_COLORS[v] : '#fff',
-                              color: on ? '#fff' : SCORE_COLORS[v],
-                              transition: '.15s',
-                            }}
-                          >
-                            {v}점
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <button
-                      onClick={() => removePeriod(i)}
-                      title="이 교시 삭제"
-                      style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1, padding: 0, flexShrink: 0 }}
-                    >×</button>
-                  </div>
-                  <input
-                    type="text"
-                    value={data.comment}
-                    onChange={(e) => setPeriodComment(p, e.target.value)}
-                    placeholder={`💬 ${p} 코멘트 (선택) — 예: 자리이탈 2회, 도와주세요 카드 사용함`}
-                    style={{ width: '100%', padding: '6px 10px', fontSize: '.82rem', border: '1px solid var(--border)', borderRadius: 6, background: '#fff' }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-
-          <button className="btn btn-ghost btn-sm" onClick={addPeriod} style={{ marginTop: 10 }}>+ 교시 추가</button>
-
-          <div data-help="t2-total" style={{ marginTop: 12, padding: 14, background: 'var(--pri-soft)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <span style={{ fontSize: '.78rem', color: 'var(--muted)' }}>오늘 합계 </span>
-              <strong style={{ fontSize: '1.4rem', color: 'var(--pri)' }}>{total}</strong>
-              <span style={{ color: 'var(--muted)' }}> / {max || periodList.length * 3}</span>
-            </div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: pct >= 75 ? '#0a7d4e' : pct >= 50 ? '#f59f00' : '#ef476f' }}>{pct}%</div>
-          </div>
-        </div>
-
-        {/* 종합 코멘트 */}
-        <div className="form-group" data-help="t2-comment-box">
-          <label className="form-label" data-tour="t2-comment">💬 하교 종합 코멘트 <span style={{ color: 'var(--muted)', fontSize: '.74rem', fontWeight: 500 }}>(가정에 전달)</span></label>
-          <textarea className="form-textarea" rows={2} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="예: 오늘 자리이탈 횟수가 줄었어요. 가정에서도 칭찬해 주세요." />
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-          <button
-            data-help="t2-save"
-            className={'btn ' + (cicoDirty ? 'btn-pri' : 'btn-ghost')}
-            onClick={onSave}
-            disabled={busy || !cicoDirty}
-            title={cicoDirty ? '지금 바로 저장' : '변경 내용이 모두 자동 저장되었습니다'}
-          >
-            {busy ? '저장 중...' : (cicoDirty ? '💾 CICO 저장' : '✓ 저장됨')}
-          </button>
-        </div>
-      </div>
+      <CicoDailyCard f={cf} />
 
       {/* 이력 */}
       <div className="card" data-tour="t2-history">

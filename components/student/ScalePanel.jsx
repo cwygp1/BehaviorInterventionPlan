@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { escortSignal } from '../../lib/escortSignal';
 import { useEntryDate } from '../../lib/hooks/useEntryDate';
 import {
   fetchIEP, fetchSessions, createSession, updateSession, deleteSession,
@@ -135,6 +136,7 @@ export default function ScalePanel() {
         setSessions((prev) => [...prev, saved].sort((a, b) => (a.date + String(a.session_no).padStart(3, '0')).localeCompare(b.date + String(b.session_no).padStart(3, '0'))));
       }
       const r = scoreBstSession(saved.codes);
+      escortSignal('session-saved'); // 새 디자인 빠른 기록 창 '✓ 저장함' 표시(components/record/SessionForm.jsx)
       toast(`${saved.date} ${saved.session_no}회기 ${editingId ? '고침' : '저장'} · ${settingLabel(saved.chain_type)} 평균 ${r.avg}점 · 스스로 ${r.topRate}%`);
       setEditingId(null); setNote(''); setScores(normalizeScores([], trials));
     } catch (e) { toast('저장 실패: ' + e.message); }

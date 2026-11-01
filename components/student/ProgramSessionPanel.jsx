@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { escortSignal } from '../../lib/escortSignal';
 import { useEntryDate } from '../../lib/hooks/useEntryDate';
 import { fetchIEP, fetchSessions, createSession, updateSession, deleteSession } from '../../lib/api/students';
 import {
@@ -108,12 +109,14 @@ export default function ProgramSessionPanel({ onNavigate }) {
         const next = sessions.map((s) => (s.id === editingId ? r.session : s));
         setSessions(next);
         toast(`회기 기록을 고쳤어요 · 정반응률 ${r.session.pct}%`);
+        escortSignal('session-saved'); // 새 디자인 빠른 기록 창 '✓ 저장함' 표시(components/record/SessionForm.jsx)
         resetForm(next.filter((s) => (s.kind || 'chain') === 'chain' && String(s.goal_id) === goalId));
       } else {
         const r = await createSession(curStuId, body);
         const next = [...sessions, r.session].sort((a, b) => (a.date + String(a.session_no).padStart(3, '0')).localeCompare(b.date + String(b.session_no).padStart(3, '0')));
         setSessions(next);
         toast(`${r.session.date} ${r.session.session_no}회기 저장 · 정반응률 ${r.session.pct}%`);
+        escortSignal('session-saved');
         resetForm(next.filter((s) => (s.kind || 'chain') === 'chain' && String(s.goal_id) === goalId));
       }
     } catch (e) {
