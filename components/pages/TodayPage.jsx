@@ -7,6 +7,7 @@ import { computeTodos } from '../../lib/todo';
 import { reviewCounts } from '../../lib/dashReviews';
 import { loadDashboardCached, invalidateDashboard } from './dash/DashBits';
 import { fetchCalendar } from '../../lib/api/calendar';
+import { api } from '../../lib/api/client';
 import { addDays, dow, todayKst, WEEKDAY_KO } from '../../lib/utils/calendarRules';
 import { SECTIONS } from '../../lib/tiers';
 import { escortSignal } from '../../lib/escortSignal';
@@ -34,6 +35,7 @@ function useTodayData() {
   const { curClassId, curSemester, studentsLoaded, students } = useStudents();
   const [dash, setDash] = useState(null);
   const [cal, setCal] = useState(null);
+  const [assess, setAssess] = useState(null); // 3단계: 기초 평가 3가지 작성 여부(없어도 표는 그린다)
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
   const seq = useRef(0);
@@ -43,12 +45,13 @@ function useTodayData() {
     const today = todayKst();
     try {
       if (force) invalidateDashboard();
-      const [d, c] = await Promise.all([
+      const [d, c, a] = await Promise.all([
         loadDashboardCached(curClassId, curSemester, !!force),
         fetchCalendar(weekStart(today), today, curClassId),
+        api(`/api/students/assess-status?class_id=${curClassId}`).catch(() => null),
       ]);
       if (my !== seq.current) return;
-      setDash(d); setCal(c); setError('');
+      setDash(d); setCal(c); setAssess(a && a.status ? a.status : null); setError('');
     } catch (e) {
       if (my !== seq.current) return;
       setError(e.message || '오늘 할 일을 불러오지 못했어요');
@@ -58,7 +61,7 @@ function useTodayData() {
   }, [curClassId, curSemester]);
   const nStu = students.length;
   useEffect(() => { if (studentsLoaded) load(false); }, [studentsLoaded, load, nStu]);
-  return { dash, cal, error, loaded, reload: () => load(true) };
+  return { dash, cal, assess, error, loaded, reload: () => load(true) };
 }
 
 // 학생 0명 첫 화면(프로토타입 1장).
@@ -141,7 +144,7 @@ export default function TodayPage({ onNavigate, actions }) {
   const { students, studentsLoaded, curClassId, addStudent, hasSamples, seedSamples, clearSamples } = useStudents();
   const { startDemo } = useAuth();
   const toast = useToast();
-  const { dash, cal, error, loaded, reload } = useTodayData();
+  const { dash, cal, assess, error, loaded, reload } = useTodayData();
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newCode, setNewCode] = useState('');
@@ -151,7 +154,7 @@ export default function TodayPage({ onNavigate, actions }) {
   const [pbsOpen, setPbsOpen] = useState(false);
   const addRef = useRef(null);
 
-  const todo = useMemo(() => computeTodos({ students, dash, cal }), [students, dash, cal]);
+  const todo = useMemo(() => computeTodos({ students, dash, cal, assess }), [students, dash, cal, assess]);
   const today = todayKst();
   const [, mm, dd] = today.split('-').map(Number);
   const dateText = `${mm}월 ${dd}일 ${WEEKDAY_KO[dow(today)]}요일`;
