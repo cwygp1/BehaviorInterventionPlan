@@ -7,9 +7,10 @@ import AbcForm from '../record/AbcForm';
 import BehaviorForm from '../record/BehaviorForm';
 import CicoRowForm from '../record/CicoRowForm';
 import SessionForm from '../record/SessionForm';
+import EvalForm from './EvalForm';
 
 // 빠른 기록 창(서랍) — 오늘 표의 줄 끝 단추로 연다(mds/52 §4-2, 프로토타입 v2 ④).
-//   ① 모드(관찰·수치·점검표·회기)마다 저장 상태가 따로 — 저장한 모드 칩에 ✓, 저장 단추는 '✓ HH:MM 저장함'
+//   ① 모드(관찰·수치·점검표·회기·이달 평가 — 4단계에 5번째)마다 저장 상태가 따로 — 저장한 모드 칩에 ✓, 저장 단추는 '✓ HH:MM 저장함'
 //   ② '다음 학생 ▶'은 그 학생에게 필요한 모드(연 모드)를 저장한 뒤에만 켜지고, 이동은 이 단추로만(저장 후 자동 이동 없음)
 //   ③ 저장하지 않은 내용이 있는 채로 닫거나 다음 학생으로 가면 '계속 쓰기 / 저장하고 닫기 / 버리고 닫기'
 //   ④ 관찰은 시간·장소만 지난번 값, 사건 내용은 비워 두고 지난 문장은 회색 참고문(AbcForm) ⑤ 수치가 지난번과 같으면 확인
@@ -96,19 +97,20 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
   const row = (rows || []).find((r) => r.id === sid) || null;
   const anyDirty = Object.values(dirty).some(Boolean);
   // '오늘 관찰'은 관찰·수치·회기 중 하나면 된다(lib/todo.js 규칙과 같게). 점검표는 점검표를 저장해야.
-  const needSaved = need === 'chk' ? !!saved.chk : !!(saved.obs || saved.num || saved.ses);
+  //   4단계 '이달 평가'로 연 학생은 이달 평가를 저장해야.
+  const needSaved = need === 'chk' || need === 'eval' ? !!saved[need] : !!(saved.obs || saved.num || saved.ses);
   const nextRow = useMemo(() => nextQuickRow(rows || [], sid, doneIds), [rows, sid, doneIds, saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const markSaved = useCallback((m) => {
     setSaved((s) => ({ ...s, [m]: nowHM() }));
     setDirty((d) => ({ ...d, [m]: false }));
     setErr(''); setSameAsk(false);
-    if (need === 'chk' ? m === 'chk' : m !== 'chk') doneIds.add(sid);
+    if (need === 'chk' || need === 'eval' ? m === need : (m !== 'chk' && m !== 'eval')) doneIds.add(sid);
     if (onSaved) onSaved(sid, m);
   }, [need, sid, doneIds, onSaved]);
 
   const setDirtyFor = useCallback((m) => (v) => setDirty((d) => (d[m] === v ? d : { ...d, [m]: v })), []);
-  const dirtyCbs = useMemo(() => ({ obs: setDirtyFor('obs'), num: setDirtyFor('num'), chk: setDirtyFor('chk'), ses: setDirtyFor('ses') }), [setDirtyFor]);
+  const dirtyCbs = useMemo(() => ({ obs: setDirtyFor('obs'), num: setDirtyFor('num'), chk: setDirtyFor('chk'), ses: setDirtyFor('ses'), eval: setDirtyFor('eval') }), [setDirtyFor]);
   const onChkSaved = useCallback(() => markSaved('chk'), [markSaved]);
   const onSesSaved = useCallback(() => markSaved('ses'), [markSaved]);
 
@@ -158,7 +160,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
     const target = confirm;
     // 회기는 패널 안 '💾 회기 저장' 단추로만 저장된다(3단계: 쓰다 만 표시는 SessionForm onDirty) — 그 모드로 돌려보낸다.
     if (dirty.ses) { setConfirm(null); setMode('ses'); setVisited((v) => ({ ...v, ses: true })); setErr('회기 기록은 칸 안의 ‘💾 회기 저장’ 단추로 저장해 주세요. 저장하면 다시 닫을 수 있어요.'); return; }
-    const ms = ['obs', 'num', 'chk'].filter((m) => dirty[m]);
+    const ms = ['obs', 'num', 'chk', 'eval'].filter((m) => dirty[m]);
     for (const m of ms) {
       // eslint-disable-next-line no-await-in-loop
       const r = await saveMode(m, true);
@@ -169,7 +171,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
   }
   function discardThen() {
     const target = confirm;
-    ['obs', 'num', 'chk'].forEach((m) => { const f = formRefs.current[m]; if (f && dirty[m] && f.discard) f.discard(); });
+    ['obs', 'num', 'chk', 'eval'].forEach((m) => { const f = formRefs.current[m]; if (f && dirty[m] && f.discard) f.discard(); });
     setDirty({});
     setConfirm(null);
     if (target === 'next') goNext(); else closeNow();
@@ -237,6 +239,11 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
               <CicoRowForm studentId={sid} ref={(r) => { formRefs.current.chk = r; }} onDirty={dirtyCbs.chk} onSaved={onChkSaved} />
             </div>
           )}
+          {visited.eval && (
+            <div hidden={mode !== 'eval'}>
+              <EvalForm studentId={sid} ref={(r) => { formRefs.current.eval = r; }} onDirty={dirtyCbs.eval} onNavigate={onNavigate} onClose={closeNow} />
+            </div>
+          )}
           {visited.ses && (
             <div hidden={mode !== 'ses'}>
               <p className="kb-dnote">회기 기록은 아래 칸의 저장 단추로 저장해요. 저장하면 위 ‘회기’에 ✓가 붙어요.</p>
@@ -265,10 +272,16 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
               </div>
             </div>
           )}
-          {(restGoal || restEval) && (
+          {restGoal && (
             <div className="kb-dnote">
-              {name}는 {restGoal ? '학기목표 쓰기' : '이달 평가 쓰기'}가 남아 있어요 — 수첩에서 이어가요.{' '}
-              <button type="button" className="kb-btn" onClick={() => { const h = `#student/${sid}/iep${restGoal ? '' : '?sub=iepReport'}`; closeNow(); onNavigate(h); }}>수첩 열기</button>
+              {name}는 학기목표 쓰기가 남아 있어요 — 수첩에서 이어가요.{' '}
+              <button type="button" className="kb-btn" onClick={() => { closeNow(); onNavigate(`#student/${sid}/iep`); }}>수첩 열기</button>
+            </div>
+          )}
+          {!restGoal && restEval && mode !== 'eval' && !saved.eval && (
+            <div className="kb-dnote">
+              {name}는 이번 달 IEP 평가도 남아 있어요.{' '}
+              <button type="button" className="kb-btn" onClick={() => pick('eval')}>이달 평가 쓰기</button>
             </div>
           )}
           <div className="kb-df">
