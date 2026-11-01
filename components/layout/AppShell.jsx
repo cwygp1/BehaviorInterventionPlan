@@ -18,14 +18,13 @@ import SpotlightTour from '../guide/SpotlightTour';
 import GlossaryModal from '../guide/GlossaryModal';
 import HoverHelp from '../guide/HoverHelp';
 import EscortGuide from '../guide/EscortGuide';
-import FirstRun from '../onboarding/FirstRun';
 import NewView from '../workspace/NewView';
 import { useNewRouter } from '../../lib/hooks/useNewRouter';
 import { toNew, toOld, isStudentPage, requiresStudent, withStudent } from '../../lib/routes';
 
 // 새 디자인(/new) 셸 — components/layout/Layout.jsx:76-145의 공급자·모달 묶음을 빠짐없이 옮겼다(mds/54 §1 조건 2·4).
 //   StudentProvider(pages/new.js) > UIActionsProvider > GuideProvider(activePage=옛 id) > .app.show.kb-new
-//   모달 5개(AddStudent·PickStudent·EditStudent·ManageClasses·AISettings) + AIBusyOverlay + 안내 레이어 4종 + FirstRun.
+//   모달 5개(AddStudent·PickStudent·EditStudent·ManageClasses·AISettings) + AIBusyOverlay + 안내 레이어 4종 (FirstRun 대신 오늘 화면의 학생 0명 화면 — 아래 가입 표시 지우기).
 //   UIActionsProvider는 상단바·메뉴까지 감싼다(기존은 본문만 — 새 셸은 상단바 '학생 추가'도 같은 함수를 쓴다).
 //
 // 이동 규칙(조건 1): navigate(대상)
@@ -155,6 +154,20 @@ export default function AppShell() {
 
   const activeOld = toOld(route);
 
+  // 가입 직후 표시(kb_first_run·kb_seed_samples, AuthContext.signup) — 새 디자인은 마법사·샘플 자동 주입 대신
+  //   '오늘'의 학생 0명 화면(입력칸 하나 + 샘플 구경·3분 체험 선택 단추)이 맞는다(mds/52 §4-1, 2단계).
+  //   표시를 여기서 지워, 나중에 기존 디자인으로 바꿨을 때 마법사가 뒤늦게 뜨지 않게 한다(mds/54 §2-2 FirstRun).
+  //   마법사가 하던 '첫 방문 홈 투어 건너뛰기'도 같이 적는다(오늘 화면은 학생 0명일 때 영역 카드가 없다).
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('kb_first_run') === '1') {
+        localStorage.setItem('kb_tour_done:home', '1');
+      }
+      sessionStorage.removeItem('kb_first_run');
+      sessionStorage.removeItem('kb_seed_samples');
+    } catch (_e) { /* 사생활 모드 */ }
+  }, []);
+
   return (
     <UIActionsProvider value={uiActions}>
     <GuideProvider activePage={activeOld} onNavigate={navigate} navigateRaw={navigateRaw} actions={guideActions}>
@@ -197,8 +210,6 @@ export default function AppShell() {
     <GlossaryModal />
     <HoverHelp />
     <EscortGuide />
-    {/* 가입 직후 1회 첫 설정 마법사 + 본보기 학생(mds/46) — 새 가입자 기본이 새 디자인이라 여기서도 소비한다 */}
-    <FirstRun onNavigate={navigate} />
     </GuideProvider>
     </UIActionsProvider>
   );
