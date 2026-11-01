@@ -26,7 +26,7 @@ const FLOWS = {
  */
 // Tier 3 흐름의 각 단계에 실제 데이터가 있는지 판정한다 — 위치가 아니라
 // 데이터 기준으로 ✓를 표시해, 스테퍼가 '진행 상황 안내판' 역할을 하게 한다(0824 온보딩).
-function tier3DoneMap(d) {
+export function tier3DoneMap(d) { // 1101: 새 디자인 학생 수첩 하위 칩 ✓에도 씀(mds/54 §3-3 규칙 5)
   if (!d) return {};
   const bipFilled = d.bip && ['alt', 'fct', 'crit', 'prev', 'teach', 'reinf', 'resp'].some((k) => (d.bip[k] || '').trim());
   return {

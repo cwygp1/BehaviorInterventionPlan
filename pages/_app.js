@@ -5,6 +5,8 @@ import '../styles/calendar.css';
 import '../styles/demo.css';
 // 1001(mds/46 방법 1~7): 화면 소개 줄·빈 화면 첫 할 일·시작하기 목록·첫 설정 마법사·간단 모드
 import '../styles/onboarding.css';
+// 1101(mds/54): 새 디자인(/new) 셸 — 모든 규칙이 .kb-new 아래에만 있어 기존 화면에는 닿지 않는다.
+import '../styles/tokens.css';
 // gridstack — 영역별 대시보드 위젯(드래그·리사이즈) 레이아웃. 전역 CSS는 _app에서만 임포트 가능.
 import 'gridstack/dist/gridstack.min.css';
 import { Analytics } from '@vercel/analytics/next';
