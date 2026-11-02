@@ -14,6 +14,7 @@ import { PillRadio, QField, Stepper } from '../quick/QuickBits';
 
 import { STD_BEHS } from '../../lib/chartCatalog'; // 칩 단일 출처(1001, 사용자 차트와 공유)
 import { todayKst } from '../../lib/utils/calendarRules';
+import { monQuickKey } from '../../lib/quickResume';
 
 // 행동 수치(문제행동 데이터) 입력 폼 — MonitorPage에서 '단계 탭 + 폼 + 실행 충실도 4체크'를 통째로 떼어 냈다
 //   (새 디자인 2단계, mds/54 §2-1 #18).
@@ -127,7 +128,9 @@ export function useBehaviorForm({ studentId, entryDate = null, variant = 'page' 
   const monRecords = data?.mon || [];
   const todayFid = (data?.fid || []).find((r) => r.date === date);
 
+  const lastSaveStatusRef = useRef(null);
   async function saveMonCore(notify, quiet) {
+    lastSaveStatusRef.current = null;
     if (!beh.trim()) { notify('대상 행동을 입력해주세요.'); return false; }
     if (tabDesign === 'ATD' && phase === 'B' && !condition) { notify('교대중재설계는 회기마다 "오늘 쓴 조건"을 골라야 해요. 조건이 없으면 위 ⚙ 조건 설정에서 먼저 정해 주세요.'); return false; }
     if (tabDesign === 'MBL' && mbl.dimension !== 'behavior' && !tier) { notify(`중다기초선(${MBL_DIMENSIONS[mbl.dimension]})은 회기마다 "오늘 어느 층인지"를 골라야 해요.`); return false; }
@@ -161,6 +164,7 @@ export function useBehaviorForm({ studentId, entryDate = null, variant = 'page' 
       escortSignal('monitor-saved'); // 🧭 길잡이 '저장' 단계 끝(새 기록·수정 모두)
       ok = true;
     } catch (e) {
+      lastSaveStatusRef.current = e && e.status; // 1102(mds/57 #6): 빠른 기록 창이 '로그인 끝남(401)'을 가려내게
       notify('저장 실패: ' + e.message);
     } finally {
       setBusy(false);
@@ -266,6 +270,7 @@ export function useBehaviorForm({ studentId, entryDate = null, variant = 'page' 
   const curVals = [beh, +freq, +dur, +intensity, alt, +altFreq, +lat, +dbr, obsHours === '' ? '' : +obsHours, note.trim(), criterion === '' ? '' : String(+criterion), tier];
   const sameAsPrefill = JSON.stringify(curVals) === JSON.stringify(prefillVals);
   const prefilledRef = useRef(false);
+  const [restoredQuick, setRestoredQuick] = useState(false);
   useEffect(() => {
     if (!quick || prefilledRef.current || !data) return;
     prefilledRef.current = true;
@@ -279,16 +284,46 @@ export function useBehaviorForm({ studentId, entryDate = null, variant = 'page' 
       setCriterion(r.criterion == null ? '' : String(r.criterion));
       setTier(r.tier || '');
     }
+    // 1102(mds/57 #6): 로그인이 끝나 저장 못 한 값이 남아 있으면 지난번 값 대신 그 값으로 채운다(한 번 쓰고 지움).
+    try {
+      const raw = sessionStorage.getItem(monQuickKey(studentId));
+      if (raw) {
+        sessionStorage.removeItem(monQuickKey(studentId));
+        const v = JSON.parse(raw);
+        if (v && typeof v === 'object') {
+          if (v.date) setDate(v.date);
+          setBeh(v.beh || ''); setFreq(v.freq ?? 0); setDur(v.dur ?? 0); setIntensity(v.intensity ?? 1);
+          setAlt(v.alt || 'N'); setAltFreq(v.altFreq ?? 0); setLat(v.lat ?? 0); setDbr(v.dbr ?? 5);
+          setObsHours(v.obsHours ?? ''); setNote(v.note || ''); setCriterion(v.criterion ?? ''); setTier(v.tier || '');
+          if (Array.isArray(v.fid)) { setFidPrev(!!v.fid[0]); setFidTeach(!!v.fid[1]); setFidReinf(!!v.fid[2]); setFidResp(!!v.fid[3]); }
+          setRestoredQuick(true);
+        }
+      }
+    } catch (_e) { /* 사생활 모드·깨진 값 — 지난번 값 그대로 */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quick, data]);
   const quickDirty = quick && prefilledRef.current && (!sameAsPrefill || fidDirty());
   const sameAsLast = () => !!lastRec && sameAsPrefill && !fidDirty();
 
+  const quickBusyRef = useRef(false); // 1102(mds/57 #3): 빠른 기록 창 저장 진행 중 — 두 번째 호출은 무시(기록 1건)
   async function saveQuick() {
+    if (quickBusyRef.current) return { ok: false, busy: true };
+    quickBusyRef.current = true;
     let err = '';
-    const ok = await saveMonCore((m) => { err = m; }, true);
-    if (ok) setNote(''); // 메모는 그날의 일 — 같은 학생을 한 번 더 적을 때를 위해 비운다
-    return ok ? { ok: true } : { ok: false, error: err || '저장하지 못했어요.' };
+    let ok = false;
+    const snap = { date, beh, freq, dur, intensity, alt, altFreq, lat, dbr, obsHours, note, criterion, tier, fid: [fidPrev, fidTeach, fidReinf, fidResp] };
+    try {
+      ok = await saveMonCore((m) => { err = m; }, true);
+    } finally {
+      quickBusyRef.current = false;
+    }
+    if (ok) { setNote(''); setRestoredQuick(false); } // 메모는 그날의 일 — 같은 학생을 한 번 더 적을 때를 위해 비운다
+    const status = lastSaveStatusRef.current;
+    if (!ok && status === 401) {
+      // 로그인이 끝나 앱이 로그인 화면으로 내려간다 — 쓰던 값을 이 탭에 남겨 다시 로그인하면 채운다(mds/57 #6).
+      try { sessionStorage.setItem(monQuickKey(studentId), JSON.stringify(snap)); } catch (_e) { /* 사생활 모드 */ }
+    }
+    return ok ? { ok: true } : { ok: false, error: err || '저장하지 못했어요.', status };
   }
 
   return {
@@ -298,7 +333,7 @@ export function useBehaviorForm({ studentId, entryDate = null, variant = 'page' 
     fidPrev, setFidPrev, fidTeach, setFidTeach, fidReinf, setFidReinf, fidResp, setFidResp, busy, monRecords, todayFid,
     extraStages, setExtraStages, periodModalOpen, setPeriodModalOpen,
     onSaveMon, loadRecord, cancelEdit, prefillFromLatest, onFormKeyDown, onSaveFid, fidDirty,
-    saveQuick, sameAsLast, quickDirty,
+    saveQuick, sameAsLast, quickDirty, restoredQuick,
   };
 }
 
@@ -543,9 +578,11 @@ const BehaviorForm = forwardRef(function BehaviorForm({ studentId, onDirty }, re
   return (
     <div className="kb-q-body" data-tour="qr-num">
       <div className="kb-q-banner">
-        {f.monRecords.length
-          ? <>지난번({f.monRecords[0].date}) 값으로 채웠어요. 바뀐 숫자만 고쳐요.</>
-          : <>처음 적는 행동 수치예요. 오늘 본 횟수부터 적어 주세요.</>}
+        {f.restoredQuick
+          ? <>로그인이 끝나 저장하지 못했던 값을 되살렸어요. 확인하고 ‘저장’을 눌러 주세요.</>
+          : f.monRecords.length
+            ? <>지난번({f.monRecords[0].date}) 값으로 채웠어요. 바뀐 숫자만 고쳐요.</>
+            : <>처음 적는 행동 수치예요. 오늘 본 횟수부터 적어 주세요.</>}
         <div className="kb-q-hint">지금 저장하면 <b>{f.stageNow?.label || phaseWord}</b> 단계로 들어가요. 단계·설계를 바꾸려면 학생 수첩의 기록 탭을 쓰세요.</div>
       </div>
       {f.stage.tabs.length > 1 && (

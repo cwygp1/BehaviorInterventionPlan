@@ -7,6 +7,7 @@ import { composeNote } from '../../lib/utils/splitNote';
 import { DISABILITIES, DIS_NONE, joinDisability } from '../../lib/disability';
 import { GRADES_BY_LEVEL } from './EditStudentModal';
 import { LEVEL_OPTIONS, levelGradeLabel } from '../../lib/schoolLevel';
+import { STUDENT_CODE_MAX } from '../../lib/studentCode';
 const STEPS = ['기본 정보', '프로파일·현행수준', '확인'];
 
 const STRENGTH_CHIPS = ['시각자료 이해 우수', '규칙 준수 양호', '또래 관심 있음', '특정 주제 흥미 높음', '모방 능력 좋음', '신체활동 선호'];
@@ -81,7 +82,7 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
         <>
           <div className="form-group">
             <label className="form-label">익명 ID (실명 금지)</label>
-            <input className="form-input" data-demo="stu-add-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="예: A학생, 학생1" autoFocus />
+            <input className="form-input" data-demo="stu-add-code" maxLength={STUDENT_CODE_MAX} value={code} onChange={(e) => setCode(e.target.value)} placeholder="예: A학생, 학생1" autoFocus />
           </div>
           <div className="form-row">
             <div className="form-group">

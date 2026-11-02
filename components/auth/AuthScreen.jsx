@@ -37,8 +37,12 @@ function UiModePick({ value, onChange, name, keepOption = false }) {
   );
 }
 
-export default function AuthScreen() {
-  const { login, signup, startDemo } = useAuth();
+// showExpired: 새 디자인(/new)만 — 쓰는 중 로그인이 끝나 저장이 안 됐을 때 안내(mds/57 #6). 기존 사이트는 넘기지 않는다.
+const NOTICE_STYLE = { background: '#fdf1d5', color: '#7a4800', borderRadius: 10, padding: '12px 14px', margin: '0 0 14px', fontSize: '.9rem', lineHeight: 1.5, fontWeight: 600 };
+const NOTICE_BTN = { minHeight: 44, padding: '0 14px', borderRadius: 10, border: '1.5px solid #7a4800', background: '#fff', color: '#7a4800', fontWeight: 700, fontSize: '.9rem', cursor: 'pointer', fontFamily: 'inherit' };
+
+export default function AuthScreen({ showExpired = false }) {
+  const { login, signup, startDemo, authNotice, refresh } = useAuth();
   const toast = useToast();
   const [tab, setTab] = useState('login'); // 'login' | 'signup'
   const [busy, setBusy] = useState(false);
@@ -143,6 +147,20 @@ export default function AuthScreen() {
           </div>
           <div className="auth-divider">또는 로그인</div>
 
+          {authNotice === 'switched' && (
+            <div className="auth-notice" role="alert" style={NOTICE_STYLE}>
+              같은 브라우저의 다른 탭에서 다른 계정으로 로그인했어요. 섞이지 않게 이 탭은 로그인 화면으로 바꿨어요.
+              <div style={{ marginTop: 8 }}>
+                <button type="button" className="auth-notice-btn" style={NOTICE_BTN} onClick={() => refresh()}>지금 로그인된 계정으로 계속하기</button>
+              </div>
+            </div>
+          )}
+          {showExpired && authNotice === 'expired' && (
+            <div className="auth-notice" role="alert" style={NOTICE_STYLE}>
+              로그인이 끝나서 방금 기록을 저장하지 못했어요. 다시 로그인하면 쓰던 기록 창을 다시 열어 드려요. 내용을 확인하고 한 번 더 저장해 주세요.
+            </div>
+          )}
+
           <div className="auth-tabs">
             <button className={'auth-tab' + (tab === 'login' ? ' on' : '')} onClick={() => setTab('login')}>로그인</button>
             <button className={'auth-tab' + (tab === 'signup' ? ' on' : '')} onClick={() => setTab('signup')}>회원가입</button>
@@ -151,12 +169,12 @@ export default function AuthScreen() {
           {tab === 'login' ? (
             <form className="auth-form on" onSubmit={onLogin}>
               <div className="auth-field">
-                <label>이메일</label>
-                <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="teacher@school.kr" required />
+                <label htmlFor="auth-login-email">이메일</label>
+                <input id="auth-login-email" type="email" autoComplete="username" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="teacher@school.kr" required />
               </div>
               <div className="auth-field">
-                <label>비밀번호</label>
-                <input type="password" value={loginPw} onChange={(e) => setLoginPw(e.target.value)} placeholder="••••••••" required />
+                <label htmlFor="auth-login-pw">비밀번호</label>
+                <input id="auth-login-pw" type="password" autoComplete="current-password" value={loginPw} onChange={(e) => setLoginPw(e.target.value)} placeholder="••••••••" required />
               </div>
               <UiModePick name="ui-login" value={uiLogin} onChange={setUiLogin} keepOption />
               <button type="submit" className="auth-btn" disabled={busy}>
@@ -165,11 +183,11 @@ export default function AuthScreen() {
             </form>
           ) : (
             <form className="auth-form on" onSubmit={onSignup}>
-              <div className="auth-field"><label>선생님 성함</label><input value={suName} onChange={(e) => setSuName(e.target.value)} placeholder="홍길동" required /></div>
-              <div className="auth-field"><label>이메일</label><input type="email" value={suEmail} onChange={(e) => setSuEmail(e.target.value)} placeholder="teacher@school.kr" required /></div>
-              <div className="auth-field"><label>비밀번호 (6자 이상)</label><input type="password" value={suPw} onChange={(e) => setSuPw(e.target.value)} minLength={6} required /></div>
-              <div className="auth-field"><label>비밀번호 확인</label><input type="password" value={suPw2} onChange={(e) => setSuPw2(e.target.value)} minLength={6} required /></div>
-              <div className="auth-field"><label>소속 학교 <span style={{ color: 'var(--muted)', fontWeight: 500 }}>(선택)</span></label><input value={suSchool} onChange={(e) => setSuSchool(e.target.value)} placeholder="예: OO초등학교" /></div>
+              <div className="auth-field"><label htmlFor="auth-su-name">선생님 성함</label><input id="auth-su-name" value={suName} onChange={(e) => setSuName(e.target.value)} placeholder="홍길동" required /></div>
+              <div className="auth-field"><label htmlFor="auth-su-email">이메일</label><input id="auth-su-email" type="email" value={suEmail} onChange={(e) => setSuEmail(e.target.value)} placeholder="teacher@school.kr" required /></div>
+              <div className="auth-field"><label htmlFor="auth-su-pw">비밀번호 (6자 이상)</label><input id="auth-su-pw" type="password" value={suPw} onChange={(e) => setSuPw(e.target.value)} minLength={6} required /></div>
+              <div className="auth-field"><label htmlFor="auth-su-pw2">비밀번호 확인</label><input id="auth-su-pw2" type="password" value={suPw2} onChange={(e) => setSuPw2(e.target.value)} minLength={6} required /></div>
+              <div className="auth-field"><label htmlFor="auth-su-school">소속 학교 <span style={{ color: 'var(--muted)', fontWeight: 500 }}>(선택)</span></label><input id="auth-su-school" value={suSchool} onChange={(e) => setSuSchool(e.target.value)} placeholder="예: OO초등학교" /></div>
               <div className="auth-consent">
                 <input type="checkbox" id="suAgree" checked={suAgree} onChange={(e) => setSuAgree(e.target.checked)} />
                 <label htmlFor="suAgree">

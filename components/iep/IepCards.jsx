@@ -22,6 +22,7 @@ export default function IepCards({ route, onNavigate }) {
   const toast = useToast();
   const [goals, setGoals] = useState(null);
   const [err, setErr] = useState('');
+  const [reloading, setReloading] = useState(false);
   const [adding, setAdding] = useState(false);
   const [nSubj, setNSubj] = useState('');
   const [nGoal, setNGoal] = useState('');
@@ -36,9 +37,13 @@ export default function IepCards({ route, onNavigate }) {
 
   const reload = useCallback(async () => {
     if (!sid) return;
-    try { const d = await fetchIEP(sid); setGoals(d.goals || []); setErr(''); } catch (e) { setErr('IEP 목표를 불러오지 못했어요: ' + e.message); setGoals([]); }
+    // 1102(mds/57 #5): 실패하면 목표를 빈 배열로 만들지 않는다 — '목표가 아직 없어요' 안내가 오류와 함께 뜨지 않게.
+    //   처음 불러오기가 실패하면 goals는 null 그대로(오류 + 다시 시도만), 이미 보이던 목표는 그대로 둔다.
+    setReloading(true);
+    try { const d = await fetchIEP(sid); setGoals(d.goals || []); setErr(''); } catch (e) { setErr('IEP 목표를 불러오지 못했어요: ' + e.message); }
+    finally { setReloading(false); }
   }, [sid]);
-  useEffect(() => { setGoals(null); reload(); }, [reload]);
+  useEffect(() => { setGoals(null); setErr(''); reload(); }, [reload]);
 
   const year = Number(curYear) || new Date().getFullYear();
   const sem = Number(curSemester) || 1;
@@ -112,7 +117,13 @@ export default function IepCards({ route, onNavigate }) {
   }
 
   if (!curStu) return null;
-  if (goals == null) return <div className="kb-loading">IEP 목표를 불러오는 중…</div>;
+  const errStrip = err ? (
+    <div className="kb-strip kb-err" role="alert">
+      <div>{err}</div>
+      <div className="kb-go"><button type="button" className="kb-btn" onClick={reload} disabled={reloading}>{reloading ? '다시 불러오는 중…' : '다시 시도'}</button></div>
+    </div>
+  ) : null;
+  if (goals == null) return err && !reloading ? <div className="kb-stack">{errStrip}</div> : <div className="kb-loading">IEP 목표를 불러오는 중…</div>;
 
   const shown = showAll ? mine : mine.slice(0, CARD_MAX);
   const others = (students || []).filter((s) => s.id !== sid);
@@ -136,7 +147,7 @@ export default function IepCards({ route, onNavigate }) {
         <button type="button" className="kb-btn" onClick={() => { setCopyOpen(!copyOpen); setAdding(false); }} aria-expanded={copyOpen} disabled={!others.length} title={others.length ? '' : '다른 학생이 없어요'} data-tour="iep-copy">다른 학생 목표 복사</button>
         <button type="button" className="kb-btn kb-pri" onClick={() => { setAdding(!adding); setCopyOpen(false); }} aria-expanded={adding} data-tour="iep-add">+ 목표 추가</button>
       </div>
-      {err && <div className="kb-strip kb-err" role="alert">{err}</div>}
+      {errStrip}
 
       {adding && (
         <section className="kb-card" aria-labelledby="kb-iep-add-h">

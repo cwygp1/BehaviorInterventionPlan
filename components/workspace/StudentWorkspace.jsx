@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import { STUDENT_TABS, formatRoute, withStudent } from '../../lib/routes';
-import { levelLabel } from '../../lib/schoolLevel';
+import { levelLabel, levelGradeLabel } from '../../lib/schoolLevel';
 import { stuColor } from '../../lib/utils/colors';
 import { tier3DoneMap } from '../ui/StepNav';
 import { useNextHint } from '../../lib/hooks/useNextHint';
@@ -39,6 +39,22 @@ export default function StudentWorkspace({ route, onNavigate, actions }) {
   const goTab = (key) => onNavigate(formatRoute({ kind: 'student', sid: route.sid, tab: key, sub: '' }));
   const goSub = (sub) => onNavigate(formatRoute({ kind: 'student', sid: route.sid, tab: route.tab, sub }));
   const tabHint = (t) => !!hint && t.subs.includes(hint) && t.key !== route.tab;
+  // 1102(mds/57 #17): WAI-ARIA 탭 — 고른 탭만 Tab 순서에 두고(roving tabindex), ←/→/Home/End로 옮기며 바로 연다.
+  const tabRefs = useRef({});
+  const onTabKey = (e) => {
+    const keys = STUDENT_TABS.map((t) => t.key);
+    const i = Math.max(0, keys.indexOf(tab.key));
+    let n = -1;
+    if (e.key === 'ArrowRight') n = (i + 1) % keys.length;
+    else if (e.key === 'ArrowLeft') n = (i - 1 + keys.length) % keys.length;
+    else if (e.key === 'Home') n = 0;
+    else if (e.key === 'End') n = keys.length - 1;
+    if (n < 0) return;
+    e.preventDefault();
+    const el = tabRefs.current[keys[n]];
+    if (el) el.focus();
+    if (keys[n] !== route.tab) goTab(keys[n]);
+  };
 
   const c = curStu ? stuColor(curStu.code) : '#78839c';
 
@@ -47,8 +63,8 @@ export default function StudentWorkspace({ route, onNavigate, actions }) {
       <div className="kb-ws-head">
         <div className="kb-av" style={{ background: c }} aria-hidden="true">{(curStu?.code || '?').slice(0, 2)}</div>
         <div className="kb-grow">
-          <div className="kb-ws-name">{curStu ? curStu.code : '학생 불러오는 중…'}</div>
-          {curStu && <div className="kb-ws-meta">{levelLabel(curStu.level)}{curStu.grade ? ` ${curStu.grade}학년` : ''} · {curStu.disability || '장애 영역 미입력'}{curStu.is_sample ? ' · 샘플' : ''}</div>}
+          <h2 className="kb-ws-name">{curStu ? curStu.code : '학생 불러오는 중…'}</h2>
+          {curStu && <div className="kb-ws-meta">{levelGradeLabel(curStu.level, curStu.grade) || levelLabel(curStu.level)} · {curStu.disability || '장애 영역 미입력'}{curStu.is_sample ? ' · 샘플' : ''}</div>}
         </div>
         <button type="button" className="kb-btn kb-sq" onClick={() => goStu(prev?.id)} disabled={!prev} title={prev ? `이전 학생 (${prev.code})` : '이전 학생 없음'} aria-label="이전 학생">◀</button>
         <select className="kb-ws-pick" value={route.sid} onChange={(e) => goStu(e.target.value)} aria-label="학생 바꾸기">
@@ -59,14 +75,18 @@ export default function StudentWorkspace({ route, onNavigate, actions }) {
         <button type="button" className="kb-btn kb-danger" onClick={() => onNavigate('crisis')}>🚨 급해요</button>
       </div>
 
-      <div className="kb-tabs" role="tablist" aria-label="학생 수첩">
+      <div className="kb-tabs" role="tablist" aria-label="학생 수첩" onKeyDown={onTabKey}>
         {STUDENT_TABS.map((t) => (
           <button
             key={t.key}
+            ref={(el) => { tabRefs.current[t.key] = el; }}
+            id={'kb-wstab-' + t.key}
             type="button"
             role="tab"
             className={'kb-tab' + (tabHint(t) ? ' kb-hinting' : '')}
-            aria-selected={t.key === route.tab}
+            aria-selected={t.key === tab.key}
+            aria-controls="kb-ws-panel"
+            tabIndex={t.key === tab.key ? 0 : -1}
             onClick={() => goTab(t.key)}
             data-tour={'ws-tab-' + t.key}
           >
@@ -80,7 +100,7 @@ export default function StudentWorkspace({ route, onNavigate, actions }) {
       {!ready ? (
         <LoadStall route={route} onNavigate={onNavigate} />
       ) : (
-        <div className="kb-ws-body" key={`${route.sid}|${route.tab}|${route.sub}|${route.seq}`}>
+        <div className="kb-ws-body" id="kb-ws-panel" role="tabpanel" aria-labelledby={'kb-wstab-' + tab.key} key={`${route.sid}|${route.tab}|${route.sub}|${route.seq}`}>
           {tab.key === 'record' && <RecordTab route={route} onNavigate={onNavigate} />}
           {tab.key === 'plan' && <PlanTab route={route} onNavigate={onNavigate} />}
           {tab.key === 'iep' && (route.sub ? <OldScreen page={route.sub} onNavigate={onNavigate} /> : <IepCards route={route} onNavigate={onNavigate} />)}
@@ -96,7 +116,9 @@ export default function StudentWorkspace({ route, onNavigate, actions }) {
 // 학생 자료가 오래 안 오면(학생 목록·학급·학생 자료 받기 실패) '불러오는 중…'에 멈추지 않게 —
 //   다시 불러오기 단추와 되돌아갈 길(학생 목록·오늘)을 보인다(mds/56 #14). 실패를 알면 바로, 모르면 6초 뒤.
 function LoadStall({ route, onNavigate }) {
-  const { studentsLoaded, studentsError, classes, reloadStudents, reloadClasses, selectStudent } = useStudents();
+  const { studentsLoaded, studentsError, studentDataErrors, classes, reloadStudents, reloadClasses, selectStudent } = useStudents();
+  // 1102(mds/57 #1): 이 학생 자료(/all) 받기가 실패했으면 기다리지 않고 바로 '불러오지 못했어요 · 다시 시도'.
+  const dataError = (studentDataErrors && studentDataErrors[route.sid]) || '';
   const [slow, setSlow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [tries, setTries] = useState(0);
@@ -105,7 +127,7 @@ function LoadStall({ route, onNavigate }) {
     const t = setTimeout(() => setSlow(true), 6000);
     return () => clearTimeout(t);
   }, [route.sid, tries]);
-  const show = slow || !!studentsError;
+  const show = slow || !!studentsError || !!dataError;
   const retry = async () => {
     setBusy(true);
     try {
@@ -118,10 +140,13 @@ function LoadStall({ route, onNavigate }) {
   if (!show || busy) return <div className="kb-loading">학생 자료를 불러오는 중…</div>;
   return (
     <div className="kb-card" role="alert">
-      <h3 className="kb-h3">학생 자료를 아직 못 불러왔어요</h3>
-      <p className="kb-muted">인터넷 연결을 확인한 뒤 다시 불러와 주세요. 적어 둔 기록은 지워지지 않았어요.</p>
+      <h2 className="kb-h3">{dataError ? '학생 자료를 불러오지 못했어요' : '학생 자료를 아직 못 불러왔어요'}</h2>
+      <p className="kb-muted">
+        {dataError ? `서버에서 이 학생의 기록을 받지 못했어요(${dataError}). 빈 수첩으로 보이지 않게 멈춰 두었어요. ` : ''}
+        인터넷 연결을 확인한 뒤 다시 시도해 주세요. 적어 둔 기록은 지워지지 않았어요.
+      </p>
       <div className="kb-q-grp">
-        <button type="button" className="kb-btn kb-pri" onClick={retry}>다시 불러오기</button>
+        <button type="button" className="kb-btn kb-pri" onClick={retry}>{dataError ? '다시 시도' : '다시 불러오기'}</button>
         <button type="button" className="kb-btn" onClick={() => onNavigate('#students')}>학생 목록으로</button>
         <button type="button" className="kb-btn" onClick={() => onNavigate('#today')}>오늘로</button>
       </div>

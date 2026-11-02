@@ -85,7 +85,7 @@ function StudentPills({ students, cur, onPick }) {
  * @param {(target:string)=>void} p.onNavigate  새 셸 navigate(옛 id 또는 #주소)
  */
 export default function DocsPage({ mode = 'hub', onNavigate }) {
-  const { students, curStu, curStuId, curStuData, curStuDataLoaded, selectStudent, tier2Groups, curSemester } = useStudents();
+  const { students, curStu, curStuId, curStuData, curStuDataLoaded, studentDataErrors, selectStudent, tier2Groups, curSemester } = useStudents();
   const { user } = useAuth();
   const toast = useToast();
   const [goals, setGoals] = useState(null); // 저장된 IEP 목표(이 학생)
@@ -256,6 +256,19 @@ export default function DocsPage({ mode = 'hub', onNavigate }) {
     );
   }
   if (!ready) {
+    // 1102(mds/57 #1): 학생 자료 받기가 실패했으면 '불러오는 중…'에 멈추지 않고 다시 시도 단추.
+    const dataErr = studentDataErrors && studentDataErrors[curStuId];
+    if (dataErr) {
+      return (
+        <div className="kb-stack">
+          {head}
+          <div className="kb-strip kb-err" role="alert">
+            <div>학생 자료를 불러오지 못했어요({dataErr}). 잠시 뒤 다시 시도해 주세요.</div>
+            <div className="kb-go"><button type="button" className="kb-btn" onClick={() => selectStudent(curStuId).catch(() => {})}>다시 시도</button></div>
+          </div>
+        </div>
+      );
+    }
     return <div className="kb-stack">{head}<div className="kb-loading">학생 자료를 불러오는 중…</div></div>;
   }
 
@@ -351,7 +364,8 @@ export default function DocsPage({ mode = 'hub', onNavigate }) {
   return (
     <div className="kb-stack">
       {head}
-      <b className="kb-muted">{mode === 'hub' ? '2 문서 종류와 내보내기 방식' : `${curStu.code} 학생의 문서 — 종류를 보고 내보내기 방식을 누르세요`}</b>
+      {/* 1102(mds/57 #18): 제목 순서 h1 → h2 → h3(문서 카드) — 굵은 글자를 h2로(모양은 그대로) */}
+      <h2 className="kb-muted kb-h2-plain">{mode === 'hub' ? '2 문서 종류와 내보내기 방식' : `${curStu.code} 학생의 문서 — 종류를 보고 내보내기 방식을 누르세요`}</h2>
       <p className="kb-small">각 화면 안의 출력 단추(Word·인쇄·복사)는 그대로 있어요. 여기는 한곳에서 모아 내보내는 입구예요. 인쇄 창이 안 뜨면 주소창 오른쪽의 팝업 차단을 풀어 주세요.</p>
       <div className="kb-docs">{MAIN.map((k) => cards[k])}</div>
       <button type="button" className="kb-fold" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-tour="doc-more">

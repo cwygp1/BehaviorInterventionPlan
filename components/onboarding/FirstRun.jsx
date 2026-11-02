@@ -6,6 +6,7 @@ import { useGuide } from '../guide/GuideContext';
 import { DISABILITIES } from '../../lib/disability';
 import { GRADES_BY_LEVEL } from '../modals/EditStudentModal';
 import { LEVEL_OPTIONS } from '../../lib/schoolLevel';
+import { STUDENT_CODE_MAX } from '../../lib/studentCode';
 
 // 가입 직후 1회(mds/46 방법 3·5) — AuthContext.signup이 남긴 표시를 읽는다.
 //   방법 3  첫 설정 마법사: ① 반 이름 → ② 첫 학생 등록(나중에 해도 됨) → ③ 무엇부터 해 볼지 고르기.
@@ -129,7 +130,7 @@ function Wizard({ onNavigate, onDone }) {
             <p>실명 대신 <b>학생 코드</b>로 적어요. 강점·어려움은 나중에 학생 관리에서 채워도 돼요.</p>
             <label className="ob-wiz-field">
               <span>학생 코드 (실명 금지)</span>
-              <input ref={inputRef} className="form-input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="예: 학생A" onKeyDown={(e) => { if (e.key === 'Enter') saveStudent(); }} />
+              <input ref={inputRef} className="form-input" maxLength={STUDENT_CODE_MAX} value={code} onChange={(e) => setCode(e.target.value)} placeholder="예: 학생A" onKeyDown={(e) => { if (e.key === 'Enter') saveStudent(); }} />
             </label>
             <div className="ob-wiz-row">
               <label className="ob-wiz-field">

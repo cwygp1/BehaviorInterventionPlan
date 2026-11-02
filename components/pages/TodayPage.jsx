@@ -13,6 +13,8 @@ import { SECTIONS } from '../../lib/tiers';
 import { escortSignal } from '../../lib/escortSignal';
 import WeekStrip from '../ui/WeekStrip';
 import QuickRecordDrawer from '../quick/QuickRecordDrawer';
+import { STUDENT_CODE_MAX } from '../../lib/studentCode';
+import { takeQuickResume } from '../../lib/quickResume';
 
 // 새 디자인 '오늘'(#today) — 2단계 정식판(mds/52 §4, mds/54 §2-1 #1, 프로토타입 1~4장).
 //   · 학생 0명: 입력칸 하나 + '샘플 학생으로 구경하기'·'3분 체험 보기'(선택 단추). 마법사·샘플 자동 주입은 없다(AppShell이 표시만 지움).
@@ -85,7 +87,7 @@ function FirstScreen({ onAdd, busy, onSeed, onDemo, onManageClasses }) {
         <h2 className="kb-first-q">첫 학생의 코드(별명)를<br />적어 주세요</h2>
         <form className="kb-first-box" onSubmit={(e) => { e.preventDefault(); submit(); }} data-tour="add-student-first">
           <label htmlFor="kb-first-code" className="kb-sr">학생 코드</label>
-          <input id="kb-first-code" ref={inputRef} className="kb-input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="예: 가·1, 해님이" autoComplete="off" />
+          <input id="kb-first-code" ref={inputRef} className="kb-input" maxLength={STUDENT_CODE_MAX} value={code} onChange={(e) => setCode(e.target.value)} placeholder="예: 가·1, 해님이" autoComplete="off" />
           <button type="submit" className="kb-btn kb-pri kb-big" disabled={busy}>추가</button>
         </form>
         <div className="kb-muted">
@@ -145,7 +147,7 @@ function TodayRow({ r, hl, onNavigate, onQuick }) {
 
 export default function TodayPage({ onNavigate, actions }) {
   const { students, studentsLoaded, curClassId, addStudent, hasSamples, seedSamples, clearSamples } = useStudents();
-  const { startDemo } = useAuth();
+  const { startDemo, user } = useAuth();
   const toast = useToast();
   const { dash, cal, assess, error, loaded, reload } = useTodayData();
   const [busy, setBusy] = useState(false);
@@ -156,6 +158,12 @@ export default function TodayPage({ onNavigate, actions }) {
   const [weekOpen, setWeekOpen] = useState(false);
   const [pbsOpen, setPbsOpen] = useState(false);
   const addRef = useRef(null);
+  // 1102(mds/57 #6): 로그인이 끝나 저장 못 했던 빠른 기록 창을 다시 연다(같은 선생님·이 학급 학생일 때만, 한 번).
+  useEffect(() => {
+    if (!studentsLoaded || !user) return;
+    const r = takeQuickResume(user.id, (sid) => students.some((s) => s.id === sid));
+    if (r) setQuick({ sid: r.sid, mode: r.mode, nonce: Date.now(), resumed: true });
+  }, [studentsLoaded, students, user]);
 
   const todo = useMemo(() => computeTodos({ students, dash, cal, assess }), [students, dash, cal, assess]);
   const today = todayKst();
@@ -241,7 +249,7 @@ export default function TodayPage({ onNavigate, actions }) {
         {adding ? (
           <form className="kb-row" onSubmit={async (e) => { e.preventDefault(); const c = newCode.trim(); if (!c) { addRef.current && addRef.current.focus(); return; } if (await addOne(c)) { setNewCode(''); setAdding(false); } }}>
             <label htmlFor="kb-next-code" className="kb-sr">다음 학생 코드</label>
-            <input id="kb-next-code" ref={addRef} autoFocus className="kb-input" style={{ flex: 1, minWidth: 160 }} value={newCode} onChange={(e) => setNewCode(e.target.value)} placeholder="다음 학생 코드(별명)" autoComplete="off" />
+            <input id="kb-next-code" ref={addRef} autoFocus className="kb-input" style={{ flex: 1, minWidth: 160 }} maxLength={STUDENT_CODE_MAX} value={newCode} onChange={(e) => setNewCode(e.target.value)} placeholder="다음 학생 코드(별명)" autoComplete="off" />
             <button type="submit" className="kb-btn kb-out" disabled={busy}>+ 추가</button>
             <button type="button" className="kb-btn" onClick={() => { setAdding(false); setNewCode(''); }}>취소</button>
           </form>

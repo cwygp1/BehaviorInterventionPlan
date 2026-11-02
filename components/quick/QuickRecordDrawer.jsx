@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { writeQuickResume } from '../../lib/quickResume';
 import { QUICK_MODES, MODE_LABEL, nextQuickRow } from '../../lib/todo';
 import AbcForm from '../record/AbcForm';
 import BehaviorForm from '../record/BehaviorForm';
@@ -33,8 +35,9 @@ const nowHM = () => {
  * @param {(hash:string) => void} p.onNavigate
  */
 export default function QuickRecordDrawer({ start, rows, summary, onClose, onSaved, onNavigate }) {
-  const { allStudents, selectStudent } = useStudents();
+  const { allStudents, selectStudent, studentDataErrors } = useStudents();
   const toast = useToast();
+  const { user } = useAuth();
   const [sid, setSid] = useState(null);
   const [mode, setMode] = useState('obs');
   const [need, setNeed] = useState('obs'); // 이 학생에게 필요한(연) 모드 — 이것을 저장해야 '다음 학생'이 켜진다
@@ -44,6 +47,10 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
   const [err, setErr] = useState('');
   const [sameAsk, setSameAsk] = useState(false);
   const [confirm, setConfirm] = useState(null); // null | 'close' | 'next'
+  // 1102(mds/57 #2·#3): 저장 중 잠금 — 저장 단추를 두 번 눌러도(더블클릭) 기록은 1건. ref는 같은 틱의 두 번째 클릭까지 막고,
+  //   saving 상태는 단추를 잠그고 '저장 중…'을 보인다.
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
   // 이 창에서 방금 저장해 끝낸 학생 → 그때 끝낸 할 일(task). 표가 새로 고쳐져 그 학생의 할 일이 바뀌면 다시 '다음 학생'이 된다.
   //   창을 새로 열 때마다 비운다(mds/56 #11).
   const [doneIds] = useState(() => new Map());
@@ -120,24 +127,38 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
   const onSesSaved = useCallback(() => markSaved('ses'), [markSaved]);
 
   async function saveMode(m, force) {
+    if (savingRef.current) return { ok: false, busy: true }; // 앞 저장이 끝나기 전 두 번째 누름 — 조용히 무시
     const f = formRefs.current[m];
     if (!f) return { ok: false, error: '아직 불러오는 중이에요. 잠시 뒤 다시 눌러 주세요.' };
     if (m === 'num' && !force && f.sameAsLast && f.sameAsLast()) { setSameAsk(true); setErr(''); return { ok: false, asked: true }; }
-    const r = await f.save();
+    savingRef.current = true;
+    setSaving(true);
+    let r;
+    try {
+      r = await f.save();
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
     if (r.ok && !r.notified) markSaved(m); // 점검표 폼이 이미 같은 저장을 알렸으면 다시 알리지 않는다(mds/56 #36)
+    // 1102(mds/57 #6): 로그인이 끝나 저장 못 함 — 앱이 곧 로그인 화면으로 내려간다. 같은 선생님이 다시 로그인하면
+    //   이 학생·이 종류로 창을 다시 열도록 남긴다(쓰던 값은 각 폼의 초안이 맡음).
+    if (!r.ok && r.status === 401 && user) writeQuickResume({ uid: user.id, sid, mode: m });
     return r;
   }
 
   async function onSave() {
+    if (savingRef.current) return;
     setConfirm(null);
     const r = await saveMode(mode, false);
-    if (!r.ok && !r.asked) setErr(r.error || '저장하지 못했어요.');
+    if (!r.ok && !r.asked && !r.busy) setErr(r.error || '저장하지 못했어요.');
     if (r.ok) toast(`${stu ? stu.code : ''} ${MODE_LABEL[mode]} 저장했어요${nextRow ? ` · 다음: ${nextRow.code}` : ''}`);
   }
   async function onSameYes() {
+    if (savingRef.current) return;
     setSameAsk(false);
     const r = await saveMode('num', true);
-    if (!r.ok) setErr(r.error || '저장하지 못했어요.');
+    if (!r.ok && !r.busy) setErr(r.error || '저장하지 못했어요.');
   }
 
   const closeNow = useCallback(() => {
@@ -177,6 +198,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
 
   // 저장하고 닫기(또는 저장하고 다음) — 쓰던 모드를 차례로 저장. 하나라도 실패하면 멈추고 알려 준다.
   async function saveAllThen() {
+    if (savingRef.current) return;
     const target = confirm;
     // 회기는 패널 안 '💾 회기 저장' 단추로만 저장된다(3단계: 쓰다 만 표시는 SessionForm onDirty) — 그 모드로 돌려보낸다.
     if (dirty.ses) { setConfirm(null); setMode('ses'); setVisited((v) => ({ ...v, ses: true })); setErr('회기 기록은 칸 안의 ‘💾 회기 저장’ 단추로 저장해 주세요. 저장하면 다시 닫을 수 있어요.'); return; }
@@ -184,6 +206,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
     for (const m of ms) {
       // eslint-disable-next-line no-await-in-loop
       const r = await saveMode(m, true);
+      if (r.busy) return;
       if (!r.ok) { setConfirm(null); setMode(m); setVisited((v) => ({ ...v, [m]: true })); setErr(r.error || '저장하지 못했어요.'); return; }
     }
     setConfirm(null);
@@ -237,6 +260,9 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
           오늘 기록 {summary ? `${summary.recorded}/${summary.total}` : '-'}
           {nextRow ? ` · 다음: ${nextRow.code}(${MODE_LABEL[nextRow.mode] || '관찰'})` : ' · 다음 학생 없음'}
         </div>
+        {start && start.resumed && !saved[mode] && (
+          <p className="kb-dnote" role="status" style={{ padding: '0 24px', margin: 0 }}>로그인이 끝나 저장하지 못했던 기록 창을 다시 열었어요. 쓰던 내용을 확인하고 ‘저장’을 눌러 주세요.</p>
+        )}
         <div className="kb-dmodes" role="group" aria-label="기록 종류" data-tour="quick-modes">
           {QUICK_MODES.map((m) => (
             <button key={m.key} type="button" className="kb-pill" aria-pressed={mode === m.key} onClick={() => pick(m.key)}>
@@ -244,6 +270,12 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
             </button>
           ))}
         </div>
+        {studentDataErrors && studentDataErrors[sid] && (
+          <div className="kb-strip kb-err" role="alert" style={{ margin: '0 24px' }}>
+            <div>이 학생 자료를 불러오지 못했어요({studentDataErrors[sid]}). 잠시 뒤 다시 시도해 주세요.</div>
+            <div className="kb-go"><button type="button" className="kb-btn" onClick={() => selectStudent(sid).catch(() => {})}>다시 시도</button></div>
+          </div>
+        )}
         <div className="kb-db" key={sid}>
           {visited.obs && (
             <div hidden={mode !== 'obs'}>
@@ -278,7 +310,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
             <div className="kb-strip kb-ask" role="alertdialog" aria-labelledby="kb-q-same">
               <div id="kb-q-same">지난 기록과 같아요. 그대로 저장할까요?</div>
               <div className="kb-go">
-                <button type="button" ref={askRef} className="kb-btn kb-pri" onClick={onSameYes}>그대로 저장</button>
+                <button type="button" ref={askRef} className="kb-btn kb-pri" onClick={onSameYes} disabled={saving}>그대로 저장</button>
                 <button type="button" className="kb-btn" onClick={() => setSameAsk(false)}>취소</button>
               </div>
             </div>
@@ -288,7 +320,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
               <div id="kb-q-cf">저장하지 않은 내용이 있어요.</div>
               <div className="kb-go">
                 <button type="button" ref={askRef} className="kb-btn" onClick={() => { goAfterRef.current = null; setConfirm(null); titleRef.current && titleRef.current.focus(); }}>계속 쓰기</button>
-                <button type="button" className="kb-btn kb-pri" onClick={saveAllThen}>{confirm === 'next' ? '저장하고 다음 학생' : '저장하고 닫기'}</button>
+                <button type="button" className="kb-btn kb-pri" onClick={saveAllThen} disabled={saving}>{confirm === 'next' ? '저장하고 다음 학생' : '저장하고 닫기'}</button>
                 <button type="button" className="kb-btn" onClick={discardThen}>{confirm === 'next' ? '버리고 다음 학생' : '버리고 닫기'}</button>
               </div>
             </div>
@@ -307,8 +339,8 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
           )}
           <div className="kb-df">
             {mode !== 'ses' && (
-              <button type="button" className="kb-btn kb-pri" onClick={onSave} data-tour="quick-save">
-                {saved[mode] && !dirty[mode] ? `✓ ${saved[mode]} 저장함` : '저장'}
+              <button type="button" className="kb-btn kb-pri" onClick={onSave} data-tour="quick-save" disabled={saving} aria-busy={saving || undefined}>
+                {saving ? '저장 중…' : saved[mode] && !dirty[mode] ? `✓ ${saved[mode]} 저장함` : '저장'}
               </button>
             )}
             <button type="button" className="kb-btn" onClick={onNext} disabled={!needSaved} data-tour="quick-next" aria-describedby={nextHint ? 'kb-q-next-hint' : undefined}>다음 학생 ▶</button>

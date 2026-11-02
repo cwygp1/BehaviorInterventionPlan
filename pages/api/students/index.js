@@ -1,6 +1,7 @@
 import { sql } from '../../../lib/db';
 import { requireAuth } from '../../../lib/auth';
 import { ensureStudentProfileColsCached } from '../../../lib/ensureSchema';
+import { STUDENT_CODE_MAX, studentCodeLength } from '../../../lib/studentCode';
 
 export default requireAuth(async function handler(req, res) {
   const userId = req.userId;
@@ -34,6 +35,10 @@ export default requireAuth(async function handler(req, res) {
         const { student_code, level, grade, disability, note, strengths, difficulties, class_id } = req.body || {};
         if (!student_code) {
           return res.status(400).json({ error: 'student_code is required' });
+        }
+        // 1102(mds/57 #4): DB 열(VARCHAR(100))보다 길면 DB 오류(500) 대신 400 + 쉬운 말.
+        if (studentCodeLength(student_code) > STUDENT_CODE_MAX) {
+          return res.status(400).json({ error: `학생 코드는 ${STUDENT_CODE_MAX}자까지 쓸 수 있어요. 짧은 별명으로 줄여 주세요.` });
         }
         if (!class_id) {
           return res.status(400).json({ error: 'class_id is required' });

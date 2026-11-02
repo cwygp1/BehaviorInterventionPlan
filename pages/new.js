@@ -37,7 +37,7 @@ export default function NewDesign() {
     return (
       <>
         <Head><title>로그인 · 꼬박꼬박 행동중재 통합 운영 시스템</title></Head>
-        <AuthScreen />
+        <AuthScreen showExpired />
       </>
     );
   }

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStudents } from '../../../contexts/StudentContext';
+import { useAuth } from '../../../contexts/AuthContext';
+import { takeQuickResume } from '../../../lib/quickResume';
 import { recordSetup, recentRecords } from '../../../lib/notebook';
 import { todayKst } from '../../../lib/utils/calendarRules';
 import { formatRoute } from '../../../lib/routes';
@@ -31,6 +33,13 @@ export default function RecordTab({ route, onNavigate }) {
   const [deadOpen, setDeadOpen] = useState(false);
   const [periodOpen, setPeriodOpen] = useState(false);
   const [quick, setQuick] = useState(null);
+  const { user } = useAuth();
+  // 1102(mds/57 #6): 로그인이 끝나 저장 못 했던 이 학생의 빠른 기록 창을 다시 연다(한 번).
+  useEffect(() => {
+    if (!user || !curStuId) return;
+    const r = takeQuickResume(user.id, (sid) => sid === curStuId);
+    if (r) setQuick({ sid: r.sid, mode: r.mode, nonce: Date.now(), resumed: true });
+  }, [user, curStuId]);
   const [monTab, setMonTab] = useState(readMonTab);
   const [screenKey, setScreenKey] = useState(0);
   const today = todayKst();

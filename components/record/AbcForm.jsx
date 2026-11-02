@@ -82,6 +82,7 @@ export function useAbcForm({ studentId, entryDate = null, variant = 'page' }) {
   const [c, setC] = useState('');
   const [setting, setSetting] = useState(''); // 0914: 배경사건(선택)
   const [busy, setBusy] = useState(false);
+  const quickBusyRef = useRef(false); // 빠른 기록 창 저장 진행 중(같은 틱 두 번째 클릭까지 막음)
   // 0819 피드백: 저장 성공 후 "다음 단계(기능평가)로 이동" 배너 — 새 기록을 입력하면 숨김.
   const [savedOk, markSaved] = useSavedFlag([a, b, c]);
 
@@ -214,8 +215,10 @@ export function useAbcForm({ studentId, entryDate = null, variant = 'page' }) {
   // 빠른 기록 창 저장 — 같은 API·같은 본문·같은 캐시 갱신. 알림은 창이 띄우므로 결과만 돌려준다.
   //   빈 칸이면 막고 어느 칸인지 알려 준다(기존 화면과 같은 규칙: A·B·C 모두 필요).
   async function saveQuick() {
+    if (quickBusyRef.current) return { ok: false, busy: true }; // 1102(mds/57 #2): 저장 중 두 번째 호출은 무시(기록 1건)
     const empty = [!a.trim() && 'a', !b.trim() && 'b', !c.trim() && 'c'].filter(Boolean);
     if (empty.length) return { ok: false, field: empty[0], error: '그 전에 있었던 일 · 학생 행동 · 그 뒤에 일어난 일, 세 칸을 모두 적어 주세요.' };
+    quickBusyRef.current = true;
     setBusy(true);
     try {
       const body = { date, time: timeText, setting, a, b, c };
@@ -230,8 +233,9 @@ export function useAbcForm({ studentId, entryDate = null, variant = 'page' }) {
       escortSignal('abc-saved');
       return { ok: true };
     } catch (e) {
-      return { ok: false, error: '저장하지 못했어요 — ' + e.message };
+      return { ok: false, error: '저장하지 못했어요 — ' + e.message, status: e && e.status };
     } finally {
+      quickBusyRef.current = false;
       setBusy(false);
     }
   }
@@ -278,7 +282,7 @@ export function AbcFormCard({ f, onNavigate, aiOn }) {
             )}
           </div>
           <div className="qc-row">
-            <textarea className="form-textarea" style={{ minHeight: 58 }} value={quickText} onChange={(e) => setQuickText(e.target.value)}
+            <textarea className="form-textarea" aria-label="빠른 입력 — 상황을 한 문장으로" style={{ minHeight: 58 }} value={quickText} onChange={(e) => setQuickText(e.target.value)}
               placeholder="예: 수학 익힘책 풀라고 했더니 '싫어!' 하며 책을 던졌고, 교사가 다가가 진정시켰다" />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {aiOn && <button className="btn btn-pri btn-sm" onClick={splitABC} disabled={qcBusy}>{qcBusy ? '나누는 중…' : '✨ A·B·C로 나누기'}</button>}
@@ -290,8 +294,8 @@ export function AbcFormCard({ f, onNavigate, aiOn }) {
             <div style={{ marginTop: 10 }}>
               <AIActionBar prompt={buildSplitPrompt(quickText)} align="flex-start" />
               <div className="form-group" style={{ marginTop: 8, marginBottom: 0 }}>
-                <label className="form-label">AI 응답(JSON)을 붙여넣고 적용</label>
-                <textarea className="form-textarea" style={{ minHeight: 56 }} value={qcPaste} onChange={(e) => setQcPaste(e.target.value)}
+                <label className="form-label" htmlFor="abc-qc-paste">AI 응답(JSON)을 붙여넣고 적용</label>
+                <textarea id="abc-qc-paste" className="form-textarea" style={{ minHeight: 56 }} value={qcPaste} onChange={(e) => setQcPaste(e.target.value)}
                   placeholder={'{"a":"...","b":"...","c":"..."}'} />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
@@ -303,12 +307,12 @@ export function AbcFormCard({ f, onNavigate, aiOn }) {
 
         <div className="form-row" data-tour="ob-when">
           <div className="form-group">
-            <label className="form-label">날짜</label>
-            <input type="date" className="form-input" value={date} onChange={(e) => setDate(e.target.value)} />
+            <label className="form-label" htmlFor="abc-page-date">날짜</label>
+            <input id="abc-page-date" type="date" className="form-input" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="form-label">시간 / 장소</label>
-            <input className="form-input" value={timeText} readOnly placeholder="시간/장소 칩에서 선택" />
+            <label className="form-label" htmlFor="abc-page-time">시간 / 장소</label>
+            <input id="abc-page-time" className="form-input" value={timeText} readOnly placeholder="시간/장소 칩에서 선택" />
             <EditableChipGroup label="시간" storageKey="abc_time" defaults={ABC_TIMES} mode="set" target={timeVal} onChange={setTimeVal} />
             <EditableChipGroup label="장소" storageKey="abc_place" defaults={ABC_PLACES} mode="set" target={placeVal} onChange={setPlaceVal} />
           </div>

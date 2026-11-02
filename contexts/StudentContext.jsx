@@ -25,6 +25,7 @@ import {
   setTier2Tier3 as apiSetTier2Tier3,
 } from '../lib/api/tier2';
 import { useAuth } from './AuthContext';
+import { useToast } from './ToastContext';
 
 const StudentContext = createContext({});
 
@@ -50,6 +51,7 @@ function writeSavedCtx(uid, v) {
  */
 export function StudentProvider({ children }) {
   const { user } = useAuth();
+  const toast = useToast();
   const [allStudents, setAllStudents] = useState([]); // every student for the user
   const [studentsLoaded, setStudentsLoaded] = useState(false); // 학생 목록을 서버에서 받아왔는가(빈 화면 깜빡임 방지)
   // 새 디자인(1102, mds/56 #14): 학생 목록 받기가 실패했는가 — 새 셸이 '다시 불러오기'를 보이는 데만 쓴다(기존 화면은 읽지 않음).
@@ -66,6 +68,9 @@ export function StudentProvider({ children }) {
   curStuIdNowRef.current = curStuId;
   const getCurStuId = useCallback(() => curStuIdNowRef.current, []);
   const [studentDataCache, setStudentDataCache] = useState({});
+  // 1102(mds/57 #1): 학생 자료(/all) 받기 실패 — { [sid]: 안내문 }. 실패는 캐시에 넣지 않아 다음 고르기·다시 시도 때 다시 받는다.
+  //   새 셸 수첩은 이 값을 보고 '불러오지 못했어요 · 다시 시도'를 보이고, 기존 화면은 토스트로 안내한다.
+  const [studentDataErrors, setStudentDataErrors] = useState({});
   const [tier2Groups, setTier2Groups] = useState([]);  // Tier 2 소그룹 for cur class+semester
   const [homeSummary, setHomeSummary] = useState({ summaries: {}, recent: [] });
   const inflightRef = useRef({});
@@ -84,6 +89,7 @@ export function StudentProvider({ children }) {
       setCurClassId(null);
       setCurStuId(null);
       setStudentDataCache({});
+      setStudentDataErrors({});
       setTier2Groups([]);
       setHomeSummary({ summaries: {}, recent: [] });
       restoredRef.current = false;
@@ -321,17 +327,23 @@ export function StudentProvider({ children }) {
     if (!sid) return null;
     if (studentDataCache[sid]) return studentDataCache[sid];
     if (inflightRef.current[sid]) return inflightRef.current[sid];
+    setStudentDataErrors((prev) => (prev[sid] ? (({ [sid]: _x, ...rest }) => rest)(prev) : prev));
+    // 1102(mds/57 #1): 실패하면 빈 자료로 캐시하지 않고 오류 상태로 남긴다(null로 끝냄 — 부르는 쪽 흐름은 예전처럼 이어진다).
     const promise = fetchAllStudentData(sid).then((data) => {
       setStudentDataCache((prev) => ({ ...prev, [sid]: data }));
       delete inflightRef.current[sid];
       return data;
     }).catch((e) => {
       delete inflightRef.current[sid];
-      throw e;
+      const msg = (e && e.message) || '서버 오류';
+      setStudentDataErrors((prev) => ({ ...prev, [sid]: msg }));
+      if (e && e.status === 401) return null; // 로그인이 끝남 — 로그인 화면이 안내한다
+      toast('학생 자료를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요. (' + msg + ')', 'error');
+      return null;
     });
     inflightRef.current[sid] = promise;
     return promise;
-  }, [studentDataCache]);
+  }, [studentDataCache, toast]);
 
   const selectStudent = useCallback(async (sid) => {
     curStuIdNowRef.current = sid;
@@ -383,23 +395,25 @@ export function StudentProvider({ children }) {
     const data = await apiCreateStudent(body);
     await reloadStudents();
     await reloadHomeSummary();
+    reloadClasses(); // 1102(mds/57 #8): 학급 관리 창의 학생 수(student_count)도 새로 — 기다리지 않는다
     return data.student;
-  }, [curClassId, reloadStudents, reloadHomeSummary]);
+  }, [curClassId, reloadStudents, reloadHomeSummary, reloadClasses]);
 
   const editStudent = useCallback(async (payload) => {
     const data = await apiUpdateStudent(payload);
     await reloadStudents();
+    if (payload && payload.class_id != null) reloadClasses(); // 1102(mds/57 #8): 학급을 옮기면 학급별 학생 수도 새로
     return data.student;
-  }, [reloadStudents]);
+  }, [reloadStudents, reloadClasses]);
 
   // 샘플 체험 — 현재 학급에 샘플 학생 2명 + 4주치 기록을 시드한다.
   // 성공 시 첫 샘플 학생을 반환해 호출부(홈)가 바로 선택+이동할 수 있게 한다.
   const seedSamples = useCallback(async () => {
     if (!curClassId) throw new Error('학급을 먼저 만들어주세요.');
     const data = await apiSeedSamples(curClassId);
-    await Promise.all([reloadStudents(), reloadHomeSummary()]);
+    await Promise.all([reloadStudents(), reloadHomeSummary(), reloadClasses()]); // 1102(mds/57 #8): 학급 학생 수도
     return (data.students || [])[0] || null;
-  }, [curClassId, reloadStudents, reloadHomeSummary]);
+  }, [curClassId, reloadStudents, reloadHomeSummary, reloadClasses]);
 
   // 샘플 일괄 삭제 — 샘플 학생과 그 기록(CASCADE)을 정리한다.
   const clearSamples = useCallback(async () => {
@@ -407,8 +421,8 @@ export function StudentProvider({ children }) {
     await apiClearSamples();
     if (sampleIds.includes(curStuId)) setCurStuId(null);
     sampleIds.forEach((id) => invalidateStudent(id));
-    await Promise.all([reloadStudents(), reloadHomeSummary(), reloadTier2Groups()]);
-  }, [allStudents, curStuId, invalidateStudent, reloadStudents, reloadHomeSummary, reloadTier2Groups]);
+    await Promise.all([reloadStudents(), reloadHomeSummary(), reloadTier2Groups(), reloadClasses()]); // 1102(mds/57 #8)
+  }, [allStudents, curStuId, invalidateStudent, reloadStudents, reloadHomeSummary, reloadTier2Groups, reloadClasses]);
 
   // 학생 삭제 — DB의 ON DELETE CASCADE로 관찰·BIP·IEP 등 관련 기록이 함께 삭제된다.
   const removeStudent = useCallback(async (id) => {
@@ -490,6 +504,7 @@ export function StudentProvider({ children }) {
         curStuData,
         curStuDataLoaded,
         studentDataCache,
+        studentDataErrors,
         homeSummary,
         selectStudent,
         getCurStuId,
