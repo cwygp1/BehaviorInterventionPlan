@@ -15,7 +15,7 @@ import { SUBJECTS } from './subjects';
  * @param {object} p.goal    iep_goals 행
  * @param {number} p.month   이번 달(KST)
  * @param {(patch:object, msg?:string)=>Promise<boolean>} p.onPatch   { id 빼고 바꿀 칸 } — 부분 저장
- * @param {(goalId:number, idx:number, v:{mark,text})=>Promise<boolean>} p.onSaveEval
+ * @param {(goalId:number, idx:number, v:{mark,text}, monthLabel?:string)=>Promise<boolean>} p.onSaveEval
  * @param {(goalId:number, gen?:string)=>void} p.onOpenOld
  * @param {(goal)=>void} p.onWord
  * @param {(goal)=>void} p.onDelete
@@ -32,12 +32,15 @@ export default function GoalCard({ goal, month, onPatch, onSaveEval, onOpenOld, 
   const [ev, setEv] = useState({ mark: '', text: '' });
   const [busy, setBusy] = useState(false);
   const idBase = `kb-goal-${goal.id}`;
+  const subjLocked = !!goal.standard_code; // 성취기준이 붙어 있으면 교과는 기존 화면에서(mds/56 #34)
 
   const startEdit = () => { setSubj(goal.subject || ''); setText(goal.semester_goal || ''); setEditing(true); };
   const saveEdit = async () => {
     if (!text.trim()) return;
     setBusy(true);
-    const ok = await onPatch({ subject: subj.trim(), semester_goal: text.trim() }, '학기목표를 저장했어요');
+    // 성취기준이 붙은 목표는 교과를 여기서 바꾸지 않는다 — 성취기준 코드·영역·학년군이 옛 교과 것으로 남아 '[2국01-01] 수학'이 되므로(mds/56 #34).
+    const patch = subjLocked ? { semester_goal: text.trim() } : { subject: subj.trim(), semester_goal: text.trim() };
+    const ok = await onPatch(patch, '학기목표를 저장했어요');
     setBusy(false);
     if (ok) setEditing(false);
   };
@@ -49,7 +52,7 @@ export default function GoalCard({ goal, month, onPatch, onSaveEval, onOpenOld, 
   const saveEval = async () => {
     if (!ev.text.trim() && !ev.mark) return;
     setBusy(true);
-    const ok = await onSaveEval(goal.id, evalIdx, ev);
+    const ok = await onSaveEval(goal.id, evalIdx, ev, monthly[evalIdx] ? monthly[evalIdx].month : undefined); // 라벨도 함께(mds/56 #32)
     setBusy(false);
     if (ok) setEvalIdx(-1);
   };
@@ -69,8 +72,10 @@ export default function GoalCard({ goal, month, onPatch, onSaveEval, onOpenOld, 
         <div className="kb-q-body">
           <div className="kb-q-field">
             <label className="kb-q-lb" htmlFor={idBase + '-subj'}>교과</label>
-            <input id={idBase + '-subj'} className="kb-q-input" list={idBase + '-subjects'} value={subj} onChange={(e) => setSubj(e.target.value)} />
-            <datalist id={idBase + '-subjects'}>{SUBJECTS.map((s) => <option key={s} value={s} />)}</datalist>
+            <input id={idBase + '-subj'} className="kb-q-input" list={subjLocked ? undefined : idBase + '-subjects'} value={subj} onChange={(e) => setSubj(e.target.value)} readOnly={subjLocked} aria-describedby={subjLocked ? idBase + '-subj-note' : undefined} />
+            {subjLocked
+              ? <p className="kb-small" id={idBase + '-subj-note'} style={{ margin: 0 }}>성취기준 [{goal.standard_code}]이 붙은 목표라 교과는 여기서 못 바꿔요. 교과를 바꾸려면 아래 ‘자세히 고치기 (기존 화면)’에서 성취기준과 함께 바꿔 주세요.</p>
+              : <datalist id={idBase + '-subjects'}>{SUBJECTS.map((s) => <option key={s} value={s} />)}</datalist>}
           </div>
           <div className="kb-q-field">
             <label className="kb-q-lb" htmlFor={idBase + '-goal'}>학기목표</label>

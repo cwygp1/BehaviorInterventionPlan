@@ -61,9 +61,9 @@ export default function IepCards({ route, onNavigate }) {
       return true;
     } catch (e) { toast('저장하지 못했어요: ' + e.message); return false; }
   }
-  async function saveEval(goalId, idx, v) {
+  async function saveEval(goalId, idx, v, monthLabel) {
     try {
-      const g = await saveMonthEval(sid, goalId, { monthIdx: idx, mark: v.mark, text: v.text });
+      const g = await saveMonthEval(sid, goalId, { monthIdx: idx, monthLabel, mark: v.mark, text: v.text });
       if (g) replaceGoal(g);
       toast('이 달 평가를 저장했어요');
       return true;

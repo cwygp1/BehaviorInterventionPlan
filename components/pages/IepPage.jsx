@@ -615,6 +615,9 @@ export default function IepPage({ onNavigate }) {
     const g = savedGoals.find((x) => x.id === Number(req.goalId));
     if (!g) return;
     loadGoal(g);
+    // 1102(mds/56 #33): 같은 커밋에서 도는 아래 0916 효과(editingId가 아직 null인 값으로 봄)가 loadGoal이 고른 경로를
+    //   학생 전체 목표 방식으로 덮어쓰지 않게 — ✏ 수정처럼 이 목표의 경로를 지킨다(새 목표·학생 바꾸기에서 다시 false가 됨).
+    pickedFlowRef.current = true;
     if (req.gen === 'rule') openReqRef.current = g.id;
   }, [curStuId, goalsLoading, savedGoals, rows.length]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
