@@ -362,3 +362,9 @@ html[data-font="lg"] .kb-new { --kb-fs-title: 24.75px; --kb-fs-head: 20.25px; --
   .kb-new .kb-steps3, .kb-new .kb-fold2-h { display: none !important; }
   .kb-new .kb-fold2 { border: 0 !important; }
 }
+
+/* 1102(mds/56 #7): 태블릿·폰 — 길잡이 독(.esc-dock, 앱 밖 body에 그려짐)이 아래 탭바를 덮지 않게 탭바 위로 올린다.
+   components/guide는 건드리지 않고, 새 디자인 화면(.app.kb-new)이 있을 때만 적용된다(기존 사이트에는 탭바가 없다). */
+@media (max-width: 1023px) {
+  body:has(.app.kb-new) .esc-dock:not(.top) { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); max-height: calc(100vh - 184px); }
+}

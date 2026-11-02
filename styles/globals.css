@@ -137,6 +137,8 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 /* 사이드바 아래 '글씨 크게' (mds/44 S1) — 이름 줄 바로 위, 맨 아래로 밀기는 이 칸이 맡는다 */
 .sb-font{margin-top:auto;padding:8px 12px 0}
 .sb-font+.sidebar-foot{margin-top:0}
+/* 1102(mds/56 #3): '새 디자인으로 보기' 칸이 같은 .sb-font로 하나 더 붙어도 아래로 미는 여백은 첫 칸만 */
+.sb-font+.sb-font{margin-top:0}
 .sb-font-btn{width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--sub);font-size:.85rem;font-weight:600;text-align:left}
 .sb-font-btn:hover{border-color:var(--pri);color:var(--pri)}
 .sb-font-state{margin-left:auto;font-size:.72rem;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--surface2);color:var(--sub)}
