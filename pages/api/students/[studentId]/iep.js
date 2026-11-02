@@ -1,6 +1,6 @@
 import { sql } from '../../../../lib/db';
 import { requireStudentAccess } from '../../../../lib/auth';
-import { resolveGoalStatus } from '../../../../lib/iepCard';
+import { resolveGoalStatus, keepMarkedEvals } from '../../../../lib/iepCard';
 
 // IEP (개별화교육계획) goals for a student. Each row = one 성취기준 기반 목표
 // with its 학기목표·현행수준·평가기준·월별 점증 계획.
@@ -88,6 +88,11 @@ export default requireStudentAccess(async function handler(req, res) {
           chain_type: str('chain_type', 'forward'), prompt_system: str('prompt_system', 'mtl'),
           monthly: jsonArr('monthly'), semestral_eval: str('semestral_eval'),
         };
+        // 1102(mds/56 #10): 옛 화면(IepPage 저장·IepReportPage 자동저장)은 들고 있던 monthly 전체를 보낸다 —
+        //   그 사이 새 디자인에서 적은 월 평가(eval_at·eval_mark)가 오래된 사본에 덮이지 않게 그 칸 평가만 지킨다(lib/iepCard keepMarkedEvals).
+        if (cur && has('monthly')) {
+          v.monthly = JSON.stringify(keepMarkedEvals(arr(cur.monthly), arr(b.monthly)));
+        }
         // 1101(D1): 월별 계획이 있으면 언제나 'active', 없으면 보낸 값 → 기존 값 → 'active'(lib/iepCard resolveGoalStatus).
         //   옛 화면은 status를 보내지 않으므로 예전 그대로 'active'로 저장·유지된다.
         v.status = resolveGoalStatus({ hasBodyStatus: has('status'), bodyStatus: b.status, curStatus: cur?.status, monthlyLen: JSON.parse(v.monthly).length });
