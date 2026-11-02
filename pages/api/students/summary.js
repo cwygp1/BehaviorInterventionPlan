@@ -1,6 +1,6 @@
 import { sql } from '../../../lib/db';
 import { requireAuth } from '../../../lib/auth';
-import { ensureIepStatusColCached } from '../../../lib/ensureSchema';
+import { ensureIepStatusCol, ensureIepStatusColCached } from '../../../lib/ensureSchema';
 
 // GET /api/students/summary
 //
@@ -25,10 +25,9 @@ export default requireAuth(async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   const userId = req.userId;
-  // 1101: 초안 상태 열 자가 치유(첫 요청 1번) — 실패해도 아래 쿼리가 알려 준다.
-  try { await ensureIepStatusColCached(); } catch (_e) { /* noop */ }
-  try {
-    const [summaryRes, recentRes] = await Promise.all([
+  // 1101: 초안 상태 열 자가 치유(첫 요청 1번) — 실패하면 기록만 남기고, 아래 쿼리가 열 없음(42703)으로 죽으면 한 번 더 고친 뒤 다시 묻는다(mds/56 #16·#21).
+  try { await ensureIepStatusColCached(); } catch (e) { console.error('Students summary ensure status col:', e); }
+  const runQueries = () => Promise.all([
       sql`
         SELECT
           s.id AS student_id,
@@ -83,6 +82,16 @@ export default requireAuth(async function handler(req, res) {
         LIMIT 8
       `,
     ]);
+  try {
+    let summaryRes, recentRes;
+    try {
+      [summaryRes, recentRes] = await runQueries();
+    } catch (err) {
+      // 열 없음(42703)일 때만 status 열을 (캐시 없이) 다시 만들고 1회 재시도 — dashboard·calendar와 같은 규칙.
+      if (err?.code !== '42703') throw err;
+      await ensureIepStatusCol();
+      [summaryRes, recentRes] = await runQueries();
+    }
 
     const summaries = {};
     for (const row of summaryRes.rows) {

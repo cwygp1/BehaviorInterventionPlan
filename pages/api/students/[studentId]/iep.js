@@ -1,6 +1,7 @@
 import { sql } from '../../../../lib/db';
 import { requireStudentAccess } from '../../../../lib/auth';
 import { resolveGoalStatus, keepMarkedEvals } from '../../../../lib/iepCard';
+import { ensureIepGoalColsCached } from '../../../../lib/ensureSchema';
 
 // IEP (개별화교육계획) goals for a student. Each row = one 성취기준 기반 목표
 // with its 학기목표·현행수준·평가기준·월별 점증 계획.
@@ -29,30 +30,9 @@ export default requireStudentAccess(async function handler(req, res) {
       case 'POST':
       case 'PUT': {
         const b = req.body || {};
-        // 자가 치유: 마이그레이션 전 DB에서도 저장이 되도록 컬럼을 보강.
-        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS eval_foci JSONB NOT NULL DEFAULT '[]'`;
-        // 모듈4: 지원 수준(Tier) 컬럼 자가 치유.
-        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS support_tier VARCHAR(40) NOT NULL DEFAULT ''`;
-        // 과제 분석(critType='task') 단계 목록 컬럼 자가 치유.
-        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS task_steps JSONB NOT NULL DEFAULT '[]'`;
-        // 과제 분석 교수 순서(연쇄)·촉진 체계 컬럼 자가 치유.
-        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS chain_type VARCHAR(20) NOT NULL DEFAULT 'forward'`;
-        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS prompt_system VARCHAR(20) NOT NULL DEFAULT 'mtl'`;
-        // P2: 실제 데이터로서의 Tier 연동 — 소속 Tier 2 소그룹 FK(소프트, nullable) 자가 치유.
-        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS tier2_group_id INTEGER`;
-        // 0720: 관련 성취기준 다중 선택 컬럼 자가 치유.
-        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS related_stds JSONB NOT NULL DEFAULT '[]'`;
-        // 0720(P15, 현장 피드백): 학기 수준 교육내용·교육방법 — 월별 생성 전에 방향을 잡는 칸.
-        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS sem_content TEXT NOT NULL DEFAULT ''`;
-        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS sem_methods TEXT NOT NULL DEFAULT ''`;
-        // 0903(B안): 성취기준별 도달 목표 [{code, std, goal}].
-        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS std_goals JSONB NOT NULL DEFAULT '[]'`;
-        // 0908(기능중심 IEP — 경로B): {func, skill, alt}.
-        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS func_plan JSONB NOT NULL DEFAULT '{}'`;
-        // 0915: 기회 중 성공 횟수의 분모(5·10·20) 자가 치유.
-        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS crit_of INTEGER NOT NULL DEFAULT 10`;
-        // 1101(새 디자인 4단계, D1): 초안 상태 'active'|'draft' 자가 치유.
-        await sql`ALTER TABLE iep_goals ADD COLUMN IF NOT EXISTS status VARCHAR(10) NOT NULL DEFAULT 'active'`;
+        // 자가 치유: 마이그레이션 전 DB에서도 저장이 되도록 컬럼을 보강 — 13줄 ALTER는 lib/ensureSchema.js
+        //   ensureIepGoalColsCached()로 옮겨 인스턴스당 1번만 돈다(실패하면 캐시가 풀려 다음 저장에서 다시, mds/56 #18).
+        await ensureIepGoalColsCached();
 
         // 저장 값 정규화. UPDATE는 "부분 갱신": body에 없는(undefined) 필드는 기존 행 값을 유지한다.
         // 계획서 페이지 자동저장·전년도 페이지처럼 일부 필드만 보내는 호출자가 관련 성취기준·교육내용 등을
