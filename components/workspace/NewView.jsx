@@ -15,6 +15,8 @@ import ClassCicoTable from '../class/ClassCicoTable';
 import CrisisAsk from '../crisis/CrisisAsk';
 import DocsPage from '../docs/DocsPage';
 import { confirmLogout } from '../../lib/confirmLogout';
+import { useLLM } from '../../contexts/LLMContext';
+import { confirmLeaveWhileBusy } from '../../lib/nav/legacyNav';
 import { isSimpleMode } from '../../lib/onboarding';
 import SettingsPage from '../settings/SettingsPage';
 
@@ -140,6 +142,7 @@ function HelpHub({ route, onNavigate, actions }) {
   const { startTour, openGlossary } = useGuide();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  const { busy: llmBusy } = useLLM();
   const isAdmin = user?.role === 'admin';
 
   if (route.sub === 'settings') return <div key={`settings|${route.seq}`}><SettingsPage /></div>;
@@ -149,6 +152,7 @@ function HelpHub({ route, onNavigate, actions }) {
 
   const toLegacy = async () => {
     if (busy) return;
+    if (llmBusy && !confirmLeaveWhileBusy()) return; // AI 생성 중이면 메뉴 이동과 같은 확인(mds/56 #37)
     setBusy(true);
     try { await setUiMode('legacy'); } catch (e) { toast('화면 모양을 바꾸지 못했어요: ' + e.message); setBusy(false); }
   };

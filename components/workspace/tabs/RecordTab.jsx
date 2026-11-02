@@ -154,7 +154,9 @@ export default function RecordTab({ route, onNavigate }) {
           <button key={s.label} type="button" className="kb-chip" aria-pressed={s.on} onClick={() => goSub(s.key, s.mt)} data-tour={s.tour}>{s.label}</button>
         ))}
       </div>
-      <div key={screenKey}>
+      {/* 1102(mds/56 #31): 옛 화면(MonitorPage) 안의 탭 단추는 sessionStorage만 바꾼다 — 클릭이 위로 올라온 뒤(그 단추 처리가 끝난 뒤)
+          다시 읽어 위 칩 눌림을 맞춘다. 옛 화면은 고치지 않는다. */}
+      <div key={screenKey} onClick={route.sub === 'monitor' ? () => { const t = readMonTab(); if (t !== monTab) setMonTab(t); } : undefined}>
         <OldScreen page={route.sub} onNavigate={onNavigate} />
       </div>
 

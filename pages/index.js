@@ -14,7 +14,7 @@ import FirstRun from '../components/onboarding/FirstRun';
 
 // 화면 id 목록·옛 해시 후계·해시 읽기·AI 생성 중 이동 확인·히스토리 깊이 백업은
 // 새 디자인(/new)과 같이 쓰려고 lib/nav/legacyNav.js로 옮겼다(내용 그대로).
-import { VALID_PAGES, pageFromHash, confirmLeaveWhileBusy, saveNavIdx, loadNavIdx } from '../lib/nav/legacyNav';
+import { VALID_PAGES, pageFromHash, confirmLeaveWhileBusy, saveNavIdx, loadNavIdx, NEW_NAV_IDX_KEY } from '../lib/nav/legacyNav';
 // 새 디자인 병행(mds/54 §4): 로그인한 사용자가 '새 디자인'을 골랐으면 /new로 보낸다(옛 해시는 새 자리로).
 import { useRouter } from 'next/router';
 import { wantsNewDesign } from '../lib/uiMode';
@@ -41,7 +41,12 @@ export default function Home() {
     if (!goNew) return;
     const h = (window.location.hash || '').replace(/^#\/?/, '');
     // 옛 해시 북마크(#iep 등)는 /new가 새 자리로 바꾼다(lib/routes.js parseHash 'go').
-    router.replace('/new' + (h && VALID_PAGES.has(pageFromHash()) && pageFromHash() !== 'home' ? '#go/' + pageFromHash() : ''));
+    //   옛 id가 아닌 해시(#student/5/plan 같은 새 주소)는 그대로 넘긴다 — 모르는 주소는 /new가 오늘로 보낸다(mds/56 #38).
+    const p = pageFromHash();
+    const tail = h && VALID_PAGES.has(p) && p !== 'home' ? '#go/' + p : (h && h !== 'home' ? '#' + h : '');
+    // 새 디자인 쪽 히스토리 깊이는 0부터(전환 직후 ← 단추가 옛 화면 항목으로 돌아가지 않게, mds/56 #17).
+    saveNavIdx(0, NEW_NAV_IDX_KEY);
+    router.replace('/new' + tail);
   }, [goNew]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 메뉴·카드 클릭 이동 — 브라우저 히스토리에 쌓아 뒤로가기/앞으로가기가 동작하게 한다.
@@ -89,6 +94,9 @@ export default function Home() {
     const onPop = (e) => {
       if (!initedRef.current) return; // 로그인 전에는 무시
       const st = e.state;
+      // 디자인 전환으로 '/new' 항목이 섞인 히스토리(mds/56 #17): Next 라우터가 맡지 않는 항목(__N 없음)인데
+      //   주소 경로가 '/'가 아니면 화면을 그 주소로 다시 불러온다(middleware가 쿠키대로 정리). 기존 디자인만 쓰는 탭에는 이런 항목이 없다.
+      if (window.location.pathname !== '/' && !(st && st.__N)) { window.location.reload(); return; }
       const page = st && VALID_PAGES.has(st.page) ? st.page : pageFromHash();
       // idx가 없는 항목(부팅 때 Next가 state를 덮어쓴 항목)은 깊이를 알 수 없다 —
       // 그때는 현재 깊이를 유지한다(뒤로가기 자체는 hash로 정상 동작).

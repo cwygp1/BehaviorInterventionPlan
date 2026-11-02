@@ -3,6 +3,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { isSimpleMode, SIMPLE_TIERS, FULL_TIERS } from '../../lib/onboarding';
 import { FONT_KEY } from '../ui/FontSizeToggle';
+import { useLLM } from '../../contexts/LLMContext';
+import { confirmLeaveWhileBusy } from '../../lib/nav/legacyNav';
 
 // 도움 > 설정(#help/settings, 새 디자인 4단계 — mds/54 §7 '도움 > 설정', mds/52 §8 D3).
 //   ① 화면 모양 바꾸기(users.ui_mode — 1단계 setUiMode 그대로)
@@ -35,11 +37,13 @@ export default function SettingsPage() {
   const { user, setUiMode, updateUsedTiers } = useAuth();
   const toast = useToast();
   const [busy, setBusy] = useState('');
+  const { busy: llmBusy } = useLLM();
   const [font, setFont] = useFontLarge();
   const folded = isSimpleMode(user);
 
   const toLegacy = async () => {
     if (busy) return;
+    if (llmBusy && !confirmLeaveWhileBusy()) return; // AI 생성 중이면 메뉴 이동과 같은 확인(mds/56 #37)
     setBusy('ui');
     try { await setUiMode('legacy'); } catch (e) { toast('화면 모양을 바꾸지 못했어요: ' + e.message); setBusy(''); }
   };

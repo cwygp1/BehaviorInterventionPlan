@@ -6,6 +6,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { SECTIONS, PAGE_SECTION, PAGE_META, COMMON_MENU, COMMON_IDS, WORKSPACE_COMMON_IDS } from '../../lib/tiers';
 import { FOLD_OPEN_EVENT } from '../ui/FoldCard';
 import FontSizeToggle from '../ui/FontSizeToggle';
+import { useLLM } from '../../contexts/LLMContext';
+import { confirmLeaveWhileBusy } from '../../lib/nav/legacyNav';
 
 // 시안 B(런처 포털) 사이드바 — 두 가지 모드:
 //   · 포털 모드(홈·공통 페이지): 공통 메뉴(COMMON_MENU)를 전부 펼쳐 보인다. 영역 진입은 홈 카드로.
@@ -71,8 +73,10 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
   const { user, logout, updateUsedTiers, setUiMode } = useAuth();
   // 1101(mds/54 §4-1): 새 디자인 병행 — 전환 단추. 체험 계정은 1단계에서 기존 디자인 고정이라 숨긴다.
   const [uiBusy, setUiBusy] = useState(false);
+  const { busy: llmBusy } = useLLM();
   const toNewDesign = async () => {
     if (uiBusy) return;
+    if (llmBusy && !confirmLeaveWhileBusy()) return; // AI 생성 중이면 메뉴 이동과 같은 확인(mds/56 #37)
     setUiBusy(true);
     try { await setUiMode('new'); } catch (e) { window.alert('화면 모양을 바꾸지 못했어요: ' + (e?.message || e)); setUiBusy(false); }
   };
