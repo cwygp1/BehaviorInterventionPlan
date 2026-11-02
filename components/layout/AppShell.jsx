@@ -34,7 +34,7 @@ import { toNew, toOld, isStudentPage, requiresStudent, withStudent } from '../..
 export default function AppShell() {
   const {
     students, allStudents, studentsLoaded, classes, curStuId, curClassId, curYear,
-    selectStudent, selectClass, selectYear,
+    selectStudent, selectClass, selectYear, getCurStuId,
   } = useStudents();
   const toast = useToast();
   const { busy } = useLLM();
@@ -66,12 +66,15 @@ export default function AppShell() {
     const t = String(target);
     if (t.startsWith('#')) { push(t); return; }
     const r = routeRef.current;
-    const sid = opt.sid != null ? opt.sid : (curStuIdRef.current || (r.kind === 'student' ? r.sid : null));
+    // 옛 현황판(Tier3·IEP·ChartWidget)은 selectStudent(B) 바로 뒤 같은 틱에 onNavigate를 부른다 — 렌더 전 ref(curStuIdRef)는
+    //   아직 A라서, StudentContext가 selectStudent에서 바로 갱신하는 값(getCurStuId)을 먼저 읽는다(mds/56 #2).
+    const nowSid = getCurStuId ? getCurStuId() : null;
+    const sid = opt.sid != null ? opt.sid : (nowSid || curStuIdRef.current || (r.kind === 'student' ? r.sid : null));
     const h = toNew(t, { sid });
     if (h) { push(h); return; }
     if (requiresStudent(t)) { openPicker(t); return; }
     toast('그 화면을 찾지 못했어요: ' + t);
-  }, [push, openPicker, toast]);
+  }, [push, openPicker, toast, getCurStuId]);
 
   // 길잡이 navigateRaw — 학생 가드 없이(호출 쪽이 막 selectStudent를 부른 직후일 수 있어 #go로 한 박자 미룬다).
   const navigateRaw = useCallback((oldId) => {

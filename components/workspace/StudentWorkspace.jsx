@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import { STUDENT_TABS, formatRoute, withStudent } from '../../lib/routes';
 import { levelLabel } from '../../lib/schoolLevel';
@@ -77,7 +78,7 @@ export default function StudentWorkspace({ route, onNavigate, actions }) {
       {tab.key === 'iep' && <SubTabs subs={tab.subs} cur={route.sub} onPick={goSub} done={done} hint={hint} label={tab.label + ' 안 화면'} lead={{ label: '목표 카드', tour: 'ws-iep-cards' }} />}
 
       {!ready ? (
-        <div className="kb-loading">학생 자료를 불러오는 중…</div>
+        <LoadStall route={route} onNavigate={onNavigate} />
       ) : (
         <div className="kb-ws-body" key={`${route.sid}|${route.tab}|${route.sub}|${route.seq}`}>
           {tab.key === 'record' && <RecordTab route={route} onNavigate={onNavigate} />}
@@ -88,6 +89,42 @@ export default function StudentWorkspace({ route, onNavigate, actions }) {
           {tab.key === 'profile' && <ProfileTab actions={actions} />}
         </div>
       )}
+    </div>
+  );
+}
+
+// 학생 자료가 오래 안 오면(학생 목록·학급·학생 자료 받기 실패) '불러오는 중…'에 멈추지 않게 —
+//   다시 불러오기 단추와 되돌아갈 길(학생 목록·오늘)을 보인다(mds/56 #14). 실패를 알면 바로, 모르면 6초 뒤.
+function LoadStall({ route, onNavigate }) {
+  const { studentsLoaded, studentsError, classes, reloadStudents, reloadClasses, selectStudent } = useStudents();
+  const [slow, setSlow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [tries, setTries] = useState(0);
+  useEffect(() => {
+    setSlow(false);
+    const t = setTimeout(() => setSlow(true), 6000);
+    return () => clearTimeout(t);
+  }, [route.sid, tries]);
+  const show = slow || !!studentsError;
+  const retry = async () => {
+    setBusy(true);
+    try {
+      if (!classes || classes.length === 0) await reloadClasses();
+      if (!studentsLoaded) await reloadStudents();
+      else await selectStudent(route.sid);
+    } catch (_e) { /* 아래 안내가 그대로 남는다 */ }
+    finally { setBusy(false); setTries((n) => n + 1); }
+  };
+  if (!show || busy) return <div className="kb-loading">학생 자료를 불러오는 중…</div>;
+  return (
+    <div className="kb-card" role="alert">
+      <h3 className="kb-h3">학생 자료를 아직 못 불러왔어요</h3>
+      <p className="kb-muted">인터넷 연결을 확인한 뒤 다시 불러와 주세요. 적어 둔 기록은 지워지지 않았어요.</p>
+      <div className="kb-q-grp">
+        <button type="button" className="kb-btn kb-pri" onClick={retry}>다시 불러오기</button>
+        <button type="button" className="kb-btn" onClick={() => onNavigate('#students')}>학생 목록으로</button>
+        <button type="button" className="kb-btn" onClick={() => onNavigate('#today')}>오늘로</button>
+      </div>
     </div>
   );
 }

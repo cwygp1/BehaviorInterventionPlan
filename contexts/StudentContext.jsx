@@ -52,12 +52,19 @@ export function StudentProvider({ children }) {
   const { user } = useAuth();
   const [allStudents, setAllStudents] = useState([]); // every student for the user
   const [studentsLoaded, setStudentsLoaded] = useState(false); // 학생 목록을 서버에서 받아왔는가(빈 화면 깜빡임 방지)
+  // 새 디자인(1102, mds/56 #14): 학생 목록 받기가 실패했는가 — 새 셸이 '다시 불러오기'를 보이는 데만 쓴다(기존 화면은 읽지 않음).
+  const [studentsError, setStudentsError] = useState('');
   const [classes, setClasses] = useState([]);         // every class for the user
   const [classesLoaded, setClassesLoaded] = useState(false); // 서버에서 학급 목록을 받아왔는가
   const [curYear, setCurYear] = useState(DEFAULT_YEAR);
   const [curSemester, setCurSemester] = useState(DEFAULT_SEMESTER); // 1 | 2
   const [curClassId, setCurClassId] = useState(null);
   const [curStuId, setCurStuId] = useState(null);      // student.id (db pk)
+  // 새 디자인(1102, mds/56 #2): selectStudent 직후 같은 틱에서도 '방금 고른 학생'을 읽을 수 있게 — 렌더 때 맞추고
+  //   selectStudent가 바로 갱신한다. 새 셸(AppShell.navigate)만 읽고 기존 화면은 쓰지 않는다.
+  const curStuIdNowRef = useRef(null);
+  curStuIdNowRef.current = curStuId;
+  const getCurStuId = useCallback(() => curStuIdNowRef.current, []);
   const [studentDataCache, setStudentDataCache] = useState({});
   const [tier2Groups, setTier2Groups] = useState([]);  // Tier 2 소그룹 for cur class+semester
   const [homeSummary, setHomeSummary] = useState({ summaries: {}, recent: [] });
@@ -90,8 +97,10 @@ export function StudentProvider({ children }) {
       const list = (data.students || []).map((s) => ({ ...s, code: s.student_code }));
       setAllStudents(list);
       setStudentsLoaded(true); // 이후에만 '학생 0명' 빈 화면을 판단(로딩 중 깜빡임 방지)
+      setStudentsError('');
       return list;
     } catch (_e) {
+      setStudentsError((_e && _e.message) || '학생 목록을 불러오지 못했어요');
       return [];
     }
   }, [user]);
@@ -325,6 +334,7 @@ export function StudentProvider({ children }) {
   }, [studentDataCache]);
 
   const selectStudent = useCallback(async (sid) => {
+    curStuIdNowRef.current = sid;
     setCurStuId(sid);
     if (sid) await ensureStudentData(sid);
   }, [ensureStudentData]);
@@ -473,6 +483,7 @@ export function StudentProvider({ children }) {
         // students
         allStudents,
         studentsLoaded,
+        studentsError,
         students,
         curStu,
         curStuId,
@@ -481,6 +492,7 @@ export function StudentProvider({ children }) {
         studentDataCache,
         homeSummary,
         selectStudent,
+        getCurStuId,
         addStudent,
         editStudent,
         removeStudent,
