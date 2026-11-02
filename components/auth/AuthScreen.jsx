@@ -3,15 +3,21 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import LoadingOverlay from '../ui/LoadingOverlay';
 import TermsModal from './TermsModal';
-import { readUiCookie } from '../../lib/uiMode';
 
-// 화면 모양 고르기(mds/54 §4) — 라디오 2개. 기본값은 이 기기의 마지막 선택(kb_ui 쿠키),
-//   없으면 로그인=기존 디자인(쓰던 화면을 갑자기 바꾸지 않음) · 가입=새 디자인.
-function UiModePick({ value, onChange, name }) {
+// 화면 모양 고르기(mds/54 §4).
+//   · 로그인: 기본은 '계정에 저장된 대로'(값 '') — 사용자가 새/기존을 직접 눌렀을 때만 ui_mode를 보낸다.
+//     기기 쿠키(kb_ui)로 미리 찍지 않는다 — 다른 기기 기본값이나 공용 PC 앞사람 선택이 계정 설정을 덮지 않게(mds/56 #5·#6).
+//   · 가입: 언제나 '새 디자인'이 기본(쿠키와 무관).
+function UiModePick({ value, onChange, name, keepOption = false }) {
   return (
     <fieldset className="auth-ui-pick" style={{ border: 'none', padding: 0, margin: '2px 0 10px' }}>
       <legend style={{ fontSize: '.82rem', fontWeight: 700, color: 'var(--sub)', marginBottom: 6 }}>화면 모양</legend>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        {keepOption && (
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '.9rem', cursor: 'pointer', minHeight: 32 }}>
+            <input type="radio" style={{ width: 18, height: 18 }} name={name} value="" checked={value === ''} onChange={() => onChange('')} /> 저장된 대로
+          </label>
+        )}
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '.9rem', cursor: 'pointer', minHeight: 32 }}>
           <input type="radio" style={{ width: 18, height: 18 }} name={name} value="new" checked={value === 'new'} onChange={() => onChange('new')} /> 새 디자인
         </label>
@@ -20,9 +26,11 @@ function UiModePick({ value, onChange, name }) {
         </label>
       </div>
       <div style={{ fontSize: '.76rem', color: 'var(--muted)', marginTop: 2 }}>
-        {value === 'legacy'
-          ? '✨ 새 디자인 써 보기 — 메뉴 5개와 학생 수첩으로 정리한 화면이에요. 언제든 다시 바꿀 수 있어요.'
-          : '처음이면 새 디자인을 권해요 · 언제든 기존 디자인으로 바꿀 수 있어요.'}
+        {value === ''
+          ? '내 계정에서 마지막으로 고른 화면으로 열려요. 바꾸려면 새 디자인이나 기존 디자인을 누르세요.'
+          : value === 'legacy'
+            ? '✨ 새 디자인 써 보기 — 메뉴 5개와 학생 수첩으로 정리한 화면이에요. 언제든 다시 바꿀 수 있어요.'
+            : '처음이면 새 디자인을 권해요 · 언제든 기존 디자인으로 바꿀 수 있어요.'}
       </div>
     </fieldset>
   );
@@ -35,13 +43,9 @@ export default function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const [busyMsg, setBusyMsg] = useState('');
   const [termsOpen, setTermsOpen] = useState(false);
-  // 화면 모양 — 쿠키는 그린 뒤에 읽는다(서버 그림과 어긋나지 않게).
-  const [uiLogin, setUiLogin] = useState('legacy');
+  // 화면 모양 — 로그인은 '저장된 대로'(''이면 보내지 않음), 가입은 '새 디자인'(mds/56 #5·#6).
+  const [uiLogin, setUiLogin] = useState('');
   const [uiSignup, setUiSignup] = useState('new');
-  useEffect(() => {
-    const last = readUiCookie();
-    if (last) { setUiLogin(last); setUiSignup(last); }
-  }, []);
 
   // 체험을 마치고 '내 계정 만들기'를 누르면 회원가입 탭으로 연다(DemoPlayer가 표시를 남김).
   useEffect(() => {
@@ -80,7 +84,7 @@ export default function AuthScreen() {
     setBusy(true);
     setBusyMsg('로그인 중입니다...');
     try {
-      await login(loginEmail.trim(), loginPw, uiLogin);
+      await login(loginEmail.trim(), loginPw, uiLogin || undefined);
     } catch (err) {
       toast('로그인 실패: ' + err.message);
     } finally {
@@ -153,7 +157,7 @@ export default function AuthScreen() {
                 <label>비밀번호</label>
                 <input type="password" value={loginPw} onChange={(e) => setLoginPw(e.target.value)} placeholder="••••••••" required />
               </div>
-              <UiModePick name="ui-login" value={uiLogin} onChange={setUiLogin} />
+              <UiModePick name="ui-login" value={uiLogin} onChange={setUiLogin} keepOption />
               <button type="submit" className="auth-btn" disabled={busy}>
                 {busy ? <><span className="btn-spinner" /><span>로그인 중...</span></> : '로그인하기'}
               </button>
