@@ -44,7 +44,10 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
   const [err, setErr] = useState('');
   const [sameAsk, setSameAsk] = useState(false);
   const [confirm, setConfirm] = useState(null); // null | 'close' | 'next'
-  const [doneIds] = useState(() => new Set());
+  // 이 창에서 방금 저장해 끝낸 학생 → 그때 끝낸 할 일(task). 표가 새로 고쳐져 그 학생의 할 일이 바뀌면 다시 '다음 학생'이 된다.
+  //   창을 새로 열 때마다 비운다(mds/56 #11).
+  const [doneIds] = useState(() => new Map());
+  const goAfterRef = useRef(null); // 확인 줄을 거쳐 닫은 뒤 옮겨 갈 주소(수첩 열기·IEP 목표 카드 열기, mds/56 #13)
   const formRefs = useRef({});
   const titleRef = useRef(null);
   const openerRef = useRef(null);
@@ -65,6 +68,8 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
 
   useEffect(() => {
     if (!start) { setSid(null); return; }
+    doneIds.clear();
+    goAfterRef.current = null;
     openerRef.current = typeof document !== 'undefined' ? document.activeElement : null;
     openFor(start.sid, start.mode || 'obs');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,7 +110,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
     setSaved((s) => ({ ...s, [m]: nowHM() }));
     setDirty((d) => ({ ...d, [m]: false }));
     setErr(''); setSameAsk(false);
-    if (need === 'chk' || need === 'eval' ? m === need : (m !== 'chk' && m !== 'eval')) doneIds.add(sid);
+    if (need === 'chk' || need === 'eval' ? m === need : (m !== 'chk' && m !== 'eval')) doneIds.set(sid, need === 'chk' || need === 'eval' ? need : 'obs');
     if (onSaved) onSaved(sid, m);
   }, [need, sid, doneIds, onSaved]);
 
@@ -141,9 +146,24 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
   }, [onClose]);
 
   const requestClose = useCallback(() => {
+    goAfterRef.current = null;
     if (anyDirty) { setConfirm('close'); return; }
     closeNow();
   }, [anyDirty, closeNow]);
+
+  // 창을 닫고 다른 화면으로 — 저장 안 한 내용이 있으면 확인 줄(저장하고/버리고) 뒤에 옮겨 간다(mds/56 #13).
+  const requestGo = useCallback((hash) => {
+    if (anyDirty) { goAfterRef.current = hash; setConfirm('close'); return; }
+    goAfterRef.current = null;
+    closeNow();
+    onNavigate(hash);
+  }, [anyDirty, closeNow, onNavigate]);
+  const finishClose = () => {
+    const go = goAfterRef.current;
+    goAfterRef.current = null;
+    closeNow();
+    if (go) onNavigate(go);
+  };
 
   function goNext() {
     if (!nextRow) { closeNow(); toast('오늘 빠른 기록으로 할 일이 모두 끝났어요'); return; }
@@ -167,14 +187,14 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
       if (!r.ok) { setConfirm(null); setMode(m); setVisited((v) => ({ ...v, [m]: true })); setErr(r.error || '저장하지 못했어요.'); return; }
     }
     setConfirm(null);
-    if (target === 'next') goNext(); else closeNow();
+    if (target === 'next') goNext(); else finishClose();
   }
   function discardThen() {
     const target = confirm;
     ['obs', 'num', 'chk', 'eval'].forEach((m) => { const f = formRefs.current[m]; if (f && dirty[m] && f.discard) f.discard(); });
     setDirty({});
     setConfirm(null);
-    if (target === 'next') goNext(); else closeNow();
+    if (target === 'next') goNext(); else finishClose();
   }
 
   // Esc — 확인을 거쳐 닫는다(확인 줄이 떠 있으면 확인 줄만 닫는다).
@@ -184,7 +204,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
       if (e.key !== 'Escape') return;
       if (document.querySelector('.modal-bg')) return; // 창 위에 뜬 다른 모달이 먼저
       e.preventDefault();
-      if (confirm || sameAsk) { setConfirm(null); setSameAsk(false); titleRef.current && titleRef.current.focus(); return; }
+      if (confirm || sameAsk) { goAfterRef.current = null; setConfirm(null); setSameAsk(false); titleRef.current && titleRef.current.focus(); return; }
       requestClose();
     };
     document.addEventListener('keydown', onKey);
@@ -241,7 +261,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
           )}
           {visited.eval && (
             <div hidden={mode !== 'eval'}>
-              <EvalForm studentId={sid} ref={(r) => { formRefs.current.eval = r; }} onDirty={dirtyCbs.eval} onNavigate={onNavigate} onClose={closeNow} />
+              <EvalForm studentId={sid} ref={(r) => { formRefs.current.eval = r; }} onDirty={dirtyCbs.eval} onNavigate={onNavigate} onClose={closeNow} onGo={requestGo} />
             </div>
           )}
           {visited.ses && (
@@ -266,7 +286,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
             <div className="kb-strip kb-ask" role="alertdialog" aria-labelledby="kb-q-cf">
               <div id="kb-q-cf">저장하지 않은 내용이 있어요.</div>
               <div className="kb-go">
-                <button type="button" ref={askRef} className="kb-btn" onClick={() => { setConfirm(null); titleRef.current && titleRef.current.focus(); }}>계속 쓰기</button>
+                <button type="button" ref={askRef} className="kb-btn" onClick={() => { goAfterRef.current = null; setConfirm(null); titleRef.current && titleRef.current.focus(); }}>계속 쓰기</button>
                 <button type="button" className="kb-btn kb-pri" onClick={saveAllThen}>{confirm === 'next' ? '저장하고 다음 학생' : '저장하고 닫기'}</button>
                 <button type="button" className="kb-btn" onClick={discardThen}>{confirm === 'next' ? '버리고 다음 학생' : '버리고 닫기'}</button>
               </div>
@@ -275,7 +295,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
           {restGoal && (
             <div className="kb-dnote">
               {name}는 학기목표 쓰기가 남아 있어요 — 수첩에서 이어가요.{' '}
-              <button type="button" className="kb-btn" onClick={() => { closeNow(); onNavigate(`#student/${sid}/iep`); }}>수첩 열기</button>
+              <button type="button" className="kb-btn" onClick={() => requestGo(`#student/${sid}/iep`)}>수첩 열기</button>
             </div>
           )}
           {!restGoal && restEval && mode !== 'eval' && !saved.eval && (

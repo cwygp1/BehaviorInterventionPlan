@@ -125,7 +125,10 @@ export default function RecordTab({ route, onNavigate }) {
       {/* 4단계(이월 5-d): 매일 점검표 개인 점수 — 우리 반 소그룹 학생이면 오늘 점수 칸(빠른 기록 '점검표'와 같은 폼, 고르면 자동 저장) */}
       <section className="kb-card" data-tour="ws-rec-cico" aria-labelledby="kb-rec-cico-h">
         <h3 className="kb-h3" id="kb-rec-cico-h">매일 점검표 — 오늘 개인 점수</h3>
-        {inGroup
+        {inGroup && quick ? (
+          // 빠른 기록 창이 열려 있는 동안은 같은 학생 점검표 폼을 하나만 둔다(창 쪽) — 두 폼이 함께 자동 저장하지 않게(mds/56 #8).
+          <div className="kb-muted">빠른 기록 창이 열려 있어요. 창을 닫으면 여기에 오늘 점수가 다시 보여요.</div>
+        ) : inGroup
           ? <CicoRowForm studentId={curStuId} />
           : (
             <div className="kb-q-grp" style={{ alignItems: 'center' }}>

@@ -61,7 +61,10 @@ function useTodayData() {
   }, [curClassId, curSemester]);
   const nStu = students.length;
   useEffect(() => { if (studentsLoaded) load(false); }, [studentsLoaded, load, nStu]);
-  return { dash, cal, assess, error, loaded, reload: () => load(true) };
+  // reload는 렌더마다 같은 함수여야 한다 — 새 함수면 onSaved→빠른 기록 창 markSaved→점검표 폼 알림 효과가
+  //   표를 새로 고칠 때마다 다시 돌아 '저장됨 → 새로 고침 → 저장됨'이 끝없이 반복된다(mds/56 #1).
+  const reload = useCallback(() => load(true), [load]);
+  return { dash, cal, assess, error, loaded, reload };
 }
 
 // 학생 0명 첫 화면(프로토타입 1장).

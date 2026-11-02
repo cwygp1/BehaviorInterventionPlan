@@ -14,6 +14,7 @@ import { PillRadio, QField } from '../quick/QuickBits';
 
 // 칩 목록은 lib/chartCatalog.js 단일 출처(1001) — 사용자 차트가 같은 목록으로 자유 입력을 묶는다.
 import { ABC_TIMES, ABC_PLACES, A_CHIPS, B_CHIPS, C_CHIPS, SETTING_CHIPS } from '../../lib/chartCatalog';
+import { todayKst } from '../../lib/utils/calendarRules';
 
 // ABC 관찰 입력 폼 — ObservePage에서 떼어 냈다(새 디자인 2단계, mds/54 §2-1 #15).
 //   · useAbcForm(studentId)  상태·초안·지난 기록 불러오기·저장(기존 저장 API createABC 그대로). 학생 id는 prop으로 받는다.
@@ -70,7 +71,10 @@ export function useAbcForm({ studentId, entryDate = null, variant = 'page' }) {
   const data = studentId ? studentDataCache[studentId] : null;
   const quick = variant === 'quick';
 
-  const [date, setDate] = useState(() => entryDate || new Date().toISOString().slice(0, 10));
+  // 빠른 기록 창(새 디자인)은 한국 날짜로 — 오전 9시 전 기록이 어제로 들어가 '오늘 표'가 안 바뀌던 문제(mds/56 #12).
+  //   기존 화면(page)은 예전 그대로.
+  const todayStr = () => (quick ? todayKst() : new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => entryDate || todayStr());
   const [timeVal, setTimeVal] = useState('');
   const [placeVal, setPlaceVal] = useState('');
   const [a, setA] = useState('');

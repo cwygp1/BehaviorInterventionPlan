@@ -13,6 +13,7 @@ import { escortSignal } from '../../lib/escortSignal';
 import { PillRadio, QField, Stepper } from '../quick/QuickBits';
 
 import { STD_BEHS } from '../../lib/chartCatalog'; // 칩 단일 출처(1001, 사용자 차트와 공유)
+import { todayKst } from '../../lib/utils/calendarRules';
 
 // 행동 수치(문제행동 데이터) 입력 폼 — MonitorPage에서 '단계 탭 + 폼 + 실행 충실도 4체크'를 통째로 떼어 냈다
 //   (새 디자인 2단계, mds/54 §2-1 #18).
@@ -33,7 +34,10 @@ export function useBehaviorForm({ studentId, entryDate = null, variant = 'page' 
   const data = studentId ? studentDataCache[studentId] : null;
   const quick = variant === 'quick';
 
-  const [date, setDate] = useState(() => entryDate || new Date().toISOString().slice(0, 10));
+  // 빠른 기록 창(새 디자인)은 한국 날짜로 — 오전 9시 전 기록이 어제로 들어가 '오늘 표'가 안 바뀌던 문제(mds/56 #12).
+  //   기존 화면(page)은 예전 그대로.
+  const todayStr = () => (quick ? todayKst() : new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => entryDate || todayStr());
   const [beh, setBeh] = useState('');
   const [freq, setFreq] = useState(0);
   const [dur, setDur] = useState(0);
@@ -168,7 +172,7 @@ export function useBehaviorForm({ studentId, entryDate = null, variant = 'page' 
   // 0719: 기록 목록 클릭 → 해당 기록을 입력 폼으로 불러와 수정 (날짜를 몰라도 찾아가짐).
   function loadRecord(r) {
     setEditingId(r.id);
-    setDate(r.date || new Date().toISOString().slice(0, 10));
+    setDate(r.date || todayStr());
     setBeh(r.beh || '');
     setFreq(r.freq ?? 0); setDur(r.dur ?? 0); setIntensity(r.int ?? 1);
     setAlt(r.alt || 'N'); setAltFreq(r.alt_freq ?? 0); setLat(r.lat ?? 0); setDbr(r.dbr ?? 5);
@@ -191,7 +195,7 @@ export function useBehaviorForm({ studentId, entryDate = null, variant = 'page' 
     setEditingId(null);
     setBeh(''); setFreq(0); setDur(0); setIntensity(1); setAlt('Y'); setAltFreq(0); setLat(0); setDbr(5);
     setObsHours(''); setNote(''); setCriterion(''); setTier('');
-    setDate(new Date().toISOString().slice(0, 10));
+    setDate(todayStr());
     setLockedStage(null); setStageIdx(stage.current); // 취소 → 지금 구간으로
   }
 
@@ -201,7 +205,7 @@ export function useBehaviorForm({ studentId, entryDate = null, variant = 'page' 
     const r = monRecords[0];
     if (!r) { toast('아직 저장된 기록이 없어요. 첫 기록은 직접 입력해 주세요.'); return; }
     setEditingId(null); // 새 기록으로
-    setDate(new Date().toISOString().slice(0, 10));
+    setDate(todayStr());
     setBeh(r.beh || '');
     setFreq(r.freq ?? 0); setDur(r.dur ?? 0); setIntensity(r.int ?? 1);
     setAlt(r.alt || 'N'); setAltFreq(r.alt_freq ?? 0); setLat(r.lat ?? 0); setDbr(r.dbr ?? 5);
@@ -267,7 +271,7 @@ export function useBehaviorForm({ studentId, entryDate = null, variant = 'page' 
     prefilledRef.current = true;
     const r = monRecords[0];
     if (r) {
-      setDate(new Date().toISOString().slice(0, 10));
+      setDate(todayStr());
       setBeh(r.beh || '');
       setFreq(r.freq ?? 0); setDur(r.dur ?? 0); setIntensity(r.int ?? 1);
       setAlt(r.alt || 'N'); setAltFreq(r.alt_freq ?? 0); setLat(r.lat ?? 0); setDbr(r.dbr ?? 5);

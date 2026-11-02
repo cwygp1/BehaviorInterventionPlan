@@ -8,6 +8,7 @@ import { printDPRCard } from '../../lib/utils/printDPR';
 import { EditableChipGroup } from '../ui/QChip';
 import { isSecondary } from '../../lib/schoolLevel';
 import { PillRadio, QField } from '../quick/QuickBits';
+import { todayKst } from '../../lib/utils/calendarRules';
 
 // 매일 점검표(CICO/DPR) 한 학생 하루치 입력 폼 — Tier2Page에서 떼어 냈다(새 디자인 2단계, mds/54 §2-1 #9).
 //   · useCicoForm(studentId)  날짜·목표·교시·점수·입퇴실·코멘트 + 그날 기록 불러오기 + 자동 저장(useAutoSaveBody, resetKey에 학생 id)
@@ -46,6 +47,23 @@ export function defaultPeriods(level) {
     : PRESETS['초등 (7교시 + 종례)'];
 }
 
+/** 점수 칸 정리 — 점수나 코멘트가 있는 교시만(저장 body·자동 저장 기준값이 같은 규칙을 쓴다). */
+export function cleanCicoScores(periodList, scores) {
+  const cleanScores = {};
+  (periodList || []).forEach((p) => {
+    const d = readPeriodData(scores, p);
+    if (d.score != null || (d.comment && d.comment.trim())) {
+      cleanScores[p] = { score: d.score, comment: d.comment || '' };
+    }
+  });
+  return cleanScores;
+}
+
+/** 자동 저장 비교용 body — useCicoForm의 body와 같은 모양·같은 키 순서. */
+export function cicoBody({ date, goals, periodList, scores, checkIn, checkOut, comment }) {
+  return { date, goals, periods: periodList, scores: cleanCicoScores(periodList, scores), check_in_time: checkIn, check_out_time: checkOut, comment };
+}
+
 // Normalize legacy score values (number) into { score, comment } shape.
 export function readPeriodData(scores, periodName) {
   const v = scores?.[periodName];
@@ -68,7 +86,9 @@ export function useCicoForm({ studentId, entryDate = null, variant = 'page' }) {
   const dataLoaded = !!data;
   const stu = allStudents.find((s) => s.id === studentId) || null;
 
-  const [date, setDate] = useState(() => entryDate || new Date().toISOString().slice(0, 10));
+  // 빠른 기록 창(새 디자인)은 한국 날짜 — 오전 9시 전 기록이 어제로 들어가 '오늘 표'와 어긋나지 않게(mds/56 #12).
+  //   기존 화면(page)은 예전 그대로 둔다.
+  const [date, setDate] = useState(() => entryDate || (quick ? todayKst() : new Date().toISOString().slice(0, 10)));
   const [goalsInput, setGoalsInput] = useState('');
   const [goals, setGoals] = useState([]);
   const [periodList, setPeriodList] = useState([]);
@@ -85,6 +105,9 @@ export function useCicoForm({ studentId, entryDate = null, variant = 'page' }) {
   // 자동 저장 무장 시점 + 폼 재초기화 트리거(삭제 등) — resetTick을 올리면 기준값 재무장.
   const [cicoLoaded, setCicoLoaded] = useState(false);
   const [resetTick, setResetTick] = useState(0);
+  // 빠른 기록 창: 로더가 불러온 값으로 자동 저장 기준값을 직접 무장(mds/56 #8·#9) — 기존 화면은 쓰지 않는다.
+  const [armed, setArmed] = useState(null);
+  const armNRef = useRef(0);
 
   // Load existing record OR initialize defaults for new entries.
   // ⚠ 자동 저장 도입(0824): 저장 때마다 캐시가 갱신되는데, 그때마다 이 로더가
@@ -96,17 +119,17 @@ export function useCicoForm({ studentId, entryDate = null, variant = 'page' }) {
     const recs = data?.cico || [];
     const today = recs.find((r) => r.date === date);
     if (today) {
+      const lp = today.periods?.length
+        ? today.periods
+        : Object.keys(today.scores || {}) // legacy fallback
+            .filter((k) => k !== '_periods');
       setGoals(today.goals || []);
-      setPeriodList(
-        today.periods?.length
-          ? today.periods
-          : Object.keys(today.scores || {}) // legacy fallback
-              .filter((k) => k !== '_periods')
-      );
+      setPeriodList(lp);
       setScores(today.scores || {});
       setCheckIn(today.check_in_time || '');
       setCheckOut(today.check_out_time || '');
       setComment(today.comment || '');
+      if (quick) setArmed({ key: ++armNRef.current, json: JSON.stringify(cicoBody({ date, goals: today.goals || [], periodList: lp, scores: today.scores || {}, checkIn: today.check_in_time || '', checkOut: today.check_out_time || '', comment: today.comment || '' })) });
     } else {
       // For a new entry, copy structure from the most recent record (so the
       // teacher doesn't have to re-define periods every day) — fall back to
@@ -117,6 +140,7 @@ export function useCicoForm({ studentId, entryDate = null, variant = 'page' }) {
       setPeriodList(lastPeriods || defaultPeriods(stu?.level));
       setScores({});
       setCheckIn(''); setCheckOut(''); setComment('');
+      if (quick) setArmed({ key: ++armNRef.current, json: JSON.stringify(cicoBody({ date, goals: quick && Array.isArray(last?.goals) ? last.goals : [], periodList: lastPeriods || defaultPeriods(stu?.level), scores: {}, checkIn: '', checkOut: '', comment: '' })) });
     }
     setCicoLoaded(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -128,6 +152,7 @@ export function useCicoForm({ studentId, entryDate = null, variant = 'page' }) {
     resetKey: `${studentId}:${date}:${resetTick}`,
     body: { date, goals, periods: periodList, scores: buildCleanScores(), check_in_time: checkIn, check_out_time: checkOut, comment },
     save: saveCore,
+    armWith: quick ? armed : undefined,
   });
 
   function addGoal(text) {
@@ -195,14 +220,7 @@ export function useCicoForm({ studentId, entryDate = null, variant = 'page' }) {
   // Clean scores: only include periods that have at least a score or comment.
   // (함수 선언 호이스팅으로 위 useAutoSaveBody의 body에서도 참조 가능)
   function buildCleanScores() {
-    const cleanScores = {};
-    periodList.forEach((p) => {
-      const d = readPeriodData(scores, p);
-      if (d.score != null || (d.comment && d.comment.trim())) {
-        cleanScores[p] = { score: d.score, comment: d.comment || '' };
-      }
-    });
-    return cleanScores;
+    return cleanCicoScores(periodList, scores);
   }
 
   async function saveCore() {
@@ -433,7 +451,15 @@ const SCORE_OPTS = SCORES.map((v) => ({ value: String(v), label: String(v), aria
 const CicoRowForm = forwardRef(function CicoRowForm({ studentId, onDirty, onSaved }, ref) {
   const f = useCicoForm({ studentId, variant: 'quick' });
   useEffect(() => { if (onDirty) onDirty(f.cicoDirty); }, [f.cicoDirty, onDirty]);
-  useEffect(() => { if (f.savedAt && onSaved) onSaved(f.savedAt); }, [f.savedAt, onSaved]);
+  // 저장 알림은 savedAt이 새로 바뀐 때 한 번만(mds/56 #1) — onSaved가 렌더마다 새 함수여도 같은 저장을 다시 알리지 않는다.
+  const onSavedRef = useRef(onSaved);
+  onSavedRef.current = onSaved;
+  const notifiedRef = useRef(0);
+  useEffect(() => {
+    if (!f.savedAt || f.savedAt === notifiedRef.current) return;
+    notifiedRef.current = f.savedAt;
+    if (onSavedRef.current) onSavedRef.current(f.savedAt);
+  }, [f.savedAt]);
   useImperativeHandle(ref, () => ({ save: f.saveQuick, discard: f.discard, isDirty: () => f.cicoDirty }));
   if (!f.data || !f.cicoLoaded) return <div className="kb-loading">점검표를 불러오는 중…</div>;
   const id = (k) => `qc-${studentId}-${k}`;

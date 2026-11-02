@@ -11,7 +11,7 @@ import { saveMonthEval } from '../iep/iepApi';
 //   다른 달 평가는 지우지 않는다. 평가 문장은 개조식 명사형 종결 안전망(lib/iepCard evalSafeText)을 거쳐 저장된다.
 const same = (a, b) => (a.mark || '') === (b.mark || '') && String(a.text || '').trim() === String(b.text || '').trim();
 
-const EvalForm = forwardRef(function EvalForm({ studentId, onDirty, onNavigate, onClose }, ref) {
+const EvalForm = forwardRef(function EvalForm({ studentId, onDirty, onNavigate, onClose, onGo }, ref) {
   const { curSemester } = useStudents();
   const [goals, setGoals] = useState(null);
   const [vals, setVals] = useState({}); // { goalId: {mark,text} }
@@ -65,7 +65,7 @@ const EvalForm = forwardRef(function EvalForm({ studentId, onDirty, onNavigate, 
       <div className="kb-q-body" data-tour="qr-eval">
         <div className="kb-q-banner">
           이번 달({month}월) 칸이 있는 IEP 월별 계획이 없어요. 월별 계획을 먼저 만들면 여기서 한 달 평가를 쓸 수 있어요.
-          <div><button type="button" className="kb-btn" onClick={() => { if (onClose) onClose(); onNavigate(`#student/${studentId}/iep`); }}>IEP 목표 카드 열기</button></div>
+          <div><button type="button" className="kb-btn" onClick={() => { const h = `#student/${studentId}/iep`; if (onGo) { onGo(h); return; } if (onClose) onClose(); onNavigate(h); }}>IEP 목표 카드 열기</button></div>
         </div>
       </div>
     );
