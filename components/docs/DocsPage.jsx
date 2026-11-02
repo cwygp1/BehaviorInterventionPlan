@@ -89,6 +89,7 @@ export default function DocsPage({ mode = 'hub', onNavigate }) {
   const { user } = useAuth();
   const toast = useToast();
   const [goals, setGoals] = useState(null); // 저장된 IEP 목표(이 학생)
+  const [goalsErr, setGoalsErr] = useState(false); // 1102(mds/56 #28): 목표를 못 불러옴 — '목표 없음'과 구분
   const [busyKey, setBusyKey] = useState('');
   const [year, setYear] = useState(curYearNow());
   const [sem, setSem] = useState('');
@@ -105,11 +106,17 @@ export default function DocsPage({ mode = 'hub', onNavigate }) {
 
   // 학생이 바뀌면 고른 값·목표를 새로.
   useEffect(() => {
-    setGoals(null); setTaskGoalId(''); setLetterId(''); setCrisisId(''); setEvalStep(''); setEvalRefs(null); setQabfRun(0);
+    setGoals(null); setGoalsErr(false); setTaskGoalId(''); setLetterId(''); setCrisisId(''); setEvalStep(''); setEvalRefs(null); setQabfRun(0);
+    // 1102(mds/56 #26): QABF 엑셀처럼 화면 밖 그림을 기다리던 단추는 위에서 그림을 내렸으니 잠금도 푼다(안 풀면 모든 단추가 잠긴 채 남음).
+    setBusyKey('');
     if (!curStuId) return undefined;
     let alive = true;
     fetchIEP(curStuId).then((d) => { if (alive) setGoals(activeGoals(d.goals)); }) // 4단계: 초안 목표는 출력에서 뺀다
-      .catch(() => { if (alive) setGoals([]); });
+      .catch(() => {
+        if (!alive) return;
+        setGoals([]); setGoalsErr(true);
+        toast('IEP 목표를 불러오지 못했어요 — 잠시 뒤 새로고침해 주세요.');
+      });
     return () => { alive = false; };
   }, [curStuId]);
 
@@ -122,6 +129,7 @@ export default function DocsPage({ mode = 'hub', onNavigate }) {
       try { await fn(); } catch (e) { toast('만들지 못했어요: ' + (e && e.message ? e.message : e)); } finally { setBusyKey(''); }
     };
     const all = goals || [];
+    if (kind === 'iep' && goalsErr) { toast('IEP 목표를 불러오지 못했어요 — 새로고침한 뒤 다시 눌러 주세요.'); return; }
     switch (key) {
       // ── IEP (IepReportPage onWord·onNeisCopy, IepPage exportFormWord·downloadTaskSheetNow) ──
       case 'iep.niceWord': {
@@ -220,7 +228,7 @@ export default function DocsPage({ mode = 'hub', onNavigate }) {
       default:
         toast('아직 연결되지 않은 출력이에요: ' + key);
     }
-  }, [curStu, curStuId, curStuData, user, goals, year, sem, taskGoalId, letterId, crisisId, tier2Groups, curSemester, onNavigate, toast]);
+  }, [curStu, curStuId, curStuData, user, goals, goalsErr, year, sem, taskGoalId, letterId, crisisId, tier2Groups, curSemester, onNavigate, toast]);
 
   const onQabfChart = useCallback(async (canvas) => {
     try {
@@ -265,7 +273,7 @@ export default function DocsPage({ mode = 'hub', onNavigate }) {
     iep: (
       <DocCard
         key="iep" kind="iep" busyKey={busyKey} onRun={run}
-        status={goals == null ? <Dot tone="blue">목표 불러오는 중</Dot> : all.length ? <Dot tone="green">저장된 목표 {all.length}개 · 고른 기간 {iepList.length}개</Dot> : <Dot tone="rose">아직 저장된 목표 없음</Dot>}
+        status={goalsErr ? <Dot tone="rose">목표를 불러오지 못했어요 — 새로고침해 주세요</Dot> : goals == null ? <Dot tone="blue">목표 불러오는 중</Dot> : all.length ? <Dot tone="green">저장된 목표 {all.length}개 · 고른 기간 {iepList.length}개</Dot> : <Dot tone="rose">아직 저장된 목표 없음</Dot>}
       >
         <div className="kb-q-row">
           <label className="kb-q-field">

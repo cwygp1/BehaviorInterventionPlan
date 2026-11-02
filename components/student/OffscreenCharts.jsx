@@ -48,14 +48,15 @@ async function snapshot(canvases) {
 function useSettle(boxRef, picker, onReady, timeoutMs = 9000) {
   useEffect(() => {
     let alive = true;
-    const t0 = Date.now();
+    let t0 = 0; // 1102(mds/56 #29): 차트 라이브러리를 다 받은 뒤부터 센다 — 첫 방문·느린 망에서 내려받기 시간이 9초를 먹지 않게
     let timer = null;
     let last = null;
     let same = 0;
     const tick = async () => {
       if (!alive || !boxRef.current) return;
       const refs = picker(boxRef.current);
-      const inst = await snapshot(Object.values(refs));
+      let inst = null;
+      try { inst = await snapshot(Object.values(refs)); } catch (_e) { inst = null; } // 라이브러리 로드 실패 — 시간이 다 되면 그대로 넘긴다
       if (!alive) return;
       if (inst && last && inst.length === last.length && inst.every((x, i) => x === last[i])) same += 1; else same = 0;
       last = inst;
@@ -64,7 +65,11 @@ function useSettle(boxRef, picker, onReady, timeoutMs = 9000) {
       if (done || Date.now() - t0 > timeoutMs) { onReady(refs, done); return; }
       timer = setTimeout(tick, 150);
     };
-    timer = setTimeout(tick, 300);
+    loadChart().catch(() => null).then(() => {
+      if (!alive) return;
+      t0 = Date.now();
+      timer = setTimeout(tick, 300);
+    });
     return () => { alive = false; if (timer) clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
