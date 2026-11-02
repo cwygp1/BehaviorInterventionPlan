@@ -232,8 +232,10 @@ export function useCicoForm({ studentId, entryDate = null, variant = 'page' }) {
       const others = (cur.cico || []).filter((r) => r.date !== date);
       return { ...cur, cico: [res.record, ...others].sort((a, b) => (b.date || '').localeCompare(a.date || '')) };
     });
-    setSavedAt(Date.now());
+    const at = Date.now();
+    setSavedAt(at);
     announceCicoSaved({ sid: studentId, date, record: res.record, from: formIdRef.current });
+    return at; // 1102(mds/56 #36): 빠른 기록 창이 같은 저장을 두 번 알리지 않게(기존 화면은 반환값을 쓰지 않음)
   }
 
   async function onSave() {
@@ -269,7 +271,14 @@ export function useCicoForm({ studentId, entryDate = null, variant = 'page' }) {
     if (!studentId) return { ok: false, error: '학생이 없어요.' };
     if (!filledScores.length) return { ok: false, error: '교시 점수를 하나 이상 골라 주세요.' };
     setBusy(true);
-    try { await saveCore(); return { ok: true }; }
+    // 1102(mds/56 #36): 보낸 내용을 자동 저장 기준값으로 다시 무장 — 안 하면 점수 고를 때 걸린 2초 타이머가 같은 내용을 한 번 더 올리고
+    //   표도 두 번 새로 고친다(닫거나 다음 학생으로 갈 때 언마운트 저장도 한 번 더). 기존 화면(page) 저장 단추는 예전 그대로.
+    const sent = JSON.stringify(cicoBody({ date, goals, periodList, scores, checkIn, checkOut, comment }));
+    try {
+      const at = await saveCore();
+      if (quick) setArmed({ key: ++armNRef.current, json: sent });
+      return { ok: true, at };
+    }
     catch (e) { return { ok: false, error: '저장하지 못했어요 — ' + e.message }; }
     finally { setBusy(false); }
   }
@@ -460,7 +469,14 @@ const CicoRowForm = forwardRef(function CicoRowForm({ studentId, onDirty, onSave
     notifiedRef.current = f.savedAt;
     if (onSavedRef.current) onSavedRef.current(f.savedAt);
   }, [f.savedAt]);
-  useImperativeHandle(ref, () => ({ save: f.saveQuick, discard: f.discard, isDirty: () => f.cicoDirty }));
+  // 창 바닥 '저장': 같은 저장을 savedAt 알림(위 효과)과 창의 markSaved가 둘 다 알리면 표를 두 번 새로 고친다(mds/56 #36).
+  //   이미 위 효과가 알렸으면 notified=true로 돌려 창이 다시 알리지 않게 하고, 아직이면 위 효과가 건너뛰게 표시한다.
+  const saveOnce = async () => {
+    const r = await f.saveQuick();
+    if (r && r.ok && r.at) { r.notified = notifiedRef.current === r.at; notifiedRef.current = r.at; }
+    return r;
+  };
+  useImperativeHandle(ref, () => ({ save: saveOnce, discard: f.discard, isDirty: () => f.cicoDirty }));
   if (!f.data || !f.cicoLoaded) return <div className="kb-loading">점검표를 불러오는 중…</div>;
   const id = (k) => `qc-${studentId}-${k}`;
   return (

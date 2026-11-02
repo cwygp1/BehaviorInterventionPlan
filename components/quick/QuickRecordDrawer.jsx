@@ -124,7 +124,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
     if (!f) return { ok: false, error: '아직 불러오는 중이에요. 잠시 뒤 다시 눌러 주세요.' };
     if (m === 'num' && !force && f.sameAsLast && f.sameAsLast()) { setSameAsk(true); setErr(''); return { ok: false, asked: true }; }
     const r = await f.save();
-    if (r.ok) markSaved(m);
+    if (r.ok && !r.notified) markSaved(m); // 점검표 폼이 이미 같은 저장을 알렸으면 다시 알리지 않는다(mds/56 #36)
     return r;
   }
 
@@ -221,7 +221,8 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
   const name = stu ? stu.code : '학생';
   const restGoal = row && (row.task === 'goal' || (row.rest || []).includes('goal'));
   const restEval = row && (row.task === 'eval' || (row.rest || []).includes('eval'));
-  const nextLabel = needSaved ? '다음 학생 ▶' : `다음 학생 ▶ · ‘${MODE_LABEL[need]}’ 저장 뒤에 켜져요`;
+  // 1102(mds/56 #22): 꺼진 단추 안의 흐린 글자(대비 3.6:1)로 안내하지 않는다 — 안내는 단추 밖 .kb-dnote(진한 회색)로.
+  const nextHint = needSaved ? '' : `‘${MODE_LABEL[need]}’ 저장 뒤에 ‘다음 학생 ▶’이 켜져요.`;
 
   const body = (
     <div className="kb-new">
@@ -310,8 +311,9 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
                 {saved[mode] && !dirty[mode] ? `✓ ${saved[mode]} 저장함` : '저장'}
               </button>
             )}
-            <button type="button" className="kb-btn" onClick={onNext} disabled={!needSaved} data-tour="quick-next">{nextLabel}</button>
+            <button type="button" className="kb-btn" onClick={onNext} disabled={!needSaved} data-tour="quick-next" aria-describedby={nextHint ? 'kb-q-next-hint' : undefined}>다음 학생 ▶</button>
           </div>
+          {nextHint && <p className="kb-dnote" id="kb-q-next-hint" style={{ margin: 0 }}>{nextHint}</p>}
         </div>
       </aside>
     </div>
