@@ -55,16 +55,16 @@ export default function NewSideMenu({ route, onNavigate }) {
           <button type="button" className="kb-nav" aria-current={route.kind === 'menu' ? 'page' : undefined} onClick={() => onNavigate('#menu')} data-tour="kb-menu-all">
             <span className="kb-ico" aria-hidden="true">☰</span><span>전체 메뉴 (옛 메뉴)</span>
           </button>
-          <div className="kb-user">
+          {/* 1102(mds/56 #15): 빌드 번호는 11px 글자 대신 마우스 올림 설명(title)으로 — 도움 맨 아래 '내 계정' 줄에도 그대로 보인다 */}
+          <div className="kb-user" title={'새 디자인' + (BUILD_LABEL ? ` · 빌드 ${BUILD_LABEL}` : '')}>
             <div className="kb-av" aria-hidden="true">{(user?.name || 'T').charAt(0)}</div>
             <div style={{ minWidth: 0 }}>
               {isAdmin ? (
-                <button type="button" className="kb-side-link" style={{ padding: 0, minHeight: 0, color: '#fff', fontWeight: 700 }} onClick={() => onNavigate('admin')} title="관리자 페이지 — 가입자 관리">
+                <button type="button" className="kb-side-link" style={{ padding: 0, color: '#fff', fontWeight: 700, display: 'inline-flex', alignItems: 'center' }} onClick={() => onNavigate('admin')} title="관리자 페이지 — 가입자 관리">
                   {user?.name || '선생님'} 🛡️
                 </button>
               ) : <b>{user?.name || '선생님'}</b>}
               <div>{user?.school || '로그인됨'}</div>
-              <div style={{ fontSize: 11, opacity: 0.7 }}>새 디자인{BUILD_LABEL ? ` · 빌드 ${BUILD_LABEL}` : ''}</div>
             </div>
             <button type="button" className="kb-btn kb-sq" style={{ background: 'transparent', color: '#fff', borderColor: 'var(--kb-navy-line)' }} onClick={() => { if (confirmLogout(user)) logout(); }} title={user?.is_demo ? '체험 끝내기' : '로그아웃'} aria-label={user?.is_demo ? '체험 끝내기(로그아웃)' : '로그아웃'}>↪</button>
           </div>

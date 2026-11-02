@@ -8,24 +8,25 @@ import TermsModal from './TermsModal';
 //   · 로그인: 기본은 '계정에 저장된 대로'(값 '') — 사용자가 새/기존을 직접 눌렀을 때만 ui_mode를 보낸다.
 //     기기 쿠키(kb_ui)로 미리 찍지 않는다 — 다른 기기 기본값이나 공용 PC 앞사람 선택이 계정 설정을 덮지 않게(mds/56 #5·#6).
 //   · 가입: 언제나 '새 디자인'이 기본(쿠키와 무관).
+// 1102(mds/56 #15): 글자 14px(.875rem) 이상·라디오 줄 44px·라디오 22px — 태블릿에서 잘못 고르지 않게.
 function UiModePick({ value, onChange, name, keepOption = false }) {
   return (
     <fieldset className="auth-ui-pick" style={{ border: 'none', padding: 0, margin: '2px 0 10px' }}>
-      <legend style={{ fontSize: '.82rem', fontWeight: 700, color: 'var(--sub)', marginBottom: 6 }}>화면 모양</legend>
+      <legend style={{ fontSize: '.875rem', fontWeight: 700, color: 'var(--sub)', marginBottom: 6 }}>화면 모양</legend>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         {keepOption && (
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '.9rem', cursor: 'pointer', minHeight: 32 }}>
-            <input type="radio" style={{ width: 18, height: 18 }} name={name} value="" checked={value === ''} onChange={() => onChange('')} /> 저장된 대로
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '.9rem', cursor: 'pointer', minHeight: 44 }}>
+            <input type="radio" style={{ width: 22, height: 22 }} name={name} value="" checked={value === ''} onChange={() => onChange('')} /> 저장된 대로
           </label>
         )}
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '.9rem', cursor: 'pointer', minHeight: 32 }}>
-          <input type="radio" style={{ width: 18, height: 18 }} name={name} value="new" checked={value === 'new'} onChange={() => onChange('new')} /> 새 디자인
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '.9rem', cursor: 'pointer', minHeight: 44 }}>
+          <input type="radio" style={{ width: 22, height: 22 }} name={name} value="new" checked={value === 'new'} onChange={() => onChange('new')} /> 새 디자인
         </label>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '.9rem', cursor: 'pointer', minHeight: 32 }}>
-          <input type="radio" style={{ width: 18, height: 18 }} name={name} value="legacy" checked={value === 'legacy'} onChange={() => onChange('legacy')} /> 기존 디자인
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '.9rem', cursor: 'pointer', minHeight: 44 }}>
+          <input type="radio" style={{ width: 22, height: 22 }} name={name} value="legacy" checked={value === 'legacy'} onChange={() => onChange('legacy')} /> 기존 디자인
         </label>
       </div>
-      <div style={{ fontSize: '.76rem', color: 'var(--muted)', marginTop: 2 }}>
+      <div style={{ fontSize: '.875rem', color: 'var(--muted)', marginTop: 2, lineHeight: 1.45 }}>
         {value === ''
           ? '내 계정에서 마지막으로 고른 화면으로 열려요. 바꾸려면 새 디자인이나 기존 디자인을 누르세요.'
           : value === 'legacy'

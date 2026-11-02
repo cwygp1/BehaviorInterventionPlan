@@ -126,6 +126,8 @@
 .kb-new .kb-row .kb-av { width: 44px; height: 44px; border-radius: 22px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; flex: none; }
 .kb-new .kb-row .kb-t { flex: 1; min-width: 140px; }
 .kb-new .kb-row .kb-nm { font-size: var(--kb-fs-head); font-weight: 700; background: none; border: 0; color: var(--kb-ink); padding: 0; text-align: left; cursor: pointer; font-family: inherit; }
+/* 1102(mds/56 #23): 학생 이름 단추도 44px 하한 — .kb-row 밖(우리 반 점검표 th 안)까지 같이 잡는다 */
+.kb-new .kb-nm { min-height: 44px; display: inline-flex; align-items: center; }
 .kb-new .kb-row .kb-acts { display: flex; gap: 8px; flex-wrap: wrap; }
 .kb-new .kb-urgent { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: var(--kb-danger-soft); border-radius: 12px; padding: 14px 18px; }
 .kb-new .kb-menu-group { display: flex; flex-direction: column; gap: 8px; }
@@ -355,11 +357,17 @@ html[data-font="lg"] .kb-new { --kb-fs-title: 24.75px; --kb-fs-head: 20.25px; --
 
 /* ── 인쇄 — 셸 틀은 빼고 본문 전체(1020 '첫 화면 한 장만 인쇄' 재발 방지, globals.css 인쇄 절과 같은 취지) ── */
 @media print {
-  .kb-new .kb-side, .kb-new .kb-topbar, .kb-new .kb-bottombar, .kb-new .kb-tabs, .kb-new .kb-subtabs, .kb-new .kb-ws-head { display: none !important; }
+  .kb-new .kb-side, .kb-new .kb-topbar, .kb-new .kb-bottombar, .kb-new .kb-tabs, .kb-new .kb-subtabs { display: none !important; }
+  /* 1102(mds/56 #24): 학생 이름 줄은 남기고 단추·고르기 칸만 뺀다 */
+  .kb-new .kb-ws-head > button, .kb-new .kb-ws-head > select { display: none !important; }
   .kb-new .kb-main { overflow: visible !important; min-height: 0 !important; height: auto !important; }
   .kb-new .kb-main > .content { overflow: visible !important; padding: 0 !important; }
   .kb-new .kb-drawer, .kb-new .kb-scrim { display: none !important; }
-  .kb-new .kb-steps3, .kb-new .kb-fold2-h { display: none !important; }
+  .kb-new .kb-steps3 { display: none !important; }
+  /* 1102(mds/56 #24): 펼친 구역은 머리(구역 이름·상태)를 남기고 '접기 ▾'만 뺀다. 접힌 구역은 예전처럼 통째로 빠진다(본문이 없으므로). */
+  .kb-new .kb-fold2:not(.kb-open) { display: none !important; }
+  .kb-new .kb-fold2-h { min-height: 0 !important; padding: 4px 0 !important; }
+  .kb-new .kb-fold2-h .kb-go { display: none !important; }
   .kb-new .kb-fold2 { border: 0 !important; }
 }
 
