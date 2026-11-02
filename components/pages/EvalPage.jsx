@@ -536,7 +536,7 @@ export default function EvalPage() {
         )}
         <div style={{ display: ccActive ? 'none' : 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }} data-help="ev-goal">
           <span style={{ fontSize: '.74rem', color: 'var(--muted)', minWidth: 34 }}>목표선</span>
-          <input type="number" className="form-input" min="0" step="any" value={goalInput} onChange={(e) => onGoalChange(e.target.value)} placeholder={`예: ${METRICS[metric]?.higherIsBetter ? '8' : '2'}`} style={{ width: 110, padding: '4px 8px', fontSize: '.84rem' }} />
+          <input type="number" className="form-input" aria-label="목표선 값" min="0" step="any" value={goalInput} onChange={(e) => onGoalChange(e.target.value)} placeholder={`예: ${METRICS[metric]?.higherIsBetter ? '8' : '2'}`} style={{ width: 110, padding: '4px 8px', fontSize: '.84rem' }} />
           <span style={{ fontSize: '.74rem', color: 'var(--muted)' }}>{goalLine != null ? `보라 점선 — ${metricShort[metric] || ''} 목표 ${goalLine} (이 기기에만 저장)` : '그래프에 가로 기준선을 그어요 (지표마다 따로, 이 기기에만 저장)'}</span>
         </div>
         <div style={{ position: 'relative', height: mblActive ? Math.max(320, 170 * Math.max(1, (panels?.tiers || []).length)) : 320 }}><canvas ref={behRef} /></div>
@@ -692,14 +692,14 @@ export default function EvalPage() {
         <div className="form-row">
           <div className="form-group"><label className="form-label">기간 A (기초선)</label>
             <div style={{ display: 'flex', gap: 6 }}>
-              <input type="date" className="form-input" value={compA1} onChange={(e) => setCompA1(e.target.value)} />
-              <input type="date" className="form-input" value={compA2} onChange={(e) => setCompA2(e.target.value)} />
+              <input type="date" className="form-input" aria-label="기간 A 시작일" value={compA1} onChange={(e) => setCompA1(e.target.value)} />
+              <input type="date" className="form-input" aria-label="기간 A 끝날" value={compA2} onChange={(e) => setCompA2(e.target.value)} />
             </div>
           </div>
           <div className="form-group"><label className="form-label">기간 B (중재)</label>
             <div style={{ display: 'flex', gap: 6 }}>
-              <input type="date" className="form-input" value={compB1} onChange={(e) => setCompB1(e.target.value)} />
-              <input type="date" className="form-input" value={compB2} onChange={(e) => setCompB2(e.target.value)} />
+              <input type="date" className="form-input" aria-label="기간 B 시작일" value={compB1} onChange={(e) => setCompB1(e.target.value)} />
+              <input type="date" className="form-input" aria-label="기간 B 끝날" value={compB2} onChange={(e) => setCompB2(e.target.value)} />
             </div>
           </div>
         </div>

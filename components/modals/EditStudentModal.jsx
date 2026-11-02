@@ -4,7 +4,7 @@ import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { splitNote, composeNote, decomposeNote } from '../../lib/utils/splitNote';
 import { DISABILITIES, DIS_NONE, joinDisability, splitDisability } from '../../lib/disability';
-import { LEVEL_OPTIONS, gradesFor } from '../../lib/schoolLevel';
+import { LEVEL_OPTIONS, gradesFor, gradeOption } from '../../lib/schoolLevel';
 
 // 0819(동료 피드백): 성취기준 추천을 학년에 맞추기 위한 세부 학년. 학교급에 따라 보기가 달라진다.
 // 1020: 학교급 단일 출처(lib/schoolLevel.js)로 — 전공 1~2 포함. 이름은 기존 import 호환용.
@@ -31,7 +31,7 @@ export default function EditStudentModal({ open, onClose, student }) {
   useEffect(() => {
     if (open && target) {
       setLevel(target.level || ''); // 1020: 빈 학교급은 '미지정'으로 보여 주고 덮어쓰지 않는다
-      setGrade(target.grade || '');
+      setGrade(gradeOption(target.level, target.grade)); // 1102(mds/57 #9): '초2'처럼 저장된 학년도 '2학년'으로 고른 채 연다
       // 결합값 "지적장애·ADHD" → 주/추가로 분해해 각 select에 채운다.
       const dparts = splitDisability(target.disability);
       setDis(dparts[0] || DISABILITIES[0]);

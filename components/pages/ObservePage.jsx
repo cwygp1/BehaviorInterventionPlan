@@ -140,7 +140,7 @@ export default function ObservePage({ onNavigate }) {
             {aiOn && <button className="btn btn-ghost btn-sm" data-help="ob-opdef-ai" onClick={aiOpdef} disabled={opdefBusy}>{opdefBusy ? '생성 중…' : '✨ ABC 기록으로 AI 초안'}</button>}
           </div>
         </div>
-        <textarea className="form-textarea" rows={2} value={opdef} onChange={(e) => setOpdef(e.target.value)}
+        <textarea className="form-textarea" aria-label="표적행동 조작적 정의" rows={2} value={opdef} onChange={(e) => setOpdef(e.target.value)}
           placeholder='예: 과제를 제시받으면 3초 이내에 "싫어"라고 소리치며 책상 위 물건을 바닥으로 던진다.' />
       </div>
 

@@ -70,6 +70,8 @@ export default function AssessmentLauncher({ compact = false }) {
             <button
               key={c.key}
               type="button"
+              className="as-card"
+              data-as={c.key}
               onClick={c.onClick}
               style={{
                 textAlign: 'left', cursor: 'pointer', border: `1.5px solid ${c.done ? c.color : 'var(--border)'}`,
@@ -80,14 +82,14 @@ export default function AssessmentLauncher({ compact = false }) {
               <span style={{ fontSize: '1.9rem', lineHeight: 1 }}>{c.icon}</span>
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <strong style={{ fontSize: '1rem', color: c.color }}>{c.title}</strong>
+                  <strong className="as-title" style={{ fontSize: '1rem', color: c.color }}>{c.title}</strong>
                   {c.done
-                    ? <span className="badge badge-ok" style={{ background: c.color, color: '#fff' }}>✓ 작성됨</span>
-                    : <span className="badge" style={{ background: '#e5e7eb', color: '#6b7280' }}>미작성</span>}
+                    ? <span className="badge badge-ok as-done" style={{ background: c.color, color: '#fff' }}>✓ 작성됨</span>
+                    : <span className="badge as-todo" style={{ background: '#e5e7eb', color: '#6b7280' }}>미작성</span>}
                 </span>
-                {!compact && <span style={{ display: 'block', fontSize: '.8rem', color: 'var(--sub)', marginTop: 4, lineHeight: 1.5 }}>{c.desc}</span>}
-                {c.summary && <span style={{ display: 'block', fontSize: '.8rem', color: c.color, fontWeight: 700, marginTop: 6 }}>{c.summary}</span>}
-                <span style={{ display: 'block', fontSize: '.8rem', color: 'var(--pri)', fontWeight: 700, marginTop: 8 }}>
+                {!compact && <span className="as-desc" style={{ display: 'block', fontSize: '.8rem', color: 'var(--sub)', marginTop: 4, lineHeight: 1.5 }}>{c.desc}</span>}
+                {c.summary && <span className="as-sum" style={{ display: 'block', fontSize: '.8rem', color: c.color, fontWeight: 700, marginTop: 6 }}>{c.summary}</span>}
+                <span className="as-go" style={{ display: 'block', fontSize: '.8rem', color: 'var(--pri)', fontWeight: 700, marginTop: 8 }}>
                   {c.done ? '✏ 열어서 수정하기 →' : '▶ 지금 작성하기 →'}
                 </span>
               </span>

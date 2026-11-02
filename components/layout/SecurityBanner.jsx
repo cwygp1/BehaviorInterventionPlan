@@ -10,9 +10,12 @@ export default function SecurityBanner() {
   }, []);
   if (!show) return null;
   return (
-    <div style={{ background: 'linear-gradient(90deg, #e7f7ee, #e8eefb)', borderBottom: '1px solid #c4ecd2', padding: '8px 16px', fontSize: '.78rem', color: '#0a7d4e', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+    <div className="sec-banner" style={{ background: 'linear-gradient(90deg, #e7f7ee, #e8eefb)', borderBottom: '1px solid #c4ecd2', padding: '8px 16px', fontSize: '.78rem', color: '#0a7d4e', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
       <span>🔒 AI 전송 시 가명(ID) 및 비식별 요약만 사용. 학생 실명·민감정보 입력 금지. 보안 토큰 적용.</span>
       <button
+        type="button"
+        className="sec-banner-x"
+        aria-label="보안 안내 숨기기"
         onClick={() => { window.localStorage.setItem(KEY, '1'); setShow(false); }}
         style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#0a7d4e', fontSize: '1rem', fontWeight: 700 }}
         title="배너 숨기기"
