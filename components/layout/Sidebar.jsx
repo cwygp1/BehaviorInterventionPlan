@@ -243,42 +243,46 @@ export default function Sidebar({ activePage, onNavigate, open, onClose, hasStud
             </div>
           </>
         )}
-        <FontSizeToggle />
-        {!user?.is_demo && (
-          <div className="sb-font">
-            <button type="button" className="sb-font-btn" onClick={toNewDesign} disabled={uiBusy} title="메뉴 5개·학생 수첩으로 정리한 새 화면으로 바꿔요 — 기록은 그대로, 언제든 되돌릴 수 있어요">
-              <span aria-hidden="true">✨</span> 새 디자인으로 보기
-            </button>
-          </div>
-        )}
-        <div className="sidebar-foot">
-          {/* 관리자에게만 이름 클릭 → 관리자 페이지(가입자 관리). 일반 사용자는 종전처럼 무반응.
-              진입점 숨김은 UX일 뿐 — 실제 보호는 /api/admin/* 의 requireRole 서버 검사. */}
-          <div
-            className={'user-hit' + (isAdmin ? ' clickable' : '')}
-            onClick={isAdmin ? () => onNavigate('admin') : undefined}
-            onKeyDown={isAdmin ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate('admin'); } } : undefined}
-            role={isAdmin ? 'button' : undefined}
-            tabIndex={isAdmin ? 0 : undefined}
-            title={isAdmin ? '관리자 페이지 — 가입자 관리' : undefined}
-            aria-label={isAdmin ? '관리자 페이지 열기' : undefined}
-          >
-            <div className="user-avatar">{(user?.name || 'T').charAt(0)}</div>
-            <div className="user-info">
-              <div className="name">
-                {user?.name || '선생님'}
-                {isAdmin && <span className="admin-badge" title="관리자 계정" aria-hidden="true">🛡️</span>}
-              </div>
-              <div className="role">{user?.school || '로그인됨'}</div>
-              {BUILD_LABEL && (
-                <div className="role" style={{ fontSize: 10, opacity: 0.65 }} title="이 화면이 언제 배포된 버전인지 — 수정 반영 여부를 확인할 때 보세요 (새로고침 후에도 같으면 아직 새 배포 전)">
-                  빌드 {BUILD_LABEL}
-                </div>
-              )}
+        {/* 1103(mds/58 #9): 바닥 세 줄('글씨 크게'·'새 디자인으로 보기'·이름/로그아웃)을 한 덩어리로 묶어 함께 바닥에 붙인다.
+            예전엔 이름 줄만 sticky라, 사이드바가 넘치면 그 줄이 바로 위 두 단추를 덮었다. 체험 계정은 '새 디자인' 칸만 빠진다. */}
+        <div className="sidebar-bottom">
+          <FontSizeToggle />
+          {!user?.is_demo && (
+            <div className="sb-font">
+              <button type="button" className="sb-font-btn" onClick={toNewDesign} disabled={uiBusy} title="메뉴 5개·학생 수첩으로 정리한 새 화면으로 바꿔요 — 기록은 그대로, 언제든 되돌릴 수 있어요">
+                <span aria-hidden="true">✨</span> 새 디자인으로 보기
+              </button>
             </div>
+          )}
+          <div className="sidebar-foot">
+            {/* 관리자에게만 이름 클릭 → 관리자 페이지(가입자 관리). 일반 사용자는 종전처럼 무반응.
+                진입점 숨김은 UX일 뿐 — 실제 보호는 /api/admin/* 의 requireRole 서버 검사. */}
+            <div
+              className={'user-hit' + (isAdmin ? ' clickable' : '')}
+              onClick={isAdmin ? () => onNavigate('admin') : undefined}
+              onKeyDown={isAdmin ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate('admin'); } } : undefined}
+              role={isAdmin ? 'button' : undefined}
+              tabIndex={isAdmin ? 0 : undefined}
+              title={isAdmin ? '관리자 페이지 — 가입자 관리' : undefined}
+              aria-label={isAdmin ? '관리자 페이지 열기' : undefined}
+            >
+              <div className="user-avatar">{(user?.name || 'T').charAt(0)}</div>
+              <div className="user-info">
+                <div className="name">
+                  {user?.name || '선생님'}
+                  {isAdmin && <span className="admin-badge" title="관리자 계정" aria-hidden="true">🛡️</span>}
+                </div>
+                <div className="role">{user?.school || '로그인됨'}</div>
+                {BUILD_LABEL && (
+                  <div className="role" style={{ fontSize: 10, opacity: 0.65 }} title="이 화면이 언제 배포된 버전인지 — 수정 반영 여부를 확인할 때 보세요 (새로고침 후에도 같으면 아직 새 배포 전)">
+                    빌드 {BUILD_LABEL}
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* 1009(mds/48): 체험 계정은 비밀번호가 난수라 나가면 되돌아올 수 없다 — 확인 한 번 */}
+            <button className="logout-btn" onClick={() => { if (user?.is_demo && !window.confirm('체험 계정은 로그아웃하면 다시 들어올 수 없어요(체험 기록도 지워져요).\n나갈까요?')) return; logout(); }} title={user?.is_demo ? '체험 끝내기' : '로그아웃'}>↪</button>
           </div>
-          {/* 1009(mds/48): 체험 계정은 비밀번호가 난수라 나가면 되돌아올 수 없다 — 확인 한 번 */}
-          <button className="logout-btn" onClick={() => { if (user?.is_demo && !window.confirm('체험 계정은 로그아웃하면 다시 들어올 수 없어요(체험 기록도 지워져요).\n나갈까요?')) return; logout(); }} title={user?.is_demo ? '체험 끝내기' : '로그아웃'}>↪</button>
         </div>
       </aside>
     </>

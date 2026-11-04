@@ -144,8 +144,11 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,.qchip:focus-visib
 .sb-font-state{margin-left:auto;font-size:.72rem;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--surface2);color:var(--sub)}
 .sb-font-btn.on .sb-font-state{background:var(--pri);color:#fff}
 .sidebar-foot{margin-top:auto;padding:14px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px}
-/* 1102(mds/57 #10): 낮은 창(1024×768 등)에서 사이드바가 넘치면 이름·로그아웃 줄이 잘려 스크롤해야 보였다 — 바닥 줄은 늘 창 안에 붙여 둔다(넘치지 않으면 예전과 같음) */
-.sidebar-foot{position:sticky;bottom:0;background:#fff;z-index:2}
+/* 1102(mds/57 #10): 낮은 창(1024×768 등)에서 사이드바가 넘치면 이름·로그아웃 줄이 잘려 스크롤해야 보였다 — 바닥 줄은 늘 창 안에 붙여 둔다(넘치지 않으면 예전과 같음)
+   1103(mds/58 #9): 이름 줄만 붙이면 바로 위 '글씨 크게'·'새 디자인으로 보기'를 덮었다 — 세 줄을 감싼 .sidebar-bottom을 통째로 붙인다.
+   맨 아래로 미는 margin-top:auto도 이 묶음이 맡고, 안쪽 .sb-font·.sidebar-foot의 auto 여백은 0으로(묶음 안에서는 효과 없음, 명시만). */
+.sidebar-bottom{margin-top:auto;position:sticky;bottom:0;background:#fff;z-index:2}
+.sidebar-bottom>.sb-font,.sidebar-bottom>.sidebar-foot{margin-top:0}
 .user-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--acc),#ffa7c4);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0}
 .user-info{flex:1;min-width:0}
 .user-info .name{font-size:.85rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
