@@ -3004,6 +3004,7 @@ export default function IepPage({ onNavigate }) {
                   const isOn = sel?.code === r.code || selExtra.some((x) => x.code === r.code);
                   return (
                     <div key={r.code} data-help="iep-std-rec-row" onClick={() => pickStandard(r)}
+                      role="button" tabIndex={0} aria-pressed={isOn} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickStandard(r); } }}
                       style={{ border: '1px solid ' + (isOn ? '#3b6ef5' : '#cdd9f0'), background: isOn ? '#eaf0ff' : '#fff', borderRadius: 8, padding: '7px 10px', cursor: 'pointer' }}>
                       <div style={{ fontSize: 11, color: '#3b6ef5', fontWeight: 700 }}>{isOn ? '✓ ' : ''}[{r.code}] {r.subject}{r.area ? ' · ' + r.area : ''} · {GRADE[r.gradeCode]}</div>
                       <div style={{ fontSize: 12.5, marginTop: 2 }}>{r.text}</div>
@@ -3060,6 +3061,7 @@ export default function IepPage({ onNavigate }) {
             const isOn = sel?.code === r.code || selExtra.some((x) => x.code === r.code);
             return (
               <div key={r.code} data-help="iep-std-row" onClick={() => pickStandard(r)}
+                      role="button" tabIndex={0} aria-pressed={isOn} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickStandard(r); } }}
                 style={{ border: '1px solid ' + (isOn ? '#3b6ef5' : '#e3e6eb'), background: isOn ? '#eaf0ff' : '#fff', borderRadius: 9, padding: '8px 11px', cursor: 'pointer' }}>
                 <div style={{ fontSize: 11, color: '#3b6ef5', fontWeight: 700 }}>
                   {isOn ? '✓ ' : ''}[{r.code}] {GRADE[r.gradeCode]}{r.subject === DAILY_SUBJECT && DAILY_MID_TO_BIG[r.area] ? ' · ' + DAILY_MID_TO_BIG[r.area] + ' › ' + r.area : (r.area ? ' · ' + r.area : '')}
@@ -3127,13 +3129,13 @@ export default function IepPage({ onNavigate }) {
               <div className="form-row">
                 <div className="form-group">
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                    <label className="form-label" style={{ margin: 0 }}>측정 가능한 동사 (과정·기능) — 쉼표로 같은 의미의 여러 동사 입력 가능</label>
+                    <label className="form-label" style={{ margin: 0 }} htmlFor={`${uid}-verb`}>측정 가능한 동사 (과정·기능) — 쉼표로 같은 의미의 여러 동사 입력 가능</label>
                     {/* 0720: 사용자 요청으로 동사 펼치기 AI 버튼 복원(고급 영역 안이라 기본 화면은 여전히 버튼 1개) */}
                     {aiOn && <button className="btn btn-ghost btn-sm" onClick={aiExpandVerbs} disabled={verbBusy} title="대표 동사를 같은 의미의 여러 동사로 펼칩니다">{verbBusy ? '펼치는 중…' : '✨ 같은 의미 동사 펼치기'}</button>}
                     {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
                     <button className="btn btn-ghost btn-sm" onClick={() => openExt('verbs')} title="외부 AI로 동사 펼치기">🌐 외부AI</button> */}
                   </div>
-                  <input className="form-input" style={{ marginTop: 6 }} value={verb} onChange={(e) => setVerb(e.target.value)} placeholder="예: 분류하기" />
+                  <input id={`${uid}-verb`} className="form-input" style={{ marginTop: 6 }} value={verb} onChange={(e) => setVerb(e.target.value)} placeholder="예: 분류하기" />
                   {verbAlts.length > 0 && (
                     <div style={{ marginTop: 6 }}>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
@@ -3178,8 +3180,8 @@ export default function IepPage({ onNavigate }) {
             {evalFoci.map((f, i) => (
               <div key={i} data-help="iep-foci-row" style={{ display: 'grid', gridTemplateColumns: '24px 1fr auto', gap: 8, alignItems: 'center' }}>
                 <div style={{ fontWeight: 700, color: '#6b7280', textAlign: 'center' }}>{i + 1}</div>
-                <input className="form-input" value={f} onChange={(e) => editFocus(i, e.target.value)} placeholder="예: 다양한 방법으로 나의 신상을 탐색한다." />
-                <button className="btn btn-ghost btn-sm" onClick={() => removeFocus(i)} title="삭제">✕</button>
+                <input className="form-input" aria-label={`평가초점 ${i + 1}번째`} value={f} onChange={(e) => editFocus(i, e.target.value)} placeholder="예: 다양한 방법으로 나의 신상을 탐색한다." />
+                <button className="btn btn-ghost btn-sm" onClick={() => removeFocus(i)} title="삭제" aria-label={`평가초점 ${i + 1}번째 삭제`}>✕</button>
               </div>
             ))}
           </div>
@@ -3432,10 +3434,10 @@ export default function IepPage({ onNavigate }) {
                   <input type="checkbox" checked={pyeongBehavior} onChange={(e) => setPyeongBehavior(e.target.checked)} />
                   행동·정서 성장 포함
                 </label>
-                <select className="form-input" style={{ width: 'auto', padding: '4px 8px' }} value={pyeongLevel} onChange={(e) => setPyeongLevel(e.target.value)}>
+                <select className="form-input" aria-label="평어 수준" style={{ width: 'auto', padding: '4px 8px' }} value={pyeongLevel} onChange={(e) => setPyeongLevel(e.target.value)}>
                   {PYEONG_LEVELS.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
                 </select>
-                <button className="btn btn-sm" style={{ background: '#ea580c', color: '#fff' }} onClick={aiPyeong} disabled={pyeongBusy}>
+                <button className="btn btn-sm iep-pyeong-gen" style={{ background: '#ea580c', color: '#fff' }} onClick={aiPyeong} disabled={pyeongBusy}>
                   {pyeongBusy ? '⏳ 생성 중…' : '평어 생성'}
                 </button>
                 {/* 🌐 외부AI 연동 임시 비활성(0719 요청) — 복원 시 주석 해제
@@ -3451,8 +3453,8 @@ export default function IepPage({ onNavigate }) {
                 <ul style={{ listStyle: 'none', padding: 0, margin: '4px 0 0' }}>
                   {pyeongLines.map((l, i) => (
                     <li key={i} data-help="iep-pyeong-row" style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #fde4cc' }}>
-                      <input className="form-input" value={l} onChange={(e) => editPyeong(i, e.target.value)} style={{ flex: 1, fontSize: '.86rem', padding: '4px 8px' }} />
-                      <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0, padding: '2px 8px' }} onClick={() => removePyeong(i)} title="삭제" aria-label="평어 삭제">✕</button>
+                      <input className="form-input" aria-label={`평어 ${i + 1}번째 문장`} value={l} onChange={(e) => editPyeong(i, e.target.value)} style={{ flex: 1, fontSize: '.86rem', padding: '4px 8px' }} />
+                      <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0, padding: '2px 8px' }} onClick={() => removePyeong(i)} title="삭제" aria-label={`평어 ${i + 1}번째 삭제`}>✕</button>
                     </li>
                   ))}
                 </ul>
