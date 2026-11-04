@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { sql } from '../../../lib/db';
-import { signSessionToken, setAuthCookie, setDemoCookie, DEMO_TTL_SECONDS, getSessionFromReq } from '../../../lib/auth';
+import { signSessionToken, setAuthCookie, setDemoCookie, DEMO_TTL_SECONDS, getSessionFromReq, forgetTokenVersion } from '../../../lib/auth';
 import { ensureUserTierColCached, ensureUserRoleColCached, ensureUserDemoColCached } from '../../../lib/ensureSchema';
 
 // POST /api/auth/demo — 로그인 창 '▶ 3분 체험하기'(mds/46 D1, 1001 사용자 결정 '나안').
@@ -47,6 +47,7 @@ async function deletePreviousDemo(req) {
     if (!sess || !sess.demo || !sess.sub) return false;
     await sql`DELETE FROM ai_usage_log WHERE user_id = ${sess.sub}`;
     const del = await sql`DELETE FROM users WHERE id = ${sess.sub} AND is_demo = TRUE RETURNING id`;
+    forgetTokenVersion(sess.sub); // 1104(auth-24): 지운 체험 계정 토큰이 버전 캐시로 더 통과하지 않게
     return del.rows.length > 0;
   } catch (e) {
     console.error('Previous demo delete skipped:', e?.message || e);

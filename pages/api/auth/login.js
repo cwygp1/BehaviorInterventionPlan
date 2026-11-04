@@ -1,6 +1,6 @@
 import { sql } from '../../../lib/db';
 import bcrypt from 'bcryptjs';
-import { signSessionToken, setAuthCookie, setUiCookie, setDemoCookie } from '../../../lib/auth';
+import { signSessionToken, setAuthCookie, setUiCookie, setDemoCookie, tokenVersionForLogin } from '../../../lib/auth';
 import { ensureUserTierColCached, ensureUserRoleColCached, ensureUserDemoColCached, ensureUserUiModeColCached, bootstrapAdminIfNone, BOOTSTRAP_ADMIN_EMAIL } from '../../../lib/ensureSchema';
 import { normalizeUiMode, effectiveUiMode } from '../../../lib/uiMode';
 
@@ -43,7 +43,9 @@ export default async function handler(req, res) {
 
     // Issue session token (httpOnly cookie). The token's payload is
     // intentionally minimal — server re-fetches user data on /api/me.
-    const token = signSessionToken({ sub: user.id, email: user.email });
+    // 1104(mds/58 auth-24): 토큰에 세션 버전(tv)을 싣는다 — 로그아웃하면 DB 값이 올라가 이 토큰은 무효.
+    const tv = await tokenVersionForLogin(user.id);
+    const token = signSessionToken({ sub: user.id, email: user.email, tv });
     setAuthCookie(res, token);
 
     // 화면 모양: 고른 값이 있으면 저장하고, 쿠키는 로그인 성공마다 덮어쓴다(공용 PC에서 전 사람 선택이 남지 않게).
