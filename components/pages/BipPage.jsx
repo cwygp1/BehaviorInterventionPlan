@@ -295,7 +295,7 @@ export default function BipPage({ onNavigate }) {
           <strong>입력 양식</strong> — “〔배경사건〕이 있는 날, [선행사건]일 때, 학생은 [행동]을 하며, 이는 [기능]을 얻기 위한 것이다.” <span style={{ color: '#5b6b8c' }}>(배경사건 절은 관찰 기록의 ‘배경사건’ 칸이 있을 때만)</span>
           <br /><strong>예시</strong> — “아침 학습 시간에 여러 단계로 이루어진 쓰기 과제가 제시될 때, 로라는 자료를 던지거나 ‘싫어요’라고 말하거나 자리에서 벗어나며, 이는 선호하지 않는 학업 요구를 도피·회피하기 위한 것이다.”
         </div>
-        <textarea className="form-textarea" rows={2} value={hypothesis} onChange={(e) => setHypothesis(e.target.value)}
+        <textarea className="form-textarea" rows={2} aria-label="행동기능 가설" value={hypothesis} onChange={(e) => setHypothesis(e.target.value)}
           placeholder="“[선행사건]일 때, 학생은 [행동]을 하며, 이는 [기능]을 얻기 위한 것이다.” 형태로 입력 — 아래 중재 전략은 이 가설에서 출발합니다." />
       </div>
 
@@ -331,18 +331,18 @@ export default function BipPage({ onNavigate }) {
             );
           })()}
           <EditableChipGroup storageKey="bip_alt" defaults={ALT_CHIPS} onPick={makeAppender(alt, setAlt, true)} />
-          <input className="form-input" value={alt} onChange={(e) => setAlt(e.target.value)} placeholder="문제행동 대신 할 바람직한 행동" />
+          <input className="form-input" aria-label="대체 행동" value={alt} onChange={(e) => setAlt(e.target.value)} placeholder="문제행동 대신 할 바람직한 행동" />
         </div>
         <div className="form-row">
           <div className="form-group">
             <label className="form-label">FCT 기술</label>
             <EditableChipGroup storageKey="bip_fct" defaults={FCT_CHIPS} onPick={makeAppender(fct, setFct, true)} />
-            <input className="form-input" value={fct} onChange={(e) => setFct(e.target.value)} />
+            <input className="form-input" aria-label="FCT 기술" value={fct} onChange={(e) => setFct(e.target.value)} />
           </div>
           <div className="form-group">
             <label className="form-label">성공 기준</label>
             <EditableChipGroup storageKey="bip_crit" defaults={CRIT_CHIPS} onPick={makeAppender(crit, setCrit, true)} />
-            <input className="form-input" value={crit} onChange={(e) => setCrit(e.target.value)} />
+            <input className="form-input" aria-label="성공 기준" value={crit} onChange={(e) => setCrit(e.target.value)} />
           </div>
         </div>
       </div>
@@ -500,7 +500,7 @@ export default function BipPage({ onNavigate }) {
             <button className="btn btn-ghost btn-sm" data-help="bip-goal-copy" onClick={copyBgoal} title="복사해서 IEP 학기목표(경로 B)에 붙여넣기">📋 IEP 학기목표로 복사</button>
           </div>
         </div>
-        <textarea className="form-textarea" rows={2} value={bgoal} onChange={(e) => setBgoal(e.target.value)}
+        <textarea className="form-textarea" rows={2} aria-label="행동목표" value={bgoal} onChange={(e) => setBgoal(e.target.value)}
           placeholder='예: 과제가 어려울 때(조건), "도와주세요" 카드를 들어 도움을 요청하기를(행동) 2주 연속 하루 3회 이상 한다(기준).' />
 
         {/* 0814 전문가 자문: 행동목표를 IEP에 어떻게 반영할지는 '선택의 문제' —

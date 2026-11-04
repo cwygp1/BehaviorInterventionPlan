@@ -2672,7 +2672,7 @@ export default function IepPage({ onNavigate }) {
           </div>
           {/* 0915: 칸이 작아 한눈에 안 들어온다는 피드백 — 한 줄 = 한 행 표(저장은 그대로 "- " 줄 문자열) */}
           <div style={{ marginTop: 6 }}>
-            <LineTable value={semContent} onChange={setSemContent}
+            <LineTable value={semContent} onChange={setSemContent} ariaLabel="학기 교육내용"
               placeholder="이 학기에 다룰 활동 한 줄 (예: 짧은 글 읽고 주요 내용 찾기) — Enter로 다음 줄" />
           </div>
         </div>
@@ -2709,7 +2709,7 @@ export default function IepPage({ onNavigate }) {
               }}>↻ 기본 전략으로 채우기</button>
           </div>
           <div style={{ marginTop: 6 }}>
-            <LineTable value={semMethods} onChange={setSemMethods} labeled
+            <LineTable value={semMethods} onChange={setSemMethods} labeled ariaLabel="학기 교육방법"
               placeholder="지도전략·지원 방법 한 줄 (예: 시각적 지원과 직접교수 중심) — Enter로 다음 줄" />
           </div>
         </div>
@@ -2733,7 +2733,7 @@ export default function IepPage({ onNavigate }) {
         background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: '.84rem',
       }}>
         <strong style={{ color: 'var(--pri)' }}>🧩 Tier 구성</strong>
-        <span style={{
+        <span className="iep-tier-badge" data-tier={curTier} style={{
           padding: '2px 10px', borderRadius: 99, color: '#fff', fontWeight: 700, fontSize: '.76rem',
           background: TIER_BADGE[curTier].c,
         }}>{TIER_BADGE[curTier].t}</span>
@@ -3207,7 +3207,7 @@ export default function IepPage({ onNavigate }) {
           <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: '.84rem' }}>
             <strong>학기목표</strong> — {goal} <span style={{ color: 'var(--muted)' }}>(수정은 위 {stepNo.goal} 학기목표 설정 카드에서)</span>
           </div>
-          <div className="form-group"><label className="form-label">현행수준 (학생 비식별 요약에서 연동 · 수정 가능 · 한 줄씩)</label><LineTable bullet={false} value={plop || ''} onChange={setPlop} /></div>
+          <div className="form-group"><label className="form-label">현행수준 (학생 비식별 요약에서 연동 · 수정 가능 · 한 줄씩)</label><LineTable ariaLabel="현행수준" bullet={false} value={plop || ''} onChange={setPlop} /></div>
           {/* P15: 학기 교육내용·교육방법 입력은 ② 학기목표 설정 카드로 이동(현장 피드백 — 학기목표와 함께 작성).
               여기서는 확정된 방향을 참고로만 보여준다. */}
           {(String(semContent || '').trim() || String(semMethods || '').trim()) && (
@@ -3494,11 +3494,11 @@ export default function IepPage({ onNavigate }) {
                       <tr key={i} data-help="iep-month-row">
                         <td style={{ ...tdS, fontWeight: 700, textAlign: 'center', background: '#f3f6fc', color: '#3b6ef5' }}>{m.month}월</td>
                         {/* 0915: 학기 칸과 같은 줄 단위 표 — methods만 배열(editMonth가 줄 문자열을 배열로 나눔), 나머지는 "- " 줄 문자열 */}
-                        <td style={tdS}><LineTable compact value={m.goal || ''} onChange={(v) => editMonth(i, 'goal', v)} /></td>
-                        <td style={tdS}><LineTable compact value={m.content || ''} onChange={(v) => editMonth(i, 'content', v)} /></td>
-                        <td style={tdS}><LineTable compact value={(m.methods || []).map((x) => '- ' + x).join('\n')} onChange={(v) => editMonth(i, 'methods', v)} /></td>
-                        <td style={tdS}><LineTable compact value={m.eval_plan || ''} onChange={(v) => editMonth(i, 'eval_plan', v)} placeholder="…는가?" /></td>
-                        <td style={tdS}><LineTable compact value={m.eval || ''} onChange={(v) => editMonth(i, 'eval', v)} /></td>
+                        <td style={tdS}><LineTable compact ariaLabel={`${m.month}월 교육목표`} value={m.goal || ''} onChange={(v) => editMonth(i, 'goal', v)} /></td>
+                        <td style={tdS}><LineTable compact ariaLabel={`${m.month}월 교육내용`} value={m.content || ''} onChange={(v) => editMonth(i, 'content', v)} /></td>
+                        <td style={tdS}><LineTable compact ariaLabel={`${m.month}월 교육방법`} value={(m.methods || []).map((x) => '- ' + x).join('\n')} onChange={(v) => editMonth(i, 'methods', v)} /></td>
+                        <td style={tdS}><LineTable compact ariaLabel={`${m.month}월 평가계획`} value={m.eval_plan || ''} onChange={(v) => editMonth(i, 'eval_plan', v)} placeholder="…는가?" /></td>
+                        <td style={tdS}><LineTable compact ariaLabel={`${m.month}월 평가`} value={m.eval || ''} onChange={(v) => editMonth(i, 'eval', v)} /></td>
                       </tr>
                     ))}
                   </tbody>
