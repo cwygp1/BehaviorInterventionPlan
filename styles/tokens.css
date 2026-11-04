@@ -601,3 +601,21 @@ html[data-font="lg"] .kb-new { --kb-fs-title: 24.75px; --kb-fs-head: 20.25px; --
   .kb-new .kb-bottombar .kb-nav { flex-direction: row; gap: 6px; min-height: 44px; padding: 0 4px; }
   .kb-new .kb-main > .content { padding-bottom: 64px; }
 }
+
+/* ══ 1104(mds/59 범위 밖) 옛 IEP '③ 목표 만들기·✏ 수정' 화면 — 새 디자인 안에서만(옛 사이트 / 는 그대로) ══ */
+/* '평어 생성' 단추 — 흰 글자/주황(#ea580c) 3.56:1 → 같은 빛깔 진한 주황 5.2:1 */
+.kb-new .content .iep-pyeong-gen:not(:disabled) { background: var(--kb-hint) !important; }
+/* 고른 성취기준 칩 '×'(글자 폭 9px) — 칩 높이는 그대로, 누르는 곳만 44×44 */
+.kb-new .content [data-help="iep-std-picked"] .qchip > button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; min-width: 44px; margin: -12px -14px -12px 0 !important; }
+/* 글자 하나짜리 단추(평가초점·평어 '✕' 37px 등) — 폭도 44px 하한 */
+.kb-new .content :is(.btn, .btn-sm) { min-width: 44px; }
+/* '같은 의미 동사' 칩 '×'(AI 동사 펼치기 뒤에만 보임, 폭 13px) — 칩을 44px 높이로, '×'는 44×44 */
+.kb-new .content [data-help="iep-verb-tool"] span:has(> button) { min-height: 44px; }
+.kb-new .content [data-help="iep-verb-tool"] span > button { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; color: var(--kb-danger) !important; }
+
+/* 1104 resp-26 나머지 — 높이 500px 이하에서 보안 안내 띠를 얇게(글씨 크게일 때 두 줄 67px → 49px). 문구는 자르지 않는다.
+   640x400 + 글씨 크게에서 본문 57% → 61%. 옛 사이트(/)의 띠는 그대로. */
+@media (max-height: 500px) {
+  .kb-new .sec-banner { padding-top: 4px !important; padding-bottom: 4px !important; line-height: 1.3; }
+  .kb-new .sec-banner-x { margin: -4px -8px -4px 0; }
+}
