@@ -9,18 +9,27 @@ import '../styles/onboarding.css';
 import '../styles/tokens.css';
 // gridstack — 영역별 대시보드 위젯(드래그·리사이즈) 레이아웃. 전역 CSS는 _app에서만 임포트 가능.
 import 'gridstack/dist/gridstack.min.css';
+import { useEffect, useState } from 'react';
 import { Analytics } from '@vercel/analytics/next';
+import { shouldLoadAnalytics } from '../lib/analyticsGate';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ToastProvider } from '../contexts/ToastContext';
 import { LLMProvider } from '../contexts/LLMContext';
 
 export default function App({ Component, pageProps }) {
+  // 분석 스크립트는 원래도 화면이 뜬 뒤(useEffect) 끼워지므로, 주소를 본 뒤 정해도 시점이 같다.
+  const [analytics, setAnalytics] = useState(false);
+  useEffect(() => {
+    setAnalytics(shouldLoadAnalytics(process.env.NEXT_PUBLIC_VERCEL_ENV, window.location.hostname));
+  }, []);
   return (
     <ToastProvider>
       <AuthProvider>
         <LLMProvider>
           <Component {...pageProps} />
-          <Analytics />
+          {/* 1103(mds/58 #10·#13·#20): 로컬 next start·dev에서는 /_vercel/insights/script.js가 없어 404 콘솔 오류 —
+              배포(Vercel 변수 또는 실제 도메인)일 때만 끼운다(lib/analyticsGate.js). 배포본은 그대로. */}
+          {analytics ? <Analytics /> : null}
         </LLMProvider>
       </AuthProvider>
     </ToastProvider>
