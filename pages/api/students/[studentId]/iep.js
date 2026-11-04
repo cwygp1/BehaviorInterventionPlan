@@ -1,6 +1,6 @@
 import { sql } from '../../../../lib/db';
 import { requireStudentAccess } from '../../../../lib/auth';
-import { resolveGoalStatus, keepMarkedEvals } from '../../../../lib/iepCard';
+import { resolveGoalStatus, keepMarkedEvals, normalizeMonthlyEvals } from '../../../../lib/iepCard';
 import { ensureIepGoalColsCached } from '../../../../lib/ensureSchema';
 
 // IEP (개별화교육계획) goals for a student. Each row = one 성취기준 기반 목표
@@ -72,6 +72,11 @@ export default requireStudentAccess(async function handler(req, res) {
         //   그 사이 새 디자인에서 적은 월 평가(eval_at·eval_mark)가 오래된 사본에 덮이지 않게 그 칸 평가만 지킨다(lib/iepCard keepMarkedEvals).
         if (cur && has('monthly')) {
           v.monthly = JSON.stringify(keepMarkedEvals(arr(cur.monthly), arr(b.monthly)));
+        }
+        // 1104(mds/58 #27): '평가 글이 비면 그 달은 평가 안 함' — 보낸 값이든 지킨 값이든 저장 직전에 글이 빈 칸의 평가 표시(eval_at·eval_mark)를 비운다.
+        //   옛 IEP 현황판(dashboard.js eval 글 기준)과 새 디자인 '이달 평가 남음'(표시 기준)이 같은 답을 내게. 열·키는 그대로, 값만 정리.
+        if (has('monthly')) {
+          v.monthly = JSON.stringify(normalizeMonthlyEvals(JSON.parse(v.monthly)));
         }
         // 1101(D1): 월별 계획이 있으면 언제나 'active', 없으면 보낸 값 → 기존 값 → 'active'(lib/iepCard resolveGoalStatus).
         //   옛 화면은 status를 보내지 않으므로 예전 그대로 'active'로 저장·유지된다.
