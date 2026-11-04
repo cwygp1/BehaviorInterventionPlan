@@ -37,7 +37,10 @@ export default function NewDesign() {
     return (
       <>
         <Head><title>로그인 · 꼬박꼬박 행동중재 통합 운영 시스템</title></Head>
-        <AuthScreen showExpired />
+        {/* 1103(mds/58 #19): 새 디자인 쪽 로그인 창만 .kb-new 하한(14px 글자·44px 누름)을 받게 감싼다 — 기존 사이트(/) 로그인 창은 그대로 */}
+        <div className="kb-new kb-auth">
+          <AuthScreen showExpired />
+        </div>
       </>
     );
   }

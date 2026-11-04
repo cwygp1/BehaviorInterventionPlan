@@ -691,13 +691,13 @@ export default function EvalPage() {
         </details>
         <div className="form-row">
           <div className="form-group"><label className="form-label">기간 A (기초선)</label>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div className="date-pair" style={{ display: 'flex', gap: 6 }}>
               <input type="date" className="form-input" aria-label="기간 A 시작일" value={compA1} onChange={(e) => setCompA1(e.target.value)} />
               <input type="date" className="form-input" aria-label="기간 A 끝날" value={compA2} onChange={(e) => setCompA2(e.target.value)} />
             </div>
           </div>
           <div className="form-group"><label className="form-label">기간 B (중재)</label>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div className="date-pair" style={{ display: 'flex', gap: 6 }}>
               <input type="date" className="form-input" aria-label="기간 B 시작일" value={compB1} onChange={(e) => setCompB1(e.target.value)} />
               <input type="date" className="form-input" aria-label="기간 B 끝날" value={compB2} onChange={(e) => setCompB2(e.target.value)} />
             </div>
