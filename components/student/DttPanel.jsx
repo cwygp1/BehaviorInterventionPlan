@@ -418,7 +418,7 @@ export default function DttPanel() {
               </div>
             </div>
             {phase === 'baseline' && (
-              <div style={{ fontSize: '.8rem', color: '#b45309', marginBottom: 6 }}>기초선: 지시 뒤 도움 없이 <strong>5초</strong> 기다려 반응이 없거나 틀리면 − — 촉구(P)는 쓰지 않아요.</div>
+              <div style={{ fontSize: '.8rem', color: '#b45309', marginBottom: 6 }}>기초선: 지시 뒤 도움 없이 <strong>5초</strong> 기다려 반응이 없거나 틀리면 − — 그래서 기초선에서는 촉구(P)를 쓰지 않아 <strong>P 단추가 잠겨</strong> 있어요. 촉구를 주며 가르치는 회기라면 위 단계를 <strong>‘지도’</strong>로 바꾸세요.</div>
             )}
             {sameDay.length > 0 && !editingId && (
               <div style={{ fontSize: '.8rem', color: 'var(--sub)', marginBottom: 6 }}>ℹ {date}에 이미 {sameDay.length}회기 기록이 있어요 — 저장하면 {sameDay.length + 1}회기로 추가됩니다.</div>
@@ -434,8 +434,9 @@ export default function DttPanel() {
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
                   {DTT_CODES.map((c) => (
                     <button key={c.k} type="button" disabled={phase === 'baseline' && c.k === 'P'} onClick={() => quickMark(c.k)}
+                      title={phase === 'baseline' && c.k === 'P' ? '기초선에서는 촉구(P)를 쓰지 않아요 — 단계를 ‘지도’로 바꾸면 쓸 수 있어요' : undefined}
                       style={{ width: 84, height: 64, fontSize: '1.6rem', fontWeight: 800, borderRadius: 12, border: `2px solid ${c.color}`, background: c.bg, color: c.color, opacity: phase === 'baseline' && c.k === 'P' ? 0.3 : 1 }}>
-                      {codeText(c.k)}<div style={{ fontSize: '.7rem' }}>{c.label}</div>
+                      {codeText(c.k)}<div style={{ fontSize: '.7rem' }}>{phase === 'baseline' && c.k === 'P' ? '기초선엔 안 씀' : c.label}</div>
                     </button>
                   ))}
                   <button type="button" className="btn btn-ghost" onClick={quickUndo} disabled={!undo.length}>↶ 되돌리기</button>
@@ -443,7 +444,9 @@ export default function DttPanel() {
               </div>
             )}
 
-            <div style={{ fontSize: '.76rem', color: 'var(--muted)', marginBottom: 4 }}>칸을 누를 때마다 + → P → − → 빈칸 순서로 바뀌어요. 빈칸은 계산에서 빠집니다.</div>
+            <div style={{ fontSize: '.76rem', color: 'var(--muted)', marginBottom: 4 }}>{phase === 'baseline'
+              ? <>칸을 누를 때마다 + → − → 빈칸 순서로 바뀌어요(기초선이라 P는 건너뜀). 빈칸은 계산에서 빠집니다.</>
+              : <>칸을 누를 때마다 + → P → − → 빈칸 순서로 바뀌어요. 빈칸은 계산에서 빠집니다.</>}</div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ borderCollapse: 'separate', borderSpacing: 3, fontSize: '.82rem' }}>
                 <thead>
