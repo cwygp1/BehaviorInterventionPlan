@@ -11,7 +11,7 @@ import { PillRadio, QField } from '../quick/QuickBits';
 import { todayKst } from '../../lib/utils/calendarRules';
 
 // 매일 점검표(CICO/DPR) 한 학생 하루치 입력 폼 — Tier2Page에서 떼어 냈다(새 디자인 2단계, mds/54 §2-1 #9).
-//   · useCicoForm(studentId)  날짜·목표·교시·점수·입퇴실·코멘트 + 그날 기록 불러오기 + 자동 저장(useAutoSaveBody, resetKey에 학생 id)
+//   · useCicoForm(studentId)  날짜·목표·교시·점수·입퇴실·코멘트 + 그날 기록 불러오기 + 자동 저장(useAutoSaveBody, 기준값은 로더가 armWith로 직접 무장)
 //                             저장은 기존 saveCICO(학생별 POST 업서트) 그대로.
 //   · CicoDailyCard           기존 화면(Tier2Page)의 '오늘의 CICO 기록' 카드 — 옮기기 전 JSX 그대로
 //   · CicoRowForm(기본)       빠른 기록 창 '점검표' 모드 — 같은 훅 + 교시별 점수 알약. 학생이 바뀌면 key로 새로 마운트.
@@ -105,7 +105,9 @@ export function useCicoForm({ studentId, entryDate = null, variant = 'page' }) {
   // 자동 저장 무장 시점 + 폼 재초기화 트리거(삭제 등) — resetTick을 올리면 기준값 재무장.
   const [cicoLoaded, setCicoLoaded] = useState(false);
   const [resetTick, setResetTick] = useState(0);
-  // 빠른 기록 창: 로더가 불러온 값으로 자동 저장 기준값을 직접 무장(mds/56 #8·#9) — 기존 화면은 쓰지 않는다.
+  // 로더가 불러온 값으로 자동 저장 기준값을 직접 무장(mds/56 #8·#9 빠른 기록 창 → 1104 mds/58 #22 기존 화면 폼도).
+  //   resetKey 방식은 로더의 setState보다 무장 effect가 먼저 돌아 '불러오기 전 값'이 기준이 됐다 — 그래서
+  //   다학생 표 저장 알림·날짜 바꾸기 뒤 같은 내용을 한 번 더 저장하고, 기록 삭제 뒤에는 빈 기록을 다시 만들었다.
   const [armed, setArmed] = useState(null);
   const armNRef = useRef(0);
 
@@ -129,7 +131,7 @@ export function useCicoForm({ studentId, entryDate = null, variant = 'page' }) {
       setCheckIn(today.check_in_time || '');
       setCheckOut(today.check_out_time || '');
       setComment(today.comment || '');
-      if (quick) setArmed({ key: ++armNRef.current, json: JSON.stringify(cicoBody({ date, goals: today.goals || [], periodList: lp, scores: today.scores || {}, checkIn: today.check_in_time || '', checkOut: today.check_out_time || '', comment: today.comment || '' })) });
+      setArmed({ key: ++armNRef.current, json: JSON.stringify(cicoBody({ date, goals: today.goals || [], periodList: lp, scores: today.scores || {}, checkIn: today.check_in_time || '', checkOut: today.check_out_time || '', comment: today.comment || '' })) });
     } else {
       // For a new entry, copy structure from the most recent record (so the
       // teacher doesn't have to re-define periods every day) — fall back to
@@ -140,7 +142,7 @@ export function useCicoForm({ studentId, entryDate = null, variant = 'page' }) {
       setPeriodList(lastPeriods || defaultPeriods(stu?.level));
       setScores({});
       setCheckIn(''); setCheckOut(''); setComment('');
-      if (quick) setArmed({ key: ++armNRef.current, json: JSON.stringify(cicoBody({ date, goals: quick && Array.isArray(last?.goals) ? last.goals : [], periodList: lastPeriods || defaultPeriods(stu?.level), scores: {}, checkIn: '', checkOut: '', comment: '' })) });
+      setArmed({ key: ++armNRef.current, json: JSON.stringify(cicoBody({ date, goals: quick && Array.isArray(last?.goals) ? last.goals : [], periodList: lastPeriods || defaultPeriods(stu?.level), scores: {}, checkIn: '', checkOut: '', comment: '' })) });
     }
     setCicoLoaded(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -152,7 +154,7 @@ export function useCicoForm({ studentId, entryDate = null, variant = 'page' }) {
     resetKey: `${studentId}:${date}:${resetTick}`,
     body: { date, goals, periods: periodList, scores: buildCleanScores(), check_in_time: checkIn, check_out_time: checkOut, comment },
     save: saveCore,
-    armWith: quick ? armed : undefined,
+    armWith: armed,
   });
 
   function addGoal(text) {
