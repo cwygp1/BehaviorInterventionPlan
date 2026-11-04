@@ -6,10 +6,12 @@ import { useDashboard, KpiBody, FlowStrip, ReviewList, DashLoading, DashError, a
 
 // Tier 1 대시보드 — 학급 전체 보편 지원 현황 (gridstack 위젯 · 배치는 사용자별 저장)
 export default function Tier1Dashboard({ onNavigate }) {
-  const { curClass, curSemester, students } = useStudents();
+  const { curClass, curSemester, students, studentsLoaded, studentsError, classesError, reloadAll } = useStudents();
   const { data, loading, error, reload } = useDashboard();
   const C = SECTIONS.t1.color;
 
+  // 1103(mds/58 #6): 학급 목록을 못 받았으면 '학급을 먼저 만들어주세요' 대신 오류 안내 + 다시 시도.
+  if (!curClass && classesError) return <DashError error={'학급 목록을 불러오지 못했어요(' + classesError + ')'} onRetry={reloadAll} />;
   if (!curClass) return <div className="empty-state"><span className="emoji">🏫</span>학급을 먼저 만들어주세요. 상단 ⚙(학급 관리)에서 추가할 수 있어요.</div>;
   if (loading) return <DashLoading />;
   if (error) return <DashError error={error} onRetry={reload} />;
@@ -33,7 +35,7 @@ export default function Tier1Dashboard({ onNavigate }) {
 
   const widgets = [
     { id: 'kpi-scope', help: 'd1-kpi-scope', title: '운영 범위', x: 0, y: 0, w: 3, h: 2, body: (
-      <KpiBody icon="🏫" value={`${curClass.name} · ${curSemester}학기`} label="운영 범위" hint={`학생 ${students.length}명`} /> ) },
+      <KpiBody icon="🏫" value={`${curClass.name} · ${curSemester}학기`} label="운영 범위" hint={studentsError && (!studentsLoaded || students.length === 0) ? '학생 목록을 불러오지 못함' : `학생 ${students.length}명`} /> ) },
     { id: 'kpi-points', help: 'd1-kpi-points', title: '목표 진행률', x: 3, y: 0, w: 3, h: 2, body: (
       <KpiBody icon="⭐" value={target ? `${pct}%` : '-'} label="학급 목표 진행률" hint={target ? `${current} / ${target}점` : '포인트 목표 미설정'} onClick={() => onNavigate('classpbs')} /> ) },
     { id: 'kpi-survey', help: 'd1-kpi-survey', title: '기초 설문', x: 6, y: 0, w: 3, h: 2, body: (

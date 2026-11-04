@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { levelGradeLabel } from '../../lib/schoolLevel';
+import { listLoadView, listErrorWhat } from '../../lib/listLoadState';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useUIActions } from '../../contexts/UIActionsContext';
@@ -13,7 +14,18 @@ export default function StudentsPage() {
   const {
     students, allStudents, curClass, curYear,
     removeStudent, studentTier,
+    studentsLoaded, studentsError, classesError, reloadAll,
   } = useStudents();
+  // 1103(mds/58 #2·#6): 학생·학급 목록을 못 받았으면 '학생 0명·등록된 학생이 없습니다' 대신 오류 안내 + 다시 시도.
+  //   (받아 둔 목록이 있으면 그대로 보이고 안내만 덧붙인다.)
+  const loadError = listErrorWhat(studentsError, classesError);
+  const failedEmpty = listLoadView({ studentsLoaded, studentsError, classesError, count: students.length }) === 'error';
+  const [retrying, setRetrying] = useState(false);
+  const onRetry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    try { await reloadAll(); } finally { setRetrying(false); }
+  };
   const toast = useToast();
   const { openAddStudent, openManageClasses } = useUIActions();
 
@@ -43,7 +55,7 @@ export default function StudentsPage() {
   const tierBadge = (sid) => {
     const t = studentTier(sid);
     if (t === 3) return <span className="badge" style={{ background: '#fdecea', color: '#c0392b' }}>Tier 3</span>;
-    if (t === 2) return <span className="badge" style={{ background: '#fef5e7', color: '#b9770e' }}>Tier 2</span>;
+    if (t === 2) return <span className="badge" style={{ background: '#fef5e7', color: '#7a4f00' }}>Tier 2</span>;
     return <span className="badge" style={{ background: 'var(--surface2, #f6f7f9)', color: 'var(--muted)' }}>Tier 1</span>;
   };
 
@@ -54,8 +66,8 @@ export default function StudentsPage() {
           <div style={{ flex: 1, minWidth: 200 }}>
             <div className="card-title" style={{ marginBottom: 2 }}>🧑‍🎓 학생 관리</div>
             <div className="card-subtitle" style={{ marginBottom: 0 }}>
-              {curYear}년 {curClass ? `· ${curClass.name}` : ''} — 학생 {students.length}명
-              {allStudents.length !== students.length ? ` (전체 ${allStudents.length}명)` : ''}
+              {curYear}년 {curClass ? `· ${curClass.name}` : ''} — {failedEmpty ? `${loadError}을 불러오지 못했어요` : `학생 ${students.length}명`}
+              {!failedEmpty && allStudents.length !== students.length ? ` (전체 ${allStudents.length}명)` : ''}
               {' '}· 다른 학급의 학생은 상단에서 학년도/학급을 바꾸면 볼 수 있어요.
             </div>
           </div>
@@ -64,7 +76,15 @@ export default function StudentsPage() {
         </div>
 
         <div style={{ border: '1px solid var(--border)', borderRadius: 10, marginTop: 14, overflow: 'hidden' }}>
-          {students.length === 0 ? (
+          {loadError && (
+            <div role="alert" style={{ padding: '14px 16px', background: '#fdecea', color: '#8a1c12', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ flex: 1, minWidth: 200 }}>
+                {loadError}을 불러오지 못했어요. 학생이 없어진 것은 아니에요 — 인터넷 연결을 확인한 뒤 다시 시도해 주세요.
+              </span>
+              <button className="btn btn-pri" onClick={onRetry} disabled={retrying}>{retrying ? '다시 불러오는 중…' : '다시 시도'}</button>
+            </div>
+          )}
+          {failedEmpty ? null : students.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--muted)', fontSize: '.9rem' }}>
               이 학급에 등록된 학생이 없습니다. 위의 '학생 추가' 버튼으로 등록해 주세요.
             </div>
@@ -93,7 +113,7 @@ export default function StudentsPage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       {code}
-                      {s.is_sample && <span className="badge" style={{ background: '#fdf6e9', color: '#b9770e', border: '1px solid #f5c26b' }}>🧪 샘플</span>}
+                      {s.is_sample && <span className="badge" style={{ background: '#fdf6e9', color: '#7a4f00', border: '1px solid #f5c26b' }}>🧪 샘플</span>}
                       {tierBadge(s.id)}
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>

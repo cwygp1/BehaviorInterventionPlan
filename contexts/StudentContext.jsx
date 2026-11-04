@@ -24,6 +24,7 @@ import {
   removeTier2Member as apiRemoveTier2Member,
   setTier2Tier3 as apiSetTier2Tier3,
 } from '../lib/api/tier2';
+import { shareInflight } from '../lib/listLoadState';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
 
@@ -58,6 +59,9 @@ export function StudentProvider({ children }) {
   const [studentsError, setStudentsError] = useState('');
   const [classes, setClasses] = useState([]);         // every class for the user
   const [classesLoaded, setClassesLoaded] = useState(false); // 서버에서 학급 목록을 받아왔는가
+  // 1103(mds/58 #6): 학급 목록 받기가 실패했는가 — 화면이 '학급 없음·처음이시네요' 대신 '불러오지 못했어요 · 다시 시도'를 보이게.
+  //   classesLoaded는 실패 때 올리지 않는다(아래 학급 자동 만들기 게이트를 그대로 지키려고).
+  const [classesError, setClassesError] = useState('');
   const [curYear, setCurYear] = useState(DEFAULT_YEAR);
   const [curSemester, setCurSemester] = useState(DEFAULT_SEMESTER); // 1 | 2
   const [curClassId, setCurClassId] = useState(null);
@@ -75,6 +79,8 @@ export function StudentProvider({ children }) {
   const [homeSummary, setHomeSummary] = useState({ summaries: {}, recent: [] });
   const inflightRef = useRef({});
   const seedingRef = useRef(false);
+  const seedShareRef = useRef(null); // 1103(mds/58 #11): 진행 중인 샘플 넣기 — 겹친 호출은 같은 요청을 기다린다
+  if (!seedShareRef.current) seedShareRef.current = shareInflight();
   const restoredRef = useRef(false); // 저장된 맥락 복원을 끝냈는가 — 끝나기 전엔 기본값으로 덮어쓰지 않는다
 
   // Reset everything when user logs out / changes.
@@ -82,8 +88,10 @@ export function StudentProvider({ children }) {
     if (!user) {
       setAllStudents([]);
       setStudentsLoaded(false);
+      setStudentsError('');
       setClasses([]);
       setClassesLoaded(false);
+      setClassesError('');
       setCurYear(DEFAULT_YEAR);
       setCurSemester(DEFAULT_SEMESTER);
       setCurClassId(null);
@@ -106,6 +114,9 @@ export function StudentProvider({ children }) {
       setStudentsError('');
       return list;
     } catch (_e) {
+      // 1103(mds/58 #2·#5): 실패해도 받아 둔 목록은 비우지 않고(allStudents 그대로) studentsLoaded도 올리지 않는다 —
+      //   옛 홈·첫 실행(PortalHome·FirstRun)이 '학생 0명'으로 읽어 빈 화면·샘플 자동 넣기를 하지 않게.
+      //   화면은 studentsError를 보고 '불러오지 못했어요 · 다시 시도'를 그린다.
       setStudentsError((_e && _e.message) || '학생 목록을 불러오지 못했어요');
       return [];
     }
@@ -118,8 +129,10 @@ export function StudentProvider({ children }) {
       const list = data.classes || [];
       setClasses(list);
       setClassesLoaded(true); // 이 시점 이후에만 자동 시드 판단(아래) — 로드 전 409 방지
+      setClassesError('');
       return list;
     } catch (_e) {
+      setClassesError((_e && _e.message) || '학급 목록을 불러오지 못했어요'); // 1103(mds/58 #6)
       return [];
     }
   }, [user]);
@@ -131,6 +144,12 @@ export function StudentProvider({ children }) {
       setHomeSummary({ summaries: data.summaries || {}, recent: data.recent || [] });
     } catch (_e) {}
   }, [user]);
+
+  // 1103(mds/58 #2·#5·#6): '다시 시도' — 학급·학생·요약을 함께 다시 받는다.
+  const reloadAll = useCallback(
+    () => Promise.all([reloadClasses(), reloadStudents(), reloadHomeSummary()]),
+    [reloadClasses, reloadStudents, reloadHomeSummary]
+  );
 
   // Class CRUD ---------------------------------------------------------------
   const addClass = useCallback(async (school_year, name) => {
@@ -408,12 +427,14 @@ export function StudentProvider({ children }) {
 
   // 샘플 체험 — 현재 학급에 샘플 학생 2명 + 4주치 기록을 시드한다.
   // 성공 시 첫 샘플 학생을 반환해 호출부(홈)가 바로 선택+이동할 수 있게 한다.
-  const seedSamples = useCallback(async () => {
+  //   1103(mds/58 #11): 가입 직후 자동 넣기(FirstRun)와 홈 '샘플로 체험'이 겹치면 POST가 두 번 갔다 —
+  //   진행 중인 요청이 있으면 새로 보내지 않고 그 결과를 함께 기다린다.
+  const seedSamples = useCallback(() => seedShareRef.current(async () => {
     if (!curClassId) throw new Error('학급을 먼저 만들어주세요.');
     const data = await apiSeedSamples(curClassId);
     await Promise.all([reloadStudents(), reloadHomeSummary(), reloadClasses()]); // 1102(mds/57 #8): 학급 학생 수도
     return (data.students || [])[0] || null;
-  }, [curClassId, reloadStudents, reloadHomeSummary, reloadClasses]);
+  }), [curClassId, reloadStudents, reloadHomeSummary, reloadClasses]);
 
   // 샘플 일괄 삭제 — 샘플 학생과 그 기록(CASCADE)을 정리한다.
   const clearSamples = useCallback(async () => {
@@ -478,6 +499,9 @@ export function StudentProvider({ children }) {
         selectSemester,
         selectClass,
         reloadClasses,
+        classesLoaded,
+        classesError,
+        reloadAll,
         addClass,
         renameClass,
         removeClass,

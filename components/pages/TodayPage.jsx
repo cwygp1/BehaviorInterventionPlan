@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { levelLabel } from '../../lib/schoolLevel';
+import { levelGradeLabel } from '../../lib/schoolLevel';
 import { computeTodos } from '../../lib/todo';
 import { reviewCounts } from '../../lib/dashReviews';
 import { loadDashboardCached, invalidateDashboard } from './dash/DashBits';
@@ -15,6 +15,7 @@ import WeekStrip from '../ui/WeekStrip';
 import QuickRecordDrawer from '../quick/QuickRecordDrawer';
 import { STUDENT_CODE_MAX } from '../../lib/studentCode';
 import { takeQuickResume } from '../../lib/quickResume';
+import { listLoadView, listErrorWhat } from '../../lib/listLoadState';
 
 // 새 디자인 '오늘'(#today) — 2단계 정식판(mds/52 §4, mds/54 §2-1 #1, 프로토타입 1~4장).
 //   · 학생 0명: 입력칸 하나 + '샘플 학생으로 구경하기'·'3분 체험 보기'(선택 단추). 마법사·샘플 자동 주입은 없다(AppShell이 표시만 지움).
@@ -145,8 +146,32 @@ function TodayRow({ r, hl, onNavigate, onQuick }) {
   );
 }
 
+// 1103(mds/58 #2·#5·#6): 학생·학급 목록을 못 받았을 때 — '불러오는 중…'에 멈추거나 '학생 0명·처음이시네요'로
+//   보이지 않게 안내와 '다시 시도'(학급·학생·요약 함께 다시 받기)를 보인다.
+export function ListLoadError() {
+  const { studentsError, classesError, reloadAll } = useStudents();
+  const [busy, setBusy] = useState(false);
+  if (!studentsError && !classesError) return null;
+  const what = listErrorWhat(studentsError, classesError);
+  const retry = async () => {
+    if (busy) return;
+    setBusy(true);
+    try { await reloadAll(); } finally { setBusy(false); }
+  };
+  return (
+    <div className="kb-strip kb-err" role="alert">
+      <span>{what}을 불러오지 못했어요. 학생이 없어진 것은 아니에요 — 인터넷 연결을 확인한 뒤 다시 시도해 주세요.</span>
+      <div className="kb-go">
+        <button type="button" className="kb-btn" onClick={retry} disabled={busy}>{busy ? '다시 불러오는 중…' : '다시 시도'}</button>
+      </div>
+    </div>
+  );
+}
+
 export default function TodayPage({ onNavigate, actions }) {
-  const { students, studentsLoaded, curClassId, addStudent, hasSamples, seedSamples, clearSamples } = useStudents();
+  const { students, studentsLoaded, studentsError, classesError, curClassId, addStudent, seedSamples, clearSamples } = useStudents();
+  // 1103(mds/58 #40): 샘플 지우기 단추는 지금 학급에 샘플이 있을 때만(계정 전체 기준이면 샘플 없는 반에도 보였다).
+  const hasSamples = students.some((s) => s.is_sample);
   const { startDemo, user } = useAuth();
   const toast = useToast();
   const { dash, cal, assess, error, loaded, reload } = useTodayData();
@@ -219,7 +244,10 @@ export default function TodayPage({ onNavigate, actions }) {
   };
   const onSaved = useCallback(() => { reload(); }, [reload]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!studentsLoaded) return <div className="kb-loading">학생 목록을 불러오는 중…</div>;
+  // 1103(mds/58 #5·#6): 못 받았으면 '불러오는 중…'에 멈추거나 '처음이시네요'(FirstScreen)로 가지 않고 안내 + 다시 시도.
+  const view = listLoadView({ studentsLoaded, studentsError, classesError, count: students.length });
+  if (view === 'loading') return <div className="kb-loading">학생 목록을 불러오는 중…</div>;
+  if (view === 'error') return <div className="kb-stack"><ListLoadError /></div>;
 
   if (students.length === 0) {
     return (
@@ -233,6 +261,7 @@ export default function TodayPage({ onNavigate, actions }) {
 
   return (
     <div className="kb-stack kb-today">
+      <ListLoadError />
       <div className="kb-today-head">
         <h2 className="kb-h3">{dateText}</h2>
         <span className="kb-muted">우리 반 {todo.total}명 · 오늘 기록 {todo.recorded}/{todo.total}</span>
@@ -313,7 +342,8 @@ export default function TodayPage({ onNavigate, actions }) {
 
 // 학생 목록 화면(#students)이 쓰던 목록 — 1단계와 같다(학생 메뉴).
 export function StudentList({ onNavigate, actions }) {
-  const { students, studentsLoaded, curClassId, hasSamples, clearSamples, homeSummary } = useStudents();
+  const { students, studentsLoaded, studentsError, classesError, curClassId, clearSamples, homeSummary } = useStudents();
+  const hasSamples = students.some((s) => s.is_sample); // 1103(mds/58 #40): 지금 학급 기준
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const onClear = async () => {
@@ -322,9 +352,12 @@ export function StudentList({ onNavigate, actions }) {
     setBusy(true);
     try { await clearSamples(); toast('샘플을 정리했어요. 이제 내 학생으로 시작해 보세요!'); } catch (e) { toast('샘플 삭제 실패: ' + e.message); } finally { setBusy(false); }
   };
-  if (!studentsLoaded) return <div className="kb-loading">학생 목록을 불러오는 중…</div>;
+  const view = listLoadView({ studentsLoaded, studentsError, classesError, count: students.length });
+  if (view === 'loading') return <div className="kb-loading">학생 목록을 불러오는 중…</div>;
+  if (view === 'error') return <div className="kb-stack"><ListLoadError /></div>;
   return (
     <div className="kb-stack">
+      <ListLoadError />
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <h2 className="kb-h3" style={{ flex: 1 }}>우리 반 학생 {students.length}명</h2>
         <button type="button" className="kb-btn kb-pri" onClick={actions.openAddStudent} disabled={!curClassId}>+ 학생 추가</button>
@@ -346,7 +379,7 @@ export function StudentList({ onNavigate, actions }) {
                 <div className="kb-t">
                   <button type="button" className="kb-nm" onClick={() => go('record')}>{s.code}{s.is_sample ? ' (샘플)' : ''}</button>
                   <div className="kb-small">
-                    {levelLabel(s.level)}{s.grade ? ` ${s.grade}학년` : ''} · {s.disability || '장애 영역 미입력'}
+                    {[levelGradeLabel(s.level, s.grade), s.disability || '장애 영역 미입력'].filter(Boolean).join(' · ')}
                     {' · '}관찰 {sm.abc_count || 0} · 데이터 {sm.mon_count || 0} · IEP 목표 {sm.iep_count || 0}
                   </div>
                 </div>

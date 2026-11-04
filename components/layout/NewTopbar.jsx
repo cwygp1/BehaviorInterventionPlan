@@ -32,7 +32,9 @@ function titleOf(route) {
 }
 
 function ClassPicker({ onManageClasses, onAddStudent }) {
-  const { classes, years, curYear, selectYear, curSemester, selectSemester, curClassId, curClass, selectClass } = useStudents();
+  const { classes, classesError, years, curYear, selectYear, curSemester, selectSemester, curClassId, curClass, selectClass } = useStudents();
+  // 1103(mds/58 #6): 학급 목록을 못 받았으면 '학급 없음'이 아니라 '학급을 불러오지 못함'.
+  const noClassText = classesError && classes.length === 0 ? '학급을 불러오지 못함' : '학급 없음';
   const [open, setOpen] = useState(false);
   const boxRef = useRef(null);
   useEffect(() => {
@@ -55,7 +57,7 @@ function ClassPicker({ onManageClasses, onAddStudent }) {
     if (cls.school_year !== curYear) selectYear(cls.school_year);
     selectClass(cls.id);
   };
-  const label = `${curYear} · ${curClass ? curClass.name : '학급 없음'} · ${curSemester}학기`;
+  const label = `${curYear} · ${curClass ? curClass.name : noClassText} · ${curSemester}학기`;
   const short = curClass ? curClass.name : '학급';
 
   return (
@@ -68,7 +70,7 @@ function ClassPicker({ onManageClasses, onAddStudent }) {
           <label>
             학년도 · 학급
             <select value={curClassId || ''} onChange={(e) => onPickClass(e.target.value)}>
-              {classesByYear.length === 0 && <option value="">학급 없음</option>}
+              {classesByYear.length === 0 && <option value="">{noClassText}</option>}
               {classesByYear.length > 0 && !curClassId && <option value="">— 학급을 선택하세요 —</option>}
               {classesByYear.map((g) => (
                 <optgroup key={g.year} label={`${g.year}학년도`}>
