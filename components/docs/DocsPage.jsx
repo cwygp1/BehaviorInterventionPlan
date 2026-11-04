@@ -134,7 +134,7 @@ export default function DocsPage({ mode = 'hub', onNavigate }) {
       // ── IEP (IepReportPage onWord·onNeisCopy, IepPage exportFormWord·downloadTaskSheetNow) ──
       case 'iep.niceWord': {
         const list = iepFilter(all, { year, sem });
-        if (!list.length) { toast('출력할 목표가 없습니다.'); return; }
+        if (!list.length) { toast('출력할 목표가 없습니다.', 'error'); return; }
         await wrap(async () => {
           await downloadNiceIepDocx(niceWordPayload({ stu, user, year, sem, goals: list, curYear: curYearNow() }));
           toast('나이스 양식 Word 파일을 내려받았어요 — 브라우저 다운로드 폴더를 확인하세요.', 'success');
@@ -144,19 +144,19 @@ export default function DocsPage({ mode = 'hub', onNavigate }) {
       case 'iep.neisCopy': {
         const list = iepFilter(all, { year, sem });
         const text = buildNeisAllText(list);
-        if (!text.trim()) { toast('복사할 내용이 없습니다.'); return; }
+        if (!text.trim()) { toast('복사할 내용이 없습니다.', 'error'); return; }
         const ok = await copyToClipboard(text);
         toast(ok ? `${list.length}개 영역의 NEIS용 텍스트를 복사했어요.` : '복사 권한이 없어요 — 화면의 내용을 직접 선택해 복사해 주세요.');
         return;
       }
       case 'iep.formWord':
-        if (!all.length) { toast('저장된 IEP 목표가 없습니다. 먼저 저장하세요.'); return; }
+        if (!all.length) { toast('저장된 IEP 목표가 없습니다. 먼저 저장하세요.', 'error'); return; }
         await wrap(async () => { await downloadIepFormDocx(formWordPayload({ stu, user, goals: all })); toast('양식 Word 파일을 내려받았어요.', 'success'); });
         return;
       case 'iep.taskSheet': {
         const tg = taskGoals(all);
         const g = tg.find((x) => String(x.id) === String(taskGoalId)) || tg[0];
-        if (!g) { toast('과제분석 단계가 저장된 목표가 없어요 — IEP 탭 ③에서 단계를 만들어 저장해 주세요.'); return; }
+        if (!g) { toast('과제분석 단계가 저장된 목표가 없어요 — IEP 탭 ③에서 단계를 만들어 저장해 주세요.', 'error'); return; }
         await wrap(async () => { await downloadTaskSheetDocx(taskSheetPayload({ stu, user, goal: g })); toast('과제분석 기록지 Word 파일을 내려받았어요.', 'success'); });
         return;
       }
@@ -177,7 +177,7 @@ export default function DocsPage({ mode = 'hub', onNavigate }) {
       case 'letter.reprint': {
         const ls = curStuData?.letters || [];
         const l = ls.find((x) => String(x.id) === String(letterId)) || ls[0];
-        if (!l) { toast('저장된 통신문이 없어요 — ‘쓰기 · 인쇄 창 열기’로 먼저 써 주세요.'); return; }
+        if (!l) { toast('저장된 통신문이 없어요 — ‘쓰기 · 인쇄 창 열기’로 먼저 써 주세요.', 'error'); return; }
         printFamilyLetter(letterPrintPayload({ stu, user, letter: l }));
         return;
       }
@@ -195,7 +195,7 @@ export default function DocsPage({ mode = 'hub', onNavigate }) {
       case 'crisis.print': {
         const cs = curStuData?.crisis || [];
         const r = cs.find((x) => String(x.id) === String(crisisId)) || cs[0];
-        if (!r) { toast('저장된 위기 시나리오가 없어요 — 위기 대처 화면에서 만든 뒤 💾 저장해 주세요.'); return; }
+        if (!r) { toast('저장된 위기 시나리오가 없어요 — 위기 대처 화면에서 만든 뒤 💾 저장해 주세요.', 'error'); return; }
         printCrisisScenario(crisisPrintPayload({ stu, user, record: r }));
         return;
       }

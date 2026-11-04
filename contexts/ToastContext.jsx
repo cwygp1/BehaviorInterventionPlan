@@ -1,15 +1,10 @@
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
+import { inferType } from '../lib/toastType';
 
 const ToastContext = createContext({ toast: () => {} });
 
 const ICONS = { success: '✓', error: '⚠', info: 'ℹ', '': '' };
-// 타입을 명시하지 않은 기존 호출도 메시지 내용으로 자동 추론한다.
-function inferType(msg) {
-  const s = String(msg || '');
-  if (/(실패|오류|에러|안 ?됨|없습니다|불가|금지|확인해|입력해)/.test(s)) return 'error';
-  if (/(완료|저장|성공|등록됨|반영|복사)/.test(s)) return 'success';
-  return '';
-}
+// 타입을 명시하지 않은 기존 호출도 메시지 내용으로 자동 추론한다(lib/toastType.js).
 
 export function ToastProvider({ children }) {
   const [message, setMessage] = useState('');
