@@ -57,6 +57,17 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
   const goAfterRef = useRef(null); // 확인 줄을 거쳐 닫은 뒤 옮겨 갈 주소(수첩 열기·IEP 목표 카드 열기, mds/56 #13)
   const formRefs = useRef({});
   const titleRef = useRef(null);
+  // 1103(mds/58 #35): 저장 뒤 초점이 창 밖(body)으로 빠졌으면 창 제목으로 — 다음 Tab이 창 안에서 이어지게.
+  //   (저장 단추는 disabled 대신 aria-disabled라 누른 단추에 초점이 그대로 남는다. 확인 줄 단추처럼 사라지는 단추만 여기로.)
+  const focusTitleSoon = useCallback(() => {
+    setTimeout(() => {
+      const t = titleRef.current;
+      if (!t || !t.isConnected) return;
+      const drawer = t.closest('.kb-drawer');
+      const a = document.activeElement;
+      if (!a || a === document.body || (drawer && !drawer.contains(a))) t.focus();
+    }, 0);
+  }, []);
   const openerRef = useRef(null);
   const lastSidRef = useRef(null);
   const open = !!start && !!sid;
@@ -152,6 +163,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
     setConfirm(null);
     const r = await saveMode(mode, false);
     if (!r.ok && !r.asked && !r.busy) setErr(r.error || '저장하지 못했어요.');
+    if (!r.asked) focusTitleSoon();
     if (r.ok) toast(`${stu ? stu.code : ''} ${MODE_LABEL[mode]} 저장했어요${nextRow ? ` · 다음: ${nextRow.code}` : ''}`);
   }
   async function onSameYes() {
@@ -159,6 +171,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
     setSameAsk(false);
     const r = await saveMode('num', true);
     if (!r.ok && !r.busy) setErr(r.error || '저장하지 못했어요.');
+    focusTitleSoon(); // '그대로 저장' 단추는 확인 줄과 함께 사라진다
   }
 
   const closeNow = useCallback(() => {
@@ -200,14 +213,15 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
   async function saveAllThen() {
     if (savingRef.current) return;
     const target = confirm;
-    // 회기는 패널 안 '💾 회기 저장' 단추로만 저장된다(3단계: 쓰다 만 표시는 SessionForm onDirty) — 그 모드로 돌려보낸다.
-    if (dirty.ses) { setConfirm(null); setMode('ses'); setVisited((v) => ({ ...v, ses: true })); setErr('회기 기록은 칸 안의 ‘💾 회기 저장’ 단추로 저장해 주세요. 저장하면 다시 닫을 수 있어요.'); return; }
+    // 회기는 패널 안 저장 단추로만 저장된다(3단계: 쓰다 만 표시는 SessionForm onDirty) — 그 모드로 돌려보낸다.
+    //   1103(mds/58 #39): 단추 이름이 패널마다 달라(과제분석·DTT '💾 회기 저장', 5점 척도·BST '저장') 둘 다 적는다.
+    if (dirty.ses) { setConfirm(null); setMode('ses'); setVisited((v) => ({ ...v, ses: true })); setErr('회기 기록은 칸 안의 저장 단추(💾 회기 저장 또는 저장)로 저장해 주세요. 저장하면 다시 닫을 수 있어요.'); focusTitleSoon(); return; }
     const ms = ['obs', 'num', 'chk', 'eval'].filter((m) => dirty[m]);
     for (const m of ms) {
       // eslint-disable-next-line no-await-in-loop
       const r = await saveMode(m, true);
       if (r.busy) return;
-      if (!r.ok) { setConfirm(null); setMode(m); setVisited((v) => ({ ...v, [m]: true })); setErr(r.error || '저장하지 못했어요.'); return; }
+      if (!r.ok) { setConfirm(null); setMode(m); setVisited((v) => ({ ...v, [m]: true })); setErr(r.error || '저장하지 못했어요.'); focusTitleSoon(); return; }
     }
     setConfirm(null);
     if (target === 'next') goNext(); else finishClose();
@@ -310,7 +324,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
             <div className="kb-strip kb-ask" role="alertdialog" aria-labelledby="kb-q-same">
               <div id="kb-q-same">지난 기록과 같아요. 그대로 저장할까요?</div>
               <div className="kb-go">
-                <button type="button" ref={askRef} className="kb-btn kb-pri" onClick={onSameYes} disabled={saving}>그대로 저장</button>
+                <button type="button" ref={askRef} className="kb-btn kb-pri" onClick={onSameYes} aria-disabled={saving || undefined}>그대로 저장</button>
                 <button type="button" className="kb-btn" onClick={() => setSameAsk(false)}>취소</button>
               </div>
             </div>
@@ -320,7 +334,7 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
               <div id="kb-q-cf">저장하지 않은 내용이 있어요.</div>
               <div className="kb-go">
                 <button type="button" ref={askRef} className="kb-btn" onClick={() => { goAfterRef.current = null; setConfirm(null); titleRef.current && titleRef.current.focus(); }}>계속 쓰기</button>
-                <button type="button" className="kb-btn kb-pri" onClick={saveAllThen} disabled={saving}>{confirm === 'next' ? '저장하고 다음 학생' : '저장하고 닫기'}</button>
+                <button type="button" className="kb-btn kb-pri" onClick={saveAllThen} aria-disabled={saving || undefined}>{confirm === 'next' ? '저장하고 다음 학생' : '저장하고 닫기'}</button>
                 <button type="button" className="kb-btn" onClick={discardThen}>{confirm === 'next' ? '버리고 다음 학생' : '버리고 닫기'}</button>
               </div>
             </div>
@@ -338,8 +352,9 @@ export default function QuickRecordDrawer({ start, rows, summary, onClose, onSav
             </div>
           )}
           <div className="kb-df">
+            {/* 1103(mds/58 #35): disabled로 잠그면 초점이 있던 단추가 꺼지며 초점이 body로 빠진다 — aria-disabled + savingRef 가드(onSave)로 잠근다. */}
             {mode !== 'ses' && (
-              <button type="button" className="kb-btn kb-pri" onClick={onSave} data-tour="quick-save" disabled={saving} aria-busy={saving || undefined}>
+              <button type="button" className="kb-btn kb-pri" onClick={onSave} data-tour="quick-save" aria-disabled={saving || undefined} aria-busy={saving || undefined}>
                 {saving ? '저장 중…' : saved[mode] && !dirty[mode] ? `✓ ${saved[mode]} 저장함` : '저장'}
               </button>
             )}

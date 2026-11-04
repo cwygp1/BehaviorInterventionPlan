@@ -56,6 +56,19 @@ export default function StudentWorkspace({ route, onNavigate, actions }) {
     if (keys[n] !== route.tab) goTab(keys[n]);
   };
 
+  // 1103(mds/58 #35): 오늘 표 이름·학생 목록에서 수첩을 열면 누른 단추가 사라져 초점이 body에 남았다 —
+  //   학생이 바뀌어 수첩이 열릴 때 초점이 갈 곳을 잃었으면 학생 이름 제목으로 옮긴다. ◀ ▶·학생 바꾸기처럼
+  //   누른 단추가 그대로 켜져 있으면 그 단추에 둔다(연달아 누를 수 있게). 탭 방향키 이동(onTabKey)은 그대로.
+  const nameRef = useRef(null);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const a = document.activeElement;
+      // 끝 학생에 닿아 ◀/▶가 꺼지면(disabled) 브라우저가 곧 초점을 body로 보낸다 — 그때도 제목으로.
+      if (nameRef.current && (!a || a === document.body || a.disabled)) nameRef.current.focus({ preventScroll: true });
+    }, 0);
+    return () => clearTimeout(t);
+  }, [route.sid]);
+
   const c = curStu ? stuColor(curStu.code) : '#78839c';
 
   return (
@@ -63,7 +76,7 @@ export default function StudentWorkspace({ route, onNavigate, actions }) {
       <div className="kb-ws-head">
         <div className="kb-av" style={{ background: c }} aria-hidden="true">{(curStu?.code || '?').slice(0, 2)}</div>
         <div className="kb-grow">
-          <h2 className="kb-ws-name">{curStu ? curStu.code : '학생 불러오는 중…'}</h2>
+          <h2 className="kb-ws-name" ref={nameRef} tabIndex={-1}>{curStu ? curStu.code : '학생 불러오는 중…'}</h2>
           {curStu && <div className="kb-ws-meta">{levelGradeLabel(curStu.level, curStu.grade) || levelLabel(curStu.level)} · {curStu.disability || '장애 영역 미입력'}{curStu.is_sample ? ' · 샘플' : ''}</div>}
         </div>
         <button type="button" className="kb-btn kb-sq" onClick={() => goStu(prev?.id)} disabled={!prev} title={prev ? `이전 학생 (${prev.code})` : '이전 학생 없음'} aria-label="이전 학생">◀</button>
