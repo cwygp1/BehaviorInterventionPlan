@@ -11,7 +11,7 @@ import { parseRows, serializeRows } from '../../lib/utils/lineRows';
  * compact 는 월별 계획 표처럼 좁은 칸 안에 넣을 때 — 바깥 테두리 없이 글씨·여백을 줄인다.
  *
  *   <LineTable value={semMethods} onChange={setSemMethods} labeled placeholder="…" />
- * ariaLabel 은 줄 입력칸의 이름 앞머리(화면 읽기용, 예: '학기목표' → '학기목표 1번째 줄') — 보이는 모양은 그대로(mds/58 #16).
+ * ariaLabel 은 줄 입력칸·지우기 단추의 이름 앞머리(화면 읽기용, 예: '학기목표' → '학기목표 1번째 줄', '학기목표 1번째 줄 지우기') — 보이는 모양은 그대로(mds/58 #16).
  */
 export default function LineTable({ value = '', onChange, labeled = false, compact = false, bullet = true, placeholder = '', addLabel = '+ 줄 추가', ariaLabel = '' }) {
   const [rows, setRows] = useState(() => parseRows(value, labeled, bullet));
@@ -83,7 +83,8 @@ export default function LineTable({ value = '', onChange, labeled = false, compa
     commit(next);
   };
 
-  const remove = (i) => commit(rows.filter((_, k) => k !== i));
+  // 1104: 지운 뒤 초점은 같은 자리(마지막 줄이면 윗줄) 글 칸 끝으로 — 지운 줄과 함께 초점이 사라지지 않게.
+  const remove = (i) => { pendingFocus.current = { i: Math.max(0, Math.min(i, rows.length - 2)) }; commit(rows.filter((_, k) => k !== i)); };
   const add = () => { pendingFocus.current = { i: rows.length, pos: 0 }; commit([...rows, { label: '', text: '' }]); };
 
   return (
@@ -110,7 +111,9 @@ export default function LineTable({ value = '', onChange, labeled = false, compa
                 />
               </td>
               <td className="lt-del">
-                <button type="button" title="이 줄 지우기" aria-label={`${i + 1}번째 줄 지우기`} onClick={() => remove(i)}>✕</button>
+                {/* 1104: 누를 때 글 칸 초점을 빼앗지 않는다 — 새 디자인은 초점 있는 줄에만 ✕를 띄우므로, 초점이 빠지면(사파리) 단추가 숨어 눌리지 않는다 */}
+                <button type="button" title="이 줄 지우기" aria-label={`${ariaLabel ? `${ariaLabel} ` : ''}${i + 1}번째 줄 지우기`}
+                  onMouseDown={(e) => e.preventDefault()} onClick={() => remove(i)}>✕</button>
               </td>
             </tr>
           ))}

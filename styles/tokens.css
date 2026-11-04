@@ -479,10 +479,28 @@ html[data-font="lg"] .kb-new { --kb-fs-title: 24.75px; --kb-fs-head: 20.25px; --
 .kb-new .content .ps-step { width: 44px !important; height: 44px !important; }
 /* 클래스 없는 옛 단추(브라우저 기본 13.3px) — 14px로 */
 .kb-new .content button:not([class]) { font-size: var(--kb-fs-sub); min-height: 44px; }
-/* 월별 계획 표(줄 표 compact가 든 표) — ✕ 44px·번호 칸을 넣고도 글 칸이 좁아지지 않게 표 최소 폭을 둔다(표 바깥 칸이 가로로 넘긴다) */
-.kb-new .content table:has(.line-table.compact) { min-width: 900px; }
+/* 월별 계획 표(줄 표 compact가 든 표) — 1104: 표 최소 폭 900px(1024에서도 표 안 가로 밀기)을 없앴다.
+   대신 줄마다 있던 ✕ 열(44px)을 없애고, 지금 쓰는 줄(초점이 있는 줄)에만 그 줄 아래에 '✕ 지우기'(44px)를 띄운다.
+   (옛 사이트도 ✕를 평소엔 흐리게 두고 쓰는 줄에서만 진하게 보였다 — 같은 생각.) 키보드 Tab으로 가면 나타나고, 화면 읽기에는 늘 있다.
+   폭이 아주 좁을 때(600px 이하)만 표 최소 폭을 두고 표 안에서 가로로 민다. */
 .kb-new .content :has(> table .line-table.compact) { overflow-x: auto; max-width: 100%; }
-.kb-new .content .line-table.compact .lt-num { width: 24px; }
+.kb-new .content table:has(.line-table.compact) > colgroup > col:first-child { width: 48px !important; }
+.kb-new .content table:has(.line-table.compact) > tbody > tr > td { padding: 4px !important; }
+.kb-new .content .line-table.compact .lt-num { width: 20px; }
+.kb-new .content .line-table.compact .lt-del { width: 0; padding: 0; border: 0; position: relative; overflow: visible; }
+.kb-new .content .line-table.compact .lt-del button {
+  position: absolute; right: 0; bottom: 3px; z-index: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  width: auto; min-width: 44px; min-height: 44px; padding: 0 10px; white-space: nowrap;
+  background: var(--kb-surface); border: 1.5px solid var(--kb-line-strong); border-radius: 8px; color: var(--kb-danger); font-weight: 600;
+}
+.kb-new .content .line-table.compact .lt-del button::after { content: '지우기'; }
+.kb-new .content .line-table.compact tr:not(:focus-within) .lt-del button {
+  clip-path: inset(50%); width: 1px; height: 1px; min-width: 0; min-height: 0; padding: 0; border: 0; overflow: hidden;
+}
+.kb-new .content .line-table.compact tr:focus-within > td:not(.lt-del) { padding-bottom: 50px; }
+@media (max-width: 600px) {
+  .kb-new .content table:has(.line-table.compact) { min-width: 600px; }
+}
 /* 급해요 — 단계 줄 단추·바깥 링크 44px */
 .kb-new .content .cr-stage-btn { min-height: 44px; }
 .kb-new .content .cr-links a { display: flex; align-items: center; min-height: 44px; }
