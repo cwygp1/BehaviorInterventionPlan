@@ -1,11 +1,13 @@
 import { sql } from '../../lib/db';
-import { requireAuth, setUiCookie, readReqCookie } from '../../lib/auth';
+import { requireAuth, getSessionFromReq, setUiCookie, readReqCookie } from '../../lib/auth';
 import { ensureUserTierColCached, ensureUserRoleColCached, ensureUserDemoColCached, ensureUserUiModeColCached } from '../../lib/ensureSchema';
 import { normalizeUsedTiers } from '../../lib/tiers';
 import { UI_COOKIE, normalizeUiMode, effectiveUiMode } from '../../lib/uiMode';
 
-// GET   /api/me — return the authenticated user's profile, or 401 if no session.
+// GET   /api/me — return the authenticated user's profile.
 //                 Used by the frontend on bootstrap to restore session state.
+//                 1103(mds/58 #8·#12·#14): 세션 쿠키가 없거나 무효면 200 { user: null }(로그인 전 콘솔 401 소음 없애기).
+//                 쿠키는 유효한데 계정이 없으면 예전처럼 401. PATCH는 지금처럼 세션 없으면 401.
 // PATCH /api/me — update the teacher's menu scoping (used_tiers, '1,2,3' CSV)
 //                 or 화면 모양(ui_mode: 'new' | 'legacy', mds/54 §4 — 1101).
 //
@@ -20,7 +22,7 @@ function syncUiCookie(req, res, user) {
   if (readReqCookie(req, UI_COOKIE) !== user.ui_mode) setUiCookie(res, user.ui_mode);
 }
 
-export default requireAuth(async function handler(req, res) {
+const authed = requireAuth(async function handler(req, res) {
   // 자가치유: /api/migrate 전에도 used_tiers·role 컬럼 조회/수정이 동작하도록 보정.
   await ensureUserTierColCached();
   await ensureUserRoleColCached();
@@ -74,3 +76,10 @@ export default requireAuth(async function handler(req, res) {
 
   return res.status(405).json({ error: 'Method not allowed' });
 });
+
+export default async function me(req, res) {
+  if (req.method === 'GET' && !getSessionFromReq(req)) {
+    return res.status(200).json({ user: null });
+  }
+  return authed(req, res);
+}

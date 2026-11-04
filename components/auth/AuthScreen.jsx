@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import LoadingOverlay from '../ui/LoadingOverlay';
 import TermsModal from './TermsModal';
+import { NOTICE_TEXT } from '../../lib/authNotice';
 
 // 화면 모양 고르기(mds/54 §4).
 //   · 로그인: 기본은 '계정에 저장된 대로'(값 '') — 사용자가 새/기존을 직접 눌렀을 때만 ui_mode를 보낸다.
@@ -155,9 +156,10 @@ export default function AuthScreen({ showExpired = false }) {
               </div>
             </div>
           )}
-          {showExpired && authNotice === 'expired' && (
+          {/* 1103(mds/58 #32): '기록 창을 다시 열어 드려요'는 빠른 기록 창 저장이 막혔을 때('expired-save')만 — 그 밖의 만료는 일반 안내 */}
+          {showExpired && NOTICE_TEXT[authNotice] && (
             <div className="auth-notice" role="alert" style={NOTICE_STYLE}>
-              로그인이 끝나서 방금 기록을 저장하지 못했어요. 다시 로그인하면 쓰던 기록 창을 다시 열어 드려요. 내용을 확인하고 한 번 더 저장해 주세요.
+              {NOTICE_TEXT[authNotice]}
             </div>
           )}
 

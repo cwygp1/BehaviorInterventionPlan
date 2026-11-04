@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { api, setUnauthorizedHandler } from '../lib/api/client';
+import { QUICK_RESUME_EVENT, noticeOn401, isSaveRequest, noticeOnQuickResume, noticeOnWhoCheck } from '../lib/authNotice';
 
 const AuthContext = createContext({
   user: null,
@@ -41,14 +42,18 @@ export function AuthProvider({ children }) {
   // status: 'loading' | 'guest' | 'authed'
   const [status, setStatus] = useState('loading');
   // 1102(mds/57 #6·#11): 로그인 화면에 띄울 까닭 — 'expired'(쓰는 중 로그인이 끝남) | 'switched'(다른 탭에서 다른 계정) | ''
+  //   1103(mds/58 #32): 'expired-save'(빠른 기록 창 저장이 막혀 다시 로그인하면 창을 되살림) — lib/authNotice.js
   const [authNotice, setAuthNotice] = useState('');
   const userRef = useRef(null);
   userRef.current = user;
   const checkingRef = useRef(false);
   const lastCheckRef = useRef(0);
+  // 마지막 '저장(GET 아닌) 요청 401' 시각 — 빠른 기록 창이 되살리기 재료를 남기면 이것과 이어 'expired-save'로 바꾼다.
+  const lastSave401Ref = useRef(null);
 
   // Bootstrap: ask the server who we are. The auth cookie is httpOnly so the
   // browser can't see it directly — we have to call /api/me.
+  //   1103(mds/58 #8): 로그인 전이면 서버가 200 { user: null }을 준다(콘솔 401 없음) — 손님으로.
   const refresh = useCallback(async () => {
     try {
       const data = await api('/api/me');
@@ -68,9 +73,13 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     // Wire client.js so any 401 response auto-clears local user state.
-    setUnauthorizedHandler(() => {
+    setUnauthorizedHandler((req) => {
       // 쓰고 있던 중(로그인된 상태)에 401이면 '로그인이 끝났어요' 안내(첫 세션 확인의 401은 안내하지 않음).
-      if (userRef.current) setAuthNotice((n) => n || 'expired');
+      //   1103(mds/58 #32): 처음엔 일반 안내('expired'). 저장 요청이 막혔고 빠른 기록 창이 되살리기 재료를 남기면
+      //   아래 QUICK_RESUME_EVENT 처리에서 'expired-save'로 바꾼다.
+      const hadUser = !!userRef.current;
+      setAuthNotice((n) => noticeOn401(n, hadUser));
+      if (hadUser && isSaveRequest(req && req.method)) lastSave401Ref.current = { at: Date.now() };
       userRef.current = null;
       setUser(null);
       setStatus('guest');
@@ -78,12 +87,24 @@ export function AuthProvider({ children }) {
     refresh();
   }, [refresh]);
 
+  // 빠른 기록 창이 '로그인이 끝나 저장 못 함' 되살리기 재료를 남겼다(lib/quickResume writeQuickResume가 알림).
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onResume = () => {
+      const last = lastSave401Ref.current;
+      setAuthNotice((n) => noticeOnQuickResume(n, last));
+    };
+    window.addEventListener(QUICK_RESUME_EVENT, onResume);
+    return () => window.removeEventListener(QUICK_RESUME_EVENT, onResume);
+  }, []);
+
   // uiMode: 로그인 창에서 고른 화면 모양('new' | 'legacy', mds/54 §4). 없으면 계정에 저장된 값.
   const login = useCallback(async (email, password, uiMode) => {
     const body = { email, password };
     if (uiMode) body.ui_mode = uiMode;
     const data = await api('/api/auth/login', 'POST', body);
     setAuthNotice('');
+    lastSave401Ref.current = null;
     writeWho(data.user && data.user.id);
     setUser(data.user);
     setStatus('authed');
@@ -96,6 +117,7 @@ export function AuthProvider({ children }) {
     //   components/onboarding/FirstRun.jsx가 읽고 지운다.
     try { sessionStorage.setItem('kb_first_run', '1'); sessionStorage.setItem('kb_seed_samples', '1'); } catch (_e) { /* 사생활 모드 — 체크리스트가 대신 안내 */ }
     setAuthNotice('');
+    lastSave401Ref.current = null;
     writeWho(data.user && data.user.id);
     setUser(data.user);
     setStatus('authed');
@@ -108,6 +130,7 @@ export function AuthProvider({ children }) {
     const data = await api('/api/auth/demo', 'POST', {});
     try { sessionStorage.setItem('kb_demo_autoplay', '1'); } catch (_e) { /* 사생활 모드 — 재생 바에서 직접 시작 */ }
     setAuthNotice('');
+    lastSave401Ref.current = null;
     writeWho(data.user && data.user.id);
     setUser(data.user);
     setStatus('authed');
@@ -137,13 +160,15 @@ export function AuthProvider({ children }) {
     }
     clearTabState();
     setAuthNotice('');
+    lastSave401Ref.current = null;
     userRef.current = null;
     setUser(null);
     setStatus('guest');
   }, []);
 
   // 다른 탭에서 계정이 바뀌었나 — /api/me로 확인해 다른 계정이면 이 탭을 로그인 화면으로(안내와 함께).
-  //   401이면 위 처리기가 'expired'로 내려 준다. 확인은 3초에 한 번까지.
+  //   1103(mds/58 #8): 로그아웃 상태 응답이 401 → 200 { user: null }로 바뀌어 위 401 처리기가 돌지 않으므로,
+  //   user가 null이면 여기서 직접 'expired'로 내린다(다른 탭 로그아웃 감지, mds/57 #11). 확인은 3초에 한 번까지.
   const verifyWho = useCallback(async (force) => {
     const cur = userRef.current;
     if (!cur || checkingRef.current) return;
@@ -154,13 +179,15 @@ export function AuthProvider({ children }) {
     try {
       const data = await api('/api/me');
       const me = data && data.user;
-      if (userRef.current && me && me.id !== userRef.current.id) {
-        setAuthNotice('switched');
+      const next = noticeOnWhoCheck(userRef.current, me);
+      if (next) {
+        if (next === 'switched') setAuthNotice('switched');
+        else setAuthNotice((n) => n || next);
         userRef.current = null;
         setUser(null);
         setStatus('guest');
       }
-    } catch (_e) { /* 네트워크 오류는 넘어감(401은 처리기가 맡음) */ }
+    } catch (_e) { /* 네트워크 오류는 넘어감(계정은 있는데 세션이 무효인 401은 처리기가 맡음) */ }
     finally { checkingRef.current = false; }
   }, []);
 
