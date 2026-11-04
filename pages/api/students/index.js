@@ -1,7 +1,7 @@
 import { sql } from '../../../lib/db';
 import { requireAuth } from '../../../lib/auth';
 import { ensureStudentProfileColsCached } from '../../../lib/ensureSchema';
-import { STUDENT_CODE_MAX, studentCodeLength } from '../../../lib/studentCode';
+import { STUDENT_CODE_MAX, studentCodeLength, STUDENT_CODE_DUP_MSG, isUniqueViolation } from '../../../lib/studentCode';
 
 export default requireAuth(async function handler(req, res) {
   const userId = req.userId;
@@ -49,6 +49,14 @@ export default requireAuth(async function handler(req, res) {
         `;
         if (cls.rows.length === 0) {
           return res.status(403).json({ error: 'Forbidden' });
+        }
+        // 1103(mds/58 #1): 같은 선생님에게 같은 코드가 이미 있으면 DB 오류(500) 대신 409 + 쉬운 말.
+        //   UNIQUE(user_id, student_code)는 학급과 상관없이 선생님 단위다(lib/ensureSchema.js).
+        const dup = await sql`
+          SELECT id FROM students WHERE user_id = ${userId} AND student_code = ${student_code} LIMIT 1
+        `;
+        if (dup.rows.length > 0) {
+          return res.status(409).json({ error: STUDENT_CODE_DUP_MSG });
         }
         const result = await sql`
           INSERT INTO students (user_id, class_id, student_code, level, grade, disability, note, strengths, difficulties)
@@ -109,6 +117,10 @@ export default requireAuth(async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
   } catch (error) {
+    // 선조회와 INSERT 사이에 같은 코드가 동시에 들어오면 고유 제약(23505)에 걸린다 — 그것도 같은 409로.
+    if (req.method === 'POST' && isUniqueViolation(error)) {
+      return res.status(409).json({ error: STUDENT_CODE_DUP_MSG });
+    }
     console.error('Students API error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
