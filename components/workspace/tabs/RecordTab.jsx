@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStudents } from '../../../contexts/StudentContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { takeQuickResume } from '../../../lib/quickResume';
 import { recordSetup, recentRecords } from '../../../lib/notebook';
 import { todayKst } from '../../../lib/utils/calendarRules';
-import { formatRoute } from '../../../lib/routes';
+import { formatRoute, subOld, SUB_MONITOR_TAB } from '../../../lib/routes';
 import DesignPicker from '../../student/DesignPicker';
 import DeadMansModal from '../../modals/DeadMansModal';
 import ObservationPeriodModal from '../../modals/ObservationPeriodModal';
@@ -20,12 +20,19 @@ import Fold from './Fold';
 //   ② 오늘 기록 카드 — 빠른 기록 창(관찰·수치·회기) 열기.  ③ 지난 기록 5줄.
 //   ④ 기존 화면(하위 선택): 행동 관찰(ABC) · 행동 데이터 · 교수 회기 — 회기는 MonitorPage의 '교수 회기 기록' 탭(sessionStorage
 //      kb_monitor_tab, 화면이 마운트 때 한 번 읽음)이라 고를 때 다시 마운트한다.
+//      1103(mds/58 #29): 회기는 주소도 따로(?sub=sessions) — 주소가 정한 탭을 MonitorPage가 마운트되기 전에 kb_monitor_tab에 적어
+//      새 탭·북마크·뒤로가기에서도 주소대로 열린다. 옛 화면 안 탭 단추를 누르면 주소도 그 탭으로 옮긴다.
 const SCROLL_KEY = 'kb_ws_scroll'; // 다시 마운트한 뒤 이 앵커로 내려가기(정의 쓰기)
 const MON_TAB = 'kb_monitor_tab';
 
 const readMonTab = () => { try { return sessionStorage.getItem(MON_TAB) || 'behavior'; } catch (_e) { return 'behavior'; } };
+const writeMonTab = (t) => { try { sessionStorage.setItem(MON_TAB, t); } catch (_e) { /* noop */ } };
 
 export default function RecordTab({ route, onNavigate }) {
+  // 주소가 정한 MonitorPage 탭 — 자식(MonitorPage)의 첫 렌더(useState 초기값)보다 먼저 적는다(이 탭은 이동마다 다시 마운트된다).
+  const routeMonTab = SUB_MONITOR_TAB[route.sub] || '';
+  const wroteRef = useRef(false);
+  if (routeMonTab && !wroteRef.current) { wroteRef.current = true; writeMonTab(routeMonTab); }
   const { curStu, curStuId, curStuData, tier2MemberIds } = useStudents();
   const inGroup = !!(tier2MemberIds && tier2MemberIds.has(curStuId));
   const setup = recordSetup(curStuData, { inGroup });
@@ -40,7 +47,7 @@ export default function RecordTab({ route, onNavigate }) {
     const r = takeQuickResume(user.id, (sid) => sid === curStuId);
     if (r) setQuick({ sid: r.sid, mode: r.mode, nonce: Date.now(), resumed: true });
   }, [user, curStuId]);
-  const [monTab, setMonTab] = useState(readMonTab);
+  const [monTab, setMonTab] = useState(() => routeMonTab || readMonTab());
   const [screenKey, setScreenKey] = useState(0);
   const today = todayKst();
   const rec = recentRecords(curStuData, today, 5);
@@ -57,12 +64,21 @@ export default function RecordTab({ route, onNavigate }) {
     return () => clearTimeout(t);
   }, []);
 
-  const goSub = (sub, mt) => {
-    if (sub === 'monitor') {
-      try { sessionStorage.setItem(MON_TAB, mt); } catch (_e) { /* noop */ }
-      setMonTab(mt);
-    }
+  const goSub = (sub) => {
+    const mt = SUB_MONITOR_TAB[sub];
+    if (mt) { writeMonTab(mt); setMonTab(mt); }
     if (sub === route.sub) { setScreenKey((k) => k + 1); return; }
+    onNavigate(formatRoute({ kind: 'student', sid: route.sid, tab: 'record', sub }));
+  };
+  // 옛 화면(MonitorPage) 안의 탭 단추는 sessionStorage만 바꾼다 — 클릭이 위로 올라온 뒤(그 단추 처리가 끝난 뒤) 다시 읽어
+  //   주소를 그 탭의 하위 화면으로 옮긴다(다시 그려지므로 고르기 칩 줄로 내려가 둔다).
+  const onMonitorClick = () => {
+    const t = readMonTab();
+    if (t === monTab) return;
+    setMonTab(t);
+    const sub = t === 'sessions' ? 'sessions' : 'monitor';
+    if (sub === route.sub) return;
+    try { sessionStorage.setItem(SCROLL_KEY, sub === 'sessions' ? 'ws-rec-sessions' : 'nav-monitor'); } catch (_e) { /* noop */ }
     onNavigate(formatRoute({ kind: 'student', sid: route.sid, tab: 'record', sub }));
   };
   const toOpdef = () => {
@@ -77,9 +93,9 @@ export default function RecordTab({ route, onNavigate }) {
   const openQuick = (mode) => setQuick({ sid: curStuId, mode, nonce: Date.now() });
 
   const subs = [
-    { key: 'observe', mt: '', label: '행동 관찰 (ABC)', on: route.sub === 'observe', tour: 'nav-observe' },
-    { key: 'monitor', mt: 'behavior', label: '행동 데이터', on: route.sub === 'monitor' && monTab !== 'sessions', tour: 'nav-monitor' },
-    { key: 'monitor', mt: 'sessions', label: '교수 회기 기록', on: route.sub === 'monitor' && monTab === 'sessions', tour: 'ws-rec-sessions' },
+    { key: 'observe', label: '행동 관찰 (ABC)', on: route.sub === 'observe', tour: 'nav-observe' },
+    { key: 'monitor', label: '행동 데이터', on: route.sub === 'monitor', tour: 'nav-monitor' },
+    { key: 'sessions', label: '교수 회기 기록', on: route.sub === 'sessions', tour: 'ws-rec-sessions' },
   ];
 
   return (
@@ -160,13 +176,13 @@ export default function RecordTab({ route, onNavigate }) {
 
       <div className="kb-subtabs" role="group" aria-label="기록 화면 고르기">
         {subs.map((s) => (
-          <button key={s.label} type="button" className="kb-chip" aria-pressed={s.on} onClick={() => goSub(s.key, s.mt)} data-tour={s.tour}>{s.label}</button>
+          <button key={s.key} type="button" className="kb-chip" aria-pressed={s.on} onClick={() => goSub(s.key)} data-tour={s.tour}>{s.label}</button>
         ))}
       </div>
-      {/* 1102(mds/56 #31): 옛 화면(MonitorPage) 안의 탭 단추는 sessionStorage만 바꾼다 — 클릭이 위로 올라온 뒤(그 단추 처리가 끝난 뒤)
-          다시 읽어 위 칩 눌림을 맞춘다. 옛 화면은 고치지 않는다. */}
-      <div key={screenKey} onClick={route.sub === 'monitor' ? () => { const t = readMonTab(); if (t !== monTab) setMonTab(t); } : undefined}>
-        <OldScreen page={route.sub} onNavigate={onNavigate} />
+      {/* 1102(mds/56 #31)·1103(mds/58 #29): 옛 화면(MonitorPage) 안의 탭 단추를 누르면 주소·위 칩을 그 탭에 맞춘다(onMonitorClick).
+          옛 화면은 고치지 않는다. */}
+      <div key={screenKey} onClick={routeMonTab ? onMonitorClick : undefined}>
+        <OldScreen page={subOld(route.sub)} onNavigate={onNavigate} />
       </div>
 
       <DeadMansModal open={deadOpen} onClose={() => setDeadOpen(false)} />

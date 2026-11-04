@@ -22,6 +22,10 @@ import NewView from '../workspace/NewView';
 import { useNewRouter } from '../../lib/hooks/useNewRouter';
 import { toNew, toOld, isStudentPage, requiresStudent, withStudent } from '../../lib/routes';
 
+// 옛 화면(IEP→DTT·달력·그래프 위젯)은 'kb_monitor_tab'에 회기 탭을 적어 두고 onNavigate('monitor')를 부른다 —
+//   그 뜻을 주소(?sub=sessions)로 옮긴다(mds/58 #29).
+const readMonitorTab = () => { try { return sessionStorage.getItem('kb_monitor_tab'); } catch (_e) { return null; } };
+
 // 새 디자인(/new) 셸 — components/layout/Layout.jsx:76-145의 공급자·모달 묶음을 빠짐없이 옮겼다(mds/54 §1 조건 2·4).
 //   StudentProvider(pages/new.js) > UIActionsProvider > GuideProvider(activePage=옛 id) > .app.show.kb-new
 //   모달 5개(AddStudent·PickStudent·EditStudent·ManageClasses·AISettings) + AIBusyOverlay + 안내 레이어 4종 (FirstRun 대신 오늘 화면의 학생 0명 화면 — 아래 가입 표시 지우기).
@@ -70,7 +74,7 @@ export default function AppShell() {
     //   아직 A라서, StudentContext가 selectStudent에서 바로 갱신하는 값(getCurStuId)을 먼저 읽는다(mds/56 #2).
     const nowSid = getCurStuId ? getCurStuId() : null;
     const sid = opt.sid != null ? opt.sid : (nowSid || curStuIdRef.current || (r.kind === 'student' ? r.sid : null));
-    const h = toNew(t, { sid });
+    const h = toNew(t, { sid, monitorTab: readMonitorTab() });
     if (h) { push(h); return; }
     if (requiresStudent(t)) { openPicker(t); return; }
     toast('그 화면을 찾지 못했어요: ' + t);
@@ -88,7 +92,7 @@ export default function AppShell() {
   //   이 효과보다 늦게 돈다(부모 효과). 그래도 없으면 오늘로 두고 학생 고르기 창(고른 뒤 그 화면).
   useEffect(() => {
     if (route.kind !== 'go' || !studentsLoaded || classes.length === 0) return undefined;
-    const h = toNew(route.old, { sid: curStuId });
+    const h = toNew(route.old, { sid: curStuId, monitorTab: readMonitorTab() });
     if (h) { replace(h); return undefined; }
     const t = setTimeout(() => {
       replace('#today');

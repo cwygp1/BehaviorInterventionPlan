@@ -1,11 +1,13 @@
 import PageFrame from '../onboarding/PageFrame';
 import LegacyPageRouter from '../layout/LegacyPageRouter';
-import { SUB_LABELS } from '../../lib/routes';
+import { SUB_LABELS, subOld } from '../../lib/routes';
 import { pageLabel } from '../../lib/tiers';
 
 // 옛 화면 한 장을 새 셸에 끼운다(mds/54 §3-3 규칙 1·2) — <PageFrame 탭당 하나> + 옛 화면 그대로(+ StepNav는 LegacyPageRouter가 붙임).
 //   화면 파일은 고치지 않는다. onNavigate는 옛 id 32개를 받는 새 셸 navigate.
-export function OldScreen({ page, onNavigate }) {
+//   page는 옛 id 또는 탭 안 하위 화면 이름 — 옛 id가 아닌 하위 화면('sessions' → 'monitor')은 그리는 옛 화면으로 바꾼다(mds/58 #29).
+export function OldScreen({ page: sub, onNavigate }) {
+  const page = subOld(sub);
   if (!page) return null;
   return (
     <>
