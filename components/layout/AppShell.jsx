@@ -132,9 +132,12 @@ export default function AppShell() {
   }, [route, studentsLoaded, classes, allStudents, curStuId, curClassId, curYear, selectStudent, selectClass, selectYear, replace, toast]);
 
   // 화면을 바꾸면 스크롤을 맨 위로(스크롤 칸은 .content) — Layout.jsx와 같은 2회 되감기.
+  //   1104: 낮은 화면(높이 500px 이하, 확대 200% 등)에서는 .kb-main 통째로 스크롤한다(tokens.css) — 그것도 되감는다.
   const contentRef = useRef(null);
+  const mainRef = useRef(null);
   useEffect(() => {
     const reset = () => {
+      if (mainRef.current) mainRef.current.scrollTop = 0;
       if (contentRef.current) contentRef.current.scrollTop = 0;
       try { window.scrollTo(0, 0); } catch (_) { /* noop */ }
     };
@@ -180,7 +183,7 @@ export default function AppShell() {
     <GuideProvider activePage={activeOld} onNavigate={navigate} navigateRaw={navigateRaw} actions={guideActions}>
     <div className="app show kb-new">
       <NewSideMenu route={route} onNavigate={navigate} />
-      <main className="kb-main">
+      <main className="kb-main" ref={mainRef}>
         <SecurityBanner />
         <NewTopbar route={route} onNavigate={navigate} canGoBack={canGoBack} onBack={goBack} actions={shellActions} />
         <div className="content" ref={contentRef}>

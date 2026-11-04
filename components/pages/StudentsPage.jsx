@@ -77,7 +77,7 @@ export default function StudentsPage() {
 
         <div style={{ border: '1px solid var(--border)', borderRadius: 10, marginTop: 14, overflow: 'hidden' }}>
           {loadError && (
-            <div role="alert" style={{ padding: '14px 16px', background: '#fdecea', color: '#8a1c12', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', borderBottom: '1px solid var(--border)' }}>
+            <div role="alert" data-list-load-error="" style={{ padding: '14px 16px', background: '#fdecea', color: '#8a1c12', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', borderBottom: '1px solid var(--border)' }}>
               <span style={{ flex: 1, minWidth: 200 }}>
                 {loadError}을 불러오지 못했어요. 학생이 없어진 것은 아니에요 — 인터넷 연결을 확인한 뒤 다시 시도해 주세요.
               </span>

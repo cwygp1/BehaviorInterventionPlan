@@ -264,9 +264,10 @@ export default function NewView({ route, onNavigate, actions }) {
       return (
         <div key={route.seq} className="kb-stack">
           <StudentList onNavigate={onNavigate} actions={actions} />
-          {/* 학생 수정·삭제·학급 옮기기는 예전 '학생·학급 관리' 화면 그대로(1단계) */}
+          {/* 학생 수정·삭제·학급 옮기기는 예전 '학생·학급 관리' 화면 그대로(1단계).
+              1104: 목록을 못 받았을 때 안내·'다시 시도'는 위 StudentList(ListLoadError) 한 곳만 — 옛 화면 안 안내는 숨긴다(tokens.css .kb-students-legacy). */}
           <h2 className="kb-h3" style={{ marginTop: 8 }}>학생·학급 관리</h2>
-          <div><OldScreen page="students" onNavigate={onNavigate} /></div>
+          <div className="kb-students-legacy"><OldScreen page="students" onNavigate={onNavigate} /></div>
         </div>
       );
     case 'student':

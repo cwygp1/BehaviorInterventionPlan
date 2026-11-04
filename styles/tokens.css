@@ -574,3 +574,30 @@ html[data-font="lg"] .kb-new { --kb-fs-title: 24.75px; --kb-fs-head: 20.25px; --
 .kb-auth .auth-consent label { min-height: 44px; display: flex; align-items: center; flex-wrap: wrap; }
 .kb-auth .auth-ui-pick input[type=radio] { width: 24px !important; height: 24px !important; }
 .kb-auth .auth-ui-pick label { min-height: 44px; font-size: var(--kb-fs-sub) !important; }
+
+/* ══ 1104(mds/59 검증 '부분'·'새 문제') 남은 작은 문제 — 모두 .kb-new 아래(옛 사이트 / 는 그대로) ══ */
+/* 새2 빠른 기록 창 등 — 저장 중 aria-disabled 단추도 [disabled]와 같은 흐림·점선(초점을 잃지 않게 disabled 대신 쓰는 단추) */
+.kb-new :is(.kb-btn, .kb-pill)[aria-disabled="true"] { opacity: .55; cursor: default; border-style: dashed; }
+/* 새3 #students — 목록을 못 받았을 때 안내·'다시 시도'는 위(StudentList) 한 곳만. 아래 옛 '학생 관리' 화면 안 안내는 숨긴다. */
+.kb-new .kb-students-legacy [data-list-load-error] { display: none !important; }
+/* new-2 IEP 머리 'Tier 2 (소그룹)' 배지 — 흰 글자/주황 3.58:1 → 같은 빛깔 진한 주황 5.2:1(Tier 1 4.5·Tier 3 5.3은 그대로) */
+.kb-new .content .iep-tier-badge[data-tier="2"] { background: var(--kb-hint) !important; }
+/* new-3 우리 반 현황 하위(학급 전체·표적 학생·한 학생 집중·IEP) — 14px 하한과 흐린 글자 대비 */
+.kb-new .content :is(.dw-sub, .dz-table, .dz-table th, .dz-table td, .dz-table .dim, .dz-chip, .dz-count, .dz-bar-meta, .dz-gridhint,
+  .recent-body .t, .recent-body .d, .recent-when, .quick-title, .quick-desc, .dz-flow-step .fs-body b, .dz-flow-step .fs-body small) { font-size: var(--kb-fs-sub); }
+.kb-new .content :is(.dw-sub, .dz-table .dim, .recent-body .d, .recent-when, .dz-gridhint, .quick-desc, .dz-flow-step .fs-body small, .dz-chip.muted) { color: var(--kb-ink2); }
+
+/* resp-26 640x400(확대 200%)처럼 낮은 화면 — 위 띠(보안 안내·상단바)가 본문과 함께 올라가게 .kb-main 통째로 스크롤하고,
+   아래 탭바는 한 줄(아이콘 옆 글자)로 얇게. 폭이 좁아 상단바가 두 줄이 되는 곳에서는 화면 이름(h1)을 화면 읽기 전용으로 돌린다. */
+@media (max-height: 500px) {
+  .kb-new .kb-main { overflow: auto; }
+  .kb-new .kb-main > .content { flex: none; overflow: visible; }
+}
+@media (max-height: 500px) and (max-width: 1023px) {
+  .kb-new .kb-topbar { flex-wrap: nowrap; min-height: 56px; padding-top: 6px; padding-bottom: 6px; }
+  .kb-new .kb-topbar .kb-top-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; min-width: 0; flex: none; }
+  .kb-new .kb-top-r { flex: 1; flex-wrap: nowrap; justify-content: flex-end; min-width: 0; }
+  .kb-new .kb-bottombar { padding-top: 3px; padding-bottom: calc(3px + env(safe-area-inset-bottom, 0px)); }
+  .kb-new .kb-bottombar .kb-nav { flex-direction: row; gap: 6px; min-height: 44px; padding: 0 4px; }
+  .kb-new .kb-main > .content { padding-bottom: 64px; }
+}
