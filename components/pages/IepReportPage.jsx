@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { levelLabel, levelGradeLabel } from '../../lib/schoolLevel';
 import Modal from '../ui/Modal';
 import LineTable from '../ui/LineTable';
@@ -22,6 +22,7 @@ const GRADE = { 2: '초등학교 1~2학년', 4: '초등학교 3~4학년', 6: '�
 // JSON 파싱은 공용 강건 파서 사용(lib/utils/looseJson.js — jsonrepair 기반, 0824).
 
 export default function IepReportPage() {
+  const uid = useId(); // 칸 이름(label)과 입력칸 잇기 — 모양은 그대로(mds/58 #16)
   const { curStu, curStuId, curStuData, ensureStudentData } = useStudents();
   const { user } = useAuth();
   const toast = useToast();
@@ -258,11 +259,11 @@ export default function IepReportPage() {
             <div className="card-subtitle">영역별로 월별 계획을 직접 수정하고, "✨ AI 종합"으로 학기 현행수준·목표·평가를 채운 뒤 저장·출력합니다.</div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <select className="form-input" style={{ width: 'auto' }} value={yearF} onChange={(e) => setYearF(Number(e.target.value))}>
+            <select className="form-input" aria-label="학년도 고르기" style={{ width: 'auto' }} value={yearF} onChange={(e) => setYearF(Number(e.target.value))}>
               <option value={0}>전체 학년도</option>
               {years.map((y) => <option key={y} value={y}>{y}학년도</option>)}
             </select>
-            <select className="form-input" style={{ width: 'auto' }} value={sem} onChange={(e) => setSem(e.target.value)}>
+            <select className="form-input" aria-label="학기 고르기" style={{ width: 'auto' }} value={sem} onChange={(e) => setSem(e.target.value)}>
               <option value="">전체 학기</option><option value="1">1학기</option><option value="2">2학기</option>
             </select>
             <button className="btn btn-ghost" data-help="ir-neis-all" onClick={() => onNeisCopy(null)} title="화면의 모든 영역을 NEIS 붙여넣기용 일반 텍스트로 복사">📋 NEIS용 전체 복사</button>
@@ -311,13 +312,13 @@ export default function IepReportPage() {
               <span style={{ ...secTag, background: '#4f6bed' }}>학기 단위</span>
             </div>
             <div className="form-row">
-              <div className="form-group"><label className="form-label">현행수준 (한 줄씩 · Enter로 다음 줄)</label><LineTable bullet={false} value={g.plop || ''} onChange={(v) => updateGoal(g.id, { plop: v })} /></div>
-              <div className="form-group"><label className="form-label">학기목표 (한 줄씩 · Enter로 다음 줄)</label><LineTable value={g.semester_goal || ''} onChange={(v) => updateGoal(g.id, { semester_goal: v })} /></div>
+              <div className="form-group"><label className="form-label">현행수준 (한 줄씩 · Enter로 다음 줄)</label><LineTable ariaLabel="현행수준" bullet={false} value={g.plop || ''} onChange={(v) => updateGoal(g.id, { plop: v })} /></div>
+              <div className="form-group"><label className="form-label">학기목표 (한 줄씩 · Enter로 다음 줄)</label><LineTable ariaLabel="학기목표" value={g.semester_goal || ''} onChange={(v) => updateGoal(g.id, { semester_goal: v })} /></div>
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">학기 평가 (한 줄씩 · Enter로 다음 줄)</label>
               <div style={{ fontSize: '.74rem', color: '#92400e', margin: '0 0 4px' }}>📌 학기말 작성 칸 — 학기 중에는 평가 "기준·계획"만 적고, 실제 결과는 학기말에 기록하세요.</div>
-              <LineTable value={g.semestral_eval || ''} onChange={(v) => updateGoal(g.id, { semestral_eval: v })} />
+              <LineTable ariaLabel="학기 평가" value={g.semestral_eval || ''} onChange={(v) => updateGoal(g.id, { semestral_eval: v })} />
             </div>
           </div>
 
@@ -344,11 +345,11 @@ export default function IepReportPage() {
                   <tr key={i} data-help="ir-month-row">
                     <td style={tc}>{m.month}월</td>
                     {/* 0915: IEP 작성 화면과 같은 줄 단위 표 — methods만 배열(updateMonth가 줄 문자열을 나눔) */}
-                    <td style={tdc}><LineTable compact value={m.goal || ''} onChange={(v) => updateMonth(g.id, i, 'goal', v)} /></td>
-                    <td style={tdc}><LineTable compact value={m.content || ''} onChange={(v) => updateMonth(g.id, i, 'content', v)} /></td>
-                    <td style={tdc}><LineTable compact value={(m.methods || []).map((x) => '- ' + x).join('\n')} onChange={(v) => updateMonth(g.id, i, 'methods', v)} /></td>
-                    <td style={tdc}><LineTable compact value={m.eval_plan || ''} onChange={(v) => updateMonth(g.id, i, 'eval_plan', v)} placeholder="…는가?" /></td>
-                    <td style={tdc}><LineTable compact value={m.eval || ''} onChange={(v) => updateMonth(g.id, i, 'eval', v)} /></td>
+                    <td style={tdc}><LineTable compact ariaLabel={`${m.month}월 교육목표`} value={m.goal || ''} onChange={(v) => updateMonth(g.id, i, 'goal', v)} /></td>
+                    <td style={tdc}><LineTable compact ariaLabel={`${m.month}월 교육내용`} value={m.content || ''} onChange={(v) => updateMonth(g.id, i, 'content', v)} /></td>
+                    <td style={tdc}><LineTable compact ariaLabel={`${m.month}월 교육방법`} value={(m.methods || []).map((x) => '- ' + x).join('\n')} onChange={(v) => updateMonth(g.id, i, 'methods', v)} /></td>
+                    <td style={tdc}><LineTable compact ariaLabel={`${m.month}월 평가계획`} value={m.eval_plan || ''} onChange={(v) => updateMonth(g.id, i, 'eval_plan', v)} placeholder="…는가?" /></td>
+                    <td style={tdc}><LineTable compact ariaLabel={`${m.month}월 평가`} value={m.eval || ''} onChange={(v) => updateMonth(g.id, i, 'eval', v)} /></td>
                   </tr>
                 ))}
                 {(!g.monthly || g.monthly.length === 0) && <tr><td colSpan={6} style={{ ...tdc, color: '#6b7280', textAlign: 'center' }}>월별 계획이 없습니다. "IEP 목표 생성"에서 월별을 만들면 여기서 수정할 수 있어요.</td></tr>}
@@ -381,9 +382,9 @@ export default function IepReportPage() {
       <Modal open={!!manualGoalId} onClose={() => setManualGoalId(null)} maxWidth={700}>
         <h3>📋 AI 종합 프롬프트 (연결된 AI 없이 사용)</h3>
         <p style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.6 }}>① 프롬프트를 복사해 외부 AI에 붙여넣고 ② 받은 JSON을 아래에 붙여넣어 "적용".</p>
-        <div className="form-group"><label className="form-label">① 프롬프트</label><textarea className="form-textarea" rows={8} readOnly value={promptText} onFocus={(e) => e.target.select()} /></div>
+        <div className="form-group"><label className="form-label" htmlFor={`${uid}-1`}>① 프롬프트</label><textarea id={`${uid}-1`} className="form-textarea" rows={8} readOnly value={promptText} onFocus={(e) => e.target.select()} /></div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}><button className="btn btn-ghost" onClick={copyPrompt}>📋 복사</button></div>
-        <div className="form-group"><label className="form-label">② AI 응답 붙여넣기</label><textarea className="form-textarea" rows={6} value={pasteText} onChange={(e) => setPasteText(e.target.value)} placeholder='{"plop":...,"semester_goal":...,"semestral_eval":...}' /></div>
+        <div className="form-group"><label className="form-label" htmlFor={`${uid}-2`}>② AI 응답 붙여넣기</label><textarea id={`${uid}-2`} className="form-textarea" rows={6} value={pasteText} onChange={(e) => setPasteText(e.target.value)} placeholder='{"plop":...,"semester_goal":...,"semestral_eval":...}' /></div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button className="btn btn-ghost" onClick={() => setManualGoalId(null)}>닫기</button>
           <button className="btn btn-pri" onClick={applyManual}>응답 적용</button>

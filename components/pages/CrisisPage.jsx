@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { levelLabel } from '../../lib/schoolLevel';
 import StuHero from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
@@ -65,6 +65,7 @@ const SZ_STRATEGY = ['호흡법', '그라운딩 5-4-3-2-1', '음악 듣기', '�
 // askStudent(선택): 새 디자인(/new)의 래퍼(components/crisis/CrisisAsk.jsx)가 넘긴다 — 학생 없이 시나리오·기록을 누르면
 //   학생 고르기 창을 띄우고, 고르면(Promise true) 하려던 일을 잇는다. 없으면(기존 디자인) 예전 그대로 토스트.
 export default function CrisisPage({ askStudent } = {}) {
+  const uid = useId(); // 칸 이름(label)과 입력칸 잇기 — 모양은 그대로(mds/58 #4)
   const { curStu, curStuId, curStuData, updateStudentData } = useStudents();
   const toast = useToast();
   const [openStage, setOpenStage] = useState(null);
@@ -169,11 +170,13 @@ export default function CrisisPage({ askStudent } = {}) {
             <div key={s.n} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }} data-help="cr-stage-row">
               <button
                 onClick={() => setOpenStage(openStage === s.n ? null : s.n)}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: '#fff', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                className="cr-stage-btn"
+                aria-expanded={openStage === s.n}
+                style={{ '--st': s.color, width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: '#fff', border: 'none', cursor: 'pointer', textAlign: 'left' }}
               >
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: s.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>{s.n}</div>
+                <div className="cr-stage-num" style={{ width: 32, height: 32, borderRadius: 8, background: s.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>{s.n}</div>
                 <div style={{ flex: 1 }}>
-                  <strong style={{ color: s.color }}>{s.name}</strong>
+                  <strong className="cr-stage-name" style={{ color: s.color }}>{s.name}</strong>
                   <span style={{ marginLeft: 6, color: 'var(--muted)', fontSize: '.78rem' }}>{s.en}</span>
                 </div>
                 <span style={{ color: 'var(--muted)' }}>{openStage === s.n ? '▲' : '▼'}</span>
@@ -220,7 +223,7 @@ export default function CrisisPage({ askStudent } = {}) {
             </div>
           ))}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12, fontSize: '.88rem' }}>
+        <div className="cr-links" style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12, fontSize: '.88rem' }}>
           {CRISIS_SUPPORT_LINKS.map((l) => (
             <a key={l.link} href={l.link} target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--pri)' }}>↗ {l.n}</a>
           ))}
@@ -236,7 +239,7 @@ export default function CrisisPage({ askStudent } = {}) {
         <ul style={{ listStyle: 'none', padding: 0, marginTop: 8 }}>
           {PHYS_PRINCIPLES.map((p, i) => (
             <li key={i} style={{ padding: '8px 0', borderBottom: i < 4 ? '1px solid #fde7b8' : 'none', display: 'flex', gap: 12 }}>
-              <span style={{ width: 24, height: 24, borderRadius: '50%', background: '#f59f00', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.78rem', fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+              <span className="cr-phys-num" style={{ width: 24, height: 24, borderRadius: '50%', background: '#f59f00', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.78rem', fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
               <div><strong style={{ color: '#92400e' }}>{p.t}</strong><div style={{ fontSize: '.85rem', color: '#92400e' }}>{p.d}</div></div>
             </li>
           ))}
@@ -271,32 +274,32 @@ export default function CrisisPage({ askStudent } = {}) {
         ) : (
           <>
             <div className="form-row">
-              <div className="form-group"><label className="form-label">이용 사유</label>
-                <select className="form-select" value={szReason} onChange={(e) => setSzReason(e.target.value)}>
+              <div className="form-group"><label className="form-label" htmlFor={`${uid}-1`}>이용 사유</label>
+                <select id={`${uid}-1`} className="form-select" value={szReason} onChange={(e) => setSzReason(e.target.value)}>
                   <option>불안</option><option>분노</option><option>위기전조</option><option>피로/과민</option>
                 </select>
               </div>
-              <div className="form-group"><label className="form-label">이용 날짜</label>
-                <input type="date" className="form-input" value={szDate} onChange={(e) => setSzDate(e.target.value)} />
+              <div className="form-group"><label className="form-label" htmlFor={`${uid}-2`}>이용 날짜</label>
+                <input id={`${uid}-2`} type="date" className="form-input" value={szDate} onChange={(e) => setSzDate(e.target.value)} />
               </div>
             </div>
             <div className="form-row">
-              <div className="form-group"><label className="form-label">입실 시각</label><input type="time" className="form-input" value={szIn} onChange={(e) => setSzIn(e.target.value)} /></div>
-              <div className="form-group"><label className="form-label">퇴실 시각</label><input type="time" className="form-input" value={szOut} onChange={(e) => setSzOut(e.target.value)} /></div>
+              <div className="form-group"><label className="form-label" htmlFor={`${uid}-3`}>입실 시각</label><input id={`${uid}-3`} type="time" className="form-input" value={szIn} onChange={(e) => setSzIn(e.target.value)} /></div>
+              <div className="form-group"><label className="form-label" htmlFor={`${uid}-4`}>퇴실 시각</label><input id={`${uid}-4`} type="time" className="form-input" value={szOut} onChange={(e) => setSzOut(e.target.value)} /></div>
             </div>
             <div className="form-group">
-              <label className="form-label">사용한 진정 전략</label>
+              <label className="form-label" htmlFor={`${uid}-st`}>사용한 진정 전략</label>
               <EditableChipGroup storageKey="sz_strategy" defaults={SZ_STRATEGY} onPick={makeAppender(szStrategy, setSzStrategy, true)} />
-              <input className="form-input" value={szStrategy} onChange={(e) => setSzStrategy(e.target.value)} />
+              <input id={`${uid}-st`} className="form-input" value={szStrategy} onChange={(e) => setSzStrategy(e.target.value)} />
             </div>
             <div className="form-row">
-              <div className="form-group"><label className="form-label">교사 개입 정도</label>
-                <select className="form-select" value={szIntv} onChange={(e) => setSzIntv(e.target.value)}>
+              <div className="form-group"><label className="form-label" htmlFor={`${uid}-5`}>교사 개입 정도</label>
+                <select id={`${uid}-5`} className="form-select" value={szIntv} onChange={(e) => setSzIntv(e.target.value)}>
                   <option>최소</option><option>보통</option><option>적극적</option>
                 </select>
               </div>
-              <div className="form-group"><label className="form-label">학습 복귀</label>
-                <select className="form-select" value={szReturn} onChange={(e) => setSzReturn(e.target.value)}>
+              <div className="form-group"><label className="form-label" htmlFor={`${uid}-6`}>학습 복귀</label>
+                <select id={`${uid}-6`} className="form-select" value={szReturn} onChange={(e) => setSzReturn(e.target.value)}>
                   <option value="Y">예</option><option value="N">아니오</option>
                 </select>
               </div>

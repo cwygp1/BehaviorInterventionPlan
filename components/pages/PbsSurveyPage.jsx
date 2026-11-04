@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useLLM } from '../../contexts/LLMContext';
@@ -16,9 +16,10 @@ const qTitle = { fontWeight: 700, color: '#1f3a8a', marginBottom: 8, fontSize: '
 const qHint = { fontSize: '.82rem', color: '#64748b', marginTop: -4, marginBottom: 10, lineHeight: 1.55 };
 
 // 숫자 전용 입력: 숫자 외 문자는 입력 즉시 제거, max 초과 시 max로 보정.
-function NumInput({ value, onChange, max, style, className, placeholder, title }) {
+function NumInput({ value, onChange, max, style, className, placeholder, title, ariaLabel }) {
   return (
     <input
+      aria-label={ariaLabel}
       className={className}
       style={style}
       inputMode="numeric"
@@ -34,14 +35,15 @@ function NumInput({ value, onChange, max, style, className, placeholder, title }
   );
 }
 // 학생 수 등 숫자: − / + 버튼 스테퍼(직접 입력도 가능). 1에서 −를 누르면 빈칸(해당 없음).
-function Stepper({ value, onChange, max = 99, placeholder }) {
+// label: 화면 읽기용 이름(예: '학생 인원') — 보이는 모양은 그대로(mds/58 #16)
+function Stepper({ value, onChange, max = 99, placeholder, label = '' }) {
   const n = value === '' || value == null ? 0 : Number(value);
   const btn = { width: 28, height: 28, borderRadius: 6, border: '1px solid #cbd5e1', background: '#f8fafc', cursor: 'pointer', fontWeight: 700, fontSize: '1rem', lineHeight: 1, padding: 0 };
   return (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      <button type="button" style={btn} title="1 감소(1에서 누르면 지움)" onClick={() => onChange(n <= 1 ? '' : String(Math.min(n, max) - 1))}>−</button>
-      <NumInput style={{ ...rankInput, width: 44 }} className="form-input" max={max} placeholder={placeholder} value={value} onChange={onChange} />
-      <button type="button" style={btn} title="1 증가" onClick={() => onChange(String(Math.min(n + 1, max)))}>＋</button>
+      <button type="button" className="ps-step" style={btn} title="1 감소(1에서 누르면 지움)" aria-label={`${label} 1 줄이기`.trim()} onClick={() => onChange(n <= 1 ? '' : String(Math.min(n, max) - 1))}>−</button>
+      <NumInput style={{ ...rankInput, width: 44 }} className="form-input" ariaLabel={label ? `${label} (${placeholder || '숫자'})` : undefined} max={max} placeholder={placeholder} value={value} onChange={onChange} />
+      <button type="button" className="ps-step" style={btn} title="1 증가" aria-label={`${label} 1 늘리기`.trim()} onClick={() => onChange(String(Math.min(n + 1, max)))}>＋</button>
     </div>
   );
 }
@@ -115,6 +117,7 @@ const tdC = { border: '1px solid #e2e8f0', padding: '6px 8px', verticalAlign: 'm
 const thC = { border: '1px solid #cbd5e1', padding: '6px 8px', background: '#f1f5f9', fontWeight: 700, fontSize: '.82rem' };
 
 export default function PbsSurveyPage() {
+  const uid = useId(); // 칸 이름(label)과 입력칸 잇기 — 모양은 그대로(mds/58 #16)
   const toast = useToast();
   const { curClassId, curClass, curSemester } = useStudents();
   const { call, status: llmStatus } = useLLM();
@@ -228,13 +231,13 @@ export default function PbsSurveyPage() {
       <div className="card" data-help="ps-q1">
         <div style={qTitle}>1. 담당 학급 정보</div>
         <div className="form-row">
-          <div className="form-group"><label className="form-label">학년</label>
-            <input className="form-input" value={r.q1.grade} onChange={(e) => patch({ q1: { ...r.q1, grade: e.target.value } })} placeholder="예: 초3" /></div>
-          <div className="form-group"><label className="form-label">담임 여부</label>
-            <select className="form-input" value={r.q1.homeroom} onChange={(e) => patch({ q1: { ...r.q1, homeroom: e.target.value } })}>
+          <div className="form-group"><label className="form-label" htmlFor={`${uid}-1`}>학년</label>
+            <input id={`${uid}-1`} className="form-input" value={r.q1.grade} onChange={(e) => patch({ q1: { ...r.q1, grade: e.target.value } })} placeholder="예: 초3" /></div>
+          <div className="form-group"><label className="form-label" htmlFor={`${uid}-2`}>담임 여부</label>
+            <select id={`${uid}-2`} className="form-input" value={r.q1.homeroom} onChange={(e) => patch({ q1: { ...r.q1, homeroom: e.target.value } })}>
               <option value="담임">담임</option><option value="비담임">비담임</option></select></div>
           <div className="form-group"><label className="form-label">학생 인원</label>
-            <Stepper value={r.q1.count} onChange={(v) => patch({ q1: { ...r.q1, count: v } })} max={99} placeholder="명" /></div>
+            <Stepper label="학생 인원" value={r.q1.count} onChange={(v) => patch({ q1: { ...r.q1, count: v } })} max={99} placeholder="명" /></div>
         </div>
       </div>
 
@@ -250,7 +253,7 @@ export default function PbsSurveyPage() {
                 <tr key={b.key} data-help="ps-q2-row">
                   <td style={{ ...tdC, fontWeight: 600, whiteSpace: 'nowrap' }}>{b.label}</td>
                   <td style={{ ...tdC, color: '#64748b', fontSize: '.78rem' }}>{b.def}</td>
-                  <td style={{ ...tdC, whiteSpace: 'nowrap' }}><Stepper value={r.q2[b.key].n} onChange={(v) => patch({ q2: { ...r.q2, [b.key]: { ...r.q2[b.key], n: v } } })} max={99} placeholder="명" /></td>
+                  <td style={{ ...tdC, whiteSpace: 'nowrap' }}><Stepper label={`${b.label} 학생 수`} value={r.q2[b.key].n} onChange={(v) => patch({ q2: { ...r.q2, [b.key]: { ...r.q2[b.key], n: v } } })} max={99} placeholder="명" /></td>
                   <td style={{ ...tdC, textAlign: 'center' }}>
                     <button type="button" onClick={() => tapQ2Rank(b.key)} title="심각한 행동부터 순서대로 탭하면 1~5위가 매겨집니다. 다시 탭하면 해제."
                       style={{
@@ -267,8 +270,8 @@ export default function PbsSurveyPage() {
             </tbody>
           </table>
         </div>
-        <div className="form-group" style={{ marginTop: 8 }}><label className="form-label">기타 문제행동(자유 기술)</label>
-          <textarea className="form-textarea" rows={2} placeholder="위 목록에 없는 문제행동이 있으면 구체적으로 적어주세요. (예: 급식 시간에 음식을 뱉음)" value={r.q2etc} onChange={(e) => patch({ q2etc: e.target.value })} /></div>
+        <div className="form-group" style={{ marginTop: 8 }}><label className="form-label" htmlFor={`${uid}-3`}>기타 문제행동(자유 기술)</label>
+          <textarea id={`${uid}-3`} className="form-textarea" rows={2} placeholder="위 목록에 없는 문제행동이 있으면 구체적으로 적어주세요. (예: 급식 시간에 음식을 뱉음)" value={r.q2etc} onChange={(e) => patch({ q2etc: e.target.value })} /></div>
       </div>
 
       {/* Q3 */}
@@ -298,11 +301,11 @@ export default function PbsSurveyPage() {
                       <span style={{ color: 'var(--muted)', marginLeft: 4, fontSize: '.72rem' }}>ⓘ</span>
                     </InfoTip>
                   </td>
-                  <td style={{ ...tdC, textAlign: 'center' }}><input type="checkbox" checked={r.q4[i].used} onChange={(e) => patchArr('q4', i, { ...r.q4[i], used: e.target.checked })} /></td>
+                  <td style={{ ...tdC, textAlign: 'center' }}><input type="checkbox" aria-label={`${m.label} 사용`} checked={r.q4[i].used} onChange={(e) => patchArr('q4', i, { ...r.q4[i], used: e.target.checked })} /></td>
                   <td style={{ ...tdC, textAlign: 'center' }}>
                     {[1, 2, 3, 4, 5].map((n) => (
                       <label key={n} style={{ marginRight: 6, fontSize: '.8rem' }}>
-                        <input type="radio" name={`q4_${i}`} checked={r.q4[i].effect === n} onChange={() => patchArr('q4', i, { ...r.q4[i], effect: n })} /> {n}
+                        <input type="radio" name={`q4_${i}`} aria-label={`${m.label} 효과 ${n}`} checked={r.q4[i].effect === n} onChange={() => patchArr('q4', i, { ...r.q4[i], effect: n })} /> {n}
                       </label>
                     ))}
                   </td>
@@ -311,8 +314,8 @@ export default function PbsSurveyPage() {
             </tbody>
           </table>
         </div>
-        <div className="form-group" style={{ marginTop: 8 }}><label className="form-label">기타 중재(직접 기술)</label>
-          <input className="form-input" value={r.q4etc.label} onChange={(e) => patch({ q4etc: { ...r.q4etc, label: e.target.value } })} /></div>
+        <div className="form-group" style={{ marginTop: 8 }}><label className="form-label" htmlFor={`${uid}-4`}>기타 중재(직접 기술)</label>
+          <input id={`${uid}-4`} className="form-input" value={r.q4etc.label} onChange={(e) => patch({ q4etc: { ...r.q4etc, label: e.target.value } })} /></div>
       </div>
 
       {/* Q5 */}
@@ -343,7 +346,7 @@ export default function PbsSurveyPage() {
                 }} /> {a}
               </label>
             ))}
-            <input className="form-input" style={{ marginTop: 6 }} placeholder="기타 의견" value={r.q6.etc} onChange={(e) => patch({ q6: { ...r.q6, etc: e.target.value } })} />
+            <input className="form-input" style={{ marginTop: 6 }} aria-label="효과가 있었던 영역 — 기타 의견" placeholder="기타 의견" value={r.q6.etc} onChange={(e) => patch({ q6: { ...r.q6, etc: e.target.value } })} />
           </div>
         )}
       </div>
@@ -354,9 +357,12 @@ export default function PbsSurveyPage() {
         <p style={qHint}>해당하는 어려움에 <strong>체크</strong>하고, 그 어려움을 해결하는 데 필요한 지원을 오른쪽 칸에 적으세요.</p>
         {PBS_DIFFICULTIES.map((d, i) => (
           <div key={i} data-help="ps-q7-row" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <input type="checkbox" checked={r.q7[i].has} onChange={(e) => patchArr('q7', i, { ...r.q7[i], has: e.target.checked })} />
-            <span style={{ fontSize: '.85rem', width: 280, flexShrink: 0 }}>{i + 1}. {d}</span>
-            <input className="form-input" style={{ flex: 1 }} placeholder="필요한 지원" value={r.q7[i].need} onChange={(e) => patchArr('q7', i, { ...r.q7[i], need: e.target.value })} />
+            {/* 체크 상자와 글을 한 라벨로 묶음 — 글을 눌러도 체크되고 화면 읽기도 이름을 읽음(모양은 그대로, mds/58 #16) */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, cursor: 'pointer' }}>
+              <input type="checkbox" checked={r.q7[i].has} onChange={(e) => patchArr('q7', i, { ...r.q7[i], has: e.target.checked })} />
+              <span style={{ fontSize: '.85rem', width: 280, flexShrink: 0 }}>{i + 1}. {d}</span>
+            </label>
+            <input className="form-input" style={{ flex: 1 }} aria-label={`${i + 1}. ${d} — 필요한 지원`} placeholder="필요한 지원" value={r.q7[i].need} onChange={(e) => patchArr('q7', i, { ...r.q7[i], need: e.target.value })} />
           </div>
         ))}
       </div>
@@ -392,7 +398,7 @@ export default function PbsSurveyPage() {
             <RankChip key={i} label={e} rank={r.q10[i]} onClick={() => tapRank('q10', i, 5)} />
           ))}
         </div>
-        <input className="form-input" style={{ marginTop: 8 }} placeholder="기타 더 좋은 표현(자유 기재)" value={r.q10custom} onChange={(e) => patch({ q10custom: e.target.value })} />
+        <input className="form-input" style={{ marginTop: 8 }} aria-label="기타 더 좋은 표현(자유 기재)" placeholder="기타 더 좋은 표현(자유 기재)" value={r.q10custom} onChange={(e) => patch({ q10custom: e.target.value })} />
       </div>
 
       {/* Q11 */}
@@ -412,14 +418,14 @@ export default function PbsSurveyPage() {
         <p style={{ fontSize: '.82rem', color: '#64748b', marginTop: -2, marginBottom: 10 }}>10번 1~3위를 기대행동에, 11번 1~3위를 장소에 적고 각 칸에 규칙을 작성하세요.</p>
         {r.q12.map((row, ri) => (
           <div key={ri} data-help="ps-q12-row" style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 10, marginBottom: 10 }}>
-            <input className="form-input" style={{ marginBottom: 8, fontWeight: 600 }} placeholder={`기대행동 ${ri + 1}`} value={row.behavior}
+            <input className="form-input" style={{ marginBottom: 8, fontWeight: 600 }} aria-label={`기대행동 ${ri + 1}`} placeholder={`기대행동 ${ri + 1}`} value={row.behavior}
               onChange={(e) => setR((cur) => { const q12 = cur.q12.map((x) => ({ ...x })); q12[ri] = { ...q12[ri], behavior: e.target.value }; return { ...cur, q12 }; })} />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
               {row.places.map((pl, pi) => (
                 <div key={pi}>
-                  <input className="form-input" style={{ marginBottom: 4, fontSize: '.82rem' }} placeholder={`장소 ${pi + 1}`} value={pl.place}
+                  <input className="form-input" style={{ marginBottom: 4, fontSize: '.82rem' }} aria-label={`기대행동 ${ri + 1} — 장소 ${pi + 1}`} placeholder={`장소 ${pi + 1}`} value={pl.place}
                     onChange={(e) => setR((cur) => { const q12 = cur.q12.map((x) => ({ ...x, places: x.places.map((y) => ({ ...y })) })); q12[ri].places[pi].place = e.target.value; return { ...cur, q12 }; })} />
-                  <textarea className="form-textarea" rows={3} placeholder="규칙" value={pl.rules}
+                  <textarea className="form-textarea" rows={3} aria-label={`기대행동 ${ri + 1} — 장소 ${pi + 1} 규칙`} placeholder="규칙" value={pl.rules}
                     onChange={(e) => setR((cur) => { const q12 = cur.q12.map((x) => ({ ...x, places: x.places.map((y) => ({ ...y })) })); q12[ri].places[pi].rules = e.target.value; return { ...cur, q12 }; })} />
                 </div>
               ))}

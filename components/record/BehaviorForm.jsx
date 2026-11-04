@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
 import { EditableChipGroup } from '../ui/QChip';
@@ -339,6 +339,7 @@ export function useBehaviorForm({ studentId, entryDate = null, variant = 'page' 
 
 /** 기존 화면(MonitorPage)의 단계 카드·입력 카드·충실도 카드 — 옮기기 전 JSX 그대로. */
 export function BehaviorFormCards({ f, onNavigate }) {
+  const uid = useId(); // 칸 이름(label)과 입력칸 잇기(htmlFor/id) — 모양은 그대로(mds/58 #16)
   const {
     data, design, tabDesign, cc, mbl, stage, stageIdx, setStageIdx, stageNow, phase, lockedStage, tierState, tierKey,
     date, setDate, beh, setBeh, freq, setFreq, dur, setDur, intensity, setIntensity, alt, setAlt, altFreq, setAltFreq, lat, setLat, dbr, setDbr,
@@ -446,43 +447,43 @@ export function BehaviorFormCards({ f, onNavigate }) {
         <div className="card-subtitle">매일 행동 데이터를 기록합니다. <strong>기록 날짜</strong>는 행동을 관찰한 그 날짜로 적으세요(작성일과 달라도 됩니다). 숫자 칸에서 <strong>Enter</strong>를 누르면 바로 저장돼요.</div>
         <div className="form-row">
           <div className="form-group">
-            <label className="form-label">기록 날짜 (행동을 관찰한 날)</label>
-            <input type="date" className="form-input" value={date} onChange={(e) => setDate(e.target.value)} />
+            <label className="form-label" htmlFor={`${uid}-1`}>기록 날짜 (행동을 관찰한 날)</label>
+            <input id={`${uid}-1`} type="date" className="form-input" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div className="form-group" data-help="mon-hours">
-            <label className="form-label">학교에 있었던 시간 (시간 · 선택)</label>
-            <input type="number" className="form-input" min="0" max="12" step="0.5" placeholder="예: 6 (조퇴한 날은 짧게)" value={obsHours} onChange={(e) => setObsHours(e.target.value)} />
+            <label className="form-label" htmlFor={`${uid}-2`}>학교에 있었던 시간 (시간 · 선택)</label>
+            <input id={`${uid}-2`} type="number" className="form-input" min="0" max="12" step="0.5" placeholder="예: 6 (조퇴한 날은 짧게)" value={obsHours} onChange={(e) => setObsHours(e.target.value)} />
           </div>
         </div>
         {tabDesign === 'CC' && phase === 'B' && (
           <div className="form-group" data-tour="mon-criterion" style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 10, padding: '10px 12px' }}>
-            <label className="form-label" style={{ color: '#5b21b6' }}>🎯 현재 기준값 ({METRICS[cc.metric]?.label || cc.metric} · {cc.direction === 'up' ? '늘리기' : '줄이기'}){stageNow?.isNew ? ' — 새 기준' : ''}</label>
-            <input type="number" className="form-input" min="0" step="any" value={criterion} onChange={(e) => setCriterion(e.target.value)} placeholder={stageNow?.isNew ? '새 기준값' : '이 구간의 기준값'} disabled={lockedStage != null && false} style={{ maxWidth: 200 }} />
+            <label className="form-label" style={{ color: '#5b21b6' }} htmlFor={`${uid}-3`}>🎯 현재 기준값 ({METRICS[cc.metric]?.label || cc.metric} · {cc.direction === 'up' ? '늘리기' : '줄이기'}){stageNow?.isNew ? ' — 새 기준' : ''}</label>
+            <input id={`${uid}-3`} type="number" className="form-input" min="0" step="any" value={criterion} onChange={(e) => setCriterion(e.target.value)} placeholder={stageNow?.isNew ? '새 기준값' : '이 구간의 기준값'} disabled={lockedStage != null && false} style={{ maxWidth: 200 }} />
             <div style={{ fontSize: '.74rem', color: '#6d28d9', marginTop: 4 }}>
               {stageNow?.isNew ? '이 값으로 새 구간이 시작돼요. 이전 기준과 방향이 다르거나 크게 바뀌면 한 번 물어봐요.' : '지금 구간의 기준이에요. 값을 바꿔 저장하면 그 날짜부터 새 구간이 돼요.'} 달성 판정: 연속 {cc.hitRuns}회기 · 근처 폭 {cc.nearPct}%.
             </div>
           </div>
         )}
         <div className="form-group">
-          <label className="form-label">기록 대상 행동 (목표행동 = 줄이려는 문제행동)</label>
+          <label className="form-label" htmlFor={`${uid}-beh`}>기록 대상 행동 (목표행동 = 줄이려는 문제행동)</label>
           <EditableChipGroup storageKey="mon_beh" defaults={behOptions} mode="set" target={beh} onChange={setBeh} />
-          <input className="form-input" value={beh} onChange={(e) => setBeh(e.target.value)} />
+          <input id={`${uid}-beh`} className="form-input" value={beh} onChange={(e) => setBeh(e.target.value)} />
         </div>
         {/* 0719 피드백: 문제행동 기록 칸과 대체행동 기록 칸을 시각적으로 분리 */}
         <div style={{ border: '1px solid #f4c2c2', background: '#fff5f5', borderRadius: 10, padding: '10px 12px', marginTop: 6 }}>
           <div style={{ fontWeight: 700, color: '#c43653', fontSize: '.88rem', marginBottom: 6 }}>🔴 목표행동(문제행동) 기록</div>
           <div className="mon-grid">
-            <div className="mon-field"><label>발생 빈도 (횟수)</label><input type="number" min="0" value={freq} onChange={(e) => setFreq(e.target.value)} /></div>
-            <div className="mon-field"><label>지속 시간 (분)</label><input type="number" min="0" value={dur} onChange={(e) => setDur(e.target.value)} /></div>
-            <div className="mon-field"><label>강도 (1~5)</label><input type="number" min="1" max="5" value={intensity} onChange={(e) => setIntensity(e.target.value)} /></div>
+            <div className="mon-field"><label htmlFor={`${uid}-4`}>발생 빈도 (횟수)</label><input id={`${uid}-4`} type="number" min="0" value={freq} onChange={(e) => setFreq(e.target.value)} /></div>
+            <div className="mon-field"><label htmlFor={`${uid}-5`}>지속 시간 (분)</label><input id={`${uid}-5`} type="number" min="0" value={dur} onChange={(e) => setDur(e.target.value)} /></div>
+            <div className="mon-field"><label htmlFor={`${uid}-6`}>강도 (1~5)</label><input id={`${uid}-6`} type="number" min="1" max="5" value={intensity} onChange={(e) => setIntensity(e.target.value)} /></div>
           </div>
         </div>
         <div data-help="mon-alt" style={{ border: '1px solid #b7e2c8', background: '#f0fbf4', borderRadius: 10, padding: '10px 12px', marginTop: 8 }}>
           <div style={{ fontWeight: 700, color: '#0a7d4e', fontSize: '.88rem', marginBottom: 6 }}>🟢 대체행동 기록 (BIP에서 가르치는 바람직한 행동)</div>
           <div className="mon-grid">
-            <div className="mon-field"><label>대체행동 수행</label><select value={alt} onChange={(e) => setAlt(e.target.value)}><option value="Y">예</option><option value="N">아니오</option></select></div>
-            <div className="mon-field"><label>대체행동 발생 빈도 (횟수)</label><input type="number" min="0" value={altFreq} onChange={(e) => setAltFreq(e.target.value)} /></div>
-            <div className="mon-field"><label>지연시간 (분)</label><input type="number" min="0" value={lat} onChange={(e) => setLat(e.target.value)} /></div>
+            <div className="mon-field"><label htmlFor={`${uid}-7`}>대체행동 수행</label><select id={`${uid}-7`} value={alt} onChange={(e) => setAlt(e.target.value)}><option value="Y">예</option><option value="N">아니오</option></select></div>
+            <div className="mon-field"><label htmlFor={`${uid}-8`}>대체행동 발생 빈도 (횟수)</label><input id={`${uid}-8`} type="number" min="0" value={altFreq} onChange={(e) => setAltFreq(e.target.value)} /></div>
+            <div className="mon-field"><label htmlFor={`${uid}-9`}>지연시간 (분)</label><input id={`${uid}-9`} type="number" min="0" value={lat} onChange={(e) => setLat(e.target.value)} /></div>
           </div>
           <div style={{ fontSize: '.74rem', color: '#0a7d4e', opacity: 0.8, marginTop: 4 }}>지연시간 = 신호(선행사건) 후 대체행동을 하기까지 걸린 시간.</div>
         </div>
@@ -490,8 +491,8 @@ export function BehaviorFormCards({ f, onNavigate }) {
           <div style={{ fontWeight: 700, fontSize: '.88rem', marginBottom: 6 }}>📏 하루 종합 평정</div>
           <div className="mon-grid">
             <div className="mon-field">
-              <label>일일 행동 평정 DBR (0~10)</label>
-              <input type="number" min="0" max="10" value={dbr} onChange={(e) => setDbr(e.target.value)} />
+              <label htmlFor={`${uid}-10`}>일일 행동 평정 DBR (0~10)</label>
+              <input id={`${uid}-10`} type="number" min="0" max="10" value={dbr} onChange={(e) => setDbr(e.target.value)} />
             </div>
           </div>
           <div style={{ fontSize: '.74rem', color: 'var(--muted)', marginTop: 4 }}>
@@ -499,8 +500,8 @@ export function BehaviorFormCards({ f, onNavigate }) {
           </div>
         </div>
         <div className="form-group" data-help="mon-note" style={{ marginTop: 8 }}>
-          <label className="form-label">📝 그날 메모 (배경사건·특이사항 · 선택)</label>
-          <input className="form-input" maxLength={300} placeholder="예: 새벽 3시 30분 기상 · 고열로 조퇴 · 폭발 1회" value={note} onChange={(e) => setNote(e.target.value)} />
+          <label className="form-label" htmlFor={`${uid}-11`}>📝 그날 메모 (배경사건·특이사항 · 선택)</label>
+          <input id={`${uid}-11`} className="form-input" maxLength={300} placeholder="예: 새벽 3시 30분 기상 · 고열로 조퇴 · 폭발 1회" value={note} onChange={(e) => setNote(e.target.value)} />
           <div style={{ fontSize: '.74rem', color: 'var(--muted)', marginTop: 4 }}>결과 평가 그래프의 그 날짜 점 위에 ▲로 표시돼요. 수면·몸 상태·날씨처럼 그날 수치를 설명하는 일을 적으세요.</div>
         </div>
         {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}

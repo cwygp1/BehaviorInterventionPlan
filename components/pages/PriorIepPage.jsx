@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -14,6 +14,7 @@ import { priorIepGradeCode } from '../../lib/schoolLevel';
 const gradeFromLevel = (lv) => priorIepGradeCode(lv);
 
 export default function PriorIepPage({ onNavigate }) {
+  const uid = useId(); // 칸 이름(label)과 입력칸 잇기 — 모양은 그대로(mds/58 #16)
   const { curStu, curStuId } = useStudents();
   const toast = useToast();
   const { callDetailed, callVisionDetailed, status: llmStatus } = useLLM();
@@ -150,12 +151,12 @@ export default function PriorIepPage({ onNavigate }) {
         <div className="card-subtitle">과거 학년도의 IEP를 업로드해 읽어 오거나 직접 입력·수정합니다. 올해 IEP 목표 생성 시 이 자료를 근거로 활용합니다.</div>
         <div className="form-row">
           <div className="form-group">
-            <label className="form-label">학년도</label>
-            <input type="number" className="form-input" value={year} onChange={(e) => setYear(Number(e.target.value))} />
+            <label className="form-label" htmlFor={`${uid}-1`}>학년도</label>
+            <input id={`${uid}-1`} type="number" className="form-input" value={year} onChange={(e) => setYear(Number(e.target.value))} />
           </div>
           <div className="form-group">
-            <label className="form-label">학기</label>
-            <select className="form-select" value={semester} onChange={(e) => setSemester(Number(e.target.value))}><option value={1}>1학기</option><option value={2}>2학기</option></select>
+            <label className="form-label" htmlFor={`${uid}-2`}>학기</label>
+            <select id={`${uid}-2`} className="form-select" value={semester} onChange={(e) => setSemester(Number(e.target.value))}><option value={1}>1학기</option><option value={2}>2학기</option></select>
           </div>
         </div>
       </div>
@@ -165,8 +166,8 @@ export default function PriorIepPage({ onNavigate }) {
         <div className="card-title">📥 파일 업로드 → AI로 읽어 오기</div>
         <div className="card-subtitle">.pdf · .docx · 이미지 · .txt 지원. 스캔본/이미지는 AI 비전이 읽습니다.{!aiOn && ' (AI 연결 필요)'} 위에서 고른 {year}학년도로 저장됩니다.</div>
         <div className="form-row" style={{ alignItems: 'flex-end' }}>
-          <div className="form-group"><label className="form-label">파일</label><input type="file" accept=".txt,.pdf,.docx,image/*" onChange={onImportFile} disabled={!!impMsg || !aiOn} /></div>
-          <div className="form-group"><label className="form-label">또는 내용 붙여넣기</label><textarea className="form-textarea" rows={3} value={impText} onChange={(e) => setImpText(e.target.value)} disabled={!aiOn} /></div>
+          <div className="form-group"><label className="form-label" htmlFor={`${uid}-3`}>파일</label><input id={`${uid}-3`} type="file" accept=".txt,.pdf,.docx,image/*" onChange={onImportFile} disabled={!!impMsg || !aiOn} /></div>
+          <div className="form-group"><label className="form-label" htmlFor={`${uid}-4`}>또는 내용 붙여넣기</label><textarea id={`${uid}-4`} className="form-textarea" rows={3} value={impText} onChange={(e) => setImpText(e.target.value)} disabled={!aiOn} /></div>
         </div>
         {impMsg && <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#6b7280', fontSize: 12.5 }}><span style={spinner} /> {impMsg}</div>}
         {impImages.length > 0 && <div style={{ fontSize: 12.5, color: '#15a36e', fontWeight: 600 }}>🖼 이미지 {impImages.length}장 첨부됨 <button className="btn btn-ghost btn-sm" onClick={() => setImpImages([])}>비우기</button></div>}
@@ -205,12 +206,12 @@ export default function PriorIepPage({ onNavigate }) {
       <div className="card" data-tour="pi-manual">
         <div className="card-title">✍ 직접 입력 / 수정 {editingId && <span className="badge badge-purple">수정 중</span>}</div>
         <div className="form-row">
-          <div className="form-group"><label className="form-label">교과</label><input className="form-input" value={fSubject} onChange={(e) => setFSubject(e.target.value)} placeholder="예: 국어" /></div>
-          <div className="form-group"><label className="form-label">영역</label><input className="form-input" value={fArea} onChange={(e) => setFArea(e.target.value)} placeholder="예: 읽기" /></div>
+          <div className="form-group"><label className="form-label" htmlFor={`${uid}-5`}>교과</label><input id={`${uid}-5`} className="form-input" value={fSubject} onChange={(e) => setFSubject(e.target.value)} placeholder="예: 국어" /></div>
+          <div className="form-group"><label className="form-label" htmlFor={`${uid}-6`}>영역</label><input id={`${uid}-6`} className="form-input" value={fArea} onChange={(e) => setFArea(e.target.value)} placeholder="예: 읽기" /></div>
         </div>
-        <div className="form-group"><label className="form-label">학기목표</label><textarea className="form-textarea" rows={2} value={fGoal} onChange={(e) => setFGoal(e.target.value)} /></div>
-        <div className="form-group"><label className="form-label">현행수준</label><textarea className="form-textarea" rows={2} value={fPlop} onChange={(e) => setFPlop(e.target.value)} /></div>
-        <div className="form-group"><label className="form-label">평가</label><textarea className="form-textarea" rows={2} value={fEval} onChange={(e) => setFEval(e.target.value)} /></div>
+        <div className="form-group"><label className="form-label" htmlFor={`${uid}-7`}>학기목표</label><textarea id={`${uid}-7`} className="form-textarea" rows={2} value={fGoal} onChange={(e) => setFGoal(e.target.value)} /></div>
+        <div className="form-group"><label className="form-label" htmlFor={`${uid}-8`}>현행수준</label><textarea id={`${uid}-8`} className="form-textarea" rows={2} value={fPlop} onChange={(e) => setFPlop(e.target.value)} /></div>
+        <div className="form-group"><label className="form-label" htmlFor={`${uid}-9`}>평가</label><textarea id={`${uid}-9`} className="form-textarea" rows={2} value={fEval} onChange={(e) => setFEval(e.target.value)} /></div>
         {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
           {editingId && <button className="btn btn-ghost" onClick={resetForm}>새 입력</button>}

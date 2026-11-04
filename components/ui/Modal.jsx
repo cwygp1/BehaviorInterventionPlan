@@ -1,10 +1,21 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 
 // Reusable modal — uses the existing CSS classes from globals.css.
 // Click outside (on .modal-bg) closes via onClose; click on inner .modal does not.
 // ESC 키로 닫기, 열릴 때 첫 포커스 이동, Tab 포커스 트랩(모달 밖으로 새지 않음)을 지원한다.
-export default function Modal({ open, onClose, children, maxWidth }) {
+// 1103(mds/58 #18): 창 이름(aria-labelledby) — titleId를 넘기면 그 요소, 없으면 창 안 첫 h2·h3(id가 없으면 붙여 줌).
+//   닫히면 열기 전에 초점이 있던 단추로 초점을 되돌린다. 보이는 모양은 그대로.
+export default function Modal({ open, onClose, children, maxWidth, titleId }) {
   const boxRef = useRef(null);
+  const openerRef = useRef(null); // 열 때 초점이 있던 요소(닫힐 때 되돌릴 곳)
+  const wasOpenRef = useRef(false);
+  const autoTitleId = useId();
+  // 열리는 그 렌더에서 초점 자리를 기억한다 — 창 안 입력칸의 autoFocus가 효과(effect)보다 먼저 초점을 가져가므로 렌더 때 읽는다.
+  if (open && !wasOpenRef.current && typeof document !== 'undefined') {
+    const a = document.activeElement;
+    openerRef.current = a && a !== document.body ? a : null;
+  }
+  wasOpenRef.current = open;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -50,6 +61,27 @@ export default function Modal({ open, onClose, children, maxWidth }) {
     return () => clearTimeout(t);
   }, [open]);
 
+  // 닫힐 때(open true→false 전환) 1회만 — 열기 전 초점 자리로 되돌린다.
+  // ⚠ 0825 '커서가 튄다' 사고: 리렌더마다 돌면 안 되므로 deps는 [open] 하나뿐이다(열린 동안에는 아무것도 하지 않는다).
+  useEffect(() => {
+    if (open) return undefined;
+    const el = openerRef.current;
+    openerRef.current = null;
+    if (el && el.isConnected && typeof el.focus === 'function') el.focus({ preventScroll: true });
+    return undefined;
+  }, [open]);
+
+  // 창 이름 잇기 — titleId가 없으면 창 안 첫 제목(h2·h3)에 id를 붙여 aria-labelledby로 쓴다(단계가 바뀌어 제목이 바뀌어도 다시 잇는다).
+  useEffect(() => {
+    if (!open || titleId) return;
+    const box = boxRef.current;
+    if (!box) return;
+    const h = box.querySelector('h2, h3');
+    if (!h) { box.removeAttribute('aria-labelledby'); return; }
+    if (!h.id) h.id = `${autoTitleId}-t`;
+    if (box.getAttribute('aria-labelledby') !== h.id) box.setAttribute('aria-labelledby', h.id);
+  });
+
   if (!open) return null;
   return (
     <div
@@ -63,6 +95,7 @@ export default function Modal({ open, onClose, children, maxWidth }) {
         ref={boxRef}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId || undefined}
         style={maxWidth ? { maxWidth } : undefined}
       >
         {onClose && (

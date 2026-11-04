@@ -11,8 +11,9 @@ import { parseRows, serializeRows } from '../../lib/utils/lineRows';
  * compact 는 월별 계획 표처럼 좁은 칸 안에 넣을 때 — 바깥 테두리 없이 글씨·여백을 줄인다.
  *
  *   <LineTable value={semMethods} onChange={setSemMethods} labeled placeholder="…" />
+ * ariaLabel 은 줄 입력칸의 이름 앞머리(화면 읽기용, 예: '학기목표' → '학기목표 1번째 줄') — 보이는 모양은 그대로(mds/58 #16).
  */
-export default function LineTable({ value = '', onChange, labeled = false, compact = false, bullet = true, placeholder = '', addLabel = '+ 줄 추가' }) {
+export default function LineTable({ value = '', onChange, labeled = false, compact = false, bullet = true, placeholder = '', addLabel = '+ 줄 추가', ariaLabel = '' }) {
   const [rows, setRows] = useState(() => parseRows(value, labeled, bullet));
   const refs = useRef([]);
   const pendingFocus = useRef(null); // { i, pos } — 행이 바뀐 뒤 커서를 옮길 곳
@@ -94,13 +95,14 @@ export default function LineTable({ value = '', onChange, labeled = false, compa
               <td className="lt-num">{i + 1}</td>
               {labeled && (
                 <td className="lt-label">
-                  <AutoGrow value={r.label} placeholder="구분" onChange={(v) => setCell(i, 'label', v.replace(/\n/g, ' '))} />
+                  <AutoGrow value={r.label} placeholder="구분" aria-label={`${ariaLabel || '내용'} ${i + 1}번째 줄 구분`} onChange={(v) => setCell(i, 'label', v.replace(/\n/g, ' '))} />
                 </td>
               )}
               <td>
                 <AutoGrow
                   inputRef={(el) => { refs.current[i] = el; }}
                   value={r.text}
+                  aria-label={`${ariaLabel || '내용'} ${i + 1}번째 줄`}
                   placeholder={i === 0 && rows.length === 1 ? placeholder : ''}
                   onChange={(v) => setCell(i, 'text', v)}
                   onKeyDown={(e) => onKeyDown(i, e)}
@@ -114,7 +116,7 @@ export default function LineTable({ value = '', onChange, labeled = false, compa
           ))}
         </tbody>
       </table>
-      <button type="button" className="lt-add" onClick={add}>{addLabel}</button>
+      <button type="button" className="lt-add" onClick={add} aria-label={ariaLabel ? `${ariaLabel} ${addLabel.replace(/^\+\s*/, '')}` : undefined}>{addLabel}</button>
     </div>
   );
 }

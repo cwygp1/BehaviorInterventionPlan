@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { FormLoading } from '../../lib/hooks/useFormLoad';
 import { useStudents } from '../../contexts/StudentContext';
@@ -36,14 +36,18 @@ const panelStyle = (accent, bg) => ({
 });
 
 // 컴포넌트 밖에 정의 — 렌더마다 새 타입이 되면 입력 중 포커스가 풀린다.
-const F = ({ label, value, set, placeholder, flex }) => (
-  <div className="form-group" style={flex ? { flex: 1, minWidth: 160 } : undefined}>
-    <label className="form-label">{label}</label>
-    <input className="form-input" value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder} />
-  </div>
-);
+const F = ({ label, value, set, placeholder, flex }) => {
+  const fid = useId(); // 칸 이름(label)과 입력칸 잇기 — 모양은 그대로(mds/58 #16)
+  return (
+    <div className="form-group" style={flex ? { flex: 1, minWidth: 160 } : undefined}>
+      <label className="form-label" htmlFor={fid}>{label}</label>
+      <input id={fid} className="form-input" value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder} />
+    </div>
+  );
+};
 
 export default function ContractPage() {
+  const uid = useId(); // 칸 이름(label)과 입력칸 잇기 — 모양은 그대로(mds/58 #16)
   const { curStu, curStuData, curStuDataLoaded } = useStudents();
   const { user } = useAuth();
   const toast = useToast();
@@ -150,17 +154,17 @@ export default function ContractPage() {
             <F label="언제" value={rwdWhen} set={setRwdWhen} placeholder="예: 금요일 마지막 교시에" flex />
           </div>
           <div className="form-group">
-            <label className="form-label">무엇을 (보상 내용)</label>
+            <label className="form-label" htmlFor={`${uid}-what`}>무엇을 (보상 내용)</label>
             <EditableChipGroup storageKey="bip_reward" defaults={REWARD_CHIPS} onPick={makeAppender(rwdWhat, setRwdWhat, true)} />
-            <input className="form-input" value={rwdWhat} onChange={(e) => setRwdWhat(e.target.value)} placeholder="예: 좋아하는 보드게임 20분" />
+            <input id={`${uid}-what`} className="form-input" value={rwdWhat} onChange={(e) => setRwdWhat(e.target.value)} placeholder="예: 좋아하는 보드게임 20분" />
           </div>
           <F label="얼마나" value={rwdHowMuch} set={setRwdHowMuch} placeholder="예: 일주일에 ○를 12개 모으면" />
         </div>
 
         {/* 기간 · 기록표 옵션 */}
         <div className="form-row" data-help="ct-period" style={{ marginTop: 10 }}>
-          <div className="form-group"><label className="form-label">계약 시작일</label><input type="date" className="form-input" value={conStart} onChange={(e) => setConStart(e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">계약 종료일</label><input type="date" className="form-input" value={conEnd} onChange={(e) => setConEnd(e.target.value)} /></div>
+          <div className="form-group"><label className="form-label" htmlFor={`${uid}-2`}>계약 시작일</label><input id={`${uid}-2`} type="date" className="form-input" value={conStart} onChange={(e) => setConStart(e.target.value)} /></div>
+          <div className="form-group"><label className="form-label" htmlFor={`${uid}-3`}>계약 종료일</label><input id={`${uid}-3`} type="date" className="form-input" value={conEnd} onChange={(e) => setConEnd(e.target.value)} /></div>
         </div>
         <div className="form-group" data-help="ct-record" style={{ marginTop: 4 }}>
           <label className="form-label">과제 기록표 (계약서 아래에 함께 인쇄)</label>
@@ -174,7 +178,7 @@ export default function ContractPage() {
               >{recordType === o.key ? '✓ ' : ''}{o.label}</button>
             ))}
             {recordType !== 'none' && (
-              <select className="form-input" style={{ width: 110 }} value={weeks} onChange={(e) => setWeeks(Number(e.target.value))}>
+              <select className="form-input" aria-label="과제 기록표 분량(주)" style={{ width: 110 }} value={weeks} onChange={(e) => setWeeks(Number(e.target.value))}>
                 {[1, 2, 3, 4, 5, 6, 8].map((n) => <option key={n} value={n}>{n}주 분량</option>)}
               </select>
             )}

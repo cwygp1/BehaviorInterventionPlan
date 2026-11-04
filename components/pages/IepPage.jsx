@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import Modal from '../ui/Modal';
 import ExternalAIModal from '../ui/ExternalAIModal';
 import LineTable from '../ui/LineTable';
@@ -380,6 +380,7 @@ function buildEvalFoci(verb, intent, descriptor, fallbackText, verbAlts) {
 // JSON 파싱은 공용 강건 파서 사용(lib/utils/looseJson.js — jsonrepair 기반, 0824).
 
 export default function IepPage({ onNavigate }) {
+  const uid = useId(); // 칸 이름(label)과 입력칸 잇기(htmlFor/id) — 모양은 그대로(mds/58 #16)
   const { curStu, curStuId, curStuData, ensureStudentData, editStudent, curYear, curSemester, studentTier, tier2Groups } = useStudents();
   const { user } = useAuth();
   const toast = useToast();
@@ -2514,10 +2515,10 @@ export default function IepPage({ onNavigate }) {
       </div>
       <div className="form-row">
         <div className="form-group">
-          <label className="form-label">행동 기능 {qabfFunc?.label
+          <label className="form-label" htmlFor={`${uid}-1`}>행동 기능 {qabfFunc?.label
             ? <span style={{ color: 'var(--muted)', fontWeight: 500 }}>(QABF 최상위: {qabfFunc.label})</span>
             : <span style={{ color: '#b45309', fontWeight: 500 }}>(QABF 미실시 — 직접 고르세요)</span>}</label>
-          <select className="form-select" value={funcPlan.func} onChange={(e) => setFuncPlan((p) => ({ ...p, func: e.target.value, skill: '' }))}>
+          <select id={`${uid}-1`} className="form-select" value={funcPlan.func} onChange={(e) => setFuncPlan((p) => ({ ...p, func: e.target.value, skill: '' }))}>
             <option value="">선택</option>
             {FUNC_ORDER.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
@@ -2635,7 +2636,7 @@ export default function IepPage({ onNavigate }) {
             <LevelSelect onPick={(k) => applyLevel(0, k)} />
           )}
         </label>
-        <textarea className="form-textarea" value={goal} onChange={(e) => { const v = e.target.value; setGoal(v); if (flowMode === 'std' && stdGoals.length === 1) editStdGoal(0, v); }}
+        <textarea className="form-textarea" aria-label="학기목표" value={goal} onChange={(e) => { const v = e.target.value; setGoal(v); if (flowMode === 'std' && stdGoals.length === 1) editStdGoal(0, v); }}
           placeholder="예: 학교에서 있었던 일을 활동사진을 보고 단어로 적어 문장을 완성할 수 있다." />
       </div>
       {/* P15(0720 현장 피드백): 학기목표와 함께 교육내용·교육방법도 학기 수준에서 같이 작성 —
@@ -2802,7 +2803,7 @@ export default function IepPage({ onNavigate }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <div style={{ minWidth: 220, flex: 1 }}>
                   {isDraft(g) && <span className="badge badge-warn" style={{ marginBottom: 3 }} title="새 디자인에서 학기목표만 적어 둔 목표 — 월별 계획을 만들어 저장하면 '저장됨'이 돼요">초안 (월별 계획 전)</span>}
-                  <div style={{ fontSize: 12, color: '#3b6ef5', fontWeight: 700 }}>{g.standard_code ? `[${g.standard_code}]` : '성취기준 없음'}{Array.isArray(g.related_stds) && g.related_stds.length ? ` 외 ${g.related_stds.length}개` : ''} {g.subject}{g.area ? ' · ' + g.area : ''}{g.subject && GRADE[g.grade_code] ? ' · ' + GRADE[g.grade_code] : ''} · {g.semester}학기</div>
+                  <div className="iep-std-code" style={{ fontSize: 12, color: '#3b6ef5', fontWeight: 700 }}>{g.standard_code ? `[${g.standard_code}]` : '성취기준 없음'}{Array.isArray(g.related_stds) && g.related_stds.length ? ` 외 ${g.related_stds.length}개` : ''} {g.subject}{g.area ? ' · ' + g.area : ''}{g.subject && GRADE[g.grade_code] ? ' · ' + GRADE[g.grade_code] : ''} · {g.semester}학기</div>
                   <div style={{ fontSize: 13, marginTop: 3 }}>{g.semester_goal}</div>
                   <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 3 }}>월별 {Array.isArray(g.monthly) ? g.monthly.length : 0}개월{critSummary(g)} · 수정 {g.updated_at}</div>
                 </div>
@@ -3016,38 +3017,38 @@ export default function IepPage({ onNavigate }) {
         )}
         <div className="form-row" data-help="iep-std-filter">
           <div className="form-group">
-            <label className="form-label">교육과정</label>
-            <select className="form-input" value={fCurr} onChange={(e) => { setFCurr(e.target.value); setFSubject(''); setFBigArea(''); setFArea(''); }}>
+            <label className="form-label" htmlFor={`${uid}-2`}>교육과정</label>
+            <select id={`${uid}-2`} className="form-input" value={fCurr} onChange={(e) => { setFCurr(e.target.value); setFSubject(''); setFBigArea(''); setFArea(''); }}>
               <option value="기본">특수교육 기본교육과정 ({currCounts.기본}개)</option>
               <option value="공통">초·중등 공통교육과정 ({currCounts.공통}개)</option>
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">교과</label>
-            <select className="form-input" value={fSubject} onChange={(e) => { setFSubject(e.target.value); setFGrade(''); setFBigArea(''); setFArea(''); }}>
+            <label className="form-label" htmlFor={`${uid}-3`}>교과</label>
+            <select id={`${uid}-3`} className="form-input" value={fSubject} onChange={(e) => { setFSubject(e.target.value); setFGrade(''); setFBigArea(''); setFArea(''); }}>
               <option value="">전체 교과</option>
               {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">학년군</label>
-            <select className="form-input" value={fGrade} onChange={(e) => { setFGrade(e.target.value); setFArea(''); }}>
+            <label className="form-label" htmlFor={`${uid}-4`}>학년군</label>
+            <select id={`${uid}-4`} className="form-input" value={fGrade} onChange={(e) => { setFGrade(e.target.value); setFArea(''); }}>
               <option value="">전체 학년군</option>
               {grades.map((g) => <option key={g} value={g}>{GRADE[g]}</option>)}
             </select>
           </div>
           {isDaily && (
             <div className="form-group">
-              <label className="form-label">대영역</label>
-              <select className="form-input" value={fBigArea} onChange={(e) => { setFBigArea(e.target.value); setFArea(''); }}>
+              <label className="form-label" htmlFor={`${uid}-5`}>대영역</label>
+              <select id={`${uid}-5`} className="form-input" value={fBigArea} onChange={(e) => { setFBigArea(e.target.value); setFArea(''); }}>
                 <option value="">전체 대영역</option>
                 {bigAreas.map((b) => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
           )}
           <div className="form-group">
-            <label className="form-label">{isDaily ? '중영역(하위 영역)' : '영역'}</label>
-            <select className="form-input" value={fArea} onChange={(e) => setFArea(e.target.value)}>
+            <label className="form-label" htmlFor={`${uid}-6`}>{isDaily ? '중영역(하위 영역)' : '영역'}</label>
+            <select id={`${uid}-6`} className="form-input" value={fArea} onChange={(e) => setFArea(e.target.value)}>
               <option value="">{isDaily ? '전체 중영역' : '전체 영역'}</option>
               {areas.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
@@ -3153,9 +3154,9 @@ export default function IepPage({ onNavigate }) {
                     </div>
                   )}
                 </div>
-                <div className="form-group"><label className="form-label">행위의 지향 (가치·태도)</label><input className="form-input" value={intent} onChange={(e) => setIntent(e.target.value)} placeholder="예: 다양한 방법으로 (없으면 비움)" /></div>
+                <div className="form-group"><label className="form-label" htmlFor={`${uid}-7`}>행위의 지향 (가치·태도)</label><input id={`${uid}-7`} className="form-input" value={intent} onChange={(e) => setIntent(e.target.value)} placeholder="예: 다양한 방법으로 (없으면 비움)" /></div>
               </div>
-              <div className="form-group"><label className="form-label">서술자 (지식·이해·대상) — 쉼표·줄바꿈으로 여러 대상 나열 시 평가초점이 여러 개 생성됩니다</label><textarea className="form-textarea" value={descriptor} onChange={(e) => setDescriptor(e.target.value)} placeholder="예: 나의 신상, 나의 몸, 나의 선호, 나의 흥미" /></div>
+              <div className="form-group"><label className="form-label" htmlFor={`${uid}-8`}>서술자 (지식·이해·대상) — 쉼표·줄바꿈으로 여러 대상 나열 시 평가초점이 여러 개 생성됩니다</label><textarea id={`${uid}-8`} className="form-textarea" value={descriptor} onChange={(e) => setDescriptor(e.target.value)} placeholder="예: 나의 신상, 나의 몸, 나의 선호, 나의 흥미" /></div>
               <button className="btn btn-ghost btn-sm" onClick={genFociNow} title="AI 없이, 위 동사·서술자 분석으로 평가초점을 만듭니다">↻ 분석·해석으로 생성 (AI 없음)</button>
             </div>
           </div>
@@ -3217,12 +3218,12 @@ export default function IepPage({ onNavigate }) {
             </div>
           )}
           <div className="form-row" data-help="iep-crit">
-            <div className="form-group"><label className="form-label">학년도</label>
-              <input type="number" className="form-input" value={schoolYear} onChange={(e) => setSchoolYear(Number(e.target.value))} /></div>
-            <div className="form-group"><label className="form-label">학기</label>
-              <select className="form-input" value={sem} onChange={(e) => { setSem(e.target.value); setMonths(monthsOf(e.target.value)); }}><option value="1">1학기 (3~7월)</option><option value="2">2학기 (9~12월)</option></select></div>
-            <div className="form-group"><label className="form-label">평가 방식</label>
-              <select className="form-input" value={critType} onChange={(e) => {
+            <div className="form-group"><label className="form-label" htmlFor={`${uid}-9`}>학년도</label>
+              <input id={`${uid}-9`} type="number" className="form-input" value={schoolYear} onChange={(e) => setSchoolYear(Number(e.target.value))} /></div>
+            <div className="form-group"><label className="form-label" htmlFor={`${uid}-10`}>학기</label>
+              <select id={`${uid}-10`} className="form-input" value={sem} onChange={(e) => { setSem(e.target.value); setMonths(monthsOf(e.target.value)); }}><option value="1">1학기 (3~7월)</option><option value="2">2학기 (9~12월)</option></select></div>
+            <div className="form-group"><label className="form-label" htmlFor={`${uid}-11`}>평가 방식</label>
+              <select id={`${uid}-11`} className="form-input" value={critType} onChange={(e) => {
                 const v = e.target.value;
                 if (v !== critType) {
                   if (v === 'task') { const cnt = (taskSteps || []).filter((t) => t.trim()).length; setCStart(0); setCEnd(cnt || 5); }
@@ -3236,8 +3237,8 @@ export default function IepPage({ onNavigate }) {
                 <option value="qual">질적 · 평가초점 기반 서술(내러티브)</option>
                 <option value="task">과제 분석 · 단계별 점증(과제 분해)</option>
               </select></div>
-            <div className="form-group"><label className="form-label">지원 강도 (Tier 1·2·3)</label>
-              <select className="form-input" value={supportTier} onChange={(e) => setSupportTier(e.target.value)}>
+            <div className="form-group"><label className="form-label" htmlFor={`${uid}-12`}>지원 강도 (Tier 1·2·3)</label>
+              <select id={`${uid}-12`} className="form-input" value={supportTier} onChange={(e) => setSupportTier(e.target.value)}>
                 <option value="">미지정</option>
                 <option value="Tier 1 (보편적 지원)">Tier 1 · 보편적 지원</option>
                 <option value="Tier 2 (소그룹 지원)">Tier 2 · 표적 학생 지원</option>
@@ -3245,8 +3246,8 @@ export default function IepPage({ onNavigate }) {
               </select></div>
             {critType !== 'qual' ? (
               <>
-                <div className="form-group"><label className="form-label">{critType === 'task' ? '시작 독립 단계' : critType === 'freq' ? `시작 수준 (${critOf}회 중 성공 횟수)` : '시작 수준 (%)'}</label><input type="number" className="form-input" min={0} max={critType === 'freq' ? critOf : undefined} value={cStart} onChange={(e) => setCStart(e.target.value)} /></div>
-                <div className="form-group"><label className="form-label">{critType === 'task' ? '목표 독립 단계' : critType === 'freq' ? `학기말 목표 (${critOf}회 중 성공 횟수)` : '학기말 목표 (%)'}</label><input type="number" className="form-input" min={0} max={critType === 'freq' ? critOf : undefined} value={cEnd} onChange={(e) => setCEnd(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label" htmlFor={`${uid}-13`}>{critType === 'task' ? '시작 독립 단계' : critType === 'freq' ? `시작 수준 (${critOf}회 중 성공 횟수)` : '시작 수준 (%)'}</label><input id={`${uid}-13`} type="number" className="form-input" min={0} max={critType === 'freq' ? critOf : undefined} value={cStart} onChange={(e) => setCStart(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label" htmlFor={`${uid}-14`}>{critType === 'task' ? '목표 독립 단계' : critType === 'freq' ? `학기말 목표 (${critOf}회 중 성공 횟수)` : '학기말 목표 (%)'}</label><input id={`${uid}-14`} type="number" className="form-input" min={0} max={critType === 'freq' ? critOf : undefined} value={cEnd} onChange={(e) => setCEnd(e.target.value)} /></div>
               </>
             ) : (
               <div className="form-group" style={{ flex: '2 1 280px' }}><label className="form-label">질적 평가 안내</label>
@@ -3304,8 +3305,8 @@ export default function IepPage({ onNavigate }) {
             <div style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 4 }}>실제 수업하는 월만 켜 두면 그 개월 수만큼 월별 목표가 만들어집니다(예: 4개월만 운영하면 4칸).</div>
             {/* 월 묶기 — 현장 관행(3-4월/5월/6-7월)대로 여러 월을 한 행으로 */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginTop: 8 }}>
-              <label className="form-label" style={{ margin: 0 }}>월 묶기 (선택)</label>
-              <input className="form-input" style={{ maxWidth: 200 }} value={monthGroups} onChange={(e) => setMonthGroups(e.target.value)}
+              <label className="form-label" style={{ margin: 0 }} htmlFor={`${uid}-15`}>월 묶기 (선택)</label>
+              <input id={`${uid}-15`} className="form-input" style={{ maxWidth: 200 }} value={monthGroups} onChange={(e) => setMonthGroups(e.target.value)}
                 placeholder={String(sem) === '2' ? '예: 9-10/11/12-1' : '예: 3-4/5/6-7'} />
               <button type="button" className="btn btn-ghost btn-sm"
                 onClick={() => setMonthGroups(String(sem) === '2' ? '9-10/11/12-1' : '3-4/5/6-7')}>{String(sem) === '2' ? '9-10/11/12-1' : '3-4/5/6-7'}</button>
@@ -3332,14 +3333,14 @@ export default function IepPage({ onNavigate }) {
                 복잡한 행동·기술을 학생이 순서대로 수행할 단계로 나눕니다(예: 손 씻기 → 자리 앉기 → …). 전체 {taskSteps.filter((t) => t.trim()).length || '–'}단계 · 독립 수행 단계가 매월 늘고, 단계별 촉진은 점차 약화됩니다.
               </div>
               <div className="form-row" style={{ marginTop: 8 }}>
-                <div className="form-group"><label className="form-label">교수 순서(연쇄)</label>
-                  <select className="form-input" value={chainType} onChange={(e) => setChainType(e.target.value)}>
+                <div className="form-group"><label className="form-label" htmlFor={`${uid}-16`}>교수 순서(연쇄)</label>
+                  <select id={`${uid}-16`} className="form-input" value={chainType} onChange={(e) => setChainType(e.target.value)}>
                     <option value="forward">전진형 — 1단계부터 독립 확대</option>
                     <option value="backward">후진형 — 마지막 단계부터 역순</option>
                     <option value="total">전체과제 제시형 — 매회 전체 수행</option>
                   </select></div>
-                <div className="form-group"><label className="form-label">촉진 체계</label>
-                  <select className="form-input" value={promptSystem} onChange={(e) => setPromptSystem(e.target.value)}>
+                <div className="form-group"><label className="form-label" htmlFor={`${uid}-17`}>촉진 체계</label>
+                  <select id={`${uid}-17`} className="form-input" value={promptSystem} onChange={(e) => setPromptSystem(e.target.value)}>
                     <option value="mtl">최대-최소촉진 (전신→부분→시범→독립)</option>
                     <option value="slp">최소촉진체계 (독립 시도→단계적 촉진)</option>
                     <option value="td">시간지연 (촉진 전 대기 점증)</option>
@@ -3503,7 +3504,7 @@ export default function IepPage({ onNavigate }) {
                   </tbody>
                 </table>
               </div>
-              <div className="form-group" data-help="iep-sem-eval" style={{ marginTop: 12 }}><label className="form-label">학기말 종합 평가 (서술형)</label><textarea className="form-textarea" value={semEval} onChange={(e) => setSemEval(e.target.value)} /></div>
+              <div className="form-group" data-help="iep-sem-eval" style={{ marginTop: 12 }}><label className="form-label" htmlFor={`${uid}-18`}>학기말 종합 평가 (서술형)</label><textarea id={`${uid}-18`} className="form-textarea" value={semEval} onChange={(e) => setSemEval(e.target.value)} /></div>
               {/* 0819 피드백: 저장·다음 단계 버튼을 한곳에 — 다음 버튼은 저장 전 옅게, 저장 후 강조 */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn btn-pri" data-help="iep-save" onClick={save} disabled={busy}>{editingId ? '💾 수정 저장' : '💾 IEP 목표 저장'}</button>
@@ -3540,15 +3541,15 @@ export default function IepPage({ onNavigate }) {
           ① 아래 프롬프트를 복사해 ChatGPT·Claude 등 외부 AI에 붙여넣으세요. ② AI가 준 <b>JSON 응답</b>을 아래 칸에 붙여넣고 "응답 적용"을 누르면 화면에 채워집니다.
         </p>
         <div className="form-group">
-          <label className="form-label">① 프롬프트 (복사해서 외부 AI에 붙여넣기)</label>
-          <textarea className="form-textarea" rows={8} readOnly value={promptText} onFocus={(e) => e.target.select()} />
+          <label className="form-label" htmlFor={`${uid}-19`}>① 프롬프트 (복사해서 외부 AI에 붙여넣기)</label>
+          <textarea id={`${uid}-19`} className="form-textarea" rows={8} readOnly value={promptText} onFocus={(e) => e.target.select()} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
           <button className="btn btn-ghost" onClick={copyPrompt}>📋 프롬프트 복사</button>
         </div>
         <div className="form-group">
-          <label className="form-label">② AI 응답 붙여넣기 (JSON)</label>
-          <textarea className="form-textarea" rows={6} value={pasteText} onChange={(e) => setPasteText(e.target.value)} placeholder={'AI가 준 응답을 그대로 붙여넣으세요. {"semester_goal":...,"monthly":[...]} 형태의 JSON을 자동으로 찾아 적용합니다.'} />
+          <label className="form-label" htmlFor={`${uid}-20`}>② AI 응답 붙여넣기 (JSON)</label>
+          <textarea id={`${uid}-20`} className="form-textarea" rows={6} value={pasteText} onChange={(e) => setPasteText(e.target.value)} placeholder={'AI가 준 응답을 그대로 붙여넣으세요. {"semester_goal":...,"monthly":[...]} 형태의 JSON을 자동으로 찾아 적용합니다.'} />
         </div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button className="btn btn-ghost" onClick={() => setManualOpen(false)}>닫기</button>

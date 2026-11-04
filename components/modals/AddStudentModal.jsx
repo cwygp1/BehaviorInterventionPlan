@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import Modal from '../ui/Modal';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -15,6 +15,7 @@ const DIFFICULTY_CHIPS = ['언어적 설명 이해 어려움', '주의집중 시
 
 // data-demo="stu-add-*": ▶ 3분 체험하기 시연이 짚고 누르는 자리(lib/demo/script.js, mds/46). 도움말(data-help)과 별개.
 export default function AddStudentModal({ open, onClose, onCreated }) {
+  const uid = useId(); // 칸 이름(label)과 입력칸 잇기 — 모양은 그대로(mds/58 #18)
   const { addStudent, selectStudent, curClass, curYear } = useStudents();
   const toast = useToast();
   const [step, setStep] = useState(0);
@@ -62,7 +63,7 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
     <Modal open={open} onClose={onClose} maxWidth={580}>
       <h3>➕ 새 학생 등록</h3>
 
-      <div style={{ fontSize: 12.5, color: curClass ? '#1f6feb' : '#c0392b', background: curClass ? '#eef4ff' : '#fdecea', borderRadius: 8, padding: '7px 11px', margin: '4px 0 14px' }}>
+      <div className="asm-class" style={{ fontSize: 12.5, color: curClass ? '#1f6feb' : '#c0392b', background: curClass ? '#eef4ff' : '#fdecea', borderRadius: 8, padding: '7px 11px', margin: '4px 0 14px' }}>
         {curClass
           ? `등록 대상 학급: ${curYear}년 ${curClass.name}`
           : '⚠ 선택된 학급이 없습니다. 상단 ⚙ 학급 관리에서 학급을 먼저 추가해주세요.'}
@@ -71,8 +72,8 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
       <div style={{ display: 'flex', alignItems: 'center', margin: '6px 0 20px' }}>
         {STEPS.map((s, i) => (
           <div key={s} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : 'none' }}>
-            <div style={{ ...dot, ...(i < step ? doneDot : i === step ? activeDot : {}) }}>{i < step ? '✓' : i + 1}</div>
-            <span style={{ fontSize: 12.5, marginLeft: 6, color: i === step ? '#1f2430' : '#9aa1ad', fontWeight: i === step ? 700 : 500, whiteSpace: 'nowrap' }}>{s}</span>
+            <div className="asm-dot" data-st={i < step ? 'done' : i === step ? 'now' : 'todo'} style={{ ...dot, ...(i < step ? doneDot : i === step ? activeDot : {}) }}>{i < step ? '✓' : i + 1}</div>
+            <span className="asm-step" data-st={i < step ? 'done' : i === step ? 'now' : 'todo'} style={{ fontSize: 12.5, marginLeft: 6, color: i === step ? '#1f2430' : '#9aa1ad', fontWeight: i === step ? 700 : 500, whiteSpace: 'nowrap' }}>{s}</span>
             {i < STEPS.length - 1 && <div style={{ flex: 1, height: 2, margin: '0 10px', background: i < step ? '#4f6bed' : '#e3e6eb' }} />}
           </div>
         ))}
@@ -81,29 +82,29 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
       {step === 0 && (
         <>
           <div className="form-group">
-            <label className="form-label">익명 ID (실명 금지)</label>
-            <input className="form-input" data-demo="stu-add-code" maxLength={STUDENT_CODE_MAX} value={code} onChange={(e) => setCode(e.target.value)} placeholder="예: A학생, 학생1" autoFocus />
+            <label className="form-label" htmlFor={`${uid}-1`}>익명 ID (실명 금지)</label>
+            <input id={`${uid}-1`} className="form-input" data-demo="stu-add-code" maxLength={STUDENT_CODE_MAX} value={code} onChange={(e) => setCode(e.target.value)} placeholder="예: A학생, 학생1" autoFocus />
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">학교급</label>
-              <select className="form-select" data-demo="stu-add-level" value={level} onChange={(e) => { setLevel(e.target.value); setGrade(''); }}>{LEVEL_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}</select>
+              <label className="form-label" htmlFor={`${uid}-2`}>학교급</label>
+              <select id={`${uid}-2`} className="form-select" data-demo="stu-add-level" value={level} onChange={(e) => { setLevel(e.target.value); setGrade(''); }}>{LEVEL_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}</select>
             </div>
             <div className="form-group">
-              <label className="form-label">학년 (선택)</label>
-              <select className="form-select" data-demo="stu-add-grade" value={grade} onChange={(e) => setGrade(e.target.value)}>
+              <label className="form-label" htmlFor={`${uid}-3`}>학년 (선택)</label>
+              <select id={`${uid}-3`} className="form-select" data-demo="stu-add-grade" value={grade} onChange={(e) => setGrade(e.target.value)}>
                 <option value="">미지정</option>
                 {GRADES_BY_LEVEL(level).map((g) => <option key={g} value={g}>{g}학년</option>)}
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">주요 장애 영역</label>
-              <select className="form-select" data-demo="stu-add-dis" value={dis} onChange={(e) => { const v = e.target.value; setDis(v); if (dis2 === v) setDis2(DIS_NONE); }}>{DISABILITIES.map((d) => <option key={d}>{d}</option>)}</select>
+              <label className="form-label" htmlFor={`${uid}-4`}>주요 장애 영역</label>
+              <select id={`${uid}-4`} className="form-select" data-demo="stu-add-dis" value={dis} onChange={(e) => { const v = e.target.value; setDis(v); if (dis2 === v) setDis2(DIS_NONE); }}>{DISABILITIES.map((d) => <option key={d}>{d}</option>)}</select>
             </div>
           </div>
           <div className="form-group">
-            <label className="form-label">추가 장애 영역 (선택)</label>
-            <select className="form-select" value={dis2} onChange={(e) => setDis2(e.target.value)}>
+            <label className="form-label" htmlFor={`${uid}-5`}>추가 장애 영역 (선택)</label>
+            <select id={`${uid}-5`} className="form-select" value={dis2} onChange={(e) => setDis2(e.target.value)}>
               {[DIS_NONE, ...DISABILITIES.filter((d) => d !== dis)].map((d) => <option key={d}>{d}</option>)}
             </select>
             <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 4 }}>
@@ -127,8 +128,8 @@ export default function AddStudentModal({ open, onClose, onCreated }) {
             <textarea className="form-textarea" rows={2} value={difficulties} onChange={(e) => setDifficulties(e.target.value)} placeholder="예: 언어적 설명 이해 어려움, 주의집중 시간 짧음" />
           </div>
           <div className="form-group">
-            <label className="form-label">추가 요약 / 현행수준 (선택)</label>
-            <textarea className="form-textarea" rows={2} value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="이름·학년·민감정보 금지. 예: 수 개념 기초 단계." />
+            <label className="form-label" htmlFor={`${uid}-6`}>추가 요약 / 현행수준 (선택)</label>
+            <textarea id={`${uid}-6`} className="form-textarea" rows={2} value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="이름·학년·민감정보 금지. 예: 수 개념 기초 단계." />
             <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 4 }}>
               ※ 강점은 출발점 분석의 '학생 강점'으로, 어려움은 '행동특성(교사관찰)'로 자동 연동됩니다. 비식별 요약(AI 전송용)은 위 내용으로 자동 구성됩니다.
             </div>

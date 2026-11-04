@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import StuHero, { NoStudentHint } from '../student/StuHero';
 import { useStudents } from '../../contexts/StudentContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -28,6 +28,7 @@ import {
 } from '../../lib/qabf';
 
 export default function QabfPage({ onNavigate }) {
+  const uid = useId(); // 칸 이름(label)과 입력칸 잇기 — 모양은 그대로(mds/58 #16)
   const { curStu, curStuId, curStuData, curStuDataLoaded, updateStudentData } = useStudents();
   const toast = useToast();
   const { call, callVisionDetailed, status: llmStatus } = useLLM();
@@ -306,14 +307,14 @@ ${profile}
         <div className="card-subtitle">이미 작성해 둔 QABF가 있으면 다시 입력할 필요 없이 불러올 수 있어요. 불러온 뒤 아래 체크리스트에서 확인·수정하고 저장하세요.</div>
         <div className="form-row">
           <div className="form-group">
-            <label className="form-label">📷 작성지 사진 업로드 (AI 판독{llmStatus !== 'on' ? ' · AI 연결 필요' : ''})</label>
-            <input type="file" accept="image/*" multiple onChange={onImportImage} disabled={impBusy} />
+            <label className="form-label" htmlFor={`${uid}-1`}>📷 작성지 사진 업로드 (AI 판독{llmStatus !== 'on' ? ' · AI 연결 필요' : ''})</label>
+            <input id={`${uid}-1`} type="file" accept="image/*" multiple onChange={onImportImage} disabled={impBusy} />
             {impBusy && <div style={{ fontSize: '.78rem', color: 'var(--muted)', marginTop: 4 }}>⏳ 사진에서 응답을 읽는 중…</div>}
           </div>
           <div className="form-group">
-            <label className="form-label">⌨ 응답 붙여넣기 (AI 불필요) — 1~25번 순서로 0~3 또는 X</label>
+            <label className="form-label" htmlFor={`${uid}-paste`}>⌨ 응답 붙여넣기 (AI 불필요) — 1~25번 순서로 0~3 또는 X</label>
             <div style={{ display: 'flex', gap: 6 }}>
-              <input className="form-input" value={impPaste} onChange={(e) => setImpPaste(e.target.value)}
+              <input id={`${uid}-paste`} className="form-input" value={impPaste} onChange={(e) => setImpPaste(e.target.value)}
                 placeholder="예: 0 1 2 3 X 0 1 … (쉼표·띄어쓰기·줄바꿈 무관)" />
               <button className="btn btn-pri btn-sm" onClick={applyPastedResponses} style={{ flexShrink: 0 }}>적용</button>
             </div>

@@ -19,14 +19,14 @@ const tdR = { border: '1px solid #e2e8f0', padding: '4px 6px', textAlign: 'cente
 // 응답표 한 개(문항 배열 + 척도)를 렌더링하는 공용 표.
 function ChecklistTable({ items, scale, values, onSet, idPrefix, startNo = 1 }) {
   return (
-    <div style={{ overflowX: 'auto' }}>
+    <div className="cc-table-wrap" style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
             <th style={{ ...thC, width: 34 }}>번호</th>
             <th style={{ ...thC, textAlign: 'left' }}>질문 내용</th>
             {scale.map((s, i) => (
-              <th key={i} style={{ ...thC, width: 64 }}>{i}<div style={{ fontWeight: 500, fontSize: '.66rem', color: '#64748b' }}>{s}</div></th>
+              <th key={i} style={{ ...thC, width: 64 }}>{i}<div className="cc-scale-t" style={{ fontWeight: 500, fontSize: '.66rem', color: '#64748b' }}>{s}</div></th>
             ))}
           </tr>
         </thead>
@@ -46,6 +46,7 @@ function ChecklistTable({ items, scale, values, onSet, idPrefix, startNo = 1 }) 
                     type="radio"
                     name={`${idPrefix}-${idx}`}
                     checked={values[idx] === v}
+                    aria-label={`${startNo + idx}. ${q} — ${scale[v]}`}
                     onChange={() => onSet(idx, v)}
                     style={{ width: 16, height: 16, cursor: 'pointer' }}
                   />
