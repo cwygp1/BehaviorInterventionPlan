@@ -9,18 +9,33 @@ import { printEvalReport } from '../../lib/utils/printEvalReport';
 import AIActionBar from '../ui/AIActionBar';
 import { designSummaryForPrompt, designOfData } from '../../lib/utils/scedSummary';
 import { designTitle } from '../../lib/scedDesigns';
+import { fetchIEP, fetchSessions, fetchPrograms } from '../../lib/api/students';
+import { teachingRecordRows, teachingRecordsForPrompt } from '../../lib/utils/teachingReport';
 
 export default function EvalReportModal({ open, onClose, chartRefs, effectSize, period }) {
-  const { curStu, curStuData } = useStudents();
+  const { curStu, curStuId, curStuData } = useStudents();
   const { user } = useAuth();
   const { call, status } = useLLM();
   const toast = useToast();
   const [narrative, setNarrative] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
 
+  // 1104: 교수 회기 기록(과제분석·DTT·5점 척도)도 보고서에 — 열 때마다 새로 불러온다. null=불러오는 중.
+  const [teaching, setTeaching] = useState(null);
+
   useEffect(() => {
     if (open) setNarrative('');
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !curStuId) return undefined;
+    let alive = true;
+    setTeaching(null);
+    Promise.all([fetchPrograms(curStuId), fetchSessions(curStuId), fetchIEP(curStuId)])
+      .then(([p, s, g]) => { if (alive) setTeaching(teachingRecordRows({ programs: p.programs, sessions: s.sessions, goals: g.goals })); })
+      .catch(() => { if (alive) setTeaching([]); });
+    return () => { alive = false; };
+  }, [open, curStuId]);
 
   function buildAIPrompt() {
     const monA = (curStuData?.mon || []).filter((r) => r.phase === 'A');
@@ -30,6 +45,7 @@ export default function EvalReportModal({ open, onClose, chartRefs, effectSize, 
     const fidPct = fid.length ? Math.round(fid.reduce((s, r) => s + (r.score / r.total) * 100, 0) / fid.length) : null;
 
     const designBlock = designSummaryForPrompt(curStuData, 'freq'); // 1002 ⑤: 설계별 묶음(AB·ABAB는 빈 문자열)
+    const teachBlock = teachingRecordsForPrompt(teaching);
     return `당신은 특수교육 PBS 컨설턴트입니다. 다음 학생의 결과 평가 보고서에 들어갈 "교사 종합 의견" 섹션을 한국어로 작성해주세요. 설계: ${designTitle(designOfData(curStuData))}.
 
 ## 학생 (비식별)
@@ -43,7 +59,9 @@ ${designBlock}
 - 중재(B): ${monB.length}건, 평균 빈도 ${avgFreq(monB)}
 - 효과크기: PND ${effectSize?.pnd ?? '-'}%, Tau-U ${effectSize?.tau?.toFixed(2) ?? '-'}
 - BIP 충실도 평균: ${fidPct != null ? fidPct + '%' : '미측정'}
-
+${teachBlock ? `
+${teachBlock}
+` : ''}
 ## 작성 요구
 - 5~7문장 분량 (학기말 IEP 보고용)
 - 다음 4가지 시각 분석 지표를 자연스럽게 녹여 작성:
@@ -52,7 +70,7 @@ ${designBlock}
   3) Variability (변동성)
   4) Immediacy (즉각성)
 - 효과 판정: Effective / Promising / Inconclusive / Ineffective 중 하나로 결론${designBlock ? '\n- 설계 절의 해석 지시를 따를 것(기준변경은 기준 추종, 교대중재는 조건 간 분리, 중다기초선은 중재 안 한 층의 안정성)' : ''}
-- 다음 단계 권고: BIP 유지 / 수정 / Tier 강화 / FBA 재실시 등 1가지
+${teachBlock ? '- 교수 회기 기록이 있으면 문제행동 변화와 함께 기술 습득(학습기준 도달 여부)도 1~2문장으로 언급\n' : ''}- 다음 단계 권고: BIP 유지 / 수정 / Tier 강화 / FBA 재실시 등 1가지
 - 학부모님과 관리자도 이해할 수 있는 평이한 표현 사용`;
   }
 
@@ -78,6 +96,7 @@ ${designBlock}
       narrative,
       effectSize,
       period,
+      teaching: teaching || [],
     });
   }
 
@@ -114,6 +133,7 @@ ${designBlock}
           <li>핵심 지표 (PND, Tau-U, 평균 빈도)</li>
           <li>5종 차트 이미지 (행동 추이·QABF·충실도·SZ 분포·SZ 월별)</li>
           <li>지표별 데이터 비교 표 (기초선 vs 중재){['CC', 'ATD', 'MBL'].includes(designOfData(curStuData)) ? ' + 설계별 표(구간·조건·층)' : ''}</li>
+          <li>교수 회기 기록(과제분석·DTT·5점 척도) — {teaching === null ? '불러오는 중…' : teaching.length ? `${teaching.length}개 프로그램 표·그래프` : '기록 없음(넣지 않음)'}</li>
           <li>적용된 BIP 중재 전략(PTR + 반응 절차) 요약</li>
           <li>교사 종합 의견 + 서명란</li>
         </ul>
@@ -121,7 +141,7 @@ ${designBlock}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
         <button className="btn btn-ghost" onClick={onClose}>취소</button>
-        <button className="btn btn-pri" onClick={onPrint}>🖨 보고서 인쇄/PDF</button>
+        <button className="btn btn-pri" onClick={onPrint} disabled={teaching === null}>{teaching === null ? '회기 기록 불러오는 중…' : '🖨 보고서 인쇄/PDF'}</button>
       </div>
     </Modal>
   );
